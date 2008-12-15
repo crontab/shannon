@@ -95,6 +95,12 @@ public:
     string& operator+= (char c)                   { append(c); return *this; }
     string& operator+= (const string& s)          { append(s); return *this; }
 
+    void del(int from, int cnt);
+    char* ins(int where, int len);
+    void ins(int where, const char* what, int len);
+    void ins(int where, const char* what);
+    void ins(int where, const string& what);
+
     string copy(int from, int cnt) const;
     string operator+ (const char* sc) const;
     string operator+ (char c) const;

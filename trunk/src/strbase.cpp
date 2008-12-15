@@ -376,3 +376,60 @@ bool string::operator== (char c) const
 }
 
 
+void string::del(int from, int cnt)
+{
+    int l = STR_LENGTH(data);
+    int d = l - from;
+    if (from >= 0 && d > 0 && cnt > 0) 
+    {
+        if (cnt < d)
+        {
+            unique();
+            memmove(data + from, data + from + cnt, d - cnt);
+        }
+        else
+            cnt = d;
+        resize(l - cnt);
+    }
+}
+
+
+char* string::ins(int where, int len)
+{
+    int curlen = STR_LENGTH(data);
+    if (len > 0 && where >= 0 && where <= curlen) 
+    {
+        if (curlen == 0)
+        {
+            resize(len);
+            return data;
+        }
+        resize(curlen + len);
+        char* p = data + where;
+        int movelen = STR_LENGTH(data) - where - len;
+        if (movelen > 0) 
+            memmove(p + len, p, movelen);
+        return p;
+    }
+    return NULL;
+}
+
+
+void string::ins(int where, const char* what, int len)
+{
+    char* p = ins(where, len);
+    if (p != NULL)
+        memmove(p, what, len);
+}
+
+
+void string::ins(int where, const char* what)
+{
+    ins(where, what, hstrlen(what));
+}
+
+
+void string::ins(int where, const string& what)
+{
+    ins(where, what, STR_LENGTH(what.data));
+}
