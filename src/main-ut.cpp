@@ -96,6 +96,12 @@ void testString()
         assert("a" == s2);
         s2 = c;
         assert("A" == s2);
+
+        s1 = "abc";
+        s1 += s1;
+        assert("abcabc" == s1);
+        s1 += pconst(s1);
+        assert("abcabcabcabc" == s1);
     }
     {
         assert("123456789" == itostring(123456789));

@@ -91,6 +91,7 @@ public:
     void append(const char* s);
     void append(char c);
     void append(const string& s);
+    char* append(int cnt);
     string& operator+= (const char* sc)           { append(sc); return *this; }
     string& operator+= (char c)                   { append(c); return *this; }
     string& operator+= (const string& s)          { append(s); return *this; }

@@ -251,26 +251,34 @@ char* string::unique()
 }
 
 
+char* string::append(int cnt)
+{
+    if (cnt <= 0)
+        return NULL;
+    int oldlen = STR_LENGTH(data);
+    if (oldlen == 0)
+    {
+        resize(cnt);
+        return data;
+    }
+    resize(oldlen + cnt);
+    return data + oldlen;
+}
+
+
 void string::append(const char* sc, int catlen)
 {
-    if (STR_LENGTH(data) == 0)
-        assign(sc, catlen);
-    else if (catlen > 0) 
+    int oldlen = STR_LENGTH(data);
+    if (data == sc && catlen > 0 && oldlen > 0) // append itself
     {
-        int oldlen = STR_LENGTH(data);
-        
-        // we must check this before calling resize(), since
-        // the buffer pointer may be changed during reallocation
-        if (data == sc)
-        {
-            resize(oldlen + catlen);
-            memmove(data + oldlen, data, catlen);
-        }
-        else
-        {
-            resize(oldlen + catlen);
+        resize(oldlen + catlen);
+        memmove(data + oldlen, data, catlen);
+    }
+    else
+    {
+        char* p = append(catlen);
+        if (p != NULL)
             memmove(data + oldlen, sc, catlen);
-        }
     }
 }
 
@@ -433,3 +441,5 @@ void string::ins(int where, const string& what)
 {
     ins(where, what, STR_LENGTH(what.data));
 }
+
+
