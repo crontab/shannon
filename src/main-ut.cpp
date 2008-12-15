@@ -70,6 +70,28 @@ void testString()
         s2 += c;
         assert("strINGAA" == s2);
 
+        s2.del(7, 10);
+        assert("strINGA" == s2);
+        s2.del(3, 2);
+        assert("strGA" == s2);
+        s2.del(-1, 10);
+        assert("strGA" == s2);
+        s2.del(0, 2);
+        assert("rGA" == s2);
+
+        *(s2.ins(2, 1)) = 'H';
+        assert("rGHA" == s2);
+        s2.ins(3, "IJ");
+        assert("rGHIJA" == s2);
+        s2.ins(6, string("str"));
+        assert("rGHIJAstr" == s2);
+        s2.ins(0, string("str"));
+        assert("strrGHIJAstr" == s2);
+        s2.ins(-1, string("str"));
+        assert("strrGHIJAstr" == s2);
+        s2.ins(13, string("str"));
+        assert("strrGHIJAstr" == s2);
+
         s2 = 'a';
         assert("a" == s2);
         s2 = c;
