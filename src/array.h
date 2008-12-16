@@ -51,6 +51,7 @@ public:
     int size() const                { return arrayimpl::size() / Tsize; }
     void clear()                    { arrayimpl::clear(); }
     bool empty() const              { return arrayimpl::empty(); }
+    int refcount() const            { return arrayimpl::refcount(); }
     T& add()                        { return *Tptr(arrayimpl::add(Tsize)); }
     void add(const T& t)            { add() = t; }
     T& ins(int i)                   { return *Tptr(arrayimpl::ins(idxa(i), Tsize)); }
@@ -61,6 +62,7 @@ public:
     T& top()                        { return operator[] (size() - 1); }
     const T& top() const            { return operator[] (size() - 1); }
     T pop()                         { T t = top(); arrayimpl::pop(Tsize); return t; }
+    void dequeue()                  { arrayimpl::del(0, Tsize); }
     void from(const Array<T>& a)    { arrayimpl::assign(a); }
 };
 
