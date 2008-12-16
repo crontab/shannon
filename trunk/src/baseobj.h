@@ -99,24 +99,24 @@ public:
 
 
 template <class T, bool own>
-class Container: public Array<ptr>
+class Container: public PodArray<ptr>
 {
 public:
-    Container(): Array<ptr>()        { }
+    Container(): PodArray<ptr>()     { }
     ~Container()                     { clear(); }
-    void add(T* o)                   { Array<ptr>::add(o); }
-    T* top() const                   { return (T*)Array<ptr>::top(); }
-    T* operator[] (int index) const  { return (T*)Array<ptr>::operator[](index); }
-    void pop()                       { if (own) delete top(); Array<ptr>::pop(); }
-    void dequeue()                   { if (own) delete operator[](0); Array<ptr>::dequeue(); }
+    void add(T* o)                   { PodArray<ptr>::add(o); }
+    T* top() const                   { return (T*)PodArray<ptr>::top(); }
+    T* operator[] (int index) const  { return (T*)PodArray<ptr>::operator[](index); }
+    void pop()                       { if (own) delete top(); PodArray<ptr>::pop(); }
+    void dequeue()                   { if (own) delete operator[](0); PodArray<ptr>::dequeue(); }
     void clear()
     {
         if (own)
             for (int i = size() - 1; i >= 0; i--)
                 delete operator[] (i);
-        Array<ptr>::clear();
+        PodArray<ptr>::clear();
     }
-    void from(const Container<T, false>& c)  { Array<ptr>::from(c); }
+    void from(const Container<T, false>& c)  { PodArray<ptr>::from(c); }
 };
 
 
