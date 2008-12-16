@@ -19,6 +19,13 @@ typedef const char*         pconst;
 #define ULARGE_MAX (18446744073709551615ull)
 
 
+union quant
+{
+    void* ptr;
+    int   ord;
+};
+
+
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
 
 #ifdef SINGLE_THREADED
