@@ -48,21 +48,27 @@ void string::_alloc(int numchars)
 }
 
 
-void string::_realloc(int numchars) 
+void string::_realloc(int newchars) 
 {
-    if (numchars <= 0 || STR_LENGTH(data) <= 0)
-        stringoverflow();
-    int a = quantize(numchars);
-    int b = quantize(STR_LENGTH(data));
-    if (a != b)
-    {
 #ifdef DEBUG
-        stralloc += a - b;
+    if (newchars <= 0 || STR_LENGTH(data) <= 0)
+        stringoverflow();
 #endif
-        data = (char*)(memrealloc(data - strrecsize, a)) + strrecsize;
+    int oldchars = STR_LENGTH(data);
+    if (newchars > oldchars || newchars < oldchars / 2) // grow faster, shrink slower
+    {
+        int a = quantize(newchars);
+        int b = quantize(oldchars);
+        if (a != b)
+        {
+#ifdef DEBUG
+            stralloc += a - b;
+#endif
+            data = (char*)(memrealloc(data - strrecsize, a)) + strrecsize;
+        }
     }
-    STR_LENGTH(data) = numchars;
-    data[numchars] = 0;
+    STR_LENGTH(data) = newchars;
+    data[newchars] = 0;
 }
 
 
