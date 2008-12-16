@@ -107,10 +107,10 @@ void testString()
         assert("abcabcabcabc" == s1);
 
         string s8;
-        s8.resize(16 - strrecsize);
-        assert(16 - strrecsize == s8.capacity());
-//        s8.c_str();
-//        assert(32 - strrecsize == s8.capacity());
+        s8.resize(32 - strrecsize);
+        assert(32 - strrecsize == s8.capacity());
+        s8.c_str();
+        assert(64 - strrecsize == s8.capacity());
     }
     {
         assert("123456789" == itostring(123456789));
