@@ -2,54 +2,10 @@
 #include "port.h"
 
 
-#ifdef SINGLE_THREADED
-// single-threaded version
+#ifndef SINGLE_THREADED
 
-
-int pexchange(int* target, int value)
-{
-    int r = *target;
-    *target = value;
-    return r;
-}
-
-
-void* pexchange(void** target, void* value)
-{
-    void* r = *target;
-    *target = value;
-    return r;
-}
-
-
-int pincrement(int* target)
-{
-    return ++(*target);
-}
-
-
-int pdecrement(int* target)
-{
-    return --(*target);
-}
-
-
-#elif defined(__GNUC__) && (defined(__i386__) || defined(__I386__))
+#if defined(__GNUC__) && (defined(__i386__) || defined(__I386__)|| defined(__x86_64__))
 // multi-threaded version with GCC on i386
-
-
-int pexchange(int* target, int value)
-{
-    __asm__ __volatile ("lock ; xchgl (%1),%0" : "+r" (value) : "r" (target));
-    return value;
-}
-
-
-void* pexchange(void** target, void* value)
-{
-    __asm__ __volatile ("lock ; xchgl (%1),%0" : "+r" (value) : "r" (target));
-    return value;
-}
 
 
 int pincrement(int* target)
@@ -67,6 +23,12 @@ int pdecrement(int* target)
     return temp - 1;
 }
 
+
+#else
+
+#error Undefined architecture: atomic functions are not available
+
+#endif
 
 #endif
 

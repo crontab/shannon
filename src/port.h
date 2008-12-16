@@ -21,13 +21,17 @@ typedef const char*         pconst;
 
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
 
-int   pincrement(int* target);
-int   pdecrement(int* target);
-int   pexchange(int* target, int value);
-void* pexchange(void** target, void* value);
+#ifdef SINGLE_THREADED
 
-template <class T> inline T* tpexchange(T** target, T* value)
-    { return (T*)pexchange((void**)target, (void*)value); }
+int pincrement(int* target)  { return ++(*target); }
+int pdecrement(int* target)  { return --(*target); }
+
+#else
+
+int pincrement(int* target);
+int pdecrement(int* target);
+
+#endif
 
 
 // --- MEMORY ALLOCATION -------------------------------------------------- //
