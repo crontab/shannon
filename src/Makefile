@@ -33,16 +33,16 @@ obj/charset.o: charset.cpp charset.h port.h
 obj/strconv.o: strconv.cpp str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/array.o: array.cpp array.h str.h port.h
+obj/array.o: array.cpp str.h array.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/baseobj.o: baseobj.cpp str.h array.h baseobj.h port.h
+obj/baseobj.o: baseobj.cpp baseobj.h array.h str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main.o: main.cpp charset.h str.h array.h baseobj.h port.h
+obj/main.o: main.cpp baseobj.h charset.h array.h str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main-ut.o: main-ut.cpp charset.h str.h array.h baseobj.h port.h
+obj/main-ut.o: main-ut.cpp baseobj.h charset.h array.h str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
 clean:
