@@ -3,9 +3,6 @@
 #include "str.h"
 
 
-const int strrecsize = sizeof(_strrec);
-
-
 static void stringoverflow() 
 {
     fatal(CRIT_FIRST + 21, "String/array overflow");
@@ -27,24 +24,18 @@ char*  emptystr = emptystrbuf + strrecsize;
 string nullstring;
 
 
-inline int quantize(int numchars) 
-{
-	return memquantize(numchars + 1 + strrecsize);
-}
-
-
 void string::_alloc(int numchars) 
 {
     if (numchars <= 0)
         stringoverflow();
-    size_t a = quantize(numchars);
+    int allocate = memquantize(numchars + strrecsize);
 #ifdef DEBUG
-    stralloc += a;
+    stralloc += allocate;
 #endif
-    data = (char*)(memalloc(a)) + strrecsize;
-    STR_LENGTH(data) = numchars;
+    data = (char*)(memalloc(allocate)) + strrecsize;
     STR_REFCOUNT(data) = 1;
-    data[numchars] = 0;
+    STR_LENGTH(data) = numchars;
+    STR_CAPACITY(data) = allocate - strrecsize;
 }
 
 
@@ -54,28 +45,27 @@ void string::_realloc(int newchars)
     if (newchars <= 0 || STR_LENGTH(data) <= 0)
         stringoverflow();
 #endif
-    int oldchars = STR_LENGTH(data);
-    if (newchars > oldchars || newchars < oldchars / 2) // grow faster, shrink slower
+    int cap = STR_CAPACITY(data);
+    if (newchars > cap || newchars < cap / 2) // grow faster, shrink slower
     {
-        int a = quantize(newchars);
-        int b = quantize(oldchars);
-        if (a != b)
+        int allocate = memquantize(newchars + strrecsize);
+        if (allocate != STR_CAPACITY(data) + strrecsize)
         {
 #ifdef DEBUG
-            stralloc += a - b;
+            stralloc += allocate - STR_CAPACITY(data) - strrecsize;
 #endif
-            data = (char*)(memrealloc(data - strrecsize, a)) + strrecsize;
+            data = (char*)(memrealloc(data - strrecsize, allocate)) + strrecsize;
+            STR_CAPACITY(data) = allocate - strrecsize;
         }
     }
     STR_LENGTH(data) = newchars;
-    data[newchars] = 0;
 }
 
 
 inline void _freestrbuf(char* data)
 {
 #ifdef DEBUG
-    stralloc -= quantize(STR_LENGTH(data));
+    stralloc -= memquantize(STR_CAPACITY(data) + strrecsize);
 #endif
     memfree((char*)(STR_BASE(data)));
 }
@@ -136,6 +126,18 @@ void string::initialize(const string& s)
 #else
     pincrement(&STR_REFCOUNT(data));
 #endif
+}
+
+
+const char* string::c_str()
+{
+    int len = STR_LENGTH(data);
+    if (len != 0 && len == STR_CAPACITY(data))
+    {
+        append(char(0));
+        STR_LENGTH(data)--;
+    }
+    return data;
 }
 
 
@@ -377,6 +379,13 @@ string operator+ (char c, const string& s)
 }
 
 
+bool string::operator== (const char* s) const
+{
+    int len = hstrlen(s);
+    return (STR_LENGTH(data) == len) && ((len == 0) || (memcmp(data, s, len) == 0));
+}
+
+
 bool string::operator== (const string& s) const 
 {
     return (STR_LENGTH(data) == STR_LENGTH(s.data))
@@ -387,6 +396,18 @@ bool string::operator== (const string& s) const
 bool string::operator== (char c) const 
 {
     return (STR_LENGTH(data) == 1) && (data[0] == c);
+}
+
+
+bool string::operator< (const string& s) const
+{
+    int alen = STR_LENGTH(data);
+    int blen = STR_LENGTH(s.data);
+    if (alen == 0)
+        return blen != 0;
+    if (alen < blen)
+        return memcmp(data, s.data, alen) <= 0;
+    return memcmp(data, s.data, blen) < 0;
 }
 
 
@@ -445,7 +466,7 @@ void string::ins(int where, const char* what)
 
 void string::ins(int where, const string& what)
 {
-    ins(where, what, STR_LENGTH(what.data));
+    ins(where, what.data, STR_LENGTH(what.data));
 }
 
 
