@@ -15,6 +15,7 @@ public:
     ~arrayimpl()           { }
     
     int size() const                { return string::size(); }
+    int bytesize()                  { return string::bytesize(); }
     void clear()                    { string::clear(); }
     bool empty() const              { return string::empty(); }
     char* add(int cnt)              { return string::append(cnt); }
@@ -29,16 +30,17 @@ public:
 
 
 template <class T>
-class PodArray: private arrayimpl
+class PodArray: protected arrayimpl
 {
+protected:
     typedef T* Tptr;
     enum { Tsize = sizeof(T) };
 
 #ifdef CHECK_BOUNDS
     int idx(int i) const
-      { if (unsigned(i * Tsize) >= unsigned(arrayimpl::size())) idxerror(); return i * Tsize; }
+        { if (unsigned(i * Tsize) >= unsigned(arrayimpl::size())) idxerror(); return i * Tsize; }
     int idxa(int i) const
-      { if (unsigned(i * Tsize) > unsigned(arrayimpl::size())) idxerror(); return i * Tsize; }
+        { if (unsigned(i * Tsize) > unsigned(arrayimpl::size())) idxerror(); return i * Tsize; }
 #else
     int idx(int i) const        { return i * Tsize; }
     int idxa(int i) const       { return i * Tsize; }
@@ -49,6 +51,7 @@ public:
     ~PodArray() { }
 
     int size() const                { return arrayimpl::size() / Tsize; }
+    int bytesize()                  { return arrayimpl::bytesize(); }
     void clear()                    { arrayimpl::clear(); }
     bool empty() const              { return arrayimpl::empty(); }
     int refcount() const            { return arrayimpl::refcount(); }

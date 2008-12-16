@@ -45,7 +45,7 @@ void testString()
         assert("STRING" == s4);
         const_string_call(s4);
         assert('I' == s4[3]);
-        assert(6 == s4.length());
+        assert(6 == s4.size());
         assert(2 == s1.refcount());
         s2.clear();
         assert(1 == s1.refcount());

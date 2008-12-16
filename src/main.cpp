@@ -188,24 +188,69 @@ void InText::skip(const charset& chars) throw(ESysError)
 // ------------------------------------------------------------------------ //
 
 
+template <class T>
+class Array: public PodArray<T>
+{
+protected:
+    bool makeunique()
+    {
+        if (!string::empty() && string::refcount() > 1)
+        {
+            PodArray<T> old = *this;
+            PodArray<T>::_alloc(old.bytesize());
+            for (int i = 0; i < PodArray<T>::size(); i++)
+                PodArray<T>::operator[] (i) = old[i];
+            PodArray<T>::finalize(old);
+            return true;
+        }
+        return false;
+    }
+
+
+public:
+
+    void clear()
+    {
+        if (makeunique())
+            ;
+        PodArray<T>::clear();
+    }
+};
+
+
 #define FIFO_CHUNK_COUNT 16
 #define FIFO_CHUNK_SIZE (sizeof(quant) * FIFO_CHUNK_COUNT)
 
+typedef char FifoChunk[FIFO_CHUNK_SIZE];
 
-class fifoimpl
+
+class fifoimpl: private PodArray<quant>
+// A really dirty trick: the first element is the shift (int) the rest is a 
+// dynamic list of pointers to chunks. We are trying to save memory and 
+// allocations.
 {
 protected:
-    typedef char Chunk[FIFO_CHUNK_SIZE];
-    typedef Container<Chunk, false> ChunkList; // actually we do own chunks, but we handle copying ourselves
+    int shift()  { return operator[] (0).ord; }
 
-    int shift; // no. of elements to skip in the beginning; can never be > FIFO_CHUNK_COUNT
 public:
     fifoimpl();
+    ~fifoimpl();
 };
+
+
+fifoimpl::fifoimpl()
+    : PodArray<quant>()  { PodArray<quant>::add().ord = 0; }
+fifoimpl::~fifoimpl()  { }
+
+
 
 
 int main()
 {
+    Array<int> a;
+    a.add(1);
+    a.add(2);
+    a.clear();
     return 0;
 }
 
