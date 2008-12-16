@@ -1,12 +1,20 @@
 #ifndef __BASEOBJ_H
 #define __BASEOBJ_H
 
-#include <vector>
+
 #include <map>
 
 
 #ifndef __PORT_H
 #include "port.h"
+#endif
+
+#ifndef __STR_H
+#include "str.h"
+#endif
+
+#ifndef __ARRAY_H
+#include "array.h"
 #endif
 
 
@@ -82,35 +90,22 @@ public:
 };
 
 
-class Vector: protected std::vector<ptr>
-{
-public:
-    Vector();
-    virtual ~Vector()  { clear(); }
-    void clear();
-    void add(ptr p);
-    void pop();
-    ptr  top() const;
-    ptr operator[] (int index) const  { return std::vector<ptr>::operator[](size_t(index)); }
-};
-
-
 template <class T, bool own>
-class Container: public Vector
+class Container: public Array<ptr>
 {
 public:
-    Container(): Vector()            { }
+    Container(): Array<ptr>()        { }
     ~Container()                     { clear(); }
-    void add(T* o)                   { Vector::add(o); }
-    T* top() const                   { return (T*)Vector::top(); }
-    T* operator[] (int index) const  { return (T*)Vector::operator[](index); }
-    void pop()                       { if (own) delete top(); Vector::pop(); }
+    void add(T* o)                   { Array<ptr>::add(o); }
+    T* top() const                   { return (T*)Array<ptr>::top(); }
+    T* operator[] (int index) const  { return (T*)Array<ptr>::operator[](index); }
+    void pop()                       { if (own) delete top(); Array<ptr>::pop(); }
     void clear()
     {
         if (own)
-            for (reverse_iterator i = rbegin(); i != rend(); i++)
-                delete (T*)(*i);
-        Vector::clear();
+            for (int i = size() - 1; i >= 0; i--)
+                delete operator[] (i);
+        Array<ptr>::clear();
     }
 };
 

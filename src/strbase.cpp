@@ -8,13 +8,13 @@ const int strrecsize = sizeof(_strrec);
 
 static void stringoverflow() 
 {
-    fatal(CRIT_FIRST + 21, "String overflow");
+    fatal(CRIT_FIRST + 21, "String/array overflow");
 }
 
 
 void string::idxerror()
 {
-    fatal(CRIT_FIRST + 20, "String index overflow");
+    fatal(CRIT_FIRST + 20, "Index overflow");
 }
 
 

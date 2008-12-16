@@ -1,5 +1,5 @@
-#ifndef __STRING_H
-#define __STRING_H
+#ifndef __STR_H
+#define __STR_H
 
 #include <string.h>
 
@@ -50,8 +50,10 @@ protected:
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
+    void idxa(int index) const { if (unsigned(index) > unsigned(STR_LENGTH(data))) idxerror(); }
 #else
     void idx(int) const        { }
+    void idxa(int) const       { }
 #endif
 
     string(const char* s1, int len1, const char* s2, int len2)  { initialize(s1, len1, s2, len2); }
@@ -72,11 +74,11 @@ public:
     string& operator= (char c)                    { assign(c); return *this; }
     string& operator= (const string& s)           { assign(s); return *this; }
 
-    int    size()                                 { return STR_LENGTH(data); }
-    int    length()                               { return STR_LENGTH(data); }
-    int    refcount()                             { return STR_REFCOUNT(data); }
+    int    size() const                           { return STR_LENGTH(data); }
+    int    length() const                         { return STR_LENGTH(data); }
+    int    refcount() const                       { return STR_REFCOUNT(data); }
     void   clear()                                { finalize(); }
-    bool   empty()                                { return STR_LENGTH(data) == 0; }
+    bool   empty() const                          { return STR_LENGTH(data) == 0; }
 
     char*  resize(int);
     char*  unique();
