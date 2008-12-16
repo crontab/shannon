@@ -17,20 +17,16 @@ void fatal(int code, const char* msg)
 // dynamic reallocation policy for strings and lists
 
 const int quant = 64;
-const int qmask = ~63;
 const int quant2 = 4096;
-const int qmask2 = ~4095;
 
 int memquantize(int a)
 {
-    if (a <= 16)
-        return 16;
     if (a <= 32)
         return 32;
-    else if (a <= 2048)
-        return (a + quant - 1) & qmask;
+    else if (a <= 1024)
+        return (a + quant - 1) & ~(quant - 1);
     else
-        return (a + quant2 - 1) & qmask2;
+        return (a + quant2 - 1) & ~(quant2 - 1);
 }
 
 
