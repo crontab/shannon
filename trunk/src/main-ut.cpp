@@ -1,4 +1,6 @@
 
+#include <stdio.h>
+
 #include "charset.h"
 #include "str.h"
 #include "baseobj.h"

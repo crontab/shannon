@@ -2,7 +2,7 @@
 DDEBUG = -DDEBUG
 CXXOPTS = -O2 -Wall -Werror $(DDEBUG)
 
-OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/charset.o obj/strconv.o obj/baseobj.o
+OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/charset.o obj/strconv.o obj/array.o obj/baseobj.o
 
 all: dirs bin/shannon
 
@@ -33,13 +33,16 @@ obj/charset.o: charset.cpp charset.h port.h
 obj/strconv.o: strconv.cpp str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/baseobj.o: baseobj.cpp str.h baseobj.h port.h
+obj/array.o: array.cpp array.h str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main.o: main.cpp charset.h str.h baseobj.h port.h
+obj/baseobj.o: baseobj.cpp str.h array.h baseobj.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main-ut.o: main-ut.cpp charset.h str.h baseobj.h port.h
+obj/main.o: main.cpp charset.h str.h array.h baseobj.h port.h
+	$(CXX) $(CXXOPTS) -c $< -o $@
+
+obj/main-ut.o: main-ut.cpp charset.h str.h array.h baseobj.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
 clean:

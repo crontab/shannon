@@ -49,34 +49,6 @@ Base::~Base()
 }
 
 
-Vector::Vector()
-    : std::vector<ptr>()  { }
-
-
-void Vector::add(ptr p)
-{
-    std::vector<ptr>::push_back(p);
-}
-
-
-void Vector::pop()
-{
-    std::vector<ptr>::pop_back();
-}
-
-
-ptr Vector::top() const
-{
-    return std::vector<ptr>::back();
-}
-
-
-void Vector::clear()
-{
-    std::vector<ptr>::clear();
-}
-
-
 Map::Map(): std::map<string, ptr>()  { }
 
 
