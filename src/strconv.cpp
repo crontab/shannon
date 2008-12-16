@@ -2,7 +2,7 @@
 #include "str.h"
 
 
-static char* _itobase(large value, char* buf, int base, int& len, bool _signed)
+static const char* _itobase(large value, char* buf, int base, int& len, bool _signed)
 {
     // internal conversion routine: converts the value to a string 
     // at the end of the buffer and returns a pointer to the first
@@ -61,7 +61,7 @@ static void _itobase2(string& result, large value, int base, int width, char pad
 
     char buf[65];   // the longest possible string is when base=2
     int reslen;
-    char* p = _itobase(value, buf, base, reslen, _signed);
+    const char* p = _itobase(value, buf, base, reslen, _signed);
 
     if (width > reslen)
     {
