@@ -47,6 +47,7 @@ protected:
     void initialize(const string& s);
     void initialize(const char*, int, const char*, int);
     void finalize();
+    static void finalize(string& s) { s.finalize(); }
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
@@ -75,7 +76,7 @@ public:
     string& operator= (const string& s)           { assign(s); return *this; }
 
     int    size() const                           { return STR_LENGTH(data); }
-    int    length() const                         { return STR_LENGTH(data); }
+    int    bytesize() const                       { return STR_LENGTH(data); }
     int    refcount() const                       { return STR_REFCOUNT(data); }
     void   clear()                                { finalize(); }
     bool   empty() const                          { return STR_LENGTH(data) == 0; }
