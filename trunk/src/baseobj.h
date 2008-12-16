@@ -108,6 +108,7 @@ public:
     T* top() const                   { return (T*)Array<ptr>::top(); }
     T* operator[] (int index) const  { return (T*)Array<ptr>::operator[](index); }
     void pop()                       { if (own) delete top(); Array<ptr>::pop(); }
+    void dequeue()                   { if (own) delete operator[](0); Array<ptr>::dequeue(); }
     void clear()
     {
         if (own)
@@ -115,6 +116,7 @@ public:
                 delete operator[] (i);
         Array<ptr>::clear();
     }
+    void from(const Container<T, false>& c)  { Array<ptr>::from(c); }
 };
 
 

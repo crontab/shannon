@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -186,6 +187,21 @@ void InText::skip(const charset& chars) throw(ESysError)
 // --- FIFO --------------------------------------------------------------- //
 // ------------------------------------------------------------------------ //
 
+
+#define FIFO_CHUNK_COUNT 16
+#define FIFO_CHUNK_SIZE (sizeof(quant) * FIFO_CHUNK_COUNT)
+
+
+class fifoimpl
+{
+protected:
+    typedef char Chunk[FIFO_CHUNK_SIZE];
+    typedef Container<Chunk, false> ChunkList; // actually we do own chunks, but we handle copying ourselves
+
+    int shift; // no. of elements to skip in the beginning; can never be > FIFO_CHUNK_COUNT
+public:
+    fifoimpl();
+};
 
 
 int main()
