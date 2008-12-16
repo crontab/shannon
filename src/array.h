@@ -29,7 +29,7 @@ public:
 
 
 template <class T>
-class Array: private arrayimpl
+class PodArray: private arrayimpl
 {
     typedef T* Tptr;
     enum { Tsize = sizeof(T) };
@@ -45,8 +45,8 @@ class Array: private arrayimpl
 #endif
 
 public:
-    Array(): arrayimpl()  { }
-    ~Array() { }
+    PodArray(): arrayimpl()  { }
+    ~PodArray() { }
 
     int size() const                { return arrayimpl::size() / Tsize; }
     void clear()                    { arrayimpl::clear(); }
@@ -63,7 +63,7 @@ public:
     const T& top() const            { return operator[] (size() - 1); }
     T pop()                         { T t = top(); arrayimpl::pop(Tsize); return t; }
     void dequeue()                  { arrayimpl::del(0, Tsize); }
-    void from(const Array<T>& a)    { arrayimpl::assign(a); }
+    void from(const PodArray<T>& a) { arrayimpl::assign(a); }
 };
 
 
