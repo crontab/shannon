@@ -14,14 +14,17 @@
 struct _strrec 
 {
     int refcount;
+    int capacity;
     int length;
 };
 typedef _strrec* _pstrrec;
+const int strrecsize = sizeof(_strrec);
 
 
 #define STR_BASE(x)      (_pstrrec(x)-1)
 #define STR_REFCOUNT(x)  (STR_BASE(x)->refcount)
 #define STR_LENGTH(x)    (STR_BASE(x)->length)
+#define STR_CAPACITY(x)  (STR_BASE(x)->capacity)
 
 #define PTR_TO_PSTRING(p)   (pstring(&(p)))
 #define PTR_TO_STRING(p)    (*PTR_TO_PSTRING(p))
@@ -76,6 +79,7 @@ public:
     string& operator= (const string& s)           { assign(s); return *this; }
 
     int    size() const                           { return STR_LENGTH(data); }
+    int    capacity() const                       { return STR_CAPACITY(data); }
     int    bytesize() const                       { return STR_LENGTH(data); }
     int    refcount() const                       { return STR_REFCOUNT(data); }
     void   clear()                                { finalize(); }
@@ -86,9 +90,8 @@ public:
     string dup() const                            { return string(data); }
     char&  operator[] (int i)                     { idx(i); return unique()[i]; }
     const char& operator[] (int i) const          { idx(i); return data[i]; }
-    operator const char*() const                  { return data; }
-    operator const uchar*() const                 { return (uchar*)data; }
-    const char* c_str() const                     { return data; }
+    const char* c_str();
+    const char* c_bytes() const                   { return data; }
 
     void append(const char* sc, int catlen);
     void append(const char* s);
@@ -112,14 +115,14 @@ public:
     friend string operator+ (const char* sc, const string& s);
     friend string operator+ (char c, const string& s);
 
-    bool operator== (const char* sc) const        { return strcmp(data, sc) == 0; }
+    bool operator== (const char* sc) const;
     bool operator== (char) const;
     bool operator== (const string&) const;
     bool operator!= (const char* sc) const        { return !(*this == sc); }
     bool operator!= (char c) const                { return !(*this == c); }
     bool operator!= (const string& s) const       { return !(*this == s); }
     
-    bool operator < (const string& s) const       { return strcmp(data, s) < 0; }
+    bool operator < (const string& s) const;
 
     friend bool operator== (const char*, const string&);
     friend bool operator== (char, const string&);

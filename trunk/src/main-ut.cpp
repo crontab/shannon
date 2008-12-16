@@ -103,8 +103,14 @@ void testString()
         s1 = "abc";
         s1 += s1;
         assert("abcabc" == s1);
-        s1 += pconst(s1);
+        s1 += s1.c_str();
         assert("abcabcabcabc" == s1);
+
+        string s8;
+        s8.resize(16 - strrecsize);
+        assert(16 - strrecsize == s8.capacity());
+//        s8.c_str();
+//        assert(32 - strrecsize == s8.capacity());
     }
     {
         assert("123456789" == itostring(123456789));
@@ -228,9 +234,9 @@ public:
     ~_AtExit()
     {
         if (Base::objCount != 0)
-        {
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
-        }
+        if (stralloc != 0)
+            fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
     }
 } _atexit;
 
