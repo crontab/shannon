@@ -189,7 +189,8 @@ void InText::skip(const charset& chars) throw(ESysError)
 // ------------------------------------------------------------------------ //
 
 
-#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
+#define FIFO_CHUNK_SIZE 2
+// int(sizeof(quant) * 16)
 
 
 extern int fifochunkalloc;
@@ -243,6 +244,8 @@ protected:
     FifoChunk& _chunkat(int i) const { return Array<FifoChunk>::_at(i); }
 
 public:
+    fifoimpl(): Array<FifoChunk>(), left(0), right(0)  { }
+    ~fifoimpl()  { clear(); }
     void push(const char*, int);
     int  pull(char*, int);
     int  size() const;
@@ -251,8 +254,8 @@ public:
 #ifdef DEBUG
         if (unsigned(i) >= unsigned(size()))
             idxerror();
-        return _at(i);
 #endif
+        return _at(i);
     }
 };
 
@@ -295,11 +298,21 @@ void fifoimpl::push(const char* data, int datasize)
 
 int fifoimpl::pull(char* data, int datasize)
 {
-    if (empty())
-        return 0;
     int result = 0;
-    while (datasize > 0)
+    while (datasize > 0 && !empty())
     {
+        int curright = chunks() == 1 ? right : FIFO_CHUNK_SIZE;
+        int len = imin(curright - left, datasize);
+        memcpy(data, _chunkat(0).data + left, len);
+        left += len;
+        if (left == curright)
+        {
+            Array<FifoChunk>::del(0);
+            left = 0;
+        }
+        datasize -= len;
+        data += len;
+        result += len;
     }
     return result;
 }
@@ -338,7 +351,22 @@ int main()
     }
     {
         fifoimpl f;
+        string s = "abcd";
+        f.push(s.c_bytes(), s.size());
+        s = "efg";
+        f.push(s.c_bytes(), s.size());
+        printf("chunk alloc: %d\n", fifochunkalloc);
+
+        fifoimpl g(f);
+        printf("chunk alloc: %d\n", fifochunkalloc);
+
+        char buf[256];
+        int len = f.pull(buf, 6);
+        buf[len] = 0;
+        printf("pulled: %s\n", buf);
+        printf("chunk alloc: %d\n", fifochunkalloc);
     }
+    printf("chunk alloc: %d\n", fifochunkalloc);
     return 0;
 }
 

@@ -1,6 +1,7 @@
 
 DDEBUG = -DDEBUG -g
-CXXOPTS = -O2 -Wall -Werror $(DDEBUG)
+# DDEBUG = -DNDEBUG
+CXXOPTS = -Os -Wall -Werror $(DDEBUG)
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/charset.o obj/strconv.o obj/array.o obj/baseobj.o
 
