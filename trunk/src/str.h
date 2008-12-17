@@ -9,15 +9,14 @@
 #endif
 
 
-// dynamic string class with thread-safe ref-counted buffer
+// Dynamic string class with thread-safe ref-counted buffer
 
 struct _strrec 
 {
     // TODO: make this struct more compact
-    short left, right;    // used in fifos
-    int refcount;
     int capacity;
     int length;
+    int refcount; // this should be the last, i.e. *(obj - sizeof(int))
 };
 typedef _strrec* _pstrrec;
 const int strrecsize = sizeof(_strrec);
