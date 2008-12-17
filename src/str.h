@@ -45,6 +45,7 @@ protected:
     void _alloc(int);
     void _realloc(int);
     int  _unlock();
+    void _empty()  { data = emptystr; }
     void _free();
 
     void initialize()  { data = emptystr; }
