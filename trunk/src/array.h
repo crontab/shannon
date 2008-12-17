@@ -23,7 +23,6 @@ public:
     char* ins(int where, int cnt)   { return string::ins(where, cnt); }
     void del(int where, int cnt)    { string::del(where, cnt); }
     void pop(int cnt)               { string::resize(size() - cnt); }
-    char* operator[] (int i)        { return &string::operator[] (i); }
     const char* operator[] (int i) const  { return &string::operator[] (i); }
     void operator= (const arrayimpl& a)   { string::assign(a); }
 };
@@ -62,12 +61,9 @@ public:
     T& ins(int i)                   { return *Tptr(arrayimpl::ins(idxa(i), Tsize)); }
     void ins(int i, const T& t)     { ins(i) = t; }
     void del(int i)                 { arrayimpl::del(idx(i), Tsize); }
-    T& operator[] (int i)           { return *Tptr(arrayimpl::operator[] (idx(i))); }
     const T& operator[] (int i) const  { return *Tptr(arrayimpl::operator[] (idx(i))); }
-    T& top()                        { return operator[] (size() - 1); }
     const T& top() const            { return operator[] (size() - 1); }
-    T pop()                         { T t = top(); arrayimpl::pop(Tsize); return t; }
-    void pull()                     { arrayimpl::del(0, Tsize); }
+    void pop()                      { arrayimpl::pop(Tsize); }
     void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
     T& _at(int i) const             { return *Tptr(data + i * Tsize); }
 };
@@ -94,15 +90,12 @@ public:
     Array(const Array& a): PodArray<T>(a)  { }
     ~Array()                        { }
     void operator= (const Array& a) { PodArray<T>::operator= (a); }
-    T& top()                        { unique(); return PodArray<T>::top(); }
-    T& add()                        { unique(); return PodArray<T>::add(); }
-    void add(const T& t)            { add() = t; }
-    T& ins(int i)                   { unique(); return PodArray<T>::ins(); }
-    void ins(int i, const T& t)     { ins(i) = t; }
-    T& operator[] (int i)           { unique(); return PodArray<T>::operator[] (i); }
+    T& add()                        { unique(); return *::new(&PodArray<T>::add()) T(); }
+    void add(const T& t)            { unique(); ::new(&PodArray<T>::add()) T(t); }
+    T& ins(int i)                   { unique(); return *::new(&PodArray<T>::add()) T(); }
+    void ins(int i, const T& t)     { unique(); ::new(&PodArray<T>::add()) T(t); }
     const T& operator[] (int i) const  { return PodArray<T>::operator[] (i); }
     void pop()                      { del(PodArray<T>::size() - 1); }
-    void pull()                     { del(0); }
     void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
     void clear()
     {

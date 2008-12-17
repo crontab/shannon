@@ -82,7 +82,7 @@ static void _itobase2(string& result, large value, int base, int width, char pad
         memset(result.resize(width), padchar, width);
         result.append(p, reslen);
         if (neg)
-            result[0] = '-';
+            result.unique()[0] = '-';
     }
     else 
         result.assign(p, reslen);

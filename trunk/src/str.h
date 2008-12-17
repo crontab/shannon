@@ -93,7 +93,7 @@ public:
     char*  resize(int);
     char*  unique();
     string dup() const                            { return string(data); }
-    char&  operator[] (int i)                     { idx(i); return unique()[i]; }
+    // char&  operator[] (int i)                     { idx(i); return unique()[i]; }
     const char& operator[] (int i) const          { idx(i); return data[i]; }
     const char* c_str();
     const char* c_bytes() const                   { return data; }
