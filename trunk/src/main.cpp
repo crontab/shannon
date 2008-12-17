@@ -189,63 +189,35 @@ void InText::skip(const charset& chars) throw(ESysError)
 // ------------------------------------------------------------------------ //
 
 
-#define FIFO_CHUNK_SIZE 2
-// int(sizeof(quant) * 16)
+#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
 
 
 extern int fifochunkalloc;
 
 
-class FifoChunk
+struct FifoChunk
 {
-public:
     char* data;
-
-    FifoChunk()
-    {
-#ifdef DEBUG
-        fifochunkalloc++;
-#endif
-        data = (char*)memalloc(FIFO_CHUNK_SIZE);
-    }
-
-    FifoChunk(const FifoChunk& f)
-    {
-#ifdef DEBUG
-        fifochunkalloc++;
-#endif
-        data = (char*)memalloc(FIFO_CHUNK_SIZE);
-        memcpy(data, f.data, FIFO_CHUNK_SIZE);
-    }
-
-    ~FifoChunk()
-    {
-        memfree(data);
-#ifdef DEBUG
-        fifochunkalloc--;
-#endif
-    }
-/*
-    void operator= (const FifoChunk& f)
-    {
-        memcpy(data, f.data, FIFO_CHUNK_SIZE);
-    }
-*/
+    FifoChunk();
+    FifoChunk(const FifoChunk& f);
+    ~FifoChunk();
 };
 
 
 class fifoimpl: private Array<FifoChunk>
 {
-protected:
+public:
     short left, right;
 
-    void* _at(int) const;
-    int chunks() const  { return Array<FifoChunk>::size(); }
-    FifoChunk& _chunkat(int i) const { return Array<FifoChunk>::_at(i); }
+    fifoimpl();
+    fifoimpl(const fifoimpl&);
+    ~fifoimpl();
+    void operator= (const fifoimpl&);
 
-public:
-    fifoimpl(): Array<FifoChunk>(), left(0), right(0)  { }
-    ~fifoimpl()  { clear(); }
+    void* _at(int) const;
+    FifoChunk& _chunkat(int i) const  { return Array<FifoChunk>::_at(i); }
+    int chunks() const                { return Array<FifoChunk>::size(); }
+
     void push(const char*, int);
     int  pull(char*, int);
     int  size() const;
@@ -258,6 +230,67 @@ public:
         return _at(i);
     }
 };
+
+
+template <class T>
+class PodFifo: private fifoimpl
+{
+public:
+    PodFifo(): fifoimpl()  { }
+    PodFifo(const PodFifo& f): fifoimpl(f)  { }
+    ~PodFifo()  { }
+};
+
+
+// ------------------------------------------------------------------------ //
+
+
+FifoChunk::FifoChunk()
+{
+#ifdef DEBUG
+    fifochunkalloc++;
+#endif
+    data = (char*)memalloc(FIFO_CHUNK_SIZE);
+}
+
+FifoChunk::FifoChunk(const FifoChunk& f)
+{
+#ifdef DEBUG
+    fifochunkalloc++;
+#endif
+    data = (char*)memalloc(FIFO_CHUNK_SIZE);
+    memcpy(data, f.data, FIFO_CHUNK_SIZE);
+}
+
+FifoChunk::~FifoChunk()
+{
+    memfree(data);
+#ifdef DEBUG
+    fifochunkalloc--;
+#endif
+}
+
+
+fifoimpl::fifoimpl()
+    : Array<FifoChunk>(), left(0), right(0)  { }
+
+
+fifoimpl::fifoimpl(const fifoimpl& f)
+    : Array<FifoChunk>(f), left(f.left), right(f.right)  { }
+
+
+fifoimpl::~fifoimpl()
+{
+}
+
+
+void fifoimpl::operator= (const fifoimpl& f)
+{
+    clear();
+    Array<FifoChunk>::operator= (f);
+    left = f.left;
+    right = f.right;
+}
 
 
 void* fifoimpl::_at(int i) const

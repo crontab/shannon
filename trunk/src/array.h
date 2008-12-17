@@ -75,7 +75,7 @@ class Array: protected PodArray<T>
 protected:
     void unique()
     {
-        if (!string::empty() && string::refcount() > 1)
+        if (!PodArray<T>::empty() && PodArray<T>::refcount() > 1)
         {
             PodArray<T> old = *this;
             PodArray<T>::_alloc(old.bytesize());
@@ -88,7 +88,7 @@ protected:
 public:
     Array(): PodArray<T>()          { }
     Array(const Array& a): PodArray<T>(a)  { }
-    ~Array()                        { }
+    ~Array()                        { clear(); }
     void operator= (const Array& a) { PodArray<T>::operator= (a); }
     T& add()                        { unique(); return *::new(&PodArray<T>::add()) T(); }
     void add(const T& t)            { unique(); ::new(&PodArray<T>::add()) T(t); }
@@ -99,11 +99,16 @@ public:
     void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
     void clear()
     {
-        if (PodArray<T>::_unlock() == 0)
+        if (!PodArray<T>::empty())
         {
-            for (int i = PodArray<T>::size() - 1; i >= 0; i--)
-                PodArray<T>::_at(i).~T();
-            PodArray<T>::_free();
+            if (PodArray<T>::_unlock() == 0)
+            {
+                for (int i = PodArray<T>::size() - 1; i >= 0; i--)
+                    PodArray<T>::_at(i).~T();
+                PodArray<T>::_free();
+            }
+            else
+                PodArray<T>::_empty();
         }
     }
 };
