@@ -12,19 +12,20 @@ class arrayimpl: protected string
 {
 public:
     arrayimpl(): string()  { }
+    arrayimpl(const arrayimpl& a): string(a) { }
     ~arrayimpl()           { }
     
     int size() const                { return string::size(); }
-    int bytesize()                  { return string::bytesize(); }
+    int bytesize() const            { return string::bytesize(); }
     void clear()                    { string::clear(); }
     bool empty() const              { return string::empty(); }
-    char* add(int cnt)              { return string::append(cnt); }
+    char* add(int cnt)              { return string::appendn(cnt); }
     char* ins(int where, int cnt)   { return string::ins(where, cnt); }
     void del(int where, int cnt)    { string::del(where, cnt); }
     void pop(int cnt)               { string::resize(size() - cnt); }
     char* operator[] (int i)        { return &string::operator[] (i); }
     const char* operator[] (int i) const  { return &string::operator[] (i); }
-    void from(const arrayimpl& a)   { string::assign(a); }
+    void operator= (const arrayimpl& a)   { string::assign(a); }
 };
 
 
@@ -48,10 +49,11 @@ protected:
 
 public:
     PodArray(): arrayimpl()  { }
+    PodArray(const PodArray<T>& a): arrayimpl(a)  { }
     ~PodArray() { }
 
     int size() const                { return arrayimpl::size() / Tsize; }
-    int bytesize()                  { return arrayimpl::bytesize(); }
+    int bytesize() const            { return arrayimpl::bytesize(); }
     void clear()                    { arrayimpl::clear(); }
     bool empty() const              { return arrayimpl::empty(); }
     int refcount() const            { return arrayimpl::refcount(); }
@@ -59,14 +61,15 @@ public:
     void add(const T& t)            { add() = t; }
     T& ins(int i)                   { return *Tptr(arrayimpl::ins(idxa(i), Tsize)); }
     void ins(int i, const T& t)     { ins(i) = t; }
-    void del(int i)                 { arrayimpl::del(idx(i)); }
+    void del(int i)                 { arrayimpl::del(idx(i), Tsize); }
     T& operator[] (int i)           { return *Tptr(arrayimpl::operator[] (idx(i))); }
     const T& operator[] (int i) const  { return *Tptr(arrayimpl::operator[] (idx(i))); }
     T& top()                        { return operator[] (size() - 1); }
     const T& top() const            { return operator[] (size() - 1); }
     T pop()                         { T t = top(); arrayimpl::pop(Tsize); return t; }
     void dequeue()                  { arrayimpl::del(0, Tsize); }
-    void from(const PodArray<T>& a) { arrayimpl::assign(a); }
+    void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
+    T& _at(int i) const             { return *Tptr(data + i * Tsize); }
 };
 
 

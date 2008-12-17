@@ -50,7 +50,7 @@ protected:
     void initialize(const string& s);
     void initialize(const char*, int, const char*, int);
     void finalize();
-    static void finalize(string& s) { s.finalize(); }
+    static void _unlock(string& s);
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
@@ -97,7 +97,7 @@ public:
     void append(const char* s);
     void append(char c);
     void append(const string& s);
-    char* append(int cnt);
+    char* appendn(int cnt);
     string& operator+= (const char* sc)           { append(sc); return *this; }
     string& operator+= (char c)                   { append(c); return *this; }
     string& operator+= (const string& s)          { append(s); return *this; }
