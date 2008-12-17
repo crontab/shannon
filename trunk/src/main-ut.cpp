@@ -234,6 +234,8 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
+//        if (fifochunkalloc != 0)
+//            fprintf(stderr, "Internal: fifochunkalloc = %d\n", fifochunkalloc);
     }
 } _atexit;
 

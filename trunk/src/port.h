@@ -13,6 +13,7 @@ typedef void*               ptr;
 typedef long long           large;
 typedef unsigned long long  ularge;
 typedef const char*         pconst;
+typedef char*               pchar;
 
 #define LARGE_MIN (-9223372036854775807ll-1)
 #define LARGE_MAX (9223372036854775807ll)

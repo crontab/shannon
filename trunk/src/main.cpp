@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 
 #include "charset.h"
 #include "str.h"
@@ -188,66 +189,91 @@ void InText::skip(const charset& chars) throw(ESysError)
 // ------------------------------------------------------------------------ //
 
 
-template <class T>
-class Array: public PodArray<T>
-{
-protected:
-    void unique()
-    {
-        if (!string::empty() && string::refcount() > 1)
-        {
-            PodArray<T> old = *this;
-            PodArray<T>::_alloc(old.bytesize());
-            for (int i = 0; i < PodArray<T>::size(); i++)
-                ::new(&PodArray<T>::_at(i)) T(old._at(i));
-            PodArray<T>::_unlock(old);
-        }
-    }
-
-public:
-    T& top()                        { unique(); return PodArray<T>::top(); }
-    T& add()                        { unique(); return PodArray<T>::add(); }
-    void add(const T& t)            { add() = t; }
-    T& ins(int i)                   { unique(); return PodArray<T>::ins(); }
-    void ins(int i, const T& t)     { ins(i) = t; }
-    T& operator[] (int i)           { unique(); return PodArray<T>::operator[] (i); }
-    const T& operator[] (int i) const  { return PodArray<T>::operator[] (i); }
-    void pop()                      { del(PodArray<T>::size() - 1); }
-    void dequeue()                  { del(0); }
-    void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
-    void clear()
-    {
-        if (PodArray<T>::refcount() == 1)
-            for (int i = PodArray<T>::size() - 1; i >= 0; i--)
-                PodArray<T>::_at(i).~T();
-        PodArray<T>::clear();
-    }
-};
-
-
 #define FIFO_CHUNK_COUNT 16
 #define FIFO_CHUNK_SIZE (sizeof(quant) * FIFO_CHUNK_COUNT)
 
-typedef char FifoChunk[FIFO_CHUNK_SIZE];
+extern int fifochunkalloc;
 
 
-class fifoimpl: private PodArray<quant>
-// A really dirty trick: the first element is the shift (int) the rest is a 
-// dynamic list of pointers to chunks. We are trying to save memory and 
-// allocations.
+class FifoChunk
 {
-protected:
-    int shift()  { return operator[] (0).ord; }
-
 public:
-    fifoimpl();
-    ~fifoimpl();
+    char* data;
+
+    FifoChunk::FifoChunk()
+    {
+#ifdef DEBUG
+        fifochunkalloc++;
+#endif
+        data = (char*)memalloc(FIFO_CHUNK_SIZE);
+    }
+
+    FifoChunk::FifoChunk(const FifoChunk& f)
+    {
+#ifdef DEBUG
+        fifochunkalloc++;
+#endif
+        data = (char*)memalloc(FIFO_CHUNK_SIZE);
+        memcpy(data, f.data, FIFO_CHUNK_SIZE);
+    }
+
+    FifoChunk::~FifoChunk()
+    {
+        memfree(data);
+#ifdef DEBUG
+        fifochunkalloc--;
+#endif
+    }
+
+    void FifoChunk::operator= (const FifoChunk& f)
+    {
+        memcpy(data, f.data, FIFO_CHUNK_SIZE);
+    }
+
+    operator pchar () { return data; }
 };
 
 
-fifoimpl::fifoimpl()
-    : PodArray<quant>()  { PodArray<quant>::add().ord = 0; }
-fifoimpl::~fifoimpl()  { }
+class fifoimpl: private Array<FifoChunk>
+{
+protected:
+
+    int _left() const          { return STR_LEFT(data); }
+    int _pull(int cnt)         { return STR_LEFT(data) += cnt; }
+    void _resetleft()          { STR_LEFT(data) = 0; }
+    int _right() const         { return STR_RIGHT(data); }
+    int _push(int cnt)         { return STR_RIGHT(data) += cnt; }
+    void _resetright()         { STR_RIGHT(data) = 0; }
+
+public:
+    void push(const void*, int);
+    int  pull(void*, int);
+    void* preview() const   { return at(0); }
+    void* at(int) const;
+    int size();
+};
+
+
+void* fifoimpl::at(int i) const
+{
+    i += _left();
+    return Array<FifoChunk>::operator[] (i / FIFO_CHUNK_SIZE).data
+        + i % FIFO_CHUNK_SIZE;
+}
+
+
+int fifoimpl::size()
+{
+    int chunks = Array<FifoChunk>::size();
+    if (chunks == 0)
+        return 0;
+    return (chunks - 1) * FIFO_CHUNK_SIZE + _right() - _left();
+}
+
+
+
+int fifochunkalloc = 0;
+
 
 
 class _AtExit
@@ -259,6 +285,8 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
+        if (fifochunkalloc != 0)
+            fprintf(stderr, "Internal: fifochunkalloc = %d\n", fifochunkalloc);
     }
 } _atexit;
 
@@ -273,6 +301,9 @@ int main()
         Array<int> b(a);
         a.del(2);
         a.clear();
+    }
+    {
+        fifoimpl f;
     }
     return 0;
 }

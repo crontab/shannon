@@ -67,11 +67,53 @@ public:
     T& top()                        { return operator[] (size() - 1); }
     const T& top() const            { return operator[] (size() - 1); }
     T pop()                         { T t = top(); arrayimpl::pop(Tsize); return t; }
-    void dequeue()                  { arrayimpl::del(0, Tsize); }
+    void pull()                     { arrayimpl::del(0, Tsize); }
     void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
     T& _at(int i) const             { return *Tptr(data + i * Tsize); }
 };
 
+
+template <class T>
+class Array: protected PodArray<T>
+{
+protected:
+    void unique()
+    {
+        if (!string::empty() && string::refcount() > 1)
+        {
+            PodArray<T> old = *this;
+            PodArray<T>::_alloc(old.bytesize());
+            for (int i = 0; i < PodArray<T>::size(); i++)
+                ::new(&PodArray<T>::_at(i)) T(old._at(i));
+            PodArray<T>::_unref(old);
+        }
+    }
+
+public:
+    Array(): PodArray<T>()          { }
+    Array(const Array& a): PodArray<T>(a)  { }
+    ~Array()                        { }
+    void operator= (const Array& a) { PodArray<T>::operator= (a); }
+    T& top()                        { unique(); return PodArray<T>::top(); }
+    T& add()                        { unique(); return PodArray<T>::add(); }
+    void add(const T& t)            { add() = t; }
+    T& ins(int i)                   { unique(); return PodArray<T>::ins(); }
+    void ins(int i, const T& t)     { ins(i) = t; }
+    T& operator[] (int i)           { unique(); return PodArray<T>::operator[] (i); }
+    const T& operator[] (int i) const  { return PodArray<T>::operator[] (i); }
+    void pop()                      { del(PodArray<T>::size() - 1); }
+    void pull()                     { del(0); }
+    void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
+    void clear()
+    {
+        if (PodArray<T>::_unlock() == 0)
+        {
+            for (int i = PodArray<T>::size() - 1; i >= 0; i--)
+                PodArray<T>::_at(i).~T();
+            PodArray<T>::_free();
+        }
+    }
+};
 
 
 #endif

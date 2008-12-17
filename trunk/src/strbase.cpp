@@ -66,7 +66,7 @@ void string::_realloc(int newchars)
 }
 
 
-inline void _freestrbuf(char* data)
+inline void string::_freedata(char* data)
 {
 #ifdef DEBUG
     stralloc -= memquantize(STR_CAPACITY(data) + strrecsize);
@@ -75,10 +75,20 @@ inline void _freestrbuf(char* data)
 }
 
 
-void string::_free() 
+void string::_free()
 {
-    _freestrbuf(data);
+    _freedata(data);
     data = emptystr;
+}
+
+
+int string::_unlock()
+{
+#ifdef SINGLE_THREADED
+    return --STR_REFCOUNT(data);
+#else
+    return pdecrement(&STR_REFCOUNT(data));
+#endif
 }
 
 
@@ -145,18 +155,14 @@ const char* string::c_str()
 }
 
 
-void string::_unlock(string& s)
+void string::_unref(string& s)
 {
 #ifdef DEBUG
     if (STR_LENGTH(s.data) == 0 || STR_REFCOUNT(s.data) <= 1)
         stringoverflow();
 #endif
-#ifdef SINGLE_THREADED
-    if (--STR_REFCOUNT(s.data) == 0)
-#else
-    if (pdecrement(&STR_REFCOUNT(s.data)) == 0)
-#endif
-        _freestrbuf(s.data);
+    if (s._unlock() == 0)
+        _freedata(s.data);
 }
 
 
@@ -164,14 +170,8 @@ void string::finalize()
 {
     if (STR_LENGTH(data) != 0)
     {
-
-#ifdef SINGLE_THREADED
-        if (--STR_REFCOUNT(data) == 0)
-#else
-        if (pdecrement(&STR_REFCOUNT(data)) == 0)
-#endif
-            _freestrbuf(data);
-
+        if (_unlock() == 0)
+            _freedata(data);
         data = emptystr;
     }
 }
@@ -248,7 +248,7 @@ char* string::resize(int newlen)
         STR_REFCOUNT(odata)--;
 #else
         if (pdecrement(&STR_REFCOUNT(odata)) == 0)
-            _freestrbuf(odata);
+            _freedata(odata);
 #endif
     }
 
@@ -271,7 +271,7 @@ char* string::unique()
         STR_REFCOUNT(odata)--;
 #else
         if (pdecrement(&STR_REFCOUNT(odata)) == 0)
-            _freestrbuf(odata);
+            _freedata(odata);
 #endif
     }
     return data;

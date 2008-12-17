@@ -13,6 +13,8 @@
 
 struct _strrec 
 {
+    // TODO: make this struct more compact
+    short left, right;    // used in fifos
     int refcount;
     int capacity;
     int length;
@@ -25,6 +27,8 @@ const int strrecsize = sizeof(_strrec);
 #define STR_REFCOUNT(x)  (STR_BASE(x)->refcount)
 #define STR_LENGTH(x)    (STR_BASE(x)->length)
 #define STR_CAPACITY(x)  (STR_BASE(x)->capacity)
+#define STR_LEFT(x)      (STR_BASE(x)->left)
+#define STR_RIGHT(x)     (STR_BASE(x)->right)
 
 #define PTR_TO_PSTRING(p)   (pstring(&(p)))
 #define PTR_TO_STRING(p)    (*PTR_TO_PSTRING(p))
@@ -41,6 +45,7 @@ protected:
 
     void _alloc(int);
     void _realloc(int);
+    int  _unlock();
     void _free();
 
     void initialize()  { data = emptystr; }
@@ -50,7 +55,8 @@ protected:
     void initialize(const string& s);
     void initialize(const char*, int, const char*, int);
     void finalize();
-    static void _unlock(string& s);
+    static void _freedata(char*);
+    static void _unref(string& s);
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
