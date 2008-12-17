@@ -189,8 +189,8 @@ void InText::skip(const charset& chars) throw(ESysError)
 // ------------------------------------------------------------------------ //
 
 
-#define FIFO_CHUNK_COUNT 16
-#define FIFO_CHUNK_SIZE (sizeof(quant) * FIFO_CHUNK_COUNT)
+#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
+
 
 extern int fifochunkalloc;
 
@@ -224,11 +224,12 @@ public:
         fifochunkalloc--;
 #endif
     }
-
+/*
     void operator= (const FifoChunk& f)
     {
         memcpy(data, f.data, FIFO_CHUNK_SIZE);
     }
+*/
 };
 
 
@@ -238,12 +239,21 @@ protected:
     short left, right;
 
     void* _at(int) const;
+    int chunks() const  { return Array<FifoChunk>::size(); }
+    FifoChunk& _chunkat(int i) const { return Array<FifoChunk>::_at(i); }
 
 public:
-    void push(const void*, int);
-    int  pull(void*, int);
-    void* preview() const   { return at(0); }
-    int size();
+    void push(const char*, int);
+    int  pull(char*, int);
+    int  size() const;
+    void* at(int i) const
+    {
+#ifdef DEBUG
+        if (unsigned(i) >= unsigned(size()))
+            idxerror();
+        return _at(i);
+#endif
+    }
 };
 
 
@@ -255,12 +265,43 @@ void* fifoimpl::_at(int i) const
 }
 
 
-int fifoimpl::size()
+int fifoimpl::size() const
 {
-    int chunks = Array<FifoChunk>::size();
-    if (chunks == 0)
+    return empty() ? 0 : (chunks() - 1) * FIFO_CHUNK_SIZE - left + right;
+}
+
+
+void fifoimpl::push(const char* data, int datasize)
+{
+    if (datasize > 0 && empty())
+    {
+        Array<FifoChunk>::add();
+        right = 0;
+    }
+    while (datasize > 0)
+    {
+        int len = imin(FIFO_CHUNK_SIZE - right, datasize);
+        memcpy(_chunkat(chunks() - 1).data + right, data, len);
+        right += len;
+        datasize -= len;
+        if (datasize == 0)
+            return;
+        data += len;
+        Array<FifoChunk>::add();
+        right = 0;
+    }
+}
+
+
+int fifoimpl::pull(char* data, int datasize)
+{
+    if (empty())
         return 0;
-    return (chunks - 1) * FIFO_CHUNK_SIZE + left - right;
+    int result = 0;
+    while (datasize > 0)
+    {
+    }
+    return result;
 }
 
 
