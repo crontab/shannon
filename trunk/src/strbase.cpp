@@ -24,18 +24,20 @@ char*  emptystr = emptystrbuf + strrecsize;
 string nullstring;
 
 
-void string::_alloc(int numchars) 
+void string::_alloc(int newchars) 
 {
-    if (numchars <= 0)
+    if (newchars <= 0)
         stringoverflow();
-    int allocate = memquantize(numchars + strrecsize);
+    int allocate = memquantize(newchars + strrecsize);
 #ifdef DEBUG
     stralloc += allocate;
 #endif
     data = (char*)(memalloc(allocate)) + strrecsize;
     STR_REFCOUNT(data) = 1;
-    STR_LENGTH(data) = numchars;
+    STR_LENGTH(data) = newchars;
     STR_CAPACITY(data) = allocate - strrecsize;
+    if (newchars < STR_CAPACITY(data))
+        data[newchars] = 0;
 }
 
 
@@ -59,6 +61,8 @@ void string::_realloc(int newchars)
         }
     }
     STR_LENGTH(data) = newchars;
+    if (newchars < STR_CAPACITY(data))
+        data[newchars] = 0;
 }
 
 
@@ -134,10 +138,25 @@ const char* string::c_str()
     int len = STR_LENGTH(data);
     if (len != 0 && len == STR_CAPACITY(data))
     {
-        append(char(0));
+        appendn(1);
         STR_LENGTH(data)--;
     }
     return data;
+}
+
+
+void string::_unlock(string& s)
+{
+#ifdef DEBUG
+    if (STR_LENGTH(s.data) == 0 || STR_REFCOUNT(s.data) <= 1)
+        stringoverflow();
+#endif
+#ifdef SINGLE_THREADED
+    if (--STR_REFCOUNT(s.data) == 0)
+#else
+    if (pdecrement(&STR_REFCOUNT(s.data)) == 0)
+#endif
+        _freestrbuf(s.data);
 }
 
 
@@ -259,17 +278,15 @@ char* string::unique()
 }
 
 
-char* string::append(int cnt)
+char* string::appendn(int cnt)
 {
     if (cnt <= 0)
         return NULL;
     int oldlen = STR_LENGTH(data);
     if (oldlen == 0)
-    {
-        resize(cnt);
-        return data;
-    }
-    resize(oldlen + cnt);
+        _alloc(cnt);
+    else
+        resize(oldlen + cnt);
     return data + oldlen;
 }
 
@@ -284,7 +301,7 @@ void string::append(const char* sc, int catlen)
     }
     else
     {
-        char* p = append(catlen);
+        char* p = appendn(catlen);
         if (p != NULL)
             memmove(data + oldlen, sc, catlen);
     }

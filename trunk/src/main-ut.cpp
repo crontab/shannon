@@ -159,7 +159,7 @@ void testContainer()
 {
     int saveObjCount = Base::objCount;
     {
-        Container<Base, true> c;
+        Container<Base> c;
         c.add(new Base());
         c.add(new Base());
         c.add(new Base());
@@ -170,15 +170,12 @@ void testContainer()
         assert(Base::objCount == saveObjCount);
         c.add(new Base());
         c.add(new Base());
-        Container<Base, false> c1;
-        Container<Base, false> c2;
-        c1.from(c2);
     }
     // check if the destructor calls clear()
     assert(Base::objCount == saveObjCount);
     {
         saveObjCount = Base::objCount;
-        Container<Base, false> c;
+        PodArray<Base*> c;
         c.add(new Base());
         c.add(new Base());
         c.add(new Base());

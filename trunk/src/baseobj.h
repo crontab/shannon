@@ -98,25 +98,23 @@ public:
 };
 
 
-template <class T, bool own>
-class Container: public PodArray<ptr>
+template <class T>
+class Container: public PodArray<T*>
 {
+private:
+    Container(const Container&);
+    void operator= (const Container&);
 public:
-    Container(): PodArray<ptr>()     { }
+    Container(): PodArray<T*>()      { }
     ~Container()                     { clear(); }
-    void add(T* o)                   { PodArray<ptr>::add(o); }
-    T* top() const                   { return (T*)PodArray<ptr>::top(); }
-    T* operator[] (int index) const  { return (T*)PodArray<ptr>::operator[](index); }
-    void pop()                       { if (own) delete top(); PodArray<ptr>::pop(); }
-    void dequeue()                   { if (own) delete operator[](0); PodArray<ptr>::dequeue(); }
+    void pop()                       { delete PodArray<T*>::top(); PodArray<T*>::pop(); }
+    void dequeue()                   { delete PodArray<T*>::operator[](0); PodArray<T*>::dequeue(); }
     void clear()
     {
-        if (own)
-            for (int i = size() - 1; i >= 0; i--)
-                delete operator[] (i);
-        PodArray<ptr>::clear();
+        for (int i = PodArray<T*>::size() - 1; i >= 0; i--)
+            delete PodArray<T*>::_at(i);
+        PodArray<T*>::clear();
     }
-    void from(const Container<T, false>& c)  { PodArray<ptr>::from(c); }
 };
 
 
