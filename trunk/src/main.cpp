@@ -192,7 +192,7 @@ template <class T>
 class Array: public PodArray<T>
 {
 protected:
-    bool makeunique()
+    void unique()
     {
         if (!string::empty() && string::refcount() > 1)
         {
@@ -201,28 +201,20 @@ protected:
             for (int i = 0; i < PodArray<T>::size(); i++)
                 ::new(&PodArray<T>::_at(i)) T(old._at(i));
             PodArray<T>::_unlock(old);
-            return true;
         }
-        return false;
     }
 
-
 public:
-    T& top()                        { makeunique(); return PodArray<T>::top(); }
-    T& add()                        { makeunique(); return PodArray<T>::add(); }
+    T& top()                        { unique(); return PodArray<T>::top(); }
+    T& add()                        { unique(); return PodArray<T>::add(); }
     void add(const T& t)            { add() = t; }
-    T& ins(int i)                   { makeunique(); return PodArray<T>::ins(); }
+    T& ins(int i)                   { unique(); return PodArray<T>::ins(); }
     void ins(int i, const T& t)     { ins(i) = t; }
-    T& operator[] (int i)           { makeunique(); return PodArray<T>::operator[] (i); }
+    T& operator[] (int i)           { unique(); return PodArray<T>::operator[] (i); }
     const T& operator[] (int i) const  { return PodArray<T>::operator[] (i); }
     void pop()                      { del(PodArray<T>::size() - 1); }
     void dequeue()                  { del(0); }
-    void del(int i)
-    {
-        makeunique();
-        PodArray<T>::_at(i).~T();
-        PodArray<T>::del(i);
-    }
+    void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
     void clear()
     {
         if (PodArray<T>::refcount() == 1)
