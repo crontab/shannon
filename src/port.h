@@ -4,6 +4,9 @@
 
 #include <string.h>
 
+#include <new>
+
+
 #ifdef DEBUG
 #  define CHECK_BOUNDS 
 #endif
@@ -65,7 +68,7 @@ inline large lmax(large x, large y)   { return (x > y) ? x : y; }
 inline large lmin(large x, large y)   { return (x < y) ? x : y; }
 
 
-#ifndef _NEW
+/*
 // Default placement versions of operator new.
 inline void* operator new(size_t, void* p) throw() { return p; }
 inline void* operator new[](size_t, void* p) throw() { return p; }
@@ -73,6 +76,6 @@ inline void* operator new[](size_t, void* p) throw() { return p; }
 // Default placement versions of operator delete.
 inline void  operator delete  (void*, void*) throw() { }
 inline void  operator delete[](void*, void*) throw() { }
-#endif
+*/
 
 #endif

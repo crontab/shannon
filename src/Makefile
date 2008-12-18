@@ -49,3 +49,4 @@ obj/main-ut.o: main-ut.cpp baseobj.h charset.h array.h str.h port.h
 clean:
 	@rm -f $(OBJS) obj/main.o obj/main-ut.o
 	@rm -f bin/shannon bin/shannon-ut
+	@rm -f core *.core

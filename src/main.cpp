@@ -6,8 +6,6 @@
 #include <errno.h>
 #include <string.h>
 
-#include <vector>
-
 #include "charset.h"
 #include "str.h"
 #include "array.h"
@@ -19,7 +17,7 @@
 // ------------------------------------------------------------------------ //
 
 #define INTEXT_BUFSIZE 8192
-#define TAB_SIZE 8
+#define DEFAULT_TAB_SIZE 8
 
 class charset;
 
@@ -34,6 +32,7 @@ class InText
     int  indent;
     bool newline;
     bool eof;
+    int tabsize;
     
     void error(int code) throw(ESysError);
     void validateBuffer();
@@ -44,17 +43,23 @@ public:
     InText(const string& filename);
     ~InText();
     
+    int  getIndent()  { return indent; }
+    int  getLinenum() { return linenum; }
+    bool getEof()     { return eof; }
+    bool getEol();
     char preview();
     char get();
     void skipEol();
+    void skipTo(char c);
+    void skipLine();
     string token(const charset& chars) throw(ESysError);
     void skip(const charset& chars) throw(ESysError);
 };
 
 
 InText::InText(const string& ifilename)
-    : filename(ifilename), fd(0), bufsize(0), bufpos(0), linenum(0),
-      indent(0), newline(true), eof(false)
+    : filename(ifilename), fd(-1), bufsize(0), bufpos(0), linenum(0),
+      indent(0), newline(true), eof(false), tabsize(DEFAULT_TAB_SIZE)
 {
 }
 
@@ -84,6 +89,7 @@ void InText::validateBuffer()
         fd = open(filename.c_str(), O_RDONLY);
         if (fd < 0)
             error(errno);
+        linenum = 1;
     }
     if (!eof && bufpos == bufsize)
     {
@@ -142,6 +148,13 @@ void InText::skipEol()
 }
 
 
+bool InText::getEol()
+{
+    char c = preview();
+    return eof || c == '\r' || c == '\n';
+}
+
+
 void InText::token(const charset& chars, string& result, bool noresult)
 {
     do
@@ -158,13 +171,14 @@ void InText::token(const charset& chars, string& result, bool noresult)
         {
             switch (*p)
             {
-                case '\t': if (newline) indent = ((indent / TAB_SIZE) + 1) * TAB_SIZE; break;
+                case '\t': if (newline) indent = ((indent / tabsize) + 1) * tabsize; break;
                 case '\n': doSkipEol(); break;
                 case ' ': if (newline) indent++; break;
                 default: newline = false; break; // freeze indent calculation
             }
             p++;
         }
+        bufpos += p - b;
         if (!noresult && p > b)
             result.append(b, p - b);
     }
@@ -187,6 +201,34 @@ void InText::skip(const charset& chars) throw(ESysError)
 }
 
 
+void InText::skipTo(char c)
+{
+    do
+    {
+        if (bufpos == bufsize)
+            validateBuffer();
+        if (eof)
+            return;
+        const char* b = buf + bufpos;
+        const char* e = buf + bufsize;
+        const char* p = (const char*)memchr(b, c, e - b);
+        if (p != NULL)
+        {
+            bufpos += p - b;
+            return;
+        }
+    }
+    while (bufpos == bufsize);
+}
+
+
+void InText::skipLine()
+{
+    skipTo('\n');
+    skipEol();
+}
+
+
 
 class _AtExit
 {
@@ -197,14 +239,38 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
-        if (fifochunkalloc != 0)
-            fprintf(stderr, "Internal: fifochunkalloc = %d\n", fifochunkalloc);
+        if (fifoChunkAlloc != 0)
+            fprintf(stderr, "Internal: fifoChunkAlloc = %d\n", fifoChunkAlloc);
     }
 } _atexit;
 
 
+
 int main()
 {
+    const charset idchars = "A-Za-z_0-9";
+    const charset specials = "`!\"$%^&*()_+=:@;'#<>?,./|\\~-~~";
+    const charset wschars = "\t ";
+
+    InText in("tests/intext.txt");
+    try
+    {
+        assert('T' == in.preview());
+        assert("Thunder" == in.token(idchars));
+        assert(0 == in.getIndent());
+        assert("," == in.token(specials));
+        assert(" " == in.token(wschars));
+        in.skipLine();
+        assert(' ' == in.preview());
+        assert(2 == in.getLinenum());
+        in.skip(wschars);
+        assert(4 == in.getIndent());
+    }
+    catch (Exception& e)
+    {
+        printf("Exception: %s\n", e.what().c_str());
+        assert(false);
+    }
     return 0;
 }
 

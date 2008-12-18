@@ -2,8 +2,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include <vector>
-
 #include "charset.h"
 #include "str.h"
 #include "array.h"
@@ -13,6 +11,11 @@
 // ------------------------------------------------------------------------ //
 // --- UNIT TESTS --------------------------------------------------------- //
 // ------------------------------------------------------------------------ //
+
+// We rely on assert(), so make sure it is turned on
+#ifdef NDEBUG
+#  undef NDEBUG
+#endif
 
 
 #define assert_throw(e,...) { bool __t = false; try { __VA_ARGS__; } catch(e) { __t = true; } assert(__t); }
@@ -275,8 +278,8 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
-        if (fifochunkalloc != 0)
-            fprintf(stderr, "Internal: fifochunkalloc = %d\n", fifochunkalloc);
+        if (fifoChunkAlloc != 0)
+            fprintf(stderr, "Internal: fifoChunkAlloc = %d\n", fifoChunkAlloc);
     }
 } _atexit;
 
