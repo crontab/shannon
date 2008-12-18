@@ -1,17 +1,9 @@
 #ifndef __SOURCE_H
 #define __SOURCE_H
 
-#ifndef __STR_H
 #include "str.h"
-#endif
-
-#ifndef __EXCEPT_H
 #include "except.h"
-#endif
-
-#ifndef __CHARSET_H
 #include "charset.h"
-#endif
 
 
 #define INFILE_BUFSIZE 8192

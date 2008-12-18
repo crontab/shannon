@@ -1,9 +1,8 @@
 #ifndef __ARRAY_H
 #define __ARRAY_H
 
-#ifndef __STR_H
+
 #include "str.h"
-#endif
 
 
 // Dynamic ref-counted array of chars, privately based on string

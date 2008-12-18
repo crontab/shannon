@@ -4,9 +4,7 @@
 #include <string.h>
 
 
-#ifndef __PORT_H
 #include "port.h"
-#endif
 
 
 // Dynamic string class with thread-safe ref-counted buffer

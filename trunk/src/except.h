@@ -2,9 +2,7 @@
 #define __EXCEPT_H
 
 
-#ifndef __STR_H
 #include "str.h"
-#endif
 
 
 class Exception
