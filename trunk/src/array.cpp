@@ -4,10 +4,13 @@
 #include "array.h"
 
 
+int fifoChunkAlloc = 0;
+
+
 FifoChunk::FifoChunk()
 {
 #ifdef DEBUG
-    fifochunkalloc++;
+    fifoChunkAlloc++;
 #endif
     data = (char*)memalloc(FIFO_CHUNK_SIZE);
 }
@@ -15,7 +18,7 @@ FifoChunk::FifoChunk()
 FifoChunk::FifoChunk(const FifoChunk& f)
 {
 #ifdef DEBUG
-    fifochunkalloc++;
+    fifoChunkAlloc++;
 #endif
     data = (char*)memalloc(FIFO_CHUNK_SIZE);
     memcpy(data, f.data, FIFO_CHUNK_SIZE);
@@ -25,7 +28,7 @@ FifoChunk::~FifoChunk()
 {
     memfree(data);
 #ifdef DEBUG
-    fifochunkalloc--;
+    fifoChunkAlloc--;
 #endif
 }
 
@@ -112,8 +115,5 @@ int fifoimpl::pull(char* data, int datasize)
     }
     return result;
 }
-
-
-int fifochunkalloc = 0;
 
 

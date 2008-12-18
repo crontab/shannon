@@ -1,6 +1,4 @@
 
-#include <vector>
-
 #include "str.h"
 #include "baseobj.h"
 

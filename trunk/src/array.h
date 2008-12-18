@@ -117,7 +117,7 @@ public:
 #define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
 
 
-extern int fifochunkalloc;
+extern int fifoChunkAlloc;
 
 
 struct FifoChunk
