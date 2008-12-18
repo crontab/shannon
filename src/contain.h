@@ -1,5 +1,5 @@
-#ifndef __ARRAY_H
-#define __ARRAY_H
+#ifndef __CONTAIN_H
+#define __CONTAIN_H
 
 
 #include "str.h"
@@ -49,27 +49,27 @@ public:
     PodArray(): arrayimpl()  { }
     PodArray(const PodArray<T>& a): arrayimpl(a)  { }
     ~PodArray() { }
+    void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
 
     int size() const                { return arrayimpl::size() / Tsize; }
     int bytesize() const            { return arrayimpl::bytesize(); }
-    void clear()                    { arrayimpl::clear(); }
     bool empty() const              { return arrayimpl::empty(); }
     int refcount() const            { return arrayimpl::refcount(); }
-    T& add()                        { return *Tptr(arrayimpl::add(Tsize)); }
-    void add(const T& t)            { add() = t; }
-    T& ins(int i)                   { return *Tptr(arrayimpl::ins(idxa(i), Tsize)); }
-    void ins(int i, const T& t)     { ins(i) = t; }
+    void clear()                    { arrayimpl::clear(); }
+    T& add()                        { return *::new(Tptr(arrayimpl::add(Tsize))) T(); }
+    void add(const T& t)            { ::new(Tptr(arrayimpl::add(Tsize))) T(t); }
+    T& ins(int i)                   { return *::new(Tptr(arrayimpl::ins(idxa(i), Tsize))) T(); }
+    void ins(int i, const T& t)     { ::new(Tptr(arrayimpl::ins(idxa(i), Tsize))) T(t); }
     void del(int i)                 { arrayimpl::del(idx(i), Tsize); }
     const T& operator[] (int i) const  { return *Tptr(arrayimpl::operator[] (idx(i))); }
     const T& top() const            { return operator[] (size() - 1); }
     void pop()                      { arrayimpl::pop(Tsize); }
-    void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
-    T& _at(int i) const             { return *Tptr(data + i * Tsize); }
+    T& _at(int i) const             { return *Tptr(arrayimpl::_at(i * Tsize)); }
 };
 
 
 template <class T>
-class Array: protected PodArray<T>
+class Array: public PodArray<T>
 {
 protected:
     void unique()
@@ -89,13 +89,8 @@ public:
     Array(const Array& a): PodArray<T>(a)  { }
     ~Array()                        { clear(); }
     void operator= (const Array& a) { PodArray<T>::operator= (a); }
-    T& add()                        { unique(); return *::new(&PodArray<T>::add()) T(); }
-    void add(const T& t)            { unique(); ::new(&PodArray<T>::add()) T(t); }
-    T& ins(int i)                   { unique(); return *::new(&PodArray<T>::add()) T(); }
-    void ins(int i, const T& t)     { unique(); ::new(&PodArray<T>::add()) T(t); }
-    const T& operator[] (int i) const  { return PodArray<T>::operator[] (i); }
+    void del(int i)                 { unique(); PodArray<T>::operator[](i).~T(); PodArray<T>::del(i); }
     void pop()                      { del(PodArray<T>::size() - 1); }
-    void del(int i)                 { unique(); PodArray<T>::_at(i).~T(); PodArray<T>::del(i); }
     void clear()
     {
         if (!PodArray<T>::empty())
@@ -116,11 +111,9 @@ public:
 #define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
 
 
-extern int fifoChunkAlloc;
-
-
 struct FifoChunk
 {
+    static int chunkCount;
     char* data;
     FifoChunk();
     FifoChunk(const FifoChunk& f);
@@ -179,6 +172,95 @@ public:
         Tptr(p)->~T();
         fifoimpl::skip(Tsize);
         return t;
+    }
+};
+
+
+class stackimpl
+{
+public:
+    char* stack;
+    int capacity;
+    int threshold;
+    int count;
+
+    stackimpl();
+    ~stackimpl()  { clear(); }
+
+    void stackunderflow() const;
+    void invstackop() const;
+    void realloc(int newsize);
+    void clear();
+
+    bool empty()  { return count == 0; }
+    int size()    { return count; }
+
+    void* advance(int len)
+    {
+        count += len;
+        if (count > capacity)
+            realloc(count);
+        return stack + count - len;
+    }
+    
+    void withdraw(int len)
+    {
+        count -= len;
+#ifdef DEBUG
+        if (count < 0) invstackop();
+#endif
+        if (count < threshold)
+            realloc(count);
+    }
+    
+    void* _at(int index) const // always negative
+    {
+        return stack + count + index;
+    }
+    
+    void* at(int index) const
+    {
+#ifdef DEBUG
+        if (unsigned(~index) >= unsigned(count))
+            invstackop();
+#endif
+        return _at(index);
+    }
+};
+
+
+template <class T>
+class PodStack: protected stackimpl
+{
+protected:
+    typedef T* Tptr;
+    enum { Tsize = sizeof(T) };
+public:
+    PodStack(): stackimpl()   { }
+    ~PodStack()               { }
+    bool empty()              { return stackimpl::empty(); }
+    int size()                { return stackimpl::size() / Tsize; }
+    const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
+    const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
+    void push(const T& t)     { ::new(Tptr(stackimpl::advance(Tsize))) T(t); }
+    const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
+    void pop()                { stackimpl::withdraw(Tsize); }
+};
+
+
+template <class T>
+class Stack: public PodStack<T>
+{
+public:
+    Stack(): PodStack<T>()   { }
+    ~Stack()                 { clear(); }
+    void pop()               { PodStack<T>::top().~T(); PodStack<T>::pop(); }
+    void clear()
+    {
+        if (!PodStack<T>::empty())
+            for (int i = -1; -i <= PodStack<T>::size(); i--)
+                PodStack<T>::_at(i).~T();
+        PodStack<T>::clear();
     }
 };
 

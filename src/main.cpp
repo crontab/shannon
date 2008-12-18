@@ -1,8 +1,11 @@
 
+#include <stdio.h>
+
 #include "charset.h"
 #include "str.h"
+#include "contain.h"
 #include "except.h"
-#include "array.h"
+#include "baseobj.h"
 
 
 // ------------------------------------------------------------------------ //
@@ -10,6 +13,11 @@
 // ------------------------------------------------------------------------ //
 
 
+enum Token
+{
+    tokUndefined = -1,
+    tokBlockBegin, tokBlockEnd, tokEnd // these depend on C-style vs. Python-style mode
+};
 
 
 class _AtExit
@@ -21,8 +29,8 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
-        if (fifoChunkAlloc != 0)
-            fprintf(stderr, "Internal: fifoChunkAlloc = %d\n", fifoChunkAlloc);
+        if (FifoChunk::chunkCount != 0)
+            fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
     }
 } _atexit;
 

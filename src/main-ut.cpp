@@ -9,7 +9,7 @@
 
 #include "charset.h"
 #include "str.h"
-#include "array.h"
+#include "contain.h"
 #include "baseobj.h"
 #include "source.h"
 
@@ -165,15 +165,35 @@ void testCharset()
 
 void testArrays()
 {
+    int saveObjCount;
     {
         Array<int> a;
         a.add(1);
         a.add(2);
         a.add(3);
+        assert(3 == a.size());
         Array<int> b(a);
+        assert(2 == a.refcount());
         a.del(2);
+        assert(2 == a.size());
+        assert(3 == b.size());
+        assert(1 == a.refcount());
+        assert(1 == b.refcount());
         a.clear();
+        assert(0 == a.size());
     }
+
+    saveObjCount = Base::objCount;
+    {
+        Array<string> s;
+        s.add("abc");
+        s.add("def");
+        assert("def" == s.top());
+        s.pop();
+        assert("abc" == s.top());
+    }
+    assert(Base::objCount == saveObjCount);
+
     {
         fifoimpl f;
         string s = "abcd";
@@ -187,17 +207,32 @@ void testArrays()
         buf[len] = 0;
         assert(strcmp("abcdef", buf) == 0);
     }
+
     {
         PodFifo<int> f;
         f.push(1);
         f.push(2);
         f.push(3);
-        assert(3 == f.size());
+        f.push(4);
+        assert(4 == f.size());
         assert(1 == f.pull());
         assert(2 == f.pull());
         PodFifo<int> g = f;
         assert(3 == g.pull());
+        assert(2 == f.size());
+        assert(1 == g.size());
     }
+
+    saveObjCount = Base::objCount;
+    {
+        Stack<string> s;
+        s.push("abc");
+        s.push("def");
+        assert("def" == s.top());
+        s.pop();
+        assert("abc" == s.top());
+    }
+    assert(Base::objCount == saveObjCount);
 }
 
 
@@ -315,8 +350,8 @@ public:
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
-        if (fifoChunkAlloc != 0)
-            fprintf(stderr, "Internal: fifoChunkAlloc = %d\n", fifoChunkAlloc);
+        if (FifoChunk::chunkCount != 0)
+            fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
     }
 } _atexit;
 

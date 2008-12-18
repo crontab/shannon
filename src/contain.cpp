@@ -1,16 +1,16 @@
 
 #include <string.h>
 
-#include "array.h"
+#include "contain.h"
 
 
-int fifoChunkAlloc = 0;
+int FifoChunk::chunkCount = 0;
 
 
 FifoChunk::FifoChunk()
 {
 #ifdef DEBUG
-    fifoChunkAlloc++;
+    chunkCount++;
 #endif
     data = (char*)memalloc(FIFO_CHUNK_SIZE);
 }
@@ -18,7 +18,7 @@ FifoChunk::FifoChunk()
 FifoChunk::FifoChunk(const FifoChunk& f)
 {
 #ifdef DEBUG
-    fifoChunkAlloc++;
+    chunkCount++;
 #endif
     data = (char*)memalloc(FIFO_CHUNK_SIZE);
     memcpy(data, f.data, FIFO_CHUNK_SIZE);
@@ -28,7 +28,7 @@ FifoChunk::~FifoChunk()
 {
     memfree(data);
 #ifdef DEBUG
-    fifoChunkAlloc--;
+    chunkCount--;
 #endif
 }
 
@@ -116,4 +116,49 @@ int fifoimpl::pull(char* data, int datasize)
     return result;
 }
 
+
+void stackimpl::stackunderflow() const
+{
+    fatal(CRIT_FIRST + 30, "Stack underflow");
+}
+
+
+void stackimpl::invstackop() const
+{
+    fatal(CRIT_FIRST + 31, "Invalid stack operation");
+}
+
+
+stackimpl::stackimpl()
+    : stack(NULL), capacity(0), threshold(0), count(0)  { }
+
+
+void stackimpl::clear()
+{
+    if (stack > 0)
+    {
+        capacity = threshold = count = 0;
+        memfree(stack);
+        stack = NULL;
+    }
+}
+
+
+void stackimpl::realloc(int newsize)
+{
+    if (newsize == 0)
+        clear();
+    else
+    {
+        int newcap = memquantize(newsize);
+        if (newcap != capacity)
+        {
+            stack = (char*)memrealloc(stack, newcap);
+            capacity = newcap;
+            threshold = capacity / 2;
+            if (threshold < 32)
+                threshold = 0;
+        }
+    }
+}
 
