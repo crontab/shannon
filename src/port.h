@@ -52,8 +52,25 @@ int pdecrement(int* target);
 void* memalloc(uint a);
 void* memrealloc(void* p, uint a);
 void  memfree(void* p);
-void  memerror();
 int   memquantize(int);
+
+
+/*
+// Default placement versions of operator new.
+inline void* operator new(size_t, void* p) throw() { return p; }
+inline void* operator new[](size_t, void* p) throw() { return p; }
+
+// Default placement versions of operator delete.
+inline void  operator delete  (void*, void*) throw() { }
+inline void  operator delete[](void*, void*) throw() { }
+*/
+
+
+// Disable all new/delete by default; redefine where necessary
+void* operator new(size_t) throw();
+void* operator new[](size_t) throw();
+void  operator delete  (void*) throw();
+void  operator delete[](void*) throw();
 
 
 // --- MISC --------------------------------------------------------------- //
@@ -67,15 +84,5 @@ inline int   imin(int x, int y)       { return (x < y) ? x : y; }
 inline large lmax(large x, large y)   { return (x > y) ? x : y; }
 inline large lmin(large x, large y)   { return (x < y) ? x : y; }
 
-
-/*
-// Default placement versions of operator new.
-inline void* operator new(size_t, void* p) throw() { return p; }
-inline void* operator new[](size_t, void* p) throw() { return p; }
-
-// Default placement versions of operator delete.
-inline void  operator delete  (void*, void*) throw() { }
-inline void  operator delete[](void*, void*) throw() { }
-*/
 
 #endif

@@ -20,6 +20,9 @@ public:
     virtual ~Base();
     string getName()                        { return name; }
     static int objCount;
+    
+    void* operator new(size_t size)         { return memalloc(size); }
+    void operator delete(void* p)           { memfree(p); }
 };
 
 

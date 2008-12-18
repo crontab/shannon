@@ -13,11 +13,25 @@
 // ------------------------------------------------------------------------ //
 
 
+class ESyntax: public EMessage
+{
+public:
+};
+
+
 enum Token
 {
     tokUndefined = -1,
-    tokBlockBegin, tokBlockEnd, tokEnd // these depend on C-style vs. Python-style mode
+    tokBlockBegin, tokBlockEnd, tokEnd, // these depend on C-style vs. Python-style mode
+    tokEof,
+    tokIdent, tokIntValue, tokStrValue
 };
+
+
+// ------------------------------------------------------------------------ //
+
+
+
 
 
 class _AtExit

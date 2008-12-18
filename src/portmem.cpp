@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-
 #include "port.h"
 
 
@@ -12,6 +11,22 @@ void fatal(int code, const char* msg)
     fprintf(stderr, "\nInternal [%04x]: %s\n", code, msg);
     exit(code);
 }
+
+
+/*
+// Will be redefined later; currently the global new/delete are needed
+// by the STL classes we use.
+
+static void newdel()
+{
+    fatal(CRIT_FIRST + 4, "Global new/delete are disabled");
+}
+
+void* operator new(size_t) throw()       { newdel(); return NULL; }
+void* operator new[](size_t) throw()     { newdel(); return NULL; }
+void  operator delete  (void*) throw()   { newdel(); }
+void  operator delete[](void*) throw()   { newdel(); }
+*/
 
 
 // dynamic reallocation policy for strings and lists
@@ -30,7 +45,7 @@ int memquantize(int a)
 }
 
 
-void memerror() 
+static void memerror() 
 {
     fatal(CRIT_FIRST + 5, "Not enough memory");
 }
