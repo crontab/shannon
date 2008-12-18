@@ -205,39 +205,6 @@ public:
 
 int main()
 {
-    {
-        Array<int> a;
-        a.add(1);
-        a.add(2);
-        a.add(3);
-        Array<int> b(a);
-        a.del(2);
-        a.clear();
-    }
-    {
-        fifoimpl f;
-        string s = "abcd";
-        f.push(s.c_bytes(), s.size());
-        s = "efg";
-        f.push(s.c_bytes(), s.size());
-
-        fifoimpl g = f;
-        char buf[256];
-        int len = g.pull(buf, 6);
-        buf[len] = 0;
-        assert(strcmp("abcdef", buf) == 0);
-    }
-    {
-        PodFifo<int> f;
-        f.push(1);
-        f.push(2);
-        f.push(3);
-        assert(3 == f.size());
-        assert(1 == f.pull());
-        assert(2 == f.pull());
-        PodFifo<int> g = f;
-        assert(3 == g.pull());
-    }
     return 0;
 }
 
