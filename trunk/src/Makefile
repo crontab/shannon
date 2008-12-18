@@ -3,7 +3,8 @@ DDEBUG = -DDEBUG -g
 # DDEBUG = -DNDEBUG
 CXXOPTS = -Os -Wall -Werror $(DDEBUG)
 
-OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/charset.o obj/strconv.o obj/array.o obj/baseobj.o
+OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
+    obj/array.o obj/baseobj.o obj/source.o
 
 all: dirs bin/shannon
 
@@ -28,6 +29,9 @@ obj/portmem.o: portmem.cpp port.h
 obj/strbase.o: strbase.cpp str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
+obj/except.o: except.cpp except.h str.h port.h
+	$(CXX) $(CXXOPTS) -c $< -o $@
+
 obj/charset.o: charset.cpp charset.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
@@ -37,13 +41,16 @@ obj/strconv.o: strconv.cpp str.h port.h
 obj/array.o: array.cpp str.h array.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/baseobj.o: baseobj.cpp baseobj.h array.h str.h port.h
+obj/baseobj.o: baseobj.cpp baseobj.h array.h str.h except.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main.o: main.cpp baseobj.h charset.h array.h str.h port.h
+obj/source.o: source.cpp source.h charset.h str.h except.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main-ut.o: main-ut.cpp baseobj.h charset.h array.h str.h port.h
+obj/main.o: main.cpp baseobj.h source.h charset.h array.h str.h port.h
+	$(CXX) $(CXXOPTS) -c $< -o $@
+
+obj/main-ut.o: main-ut.cpp baseobj.h source.h charset.h array.h str.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
 clean:
