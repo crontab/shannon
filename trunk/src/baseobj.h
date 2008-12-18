@@ -6,7 +6,7 @@
 
 #include "port.h"
 #include "str.h"
-#include "array.h"
+#include "contain.h"
 #include "except.h"
 
 

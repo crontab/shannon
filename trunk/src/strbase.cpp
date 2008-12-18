@@ -3,7 +3,7 @@
 #include "str.h"
 
 
-static void stringoverflow() 
+static void stringoverflow()
 {
     fatal(CRIT_FIRST + 21, "String/array overflow");
 }

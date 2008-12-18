@@ -4,13 +4,13 @@ CXXDEFS = -DDEBUG
 CXXOPTS = -Os -Wall -Werror $(CXXDEFS)
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
-    obj/array.o obj/baseobj.o obj/source.o
+    obj/contain.o obj/baseobj.o obj/source.o
 
 SRCS = portatom.cpp portmem.cpp strbase.cpp strconv.cpp except.cpp charset.cpp \
-    array.cpp baseobj.cpp source.cpp \
+    contain.cpp baseobj.cpp source.cpp \
     main.cpp main-ut.cpp
 
-HDRS = port.h str.h except.h charset.h array.h baseobj.h source.h
+HDRS = port.h str.h except.h charset.h contain.h baseobj.h source.h
 
 all: dirs bin/shannon bin/shannon-ut
 
@@ -27,8 +27,7 @@ depend: Makefile.dep
 Makefile.dep: $(SRCS) $(HDRS)
 	@touch $@
 	makedepend $(CXXDEFS) -pobj/ -f$@ -Y $(SRCS) 2>/dev/null
-	@diff $@.bak $@ > /dev/null
-	if [ $? != "0" ] ; then echo "****** Dependecies have changed" ; fi
+	@if diff $@.bak $@ > /dev/null ; then echo "Dependencies unchanged" ; else echo "****** Dependecies have changed" ; fi
 	@rm -f $@.bak
 
 include Makefile.dep
