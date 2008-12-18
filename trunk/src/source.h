@@ -14,15 +14,14 @@
 #endif
 
 
-#define INTEXT_BUFSIZE 8192
+#define INFILE_BUFSIZE 8192
 #define DEFAULT_TAB_SIZE 8
 
 
 class InText
 {
-    string filename;
-    int  fd;
-    char buf[INTEXT_BUFSIZE];
+protected:
+    char* buffer;
     int  bufsize;
     int  bufpos;
     int  linenum;
@@ -32,13 +31,13 @@ class InText
     int tabsize;
     
     void error(int code) throw(ESysError);
-    void validateBuffer();
+    virtual void validateBuffer() = 0;
     void doSkipEol();
     void token(const charset& chars, string& result, bool skip);
 
 public:
-    InText(const string& filename);
-    ~InText();
+    InText();
+    virtual ~InText();
     
     int  getIndent()  { return indent; }
     int  getLinenum() { return linenum; }
@@ -51,6 +50,21 @@ public:
     void skipLine();
     string token(const charset& chars) throw(ESysError);
     void skip(const charset& chars) throw(ESysError);
+};
+
+
+
+class InFile: public InText
+{
+protected:
+    string filename;
+    int  fd;
+
+    virtual void validateBuffer();
+
+public:
+    InFile(const string& filename);
+    virtual ~InFile();
 };
 
 

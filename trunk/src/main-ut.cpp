@@ -277,7 +277,7 @@ void testInText()
     const charset specials = "`!\"$%^&*()_+=:@;'#<>?,./|\\~-~~";
     const charset wschars = "\t ";
 
-    InText in("tests/intext.txt");
+    InFile in("tests/intext.txt");
     try
     {
         assert('T' == in.preview());
