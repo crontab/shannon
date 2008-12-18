@@ -47,10 +47,10 @@ obj/baseobj.o: baseobj.cpp baseobj.h array.h str.h except.h port.h
 obj/source.o: source.cpp source.h charset.h str.h except.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main.o: main.cpp baseobj.h source.h charset.h array.h str.h port.h
+obj/main.o: main.cpp baseobj.h source.h charset.h array.h str.h except.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
-obj/main-ut.o: main-ut.cpp baseobj.h source.h charset.h array.h str.h port.h
+obj/main-ut.o: main-ut.cpp baseobj.h source.h charset.h array.h str.h except.h port.h
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
 clean:

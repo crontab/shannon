@@ -1,6 +1,4 @@
 
-#include "source.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -11,6 +9,7 @@
 #include "charset.h"
 #include "str.h"
 #include "array.h"
+#include "source.h"
 #include "baseobj.h"
 
 
