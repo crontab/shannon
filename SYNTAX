@@ -1,0 +1,26 @@
+
+# BNF for Shannon:
+#   repeat 0 or more times: {...}
+#   optional: [...]
+#   group: (...)
+#   OR: |
+#   literal: "..." or '...'
+#   any word: reference to a syntactic element
+#   glue: ##
+
+
+# Basic elements
+
+ident ::= (letter | "_") ## {letter | digit | "_"}
+
+decimal ::= digit ## {digit}
+
+hexadecimal ::= '0x' ## hexdigit ## {hexdigit}
+
+string-literal ::= "'" ## {string-element} ## "'"
+
+string-element ::= printable-char | string-escape
+
+string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
+        | ("\x" ## hexdigit ## hexdigit)
+

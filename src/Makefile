@@ -26,7 +26,7 @@ depend: Makefile.dep
 
 Makefile.dep: $(SRCS) $(HDRS)
 	@touch $@
-	@makedepend $(CXXDEFS) -pobj/ -f$@ -Y $(SRCS) 2>/dev/null
+	makedepend $(CXXDEFS) -pobj/ -f$@ -Y $(SRCS) 2>/dev/null
 	@diff $@.bak $@ > /dev/null
 	if [ $? != "0" ] ; then echo "****** Dependecies have changed" ; fi
 	@rm -f $@.bak
