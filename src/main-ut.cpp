@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include <vector>
+
 #include "charset.h"
 #include "str.h"
 #include "baseobj.h"

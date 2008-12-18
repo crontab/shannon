@@ -114,5 +114,75 @@ public:
 };
 
 
+#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
+
+
+extern int fifochunkalloc;
+
+
+struct FifoChunk
+{
+    char* data;
+    FifoChunk();
+    FifoChunk(const FifoChunk& f);
+    ~FifoChunk();
+};
+
+
+class fifoimpl: private Array<FifoChunk>
+{
+public:
+    short left, right;
+
+    fifoimpl();
+    fifoimpl(const fifoimpl&);
+    ~fifoimpl();
+    void operator= (const fifoimpl&);
+
+    void* _at(int) const;
+    FifoChunk& _chunkat(int i) const  { return Array<FifoChunk>::_at(i); }
+    int chunks() const                { return Array<FifoChunk>::size(); }
+
+    void push(const char*, int);
+    int  pull(char*, int);
+    ptr  advance(int len)             { push(NULL, len); return _at(size() - len); }
+    void skip(int len)                { pull(NULL, len); }
+    int  size() const;
+    void* at(int i) const
+    {
+#ifdef DEBUG
+        if (unsigned(i) >= unsigned(size()))
+            idxerror();
+#endif
+        return _at(i);
+    }
+};
+
+
+template <class T>
+class PodFifo: private fifoimpl
+{
+    typedef T* Tptr;
+    enum { Tsize = sizeof(T) };
+public:
+    PodFifo(): fifoimpl()  { assert((FIFO_CHUNK_SIZE / Tsize) * Tsize == FIFO_CHUNK_SIZE); }
+    PodFifo(const PodFifo& f): fifoimpl(f)  { }
+    ~PodFifo()  { }
+    
+    int size() const  { return fifoimpl::size() / Tsize; }
+    const T& operator[] (int i) const { return *Tptr(fifoimpl::at(i * Tsize)); }
+    const T& preview()  { return *Tptr(fifoimpl::at(0)); }
+    void push(const T& t)  { ::new(Tptr(fifoimpl::advance(Tsize))) T(t); }
+    T pull()
+    {
+        ptr p = fifoimpl::at(0);
+        T t = *Tptr(p);
+        Tptr(p)->~T();
+        fifoimpl::skip(Tsize);
+        return t;
+    }
+};
+
+
 #endif
 
