@@ -4,22 +4,10 @@
 
 #include <map>
 
-
-#ifndef __PORT_H
 #include "port.h"
-#endif
-
-#ifndef __STR_H
 #include "str.h"
-#endif
-
-#ifndef __ARRAY_H
 #include "array.h"
-#endif
-
-#ifndef __EXCEPT_H
 #include "except.h"
-#endif
 
 
 class Base

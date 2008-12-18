@@ -1,0 +1,13 @@
+# DO NOT DELETE
+
+obj/portatom.o: port.h
+obj/portmem.o: port.h
+obj/strbase.o: port.h str.h
+obj/strconv.o: str.h port.h
+obj/except.o: except.h str.h port.h
+obj/charset.o: charset.h port.h
+obj/array.o: array.h str.h port.h
+obj/baseobj.o: str.h port.h baseobj.h array.h except.h
+obj/source.o: source.h str.h port.h except.h charset.h
+obj/main.o: charset.h port.h str.h array.h source.h except.h baseobj.h
+obj/main-ut.o: charset.h port.h str.h array.h baseobj.h except.h source.h
