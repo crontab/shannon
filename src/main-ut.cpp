@@ -1,4 +1,9 @@
 
+// We rely on assert(), so make sure it is turned on for this program
+#ifdef NDEBUG
+#  undef NDEBUG
+#endif
+
 #include <assert.h>
 #include <stdio.h>
 
@@ -6,17 +11,12 @@
 #include "str.h"
 #include "array.h"
 #include "baseobj.h"
+#include "source.h"
 
 
 // ------------------------------------------------------------------------ //
 // --- UNIT TESTS --------------------------------------------------------- //
 // ------------------------------------------------------------------------ //
-
-// We rely on assert(), so make sure it is turned on
-#ifdef NDEBUG
-#  undef NDEBUG
-#endif
-
 
 #define assert_throw(e,...) { bool __t = false; try { __VA_ARGS__; } catch(e) { __t = true; } assert(__t); }
 #define assert_nothrow(...) { bool __t = false; try { __VA_ARGS__; } catch(...) { __t = true; } assert(!__t); }
@@ -31,6 +31,8 @@ void const_string_call(const string& s)
 void testString()
 {
     {
+        assert(12 == sizeof(_strrec));
+
         static char strbuf[10] = "STRING";
 
         char c = 'A';
@@ -269,6 +271,41 @@ void testHashTable()
 }
 
 
+void testInText()
+{
+    const charset idchars = "A-Za-z_0-9";
+    const charset specials = "`!\"$%^&*()_+=:@;'#<>?,./|\\~-~~";
+    const charset wschars = "\t ";
+
+    InText in("tests/intext.txt");
+    try
+    {
+        assert('T' == in.preview());
+        assert("Thunder" == in.token(idchars));
+        assert(0 == in.getIndent());
+        assert("," == in.token(specials));
+        assert(" " == in.token(wschars));
+        in.skipLine();
+        assert(' ' == in.preview());
+        assert(2 == in.getLinenum());
+        in.skip(wschars);
+        assert(4 == in.getIndent());
+        in.skipLine();
+        in.skip(wschars);
+        assert(12 == in.getIndent());
+        while (!in.getEof())
+            in.skipLine();
+        assert(11 == in.getLinenum());
+        assert(0 == in.getIndent());
+    }
+    catch (Exception& e)
+    {
+        printf("Exception: %s\n", e.what().c_str());
+        assert(false);
+    }
+}
+
+
 class _AtExit
 {
 public:
@@ -291,5 +328,6 @@ int main ()
     testArrays();
     testContainer();
     testHashTable();
+    testInText();
     return 0;
 }
