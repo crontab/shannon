@@ -1,21 +1,16 @@
 
-#include <assert.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <string.h>
-
 #include "charset.h"
 #include "str.h"
+#include "except.h"
 #include "array.h"
-#include "source.h"
-#include "baseobj.h"
 
 
 // ------------------------------------------------------------------------ //
-// --- TEXT FILE READER --------------------------------------------------- //
+// --- TOKEN EXTRACTOR ---------------------------------------------------- //
 // ------------------------------------------------------------------------ //
+
+
+
 
 class _AtExit
 {
