@@ -7,22 +7,14 @@
 #include "source.h"
 
 
-InText::InText(const string& ifilename)
-    : filename(ifilename), fd(-1), bufsize(0), bufpos(0), linenum(0),
+InText::InText()
+    : buffer(NULL), bufsize(0), bufpos(0), linenum(0),
       indent(0), newline(true), eof(false), tabsize(DEFAULT_TAB_SIZE)
 {
 }
 
 
-InText::~InText()
-{
-    if (fd >= 0)
-    {
-        close(fd);
-        eof = true;
-        fd = -1;
-    }
-}
+InText::~InText()  { }
 
 
 void InText::error(int code) throw(ESysError)
@@ -32,34 +24,13 @@ void InText::error(int code) throw(ESysError)
 }
 
 
-void InText::validateBuffer()
-{
-    if (!eof && fd < 0)
-    {
-        fd = open(filename.c_str(), O_RDONLY);
-        if (fd < 0)
-            error(errno);
-        linenum = 1;
-    }
-    if (!eof && bufpos == bufsize)
-    {
-        int result = read(fd, buf, INTEXT_BUFSIZE);
-        if (result < 0)
-            error(errno);
-        bufpos = 0;
-        bufsize = result;
-        eof = result == 0;
-    }
-}
-
-
 char InText::preview()
 {
     if (bufpos == bufsize)
         validateBuffer();
     if (eof)
         return 0;
-    return buf[bufpos];
+    return buffer[bufpos];
 }
 
 
@@ -69,7 +40,7 @@ char InText::get()
         validateBuffer();
     if (eof)
         return 0;
-    return buf[bufpos++];
+    return buffer[bufpos++];
 }
 
 
@@ -112,9 +83,9 @@ void InText::token(const charset& chars, string& result, bool noresult)
             validateBuffer();
         if (eof)
             return;
-        const char* b = buf + bufpos;
+        const char* b = buffer + bufpos;
         register const char* p = b;
-        register const char* e = buf + bufsize;
+        register const char* e = buffer + bufsize;
         while (p < e && chars[*p])
         {
             switch (*p)
@@ -157,8 +128,8 @@ void InText::skipTo(char c)
             validateBuffer();
         if (eof)
             return;
-        const char* b = buf + bufpos;
-        const char* e = buf + bufsize;
+        const char* b = buffer + bufpos;
+        const char* e = buffer + bufsize;
         const char* p = (const char*)memchr(b, c, e - b);
         if (p != NULL)
         {
@@ -178,6 +149,47 @@ void InText::skipLine()
     skipEol();
 }
 
+
+
+InFile::InFile(const string& ifilename)
+    : InText(), filename(ifilename), fd(-1)
+{
+    buffer = (char*)memalloc(INFILE_BUFSIZE);
+}
+
+
+InFile::~InFile()
+{
+    if (fd >= 0)
+    {
+        close(fd);
+        eof = true;
+        fd = -1;
+    }
+    memfree(buffer);
+    buffer = NULL;
+}
+
+
+void InFile::validateBuffer()
+{
+    if (!eof && fd < 0)
+    {
+        fd = open(filename.c_str(), O_RDONLY);
+        if (fd < 0)
+            error(errno);
+        linenum = 1;
+    }
+    if (!eof && bufpos == bufsize)
+    {
+        int result = read(fd, buffer, INFILE_BUFSIZE);
+        if (result < 0)
+            error(errno);
+        bufpos = 0;
+        bufsize = result;
+        eof = result == 0;
+    }
+}
 
 
 
