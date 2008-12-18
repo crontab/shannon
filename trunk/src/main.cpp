@@ -6,8 +6,11 @@
 #include <errno.h>
 #include <string.h>
 
+#include <vector>
+
 #include "charset.h"
 #include "str.h"
+#include "array.h"
 #include "baseobj.h"
 
 
@@ -184,177 +187,6 @@ void InText::skip(const charset& chars) throw(ESysError)
 }
 
 
-// ------------------------------------------------------------------------ //
-// --- FIFO --------------------------------------------------------------- //
-// ------------------------------------------------------------------------ //
-
-
-#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
-
-
-extern int fifochunkalloc;
-
-
-struct FifoChunk
-{
-    char* data;
-    FifoChunk();
-    FifoChunk(const FifoChunk& f);
-    ~FifoChunk();
-};
-
-
-class fifoimpl: private Array<FifoChunk>
-{
-public:
-    short left, right;
-
-    fifoimpl();
-    fifoimpl(const fifoimpl&);
-    ~fifoimpl();
-    void operator= (const fifoimpl&);
-
-    void* _at(int) const;
-    FifoChunk& _chunkat(int i) const  { return Array<FifoChunk>::_at(i); }
-    int chunks() const                { return Array<FifoChunk>::size(); }
-
-    void push(const char*, int);
-    int  pull(char*, int);
-    int  size() const;
-    void* at(int i) const
-    {
-#ifdef DEBUG
-        if (unsigned(i) >= unsigned(size()))
-            idxerror();
-#endif
-        return _at(i);
-    }
-};
-
-
-template <class T>
-class PodFifo: private fifoimpl
-{
-public:
-    PodFifo(): fifoimpl()  { }
-    PodFifo(const PodFifo& f): fifoimpl(f)  { }
-    ~PodFifo()  { }
-};
-
-
-// ------------------------------------------------------------------------ //
-
-
-FifoChunk::FifoChunk()
-{
-#ifdef DEBUG
-    fifochunkalloc++;
-#endif
-    data = (char*)memalloc(FIFO_CHUNK_SIZE);
-}
-
-FifoChunk::FifoChunk(const FifoChunk& f)
-{
-#ifdef DEBUG
-    fifochunkalloc++;
-#endif
-    data = (char*)memalloc(FIFO_CHUNK_SIZE);
-    memcpy(data, f.data, FIFO_CHUNK_SIZE);
-}
-
-FifoChunk::~FifoChunk()
-{
-    memfree(data);
-#ifdef DEBUG
-    fifochunkalloc--;
-#endif
-}
-
-
-fifoimpl::fifoimpl()
-    : Array<FifoChunk>(), left(0), right(0)  { }
-
-
-fifoimpl::fifoimpl(const fifoimpl& f)
-    : Array<FifoChunk>(f), left(f.left), right(f.right)  { }
-
-
-fifoimpl::~fifoimpl()
-{
-}
-
-
-void fifoimpl::operator= (const fifoimpl& f)
-{
-    clear();
-    Array<FifoChunk>::operator= (f);
-    left = f.left;
-    right = f.right;
-}
-
-
-void* fifoimpl::_at(int i) const
-{
-    i += left;
-    return Array<FifoChunk>::_at(i / FIFO_CHUNK_SIZE).data
-        + i % FIFO_CHUNK_SIZE;
-}
-
-
-int fifoimpl::size() const
-{
-    return empty() ? 0 : (chunks() - 1) * FIFO_CHUNK_SIZE - left + right;
-}
-
-
-void fifoimpl::push(const char* data, int datasize)
-{
-    if (datasize > 0 && empty())
-    {
-        Array<FifoChunk>::add();
-        right = 0;
-    }
-    while (datasize > 0)
-    {
-        int len = imin(FIFO_CHUNK_SIZE - right, datasize);
-        memcpy(_chunkat(chunks() - 1).data + right, data, len);
-        right += len;
-        datasize -= len;
-        if (datasize == 0)
-            return;
-        data += len;
-        Array<FifoChunk>::add();
-        right = 0;
-    }
-}
-
-
-int fifoimpl::pull(char* data, int datasize)
-{
-    int result = 0;
-    while (datasize > 0 && !empty())
-    {
-        int curright = chunks() == 1 ? right : FIFO_CHUNK_SIZE;
-        int len = imin(curright - left, datasize);
-        memcpy(data, _chunkat(0).data + left, len);
-        left += len;
-        if (left == curright)
-        {
-            Array<FifoChunk>::del(0);
-            left = 0;
-        }
-        datasize -= len;
-        data += len;
-        result += len;
-    }
-    return result;
-}
-
-
-
-int fifochunkalloc = 0;
-
-
 
 class _AtExit
 {
@@ -388,18 +220,24 @@ int main()
         f.push(s.c_bytes(), s.size());
         s = "efg";
         f.push(s.c_bytes(), s.size());
-        printf("chunk alloc: %d\n", fifochunkalloc);
 
-        fifoimpl g(f);
-        printf("chunk alloc: %d\n", fifochunkalloc);
-
+        fifoimpl g = f;
         char buf[256];
-        int len = f.pull(buf, 6);
+        int len = g.pull(buf, 6);
         buf[len] = 0;
-        printf("pulled: %s\n", buf);
-        printf("chunk alloc: %d\n", fifochunkalloc);
+        assert(strcmp("abcdef", buf) == 0);
     }
-    printf("chunk alloc: %d\n", fifochunkalloc);
+    {
+        PodFifo<int> f;
+        f.push(1);
+        f.push(2);
+        f.push(3);
+        assert(3 == f.size());
+        assert(1 == f.pull());
+        assert(2 == f.pull());
+        PodFifo<int> g = f;
+        assert(3 == g.pull());
+    }
     return 0;
 }
 

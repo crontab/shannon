@@ -2,6 +2,8 @@
 #define __PORT_H
 
 
+#include <string.h>
+
 #ifdef DEBUG
 #  define CHECK_BOUNDS 
 #endif
@@ -51,6 +53,8 @@ void  memerror();
 int   memquantize(int);
 
 
+// --- MISC --------------------------------------------------------------- //
+
 #define CRIT_FIRST 0xC0000
 
 void fatal(int code, const char* msg);
@@ -59,5 +63,16 @@ inline int   imax(int x, int y)       { return (x > y) ? x : y; }
 inline int   imin(int x, int y)       { return (x < y) ? x : y; }
 inline large lmax(large x, large y)   { return (x > y) ? x : y; }
 inline large lmin(large x, large y)   { return (x < y) ? x : y; }
+
+
+#ifndef _NEW
+// Default placement versions of operator new.
+inline void* operator new(size_t, void* p) throw() { return p; }
+inline void* operator new[](size_t, void* p) throw() { return p; }
+
+// Default placement versions of operator delete.
+inline void  operator delete  (void*, void*) throw() { }
+inline void  operator delete[](void*, void*) throw() { }
+#endif
 
 #endif
