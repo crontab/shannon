@@ -36,7 +36,8 @@ public:
     int  getLinenum()       { return linenum; }
     int  getIndent()        { return indent; }
     void setIndent(int i)   { indent = i; }
-    int  getNewline()       { return newline; }
+    int  getNewLine()       { return newline; }
+    void resetNewLine()     { newline = false; }
     bool getEof()           { return eof; }
     bool getEol();
     bool isEolChar(char c)  { return c == '\r' || c == '\n'; }

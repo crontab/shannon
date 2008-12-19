@@ -44,12 +44,14 @@ class Parser
 {
 protected:
     InText* input;
+    Stack<int> indentStack;
 
     void parseStringLiteral();
     void skipMultilineComment();
 
 public:
     SyntaxMode mode;
+    bool singleLineBlock; // only for syntaxIndent, e.g. if a: b = c
     Token token;
     string strValue;
     ularge intValue;
@@ -61,6 +63,8 @@ public:
 
     void error(const string& msg) throw(EParser);
     void syntax(const string& msg) throw(EParser);
+    
+    int indentLevel()  { return indentStack.top(); }
 };
 
 
@@ -103,9 +107,11 @@ static string mkPrintable(char c)
 
 
 Parser::Parser(const string& filename)
-    : input(new InFile(filename)), mode(syntaxIndent), token(tokUndefined),
-      strValue(), intValue(0)
+    : input(new InFile(filename)),
+      indentStack(), mode(syntaxIndent), singleLineBlock(false),
+      token(tokUndefined), strValue(), intValue(0)
 {
+    indentStack.push(0);
 }
 
 
@@ -211,25 +217,82 @@ restart:
 
     char c = input->preview();
 
+    // --- Handle EOF and EOL ---
     if (input->getEof())
     {
+        // finalize all indents at end of file
+        if (mode == syntaxIndent && indentStack.size() > 1)
+        {
+            strValue = "<END>";
+            indentStack.pop();
+            return token = tokBlockEnd;
+        }
         strValue = "<EOF>";
         return token = tokEof;
     }
 
-    else if (input->isEolChar(c))
+    else if (input->getEol())
     {
         input->skipEol();
-        if (mode == syntaxIndent && !input->getNewline())
+        if (mode == syntaxIndent)
         {
-            strValue = "<END>";
-            return token = tokEnd;
+            if (singleLineBlock)
+            {
+                strValue = "<END>";
+                singleLineBlock = false;
+                return token = tokBlockEnd;
+            }
+            else
+            {
+                strValue = "<SEP>";
+                return token = tokEnd;
+            }
         }
         else
             goto restart;
     }
 
-    else if (identFirst[c])  // identifier or keyword
+    else if (c == '#')
+    {
+        // TODO: multiline comments
+        input->skipLine();
+        goto restart;
+    }
+
+    else if (mode == syntaxIndent && input->getNewLine())
+    {
+        // this is a new line, blanks are skipped, so we are at the first 
+        // non-blank char:
+        int newIndent = input->getIndent();
+        int oldIndent = indentStack.top();
+        if (newIndent > oldIndent)
+        {
+            strValue = "<BEGIN>";
+            indentStack.push(newIndent);
+            input->resetNewLine();
+            return token = tokBlockBegin;
+        }
+        else if (newIndent < oldIndent)
+        {
+            strValue = "<END>";
+            indentStack.pop();
+            oldIndent = indentStack.top();
+            if (newIndent > oldIndent)
+                syntax("Unmatched un-indent");
+            else if (newIndent == oldIndent)
+            {
+                input->resetNewLine();
+                return token = tokBlockEnd;
+            }
+            else
+                return token = tokBlockEnd;
+        }
+        // else: pass through to token analysis
+    }
+
+
+    // --- Handle ordinary tokens ---
+    if (identFirst[c])  // identifier or keyword
     {
         strValue = input->get();
         strValue += input->token(identRest);
@@ -256,21 +319,13 @@ restart:
         case ',': return token = tokComma;
         case '.': return token = tokPeriod;
         case '\'': parseStringLiteral(); return token = tokStrValue;
-        case '/':
-            char d = input->preview();
-            if (d == '/')  // single-line comment
-            {
-                input->skipLine();
-                goto restart;
-            }
-            else if (d == '*')  // multiline comment
-            {
-                skipMultilineComment();
-                goto restart;
-            }
-            else
-                return token = tokDiv;
-            break;
+        case ';': strValue = "<SEP>"; return token = tokEnd;
+        case ':':
+            mode = syntaxIndent;
+            input->skip(wsChars);
+            singleLineBlock = !input->getEol();
+            return token = tokBlockBegin;
+        case '/': return token = tokDiv;
         }
     }
 
@@ -303,7 +358,9 @@ int main()
     {
         while (parser.next() != tokEof)
         {
-            printf("%s (%d)\n", parser.strValue.c_str(), parser.token);
+            printf("%s ", parser.strValue.c_str());
+            if (parser.token == tokBlockBegin || parser.token == tokBlockEnd || parser.token == tokEnd)
+                printf("\n");
         }
     }
     catch (Exception& e)
