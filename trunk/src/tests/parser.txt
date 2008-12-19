@@ -1,11 +1,12 @@
-Thunder, thunder, thundercats, Ho
+Thunder, thunder,
+    thundercats, Ho
     Thundercats are on the move,
-  	    Thundercats are loose.
-	  Feel the magic, hear the roar,
-Thundercats /* are */ loose.
-
+  	Thundercats are loose.
+	    Feel the magic, hear the roar,
+    Thundercats are loose.
+        42
             '\x54hunder, \'thunder\',\tthunder, Thundercats'
-        /**** Thunder, thunder, thunder, Thundercats!
-        Thunder, thunder, thunder,	 Thundercats! **/
-// Thunder, thunder, thunder, Thundercats!
-        Thundercats
+    	    Thunder, thunder, thunder, Thundercats
+        Thunder,	 # thunder, thunder,
+     #Thunder, thunder, thunder, Thundercats
+          # Thundercats
