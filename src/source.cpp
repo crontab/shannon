@@ -4,9 +4,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <map>
-
 #include "source.h"
+#include "bsearch.h"
 
 
 InText::InText()
@@ -177,45 +176,51 @@ string InFile::getFileName()
 
 // --- KEYWORDS ------------------------------------------------------------ //
 
-struct Keywords
+
+class Keywords
 {
-    struct ConstCharCompare
-    {
-        bool operator() (const char* a, const char* b) { return strcmp(a, b) < 0; }
-    };
-    typedef std::map<const char*, Token, ConstCharCompare> KwMap;
     struct kwinfo { const char* kw; Token token; };
-    static kwinfo kwinit[];
+    static kwinfo keywords[];
 
-    KwMap kwMap;
+    int count;
 
+public:
     Keywords()
     {
-        for (kwinfo* k = kwinit; k->kw != NULL; k++)
-            kwMap.insert(std::pair<const char*, Token> (k->kw, k->token));
+        for (kwinfo* k = keywords; k->kw != NULL; k++)
+        {
+            if (count > 0)
+                if (strcmp(k->kw, (k - 1)->kw) <= 0)
+                    fatal(CRIT_FIRST + 40, "Keyword verification failed");
+            count++;
+        }
     }
     
-    Token find(const char* s)
+    int compare(int index, const char* b) const
     {
-        KwMap::const_iterator i = kwMap.find(s);
-        if (i == kwMap.end())
-            return tokUndefined;
-        return i->second;
+        return strcmp(keywords[index].kw, b);
     }
 
-    KwMap::const_iterator begin() const { return kwMap.begin(); }
-    KwMap::const_iterator end() const { return kwMap.end(); }
-};
-
-Keywords::kwinfo Keywords::kwinit[] =
+    Token find(const char* s)
     {
-        {"void", tokVoid},
+        int index;
+        if (bsearch<Keywords, const char*> (*this, s, count, index))
+            return keywords[index].token;
+        else
+            return tokUndefined;
+    }
+
+} keywords;
+
+
+Keywords::kwinfo Keywords::keywords[] =
+    {
+        // NOTE: this list be kept in sorted order
         {"state", tokState},
+        {"void", tokVoid},
         {NULL, tokUndefined}
     };
 
-
-static Keywords keywords;
 
 
 // ------------------------------------------------------------------------ //

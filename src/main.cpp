@@ -9,6 +9,9 @@
 #include "baseobj.h"
 
 
+
+// ------------------------------------------------------------------------- //
+
 class _AtExit
 {
 public:
@@ -22,7 +25,6 @@ public:
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
     }
 } _atexit;
-
 
 
 
