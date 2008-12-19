@@ -49,7 +49,7 @@ public:
     charset  operator-  (char b) const             { charset t = *this; return t -= b; }
     charset& operator*= (const charset& s)         { intersect(s); return *this; }
     charset  operator*  (const charset& s) const   { charset t = *this; return t *= s; }
-    charset  operator!  () const                   { charset t = *this; t.invert(); return t; }
+    charset  operator~  () const                   { charset t = *this; t.invert(); return t; }
     bool operator== (const charset& s) const       { return eq(s); }
     bool operator!= (const charset& s) const       { return !eq(s); }
     bool operator<= (const charset& s) const       { return le(s); }

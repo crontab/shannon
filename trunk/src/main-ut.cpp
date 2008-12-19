@@ -316,26 +316,67 @@ void testInText()
     try
     {
         assert('T' == in.preview());
+        assert(0 == in.getColumn());
         assert("Thunder" == in.token(idchars));
-        assert(0 == in.getIndent());
         assert("," == in.token(specials));
         assert(" " == in.token(wschars));
         in.skipLine();
         assert(' ' == in.preview());
         assert(2 == in.getLinenum());
         in.skip(wschars);
-        assert(4 == in.getIndent());
+        assert(4 == in.getColumn());
         in.skipLine();
         in.skip(wschars);
-        assert(12 == in.getIndent());
+        assert(12 == in.getColumn());
         while (!in.getEof())
             in.skipLine();
+        assert(20 == in.getColumn());
         assert(11 == in.getLinenum());
-        assert(0 == in.getIndent());
     }
     catch (Exception& e)
     {
         printf("Exception: %s\n", e.what().c_str());
+        assert(false);
+    }
+}
+
+
+void testParser()
+{
+    Parser parser("tests/parser.txt");
+    try
+    {
+        static Token expect[] = {
+            tokIdent, tokComma, tokSep,
+            tokBegin, tokIdent, tokSep,
+            tokBegin, tokIdent, tokIdent, tokIdent, tokSep,
+            tokIdent, tokIdent, tokIdent, tokPeriod, tokSep,
+            tokEnd,
+            tokIntValue, tokSep,
+            tokBegin, tokStrValue, tokSep,
+            tokIdent, tokComma, tokSep,
+            tokIdent, tokSep,
+            tokEnd, tokEnd, tokEof
+        };
+        int i = 0;
+        while (parser.next() != tokEof && expect[i] != tokEof)
+        {
+            assert(expect[i] == parser.token);
+            if (parser.token == tokIntValue)
+                assert(42 == parser.intValue);
+            else if (parser.token == tokStrValue)
+                assert("Thunder, 'thunder',\tthunder, Thundercats" == parser.strValue);
+            else if (i == 0)
+                assert("Thunder" == parser.strValue);
+            else if (i == 1)
+                assert("," == parser.strValue);
+            i++;
+        }
+        assert(expect[i] == tokEof && parser.token == tokEof);
+    }
+    catch (Exception& e)
+    {
+        fprintf(stderr, "%s\n", e.what().c_str());
         assert(false);
     }
 }
@@ -364,5 +405,6 @@ int main ()
     testContainer();
     testHashTable();
     testInText();
+    testParser();
     return 0;
 }
