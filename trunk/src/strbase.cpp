@@ -416,15 +416,18 @@ bool string::operator== (char c) const
 }
 
 
-bool string::operator< (const string& s) const
+int string::compare(const string& s) const
 {
     int alen = STR_LENGTH(data);
     int blen = STR_LENGTH(s.data);
-    if (alen == 0)
-        return blen != 0;
-    if (alen < blen)
-        return memcmp(data, s.data, alen) <= 0;
-    return memcmp(data, s.data, blen) < 0;
+    int len = imin(alen, blen);
+    if (len == 0)
+        return alen - blen;
+    int result = memcmp(data, s.data, len);
+    if (result == 0)
+        return alen - blen;
+    else
+        return result;
 }
 
 
