@@ -4,6 +4,7 @@
 #include "str.h"
 #include "except.h"
 #include "charset.h"
+#include "contain.h"
 
 
 #define INFILE_BUFSIZE 8192
@@ -17,8 +18,7 @@ protected:
     int   bufsize;
     int   bufpos;
     int   linenum;
-    int   indent;
-    bool  newline;
+    int   column;
     bool  eof;
     int   tabsize;
     
@@ -34,10 +34,7 @@ public:
     
     virtual string getFileName() = 0;
     int  getLinenum()       { return linenum; }
-    int  getIndent()        { return indent; }
-    void setIndent(int i)   { indent = i; }
-    int  getNewLine()       { return newline; }
-    void resetNewLine()     { newline = false; }
+    int  getColumn()        { return column; }
     bool getEof()           { return eof; }
     bool getEol();
     bool isEolChar(char c)  { return c == '\r' || c == '\n'; }
@@ -64,6 +61,62 @@ public:
     virtual ~InFile();
     virtual string getFileName();
 };
+
+
+class EParser: public EMessage
+{
+protected:
+    string filename;
+    int linenum;
+public:
+    EParser(const string& ifilename, int ilinenum, const string& msg)
+        : EMessage(msg), filename(ifilename), linenum(ilinenum)  { }
+    virtual ~EParser() throw();
+    virtual string what() const throw();
+};
+
+
+enum Token
+{
+    tokUndefined = -1,
+    tokBegin, tokEnd, tokSep, // these will depend on C-style vs. Python-style modes in the future
+    tokEof,
+    tokIdent, tokIntValue, tokStrValue,
+    tokComma, tokPeriod, tokDiv
+};
+
+
+enum SyntaxMode { syntaxIndent, syntaxCurly };
+
+
+class Parser
+{
+protected:
+    InText* input;
+    bool blankLine;
+    Stack<int> indentStack;
+
+    void parseStringLiteral();
+    void skipMultilineComment();
+    void skipSinglelineComment();
+
+public:
+    bool singleLineBlock; // if a: b = c
+    Token token;
+    string strValue;
+    ularge intValue;
+    
+    Parser(const string& filename);
+    ~Parser();
+    
+    Token next(bool expectBlock = false) throw(EParser, ESysError);
+
+    void error(const string& msg) throw(EParser);
+    void syntax(const string& msg) throw(EParser);
+    
+    int indentLevel()  { return indentStack.top(); }
+};
+
 
 
 #endif

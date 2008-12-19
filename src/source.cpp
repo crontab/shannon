@@ -9,7 +9,7 @@
 
 InText::InText()
     : buffer(NULL), bufsize(0), bufpos(0), linenum(0),
-      indent(0), newline(true), eof(false), tabsize(DEFAULT_TAB_SIZE)
+      column(0), eof(false), tabsize(DEFAULT_TAB_SIZE)
 {
 }
 
@@ -46,9 +46,8 @@ char InText::get()
 
 void InText::doSkipEol()
 {
-    newline = true;
     linenum++;
-    indent = 0;
+    column = 0;
 }
 
 
@@ -90,10 +89,9 @@ void InText::token(const charset& chars, string& result, bool noresult)
         {
             switch (*p)
             {
-                case '\t': if (newline) indent = ((indent / tabsize) + 1) * tabsize; break;
+                case '\t': column = ((column / tabsize) + 1) * tabsize; break;
                 case '\n': doSkipEol(); break;
-                case ' ': if (newline) indent++; break;
-                default: newline = false; break; // freeze indent calculation
+                default: column++; break;
             }
             p++;
         }
@@ -120,35 +118,12 @@ void InText::skip(const charset& chars) throw(ESysError)
 }
 
 
-void InText::skipTo(char c)
-{
-    do
-    {
-        if (bufpos == bufsize)
-            validateBuffer();
-        if (eof)
-            return;
-        const char* b = buffer + bufpos;
-        const char* e = buffer + bufsize;
-        const char* p = (const char*)memchr(b, c, e - b);
-        if (p != NULL)
-        {
-            bufpos += p - b;
-            return;
-        }
-        else
-            bufpos += e - b;
-    }
-    while (bufpos == bufsize);
-}
-
-
 void InText::skipLine()
 {
-    skipTo('\n');
+    static const charset noneol = ~charset("\r\n");
+    skip(noneol);
     skipEol();
 }
-
 
 
 InFile::InFile(const string& ifilename)
@@ -196,3 +171,293 @@ string InFile::getFileName()
 {
     return filename;
 }
+
+
+// ------------------------------------------------------------------------ //
+// --- TOKEN EXTRACTOR ---------------------------------------------------- //
+// ------------------------------------------------------------------------ //
+
+
+EParser::~EParser() throw() { }
+
+
+string EParser::what() const throw()
+{
+    string s;
+    if (!filename.empty())
+        s = filename + '(' + itostring(linenum) + "): ";
+    return s + EMessage::what();
+}
+
+
+const charset wsChars = "\t ";
+const charset identFirst = "A-Za-z_";
+const charset identRest = "0-9A-Za-z_";
+const charset digits = "0-9";
+const charset hexDigits = "0-9A-Fa-f";
+const charset printableChars = "~20-~FF";
+
+
+static string mkPrintable(char c)
+{
+    if (c == '\\')
+        return string("\\\\");
+    else if (c == '\'')
+        return string("\\\'");
+    else if (printableChars[c])
+        return string(c);
+    else
+        return "\\x" + itostring(unsigned(c), 16);
+}
+
+
+Parser::Parser(const string& filename)
+    : input(new InFile(filename)), blankLine(true),
+      indentStack(), singleLineBlock(false),
+      token(tokUndefined), strValue(), intValue(0)
+{
+    indentStack.push(0);
+}
+
+
+Parser::~Parser()
+{
+    delete input;
+}
+
+
+void Parser::error(const string& msg) throw(EParser)
+{
+    throw EParser(input->getFileName(), input->getLinenum(), msg);
+}
+
+
+void Parser::syntax(const string& msg) throw(EParser)
+{
+    error("Syntax error: " + msg);
+}
+
+
+void Parser::parseStringLiteral()
+{
+    static const charset stringChars = printableChars - charset("'\\");
+    strValue.clear();
+    while (true)
+    {
+        strValue += input->token(stringChars);
+        if (input->getEof())
+            syntax("Unexpected end of file in string literal");
+        char c = input->get();
+        if (input->isEolChar(c))
+            syntax("Unexpected end of line in string literal");
+        if (c == '\'')
+            return;
+        else if (c == '\\')
+        {
+            c = input->get();
+            if (c == 't')
+                strValue += '\t';
+            else if (c == 'r')
+                strValue += '\r';
+            else if (c == 'n')
+                strValue += '\n';
+            else if (c == 'x')
+            {
+                string s;
+                if (hexDigits[input->preview()])
+                {
+                    s += input->get();
+                    if (hexDigits[input->preview()])
+                        s += input->get();
+                    bool e, o;
+                    ularge value = stringtou(s.c_str(), &e, &o, 16);
+                    strValue += char(value);
+                }
+                else
+                    syntax("Malformed hex sequence");
+            }
+            else
+                strValue += c;
+        }
+        else
+            syntax("Illegal character in string literal '" + mkPrintable(c) + "'");
+    }
+}
+
+
+void Parser::skipMultilineComment()
+{
+    static const charset commentChars = (printableChars - '}') + wsChars;
+    while (true)
+    {
+        input->skip(commentChars);
+        if (input->getEol())
+        {
+            if (input->getEof())
+                error("Unexpected end of file in comments");
+            input->skipEol();
+            continue;
+        }
+        char e = input->get();
+        if (e == '}')
+        {
+            if (input->preview() == '#')
+            {
+                input->get();
+                break;
+            }
+        }
+        else
+            syntax("Illegal character in comments '" + mkPrintable(e) + "'");
+    }
+    input->skip(wsChars);
+    if (!input->getEol())
+        syntax("Multiline comments must end with a new line");
+}
+
+
+void Parser::skipSinglelineComment()
+{
+    static const charset commentChars = printableChars + wsChars;
+    input->skip(commentChars);
+    if (!input->getEol())
+        syntax("Illegal character in comments '" + mkPrintable(input->preview()) + "'");
+}
+
+
+Token Parser::next(bool expectBlock) throw(EParser, ESysError)
+{
+restart:
+    strValue.clear();
+
+    input->skip(wsChars);
+
+    char c = input->preview();
+
+    // --- Handle EOF and EOL ---
+    if (input->getEof())
+    {
+        // finalize all indents at end of file
+        if (indentStack.size() > 1)
+        {
+            strValue = "<END>";
+            indentStack.pop();
+            return token = tokEnd;
+        }
+        strValue = "<EOF>";
+        return token = tokEof;
+    }
+
+    else if (input->getEol())
+    {
+        input->skipEol();
+        if (blankLine)
+            goto restart;
+        blankLine = true; // start from a new line
+        if (singleLineBlock)
+        {
+            strValue = "<END>";
+            singleLineBlock = false;
+            return token = tokEnd;
+        }
+        else
+        {
+            strValue = "<SEP>";
+            return token = tokSep;
+        }
+    }
+
+    else if (c == '#')  // single- or multiline comments
+    {
+        input->get();
+        // both functions stop exactly at EOL
+        if (input->preview() == '{')
+            skipMultilineComment();
+        else
+            skipSinglelineComment();
+        // if the comment started on a non-blank line, we have to generate <SEP>,
+        // so we simply preserve blankLine
+        goto restart;
+    }
+
+    else if (blankLine)
+    {
+        // this is a new line, blanks are skipped, so we are at the first 
+        // non-blank, non-comment char:
+        
+        int newIndent = input->getColumn();
+        int oldIndent = indentStack.top();
+        if (newIndent > oldIndent)
+        {
+            strValue = "<BEGIN>";
+            indentStack.push(newIndent);
+            blankLine = false; // don't return to this branch again
+            return token = tokBegin;
+        }
+        else if (newIndent < oldIndent) // unindent
+        {
+            strValue = "<END>";
+            indentStack.pop();
+            oldIndent = indentStack.top();
+            if (newIndent > oldIndent)
+                syntax("Unmatched un-indent");
+            else if (newIndent == oldIndent)
+            {
+                blankLine = false; // don't return to this branch again
+                return token = tokEnd;
+            }
+            else
+                // by keeping blankLine = true we force to return to this branch
+                // next time so that proper number of <END>s are generated
+                return token = tokEnd;
+        }
+        // else: same indent level, so pass through to token analysis
+    }
+
+    blankLine = false;
+
+    // --- Handle ordinary tokens ---
+    if (identFirst[c])  // identifier or keyword
+    {
+        strValue = input->get();
+        strValue += input->token(identRest);
+        return token = tokIdent;
+    }
+    
+    else if (digits[c])  // numeric
+    {
+        strValue = input->token(digits);
+        bool e, o;
+        intValue = stringtou(strValue.c_str(), &e, &o, 10);
+        if (e)
+            error("'" + strValue + "' is not a valid number");
+        if (o)
+            error("Numeric overflow (" + strValue + ")");
+        return token = tokIntValue;
+    }
+    
+    else  // special chars
+    {
+        strValue = input->get();
+        switch (c)
+        {
+        case ',': return token = tokComma;
+        case '.': return token = tokPeriod;
+        case '\'': parseStringLiteral(); return token = tokStrValue;
+        case ';': strValue = "<SEP>"; return token = tokSep;
+        case ':':
+            if (!expectBlock)
+                syntax("Nested block expected");
+            input->skip(wsChars);
+            singleLineBlock = !input->getEol();
+            return token = tokBegin;
+        case '/': return token = tokDiv;
+        }
+    }
+
+    syntax("Illegal character '" + mkPrintable(c) + "'");
+
+    return tokUndefined;
+}
+
+
