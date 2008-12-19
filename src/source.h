@@ -14,31 +14,35 @@ class InText
 {
 protected:
     char* buffer;
-    int  bufsize;
-    int  bufpos;
-    int  linenum;
-    int  indent;
-    bool newline;
-    bool eof;
-    int tabsize;
+    int   bufsize;
+    int   bufpos;
+    int   linenum;
+    int   indent;
+    bool  newline;
+    bool  eof;
+    int   tabsize;
     
     void error(int code) throw(ESysError);
     virtual void validateBuffer() = 0;
     void doSkipEol();
+    void skipTo(char c);
     void token(const charset& chars, string& result, bool skip);
 
 public:
     InText();
     virtual ~InText();
     
-    int  getIndent()  { return indent; }
-    int  getLinenum() { return linenum; }
-    bool getEof()     { return eof; }
+    virtual string getFileName() = 0;
+    int  getLinenum()       { return linenum; }
+    int  getIndent()        { return indent; }
+    void setIndent(int i)   { indent = i; }
+    int  getNewline()       { return newline; }
+    bool getEof()           { return eof; }
     bool getEol();
+    bool isEolChar(char c)  { return c == '\r' || c == '\n'; }
     char preview();
     char get();
     void skipEol();
-    void skipTo(char c);
     void skipLine();
     string token(const charset& chars) throw(ESysError);
     void skip(const charset& chars) throw(ESysError);
@@ -57,6 +61,7 @@ protected:
 public:
     InFile(const string& filename);
     virtual ~InFile();
+    virtual string getFileName();
 };
 
 
