@@ -89,8 +89,6 @@ const charset identRest = "0-9A-Za-z_";
 const charset digits = "0-9";
 const charset hexDigits = "0-9A-Fa-f";
 const charset printableChars = "~20-~FF";
-const charset stringChars = printableChars - charset("'\\");
-const charset commentChars = (printableChars - '*') + wsChars;
 
 
 static string mkPrintable(char c)
@@ -135,6 +133,7 @@ void Parser::syntax(const string& msg) throw(EParser)
 
 void Parser::parseStringLiteral()
 {
+    static const charset stringChars = printableChars - charset("'\\");
     strValue.clear();
     while (true)
     {
@@ -181,7 +180,7 @@ void Parser::parseStringLiteral()
 
 void Parser::skipMultilineComment()
 {
-    int saveIndent = input->getIndent();
+    static const charset commentChars = (printableChars - '}') + wsChars;
     while (true)
     {
         input->skip(commentChars);
@@ -193,9 +192,9 @@ void Parser::skipMultilineComment()
             continue;
         }
         char e = input->get();
-        if (e == '*')
+        if (e == '}')
         {
-            if (input->preview() == '/')
+            if (input->preview() == '#')
             {
                 input->get();
                 break;
@@ -204,7 +203,10 @@ void Parser::skipMultilineComment()
         else
             syntax("Illegal character in comments '" + mkPrintable(e) + "'");
     }
-    input->setIndent(saveIndent);
+    input->skip(wsChars);
+    if (!input->getEol())
+        syntax("Multiline comments must end with a new line");
+    input->skipEol();
 }
 
 
@@ -254,8 +256,11 @@ restart:
 
     else if (c == '#')
     {
-        // TODO: multiline comments
-        input->skipLine();
+        input->get();
+        if (input->preview() == '{')
+            skipMultilineComment();
+        else
+            input->skipLine();
         goto restart;
     }
 
