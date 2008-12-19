@@ -7,7 +7,12 @@
 #include "except.h"
 #include "source.h"
 #include "baseobj.h"
+#include "bsearch.h"
 
+
+class ShType
+{
+};
 
 
 // ------------------------------------------------------------------------- //

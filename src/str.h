@@ -127,7 +127,8 @@ public:
     bool operator!= (char c) const                { return !(*this == c); }
     bool operator!= (const string& s) const       { return !(*this == s); }
     
-    bool operator < (const string& s) const;
+    int compare(const string& s) const;
+    bool operator < (const string& s) const       { return compare(s) < 0; }
 
     friend bool operator== (const char*, const string&);
     friend bool operator== (char, const string&);
