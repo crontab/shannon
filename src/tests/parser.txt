@@ -1,7 +1,7 @@
 Thunder,
-        thunder
+        state
 	    Feel the magic
-  	    Thundercats are loose.
+  	    Thundercats are void.
         42
             '\x54hunder, \'thunder\',\tthunder, Thundercats'
     	    Thunder, # thunder, thunder, Thundercats

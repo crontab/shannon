@@ -348,9 +348,9 @@ void testParser()
     {
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
-            tokBegin, tokIdent, tokSep,
+            tokBegin, tokState, tokSep,
             tokBegin, tokIdent, tokIdent, tokIdent, tokSep,
-            tokIdent, tokIdent, tokIdent, tokPeriod, tokSep,
+            tokIdent, tokIdent, tokVoid, tokPeriod, tokSep,
             tokEnd,
             tokIntValue, tokSep,
             tokBegin, tokStrValue, tokSep,

@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <map>
+
 #include "source.h"
 
 
@@ -171,6 +173,49 @@ string InFile::getFileName()
 {
     return filename;
 }
+
+
+// --- KEYWORDS ------------------------------------------------------------ //
+
+struct Keywords
+{
+    struct ConstCharCompare
+    {
+        bool operator() (const char* a, const char* b) { return strcmp(a, b) < 0; }
+    };
+    typedef std::map<const char*, Token, ConstCharCompare> KwMap;
+    struct kwinfo { const char* kw; Token token; };
+    static kwinfo kwinit[];
+
+    KwMap kwMap;
+
+    Keywords()
+    {
+        for (kwinfo* k = kwinit; k->kw != NULL; k++)
+            kwMap.insert(std::pair<const char*, Token> (k->kw, k->token));
+    }
+    
+    Token find(const char* s)
+    {
+        KwMap::const_iterator i = kwMap.find(s);
+        if (i == kwMap.end())
+            return tokUndefined;
+        return i->second;
+    }
+
+    KwMap::const_iterator begin() const { return kwMap.begin(); }
+    KwMap::const_iterator end() const { return kwMap.end(); }
+};
+
+Keywords::kwinfo Keywords::kwinit[] =
+    {
+        {"void", tokVoid},
+        {"state", tokState},
+        {NULL, tokUndefined}
+    };
+
+
+static Keywords keywords;
 
 
 // ------------------------------------------------------------------------ //
@@ -421,7 +466,11 @@ restart:
     {
         strValue = input->get();
         strValue += input->token(identRest);
-        return token = tokIdent;
+        Token tok = keywords.find(strValue.c_str());
+        if (tok != tokUndefined)
+            return token = tok;
+        else
+            return token = tokIdent;
     }
     
     else if (digits[c])  // numeric

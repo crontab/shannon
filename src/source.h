@@ -82,6 +82,9 @@ enum Token
     tokBegin, tokEnd, tokSep, // these will depend on C-style vs. Python-style modes in the future
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
+    // keywords
+    tokVoid, tokState,
+    // special chars and sequences
     tokComma, tokPeriod, tokDiv
 };
 
