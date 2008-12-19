@@ -6,7 +6,13 @@ Thunder, thunder,
     Thundercats are loose.
         42
             '\x54hunder, \'thunder\',\tthunder, Thundercats'
-    	    Thunder, thunder, thunder, Thundercats
-        Thunder,	 # thunder, thunder,
+    	    Thunder, # thunder, thunder, Thundercats
+        Thunder,	 thunder, thunder,
      #Thunder, thunder, thunder, Thundercats
-          # Thundercats
+      # Thundercats
+
+#{
+  	Thundercats are loose.
+	    Feel the magic, hear the roar,
+}#   
+            Thundercats
