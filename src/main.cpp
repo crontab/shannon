@@ -30,7 +30,7 @@ public:
 enum Token
 {
     tokUndefined = -1,
-    tokBlockBegin, tokBlockEnd, tokEnd, // these depend on C-style vs. Python-style mode
+    tokBlockBegin, tokBlockEnd, tokEnd, // these will depend on C-style vs. Python-style modes in the future
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
     tokComma, tokPeriod, tokDiv
@@ -50,8 +50,7 @@ protected:
     void skipMultilineComment();
 
 public:
-    SyntaxMode mode;
-    bool singleLineBlock; // only for syntaxIndent, e.g. if a: b = c
+    bool singleLineBlock; // if a: b = c
     Token token;
     string strValue;
     ularge intValue;
@@ -59,7 +58,7 @@ public:
     Parser(const string& filename);
     ~Parser();
     
-    Token next() throw(EParser, ESysError);
+    Token next(bool expectBlock = false) throw(EParser, ESysError);
 
     void error(const string& msg) throw(EParser);
     void syntax(const string& msg) throw(EParser);
@@ -106,7 +105,7 @@ static string mkPrintable(char c)
 
 Parser::Parser(const string& filename)
     : input(new InFile(filename)),
-      indentStack(), mode(syntaxIndent), singleLineBlock(false),
+      indentStack(), singleLineBlock(false),
       token(tokUndefined), strValue(), intValue(0)
 {
     indentStack.push(0);
@@ -210,7 +209,7 @@ void Parser::skipMultilineComment()
 }
 
 
-Token Parser::next() throw(EParser, ESysError)
+Token Parser::next(bool expectBlock) throw(EParser, ESysError)
 {
 restart:
     strValue.clear();
@@ -223,7 +222,7 @@ restart:
     if (input->getEof())
     {
         // finalize all indents at end of file
-        if (mode == syntaxIndent && indentStack.size() > 1)
+        if (indentStack.size() > 1)
         {
             strValue = "<END>";
             indentStack.pop();
@@ -236,22 +235,17 @@ restart:
     else if (input->getEol())
     {
         input->skipEol();
-        if (mode == syntaxIndent)
+        if (singleLineBlock)
         {
-            if (singleLineBlock)
-            {
-                strValue = "<END>";
-                singleLineBlock = false;
-                return token = tokBlockEnd;
-            }
-            else
-            {
-                strValue = "<SEP>";
-                return token = tokEnd;
-            }
+            strValue = "<END>";
+            singleLineBlock = false;
+            return token = tokBlockEnd;
         }
         else
-            goto restart;
+        {
+            strValue = "<SEP>";
+            return token = tokEnd;
+        }
     }
 
     else if (c == '#')
@@ -264,7 +258,7 @@ restart:
         goto restart;
     }
 
-    else if (mode == syntaxIndent && input->getNewLine())
+    else if (input->getNewLine())
     {
         // this is a new line, blanks are skipped, so we are at the first 
         // non-blank char:
@@ -326,7 +320,8 @@ restart:
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokEnd;
         case ':':
-            mode = syntaxIndent;
+            if (!expectBlock)
+                syntax("Nested block expected");
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
             return token = tokBlockBegin;
