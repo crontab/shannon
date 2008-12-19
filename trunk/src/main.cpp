@@ -5,6 +5,7 @@
 #include "str.h"
 #include "contain.h"
 #include "except.h"
+#include "source.h"
 #include "baseobj.h"
 
 
@@ -13,9 +14,16 @@
 // ------------------------------------------------------------------------ //
 
 
-class ESyntax: public EMessage
+class EParser: public EMessage
 {
+protected:
+    string filename;
+    int linenum;
 public:
+    EParser(const string& ifilename, int ilinenum, const string& msg)
+        : EMessage(msg), filename(ifilename), linenum(ilinenum)  { }
+    virtual ~EParser() throw();
+    virtual string what() const throw();
 };
 
 
@@ -24,14 +32,252 @@ enum Token
     tokUndefined = -1,
     tokBlockBegin, tokBlockEnd, tokEnd, // these depend on C-style vs. Python-style mode
     tokEof,
-    tokIdent, tokIntValue, tokStrValue
+    tokIdent, tokIntValue, tokStrValue,
+    tokComma, tokPeriod, tokDiv
+};
+
+
+enum SyntaxMode { syntaxIndent, syntaxCurly };
+
+
+class Parser
+{
+protected:
+    InText* input;
+
+    void parseStringLiteral();
+    void skipMultilineComment();
+
+public:
+    SyntaxMode mode;
+    Token token;
+    string strValue;
+    ularge intValue;
+    
+    Parser(const string& filename);
+    ~Parser();
+    
+    Token next() throw(EParser, ESysError);
+
+    void error(const string& msg) throw(EParser);
+    void syntax(const string& msg) throw(EParser);
 };
 
 
 // ------------------------------------------------------------------------ //
 
 
+EParser::~EParser() throw() { }
 
+
+string EParser::what() const throw()
+{
+    string s;
+    if (!filename.empty())
+        s = filename + '(' + itostring(linenum) + "): ";
+    return s + EMessage::what();
+}
+
+
+const charset wsChars = "\t ";
+const charset identFirst = "A-Za-z_";
+const charset identRest = "0-9A-Za-z_";
+const charset digits = "0-9";
+const charset hexDigits = "0-9A-Fa-f";
+const charset printableChars = "~20-~FF";
+const charset stringChars = printableChars - charset("'\\");
+const charset commentChars = (printableChars - '*') + wsChars;
+
+
+static string mkPrintable(char c)
+{
+    if (c == '\\')
+        return string("\\\\");
+    else if (c == '\'')
+        return string("\\\'");
+    else if (printableChars[c])
+        return string(c);
+    else
+        return "\\x" + itostring(unsigned(c), 16);
+}
+
+
+Parser::Parser(const string& filename)
+    : input(new InFile(filename)), mode(syntaxIndent), token(tokUndefined),
+      strValue(), intValue(0)
+{
+}
+
+
+Parser::~Parser()
+{
+    delete input;
+}
+
+
+void Parser::error(const string& msg) throw(EParser)
+{
+    throw EParser(input->getFileName(), input->getLinenum(), msg);
+}
+
+
+void Parser::syntax(const string& msg) throw(EParser)
+{
+    error("Syntax error: " + msg);
+}
+
+
+void Parser::parseStringLiteral()
+{
+    strValue.clear();
+    while (true)
+    {
+        strValue += input->token(stringChars);
+        if (input->getEof())
+            syntax("Unexpected end of file in string literal");
+        char c = input->get();
+        if (input->isEolChar(c))
+            syntax("Unexpected end of line in string literal");
+        if (c == '\'')
+            return;
+        else if (c == '\\')
+        {
+            c = input->get();
+            if (c == 't')
+                strValue += '\t';
+            else if (c == 'r')
+                strValue += '\r';
+            else if (c == 'n')
+                strValue += '\n';
+            else if (c == 'x')
+            {
+                string s;
+                if (hexDigits[input->preview()])
+                {
+                    s += input->get();
+                    if (hexDigits[input->preview()])
+                        s += input->get();
+                    bool e, o;
+                    ularge value = stringtou(s.c_str(), &e, &o, 16);
+                    strValue += char(value);
+                }
+                else
+                    syntax("Malformed hex sequence");
+            }
+            else
+                strValue += c;
+        }
+        else
+            syntax("Illegal character in string literal '" + mkPrintable(c) + "'");
+    }
+}
+
+
+void Parser::skipMultilineComment()
+{
+    int saveIndent = input->getIndent();
+    while (true)
+    {
+        input->skip(commentChars);
+        if (input->getEol())
+        {
+            if (input->getEof())
+                error("Unexpected end of file in comments");
+            input->skipEol();
+            continue;
+        }
+        char e = input->get();
+        if (e == '*')
+        {
+            if (input->preview() == '/')
+            {
+                input->get();
+                break;
+            }
+        }
+        else
+            syntax("Illegal character in comments '" + mkPrintable(e) + "'");
+    }
+    input->setIndent(saveIndent);
+}
+
+
+Token Parser::next() throw(EParser, ESysError)
+{
+restart:
+    strValue.clear();
+
+    input->skip(wsChars);
+
+    char c = input->preview();
+
+    if (input->getEof())
+    {
+        strValue = "<EOF>";
+        return token = tokEof;
+    }
+
+    else if (input->isEolChar(c))
+    {
+        input->skipEol();
+        if (mode == syntaxIndent && !input->getNewline())
+        {
+            strValue = "<END>";
+            return token = tokEnd;
+        }
+        else
+            goto restart;
+    }
+
+    else if (identFirst[c])  // identifier or keyword
+    {
+        strValue = input->get();
+        strValue += input->token(identRest);
+        return token = tokIdent;
+    }
+    
+    else if (digits[c])  // numeric
+    {
+        strValue = input->token(digits);
+        bool e, o;
+        intValue = stringtou(strValue.c_str(), &e, &o, 10);
+        if (e)
+            error("'" + strValue + "' is not a valid number");
+        if (o)
+            error("Numeric overflow (" + strValue + ")");
+        return token = tokIntValue;
+    }
+    
+    else  // special chars
+    {
+        strValue = input->get();
+        switch (c)
+        {
+        case ',': return token = tokComma;
+        case '.': return token = tokPeriod;
+        case '\'': parseStringLiteral(); return token = tokStrValue;
+        case '/':
+            char d = input->preview();
+            if (d == '/')  // single-line comment
+            {
+                input->skipLine();
+                goto restart;
+            }
+            else if (d == '*')  // multiline comment
+            {
+                skipMultilineComment();
+                goto restart;
+            }
+            else
+                return token = tokDiv;
+            break;
+        }
+    }
+
+    syntax("Illegal character '" + mkPrintable(c) + "'");
+
+    return tokUndefined;
+}
 
 
 class _AtExit
@@ -52,6 +298,18 @@ public:
 
 int main()
 {
+    Parser parser("tests/parser.txt");
+    try
+    {
+        while (parser.next() != tokEof)
+        {
+            printf("%s (%d)\n", parser.strValue.c_str(), parser.token);
+        }
+    }
+    catch (Exception& e)
+    {
+        fprintf(stderr, "%s\n", e.what().c_str());
+    }
     return 0;
 }
 

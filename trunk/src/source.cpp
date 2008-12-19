@@ -71,7 +71,7 @@ void InText::skipEol()
 bool InText::getEol()
 {
     char c = preview();
-    return eof || c == '\r' || c == '\n';
+    return eof || isEolChar(c);
 }
 
 
@@ -192,4 +192,7 @@ void InFile::validateBuffer()
 }
 
 
-
+string InFile::getFileName()
+{
+    return filename;
+}
