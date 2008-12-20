@@ -11,8 +11,60 @@ Base::~Base()
 {
 }
 
+
 void* Base::operator new(size_t size)  { objCount++; return memalloc(size); }
 void Base::operator delete(void* p)    { objCount--; memfree(p); }
+
+
+
+basetblimpl::basetblimpl()
+        : PodArray<Base*>()  { }
+
+basetblimpl::basetblimpl(const basetblimpl& a)
+        : PodArray<Base*>(a)  { }
+
+basetblimpl::~basetblimpl()
+        { }
+
+void basetblimpl::operator= (const basetblimpl& a)
+        { PodArray<Base*>::operator=(a); }
+
+void basetblimpl::insert(int index, Base* obj)
+        { PodArray<Base*>::ins(index, obj); }
+
+void basetblimpl::add(Base* obj)
+        { PodArray<Base*>::add(obj); }
+
+void basetblimpl::erase(int index)
+        { PodArray<Base*>::del(index); }
+
+bool basetblimpl::search(const string& key, int* index) const
+{
+    return bsearch<basetblimpl, string>(*this, key, size(), *index);
+}
+
+Base* basetblimpl::find(const string& key) const
+{
+    int index;
+    if (search(key, &index))
+        return _at(index);
+    return NULL;
+}
+
+int basetblimpl::compare(int index, const string& key) const
+{
+    return _at(index)->name.compare(key);
+}
+
+void basetblimpl::addUnique(Base* obj) throw(EDuplicate)
+{
+    int index;
+    if (search(obj->name, &index))
+        throw EDuplicate(obj->name);
+    insert(index, obj);
+}
+
+
 
 
 baselistimpl::baselistimpl()
@@ -21,7 +73,7 @@ baselistimpl::baselistimpl()
 baselistimpl::baselistimpl(const baselistimpl& a)
         : Array<BasePtr>(a)  { }
 
-baselistimpl::~baselistimpl()
+baselistimpl::~basetblimpl()
         { }
 
 void baselistimpl::operator= (const baselistimpl& a)
@@ -41,18 +93,4 @@ void baselistimpl::erase(int index)
 
 void baselistimpl::clear()
         { Array<BasePtr>::clear(); }
-
-int baselistimpl::find(const string& key) const
-{
-    int index;
-    if (bsearch<baselistimpl, string>(*this, key, size(), index))
-        return index;
-    return -1;
-}
-
-int baselistimpl::compare(int index, const string& key) const
-{
-    return _at(index).obj->name.compare(key);
-}
-
 

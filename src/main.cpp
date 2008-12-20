@@ -24,39 +24,57 @@ const large int64max  = LARGE_MAX;
 const int   memAlign  = sizeof(int);
 
 
-class ShType: public Base
+// --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
+
+
+class ShType;
+class ShScope;
+
+
+class ShBase: public Base
 {
 public:
-    ShType(): Base() { }
-    virtual ~ShType();
+    ShScope* owner;
+    
+    ShBase(): Base(), owner(NULL)  { }
+    virtual const ShType* type() const = 0;
+};
+
+
+class ShType: public ShBase
+{
+public:
+    ShType(): ShBase() { }
+    virtual const ShType* type() const { return this; };
     virtual int physicalSize() const = 0;
     virtual int alignedSize() const;
+    virtual bool isComplete() const = 0;
     virtual bool isOrdinal() const = 0;
-    virtual bool isReference() const = 0;
+    virtual bool hasCircularRefs() const = 0;
 };
 
 
-class ShReference: public ShType
+class ShScope: public ShType
 {
+protected:
+    BaseTable<ShBase> symbols;
+    BaseList<ShType> anonTypes;
 public:
-    ShType* base;
-    bool constRef;
-    bool constBase;
-
-    ShReference(ShType* iBase, bool iConstRef, bool iConstBase);
-
-    virtual int physicalSize() const  { return sizeof(ptr); };
-    virtual bool isOrdinal() const    { return false; }
-    virtual bool isReference() const  { return true; }
+    void add(ShBase* obj);
+    ShBase* find(const string& name) const { return symbols.find(name); }
+    ShBase* deepSearch(const string&) const throw(ENotFound);
 };
+
+
+
+// --- LANGUAGE TYPES ----------------------------------------------------- //
 
 
 struct Range
 {
-    large min;
-    large max;
+    const large min;
+    const large max;
 
-    Range()  { }
     Range(large iMin, large iMax): min(iMin), max(iMax)  { }
     bool has(large v) const   { return v >= min && v <= max; }
     bool isSigned() const     { return min < 0; }
@@ -67,23 +85,46 @@ struct Range
 class ShInteger: public ShType
 {
 public:
-    Range range;
-    int size;
+    const Range range;
+    const int size;
 
     ShInteger(large min, large max);
-    virtual int physicalSize() const  { return size; };
-    virtual bool isOrdinal() const    { return true; }
-    virtual bool isReference() const  { return false; }
+    virtual int  physicalSize() const     { return size; };
+    virtual bool isComplete() const       { return true; }
+    virtual bool isOrdinal() const        { return true; }
+    virtual bool hasCircularRefs() const  { return false; }
 };
 
 
 // ------------------------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
 
 
-ShType::~ShType()  { }
+// --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
-ShReference::ShReference(ShType* iBase, bool iConstRef, bool iConstBase)
-    : ShType(), base(iBase), constRef(iConstRef), constBase(iConstBase)  { }
+
+void ShScope::add(ShBase* obj)
+{
+    if (obj->owner != NULL)
+        throw EInternal(3, "ShScope::add(): obj->owner != NULL");
+    symbols.addUnique(obj);
+    obj->owner = this;
+}
+
+
+ShBase* ShScope::deepSearch(const string& name) const throw(ENotFound)
+{
+    ShBase* obj = find(name);
+    if (obj != NULL)
+        return obj;
+    if (owner != NULL)
+        return owner->deepSearch(name);
+    throw ENotFound(name);
+}
+
+
+// --- LANGUAGE TYPES ----------------------------------------------------- //
+
 
 int ShType::alignedSize() const
 {
@@ -147,7 +188,8 @@ public:
 
 int main()
 {
-    printf("%lld\n", uint32max);
+    ShInteger i(0, 255);
+    printf("sizeof(BaseTable): %lu\n", sizeof(BaseTable<ShBase>));
     return 0;
 }
 

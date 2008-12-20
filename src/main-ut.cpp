@@ -259,11 +259,11 @@ void testBaseObjects()
 {
     int saveObjCount = Base::objCount;
     {
-        BaseList<Base> t;
+        BaseTable<Base> t;
         t.add(new Base("a"));
         t.add(new Base("b"));
-        assert(t.find("a") >= 0);
-        assert(t.find("z") == -1);
+        assert(t.find("a") != NULL);
+        assert(t.find("z") == NULL);
         assert(Base::objCount == saveObjCount + 2);
         t.remove(0);
         assert(Base::objCount == saveObjCount + 1);
