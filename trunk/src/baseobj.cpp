@@ -1,6 +1,7 @@
 
 #include "str.h"
 #include "baseobj.h"
+#include "bsearch.h"
 
 
 int Base::objCount;
@@ -8,50 +9,50 @@ int Base::objCount;
 
 Base::~Base()
 {
-    objCount--;
 }
 
+void* Base::operator new(size_t size)  { objCount++; return memalloc(size); }
+void Base::operator delete(void* p)    { objCount--; memfree(p); }
 
-Map::Map(): std::map<string, ptr>()  { }
 
+baselistimpl::baselistimpl()
+        : Array<BasePtr>()  { }
 
-ptr Map::find(const string& key) const throw()
+baselistimpl::baselistimpl(const baselistimpl& a)
+        : Array<BasePtr>(a)  { }
+
+baselistimpl::~baselistimpl()
+        { }
+
+void baselistimpl::operator= (const baselistimpl& a)
+        { Array<BasePtr>::operator=(a); }
+
+void baselistimpl::insert(int index, Base* obj)
+        { Array<BasePtr>::ins(index).obj = obj; }
+
+void baselistimpl::add(Base* obj)
+        { Array<BasePtr>::add().obj = obj; }
+
+void baselistimpl::remove(int index)
+        { Array<BasePtr>::del(index); }
+
+void baselistimpl::erase(int index)
+        { PodArray<BasePtr>::del(index); }
+
+void baselistimpl::clear()
+        { Array<BasePtr>::clear(); }
+
+int baselistimpl::find(const string& key) const
 {
-    const_iterator i = std::map<string, ptr>::find(key);
-    if (i == end())
-        return NULL;
-    return i->second;
+    int index;
+    if (bsearch<baselistimpl, string>(*this, key, size(), index))
+        return index;
+    return -1;
 }
 
-
-ptr Map::get(const string& key) const throw(ENotFound)
+int baselistimpl::compare(int index, const string& key) const
 {
-    const_iterator i = std::map<string, ptr>::find(key);
-    if (i == end())
-        throw ENotFound(key);
-    return i->second;
+    return _at(index).obj->name.compare(key);
 }
 
-
-void Map::add(const string& key, ptr value) throw(EDuplicate)
-{
-    std::pair<std::map<string, ptr>::iterator, bool> ret = 
-        std::map<string, ptr>::insert(std::pair<string, ptr>(key, value));
-    if (!ret.second)
-        throw EDuplicate(key);
-}
-
-
-void Map::remove(const string& key) throw(EInternal)
-{
-    size_t result = erase(key);
-    if (result == 0)
-        throw EInternal(1, '\'' + key + "' doesn't exist");
-}
-
-
-void Map::clear()
-{
-    std::map<string, ptr>::clear();
-}
 

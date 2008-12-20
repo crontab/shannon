@@ -2,8 +2,6 @@
 #define __BASEOBJ_H
 
 
-#include <map>
-
 #include "port.h"
 #include "str.h"
 #include "contain.h"
@@ -12,95 +10,67 @@
 
 class Base
 {
-protected:
+public:
     string name;
-public:
-    Base(): name()                          { objCount++; }
-    Base(const string& iName): name(iName)  { objCount++; }
+
+    Base(): name()                          { }
+    Base(const string& iName): name(iName)  { }
     virtual ~Base();
-    string getName()                        { return name; }
+
     static int objCount;
-    
-    void* operator new(size_t size)         { return memalloc(size); }
-    void operator delete(void* p)           { memfree(p); }
+    void* operator new(size_t size);
+    void operator delete(void* p);
 };
 
 
-template <class T>
-class Container: public PodArray<T*>
+template<class T>
+class Auto
 {
-private:
-    Container(const Container&);
-    void operator= (const Container&);
 public:
-    Container(): PodArray<T*>()      { }
-    ~Container()                     { clear(); }
-    void pop()                       { delete PodArray<T*>::top(); PodArray<T*>::pop(); }
-    void dequeue()                   { delete PodArray<T*>::operator[](0); PodArray<T*>::dequeue(); }
-    void clear()
-    {
-        for (int i = PodArray<T*>::size() - 1; i >= 0; i--)
-            delete PodArray<T*>::_at(i);
-        PodArray<T*>::clear();
-    }
+    T* obj;
+    Auto()                          { }
+//    Auto(T* iObj): obj(iObj)        { }
+    ~Auto()                         { delete obj; }
+    operator T*() const             { return obj; }
 };
 
 
-class Map: protected std::map<string, ptr>
+typedef Auto<Base> BasePtr;
+
+
+class baselistimpl: protected Array<BasePtr>
 {
 public:
-    Map();
-    ~Map()  { clear(); }
+    baselistimpl();
+    baselistimpl(const baselistimpl&);
+    ~baselistimpl();
+    void operator= (const baselistimpl&);
+
+    int size() const                { return Array<BasePtr>::size(); }
+    int empty() const               { return Array<BasePtr>::empty(); }
+    Base* operator[] (int i) const  { return Array<BasePtr>::operator[] (i); }
+
+    void insert(int, Base*);
+    void add(Base*);
+    void remove(int);
+    void erase(int);
     void clear();
-    ptr find(const string&) const throw();
-    ptr get(const string&) const throw(ENotFound);
-    void add(const string&, ptr) throw(EDuplicate);
-    void remove(const string&) throw(EInternal);
+
+    int find(const string&) const;
+    int compare(int, const string&) const;
 };
 
 
-template<class T, bool own>
-class HashTable: public Map
+template<class T>
+class BaseList: public baselistimpl
 {
+    typedef T* Tptr;
 public:
-    HashTable(): Map()                        { }
-    ~HashTable()                              { clear(); }
-    T* find(const string& key) const throw()  { return (T*)Map::find(key); }
-    T* get(const string& key) const throw(ENotFound)
-                                              { return (T*)Map::get(key); }
-    void add(const string& key, T* o) throw(EDuplicate)
-                                              { Map::add(key, o); }
-    void remove(const string& key) throw(EInternal)
-    {
-        if (own)
-        {
-            iterator i = std::map<string, ptr>::find(key);
-            if (i == end())
-                throw EInternal(1, '\'' + key + "' doesn't exist");
-            delete (T*)(i->second);
-            erase(i);
-        }
-        else
-            Map::remove(key);
-    }
-    void clear()
-    {
-        if (own)
-            for (const_iterator i = begin(); i != end(); i++)
-                delete (T*)(i->second);
-        Map::clear();
-    }
+    T* operator[] (int i) const    { return Tptr(baselistimpl::operator[] (i)); }
+    void insert(int i, Base* obj)  { baselistimpl::insert(i, obj); }
+    void add(Base* obj)            { baselistimpl::add(obj); }
 };
 
-
-template<bool own>
-class BaseHash: public HashTable<Base, own>
-{
-public:
-    BaseHash()  { }
-    ~BaseHash()  { }
-    void add(Base* o) throw(EDuplicate)  { HashTable<Base, own>::add(o->getName(), o); }
-};
 
 
 #endif
