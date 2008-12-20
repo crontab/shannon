@@ -69,10 +69,16 @@ class Auto
 {
 public:
     T* obj;
-    Auto()                          { }
-//    Auto(T* iObj): obj(iObj)      { }
-    ~Auto()                         { delete obj; }
-    operator T*() const             { return obj; }
+    Auto(): obj(NULL)                { }
+    Auto(Auto<T>& a): obj(a.obj)     { a.release(); }
+    Auto(T* iObj): obj(iObj)         { }
+    ~Auto()                          { delete obj; }
+    void operator= (Auto<T>& a)      { obj = a.obj; a.release(); }
+    void operator= (T* p)            { obj = p; }
+    void release()                   { obj = NULL; }
+    operator T*() const              { return obj; }
+    bool operator== (T* p) const     { return obj == p; }
+    bool operator!= (T* p) const     { return obj != p; }
 };
 
 

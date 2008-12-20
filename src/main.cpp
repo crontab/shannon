@@ -29,42 +29,127 @@ const int   memAlign  = sizeof(int);
 
 class ShType;
 class ShScope;
+class ShState;
+class ShVector;
 
 
 class ShBase: public Base
 {
 public:
-    ShScope* owner;
+    ShScope* const owner;
     
     ShBase(): Base(), owner(NULL)  { }
-    virtual const ShType* type() const = 0;
+    ShBase(const string& name): Base(name), owner(NULL)  { }
 };
 
 
 class ShType: public ShBase
 {
+    Auto<ShVector> vector;
 public:
-    ShType(): ShBase() { }
-    virtual const ShType* type() const { return this; };
-    virtual int physicalSize() const = 0;
-    virtual int alignedSize() const;
-    virtual bool isComplete() const = 0;
-    virtual bool isOrdinal() const = 0;
-    virtual bool hasCircularRefs() const = 0;
+    ShType(): ShBase()  { }
+    ShType(const string& name): ShBase(name)  { }
+    virtual ~ShType();
+    virtual bool isComplete() const  { return true; }
+    ShVector* getVectorType();
 };
 
+
+class ShTypeAlias: public ShType
+{
+public:
+    ShType* const base;
+    ShTypeAlias(const string& name, ShType* iBase);
+};
+
+
+// --- VARIABLE --- //
+
+class ShVariable: public ShBase
+{
+public:
+    ShType* const type;
+
+    ShVariable(ShType* iType);
+    ShVariable(const string& name, ShType* iType);
+    virtual bool isArgument()
+            { return false; }
+};
+
+
+class ShArgument: public ShVariable
+{
+public:
+    ShArgument(const string& name, ShType* iType);
+    virtual bool isArgument()
+            { return true; }
+};
+
+
+// --- SCOPE --- //
 
 class ShScope: public ShType
 {
 protected:
     BaseTable<ShBase> symbols;
-    BaseList<ShType> anonTypes;
+    BaseList<ShType> types;
+    BaseList<ShVariable> vars;
+    
+    void addSymbol(ShBase* obj) throw(EDuplicate);
+
 public:
-    void add(ShBase* obj);
-    ShBase* find(const string& name) const { return symbols.find(name); }
+    bool complete;
+
+    ShScope();
+    ShScope(const string& name);
+    virtual bool isComplete() const
+            { return complete; };
+    void addAnonType(ShType* obj)
+            { types.add(obj); }
+    void addType(ShType* obj) throw(EDuplicate);
+    void addAnonVar(ShVariable* obj) throw(EDuplicate)
+            { vars.add(obj); }
+    void addVar(ShVariable* obj) throw(EDuplicate);
+    void setCompleted()
+            { complete = true; }
+    ShBase* find(const string& name) const
+            { return symbols.find(name); }
     ShBase* deepSearch(const string&) const throw(ENotFound);
 };
 
+
+// --- STATE --- //
+
+class ShState: public ShScope
+{
+protected:
+    BaseList<ShArgument> args;
+    BaseList<ShState> states;
+
+public:
+    void addArgument(ShArgument*);
+    void addState(ShState*);
+};
+
+
+// --- FUNCTION --- //
+
+class ShFunction: public ShState
+{
+    BaseList<ShType> retTypes;
+public:
+    void addReturnType(ShType* obj)
+            { retTypes.add(obj); }
+};
+
+
+// --- MODULE --- //
+
+class ShModule: public ShScope
+{
+public:
+    ShModule(const string& name);
+};
 
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
@@ -77,7 +162,6 @@ struct Range
 
     Range(large iMin, large iMax): min(iMin), max(iMax)  { }
     bool has(large v) const   { return v >= min && v <= max; }
-    bool isSigned() const     { return min < 0; }
     int  physicalSize() const;
 };
 
@@ -88,28 +172,104 @@ public:
     const Range range;
     const int size;
 
-    ShInteger(large min, large max);
-    virtual int  physicalSize() const     { return size; };
-    virtual bool isComplete() const       { return true; }
-    virtual bool isOrdinal() const        { return true; }
-    virtual bool hasCircularRefs() const  { return false; }
+    ShInteger(const string& name, large min, large max);
+    bool isUnsigned() const
+            { return range.min >= 0; }
 };
 
 
+class ShChar: public ShType
+{
+public:
+    ShChar(const string& name)
+            : ShType(name)  { }
+};
+
+
+class ShVector: public ShType
+{
+public:
+    ShType* const elementType;
+    ShVector(ShType* iElementType);
+    ShVector(const string& name, ShType* iElementType);
+};
+
+
+// --- SYSTEM MODULE --- //
+
+class ShQueenBee: public ShModule
+{
+public:
+    ShInteger* const defaultInt;     // "int"
+    ShInteger* const defaultLarge;   // "large"
+    ShChar* const defaultChar;       // "char"
+    ShVector* const defaultString;   // anonymous
+    ShTypeAlias* const defaultStr;   // "str"
+    
+    ShQueenBee();
+};
+
+
+// ------------------------------------------------------------------------- //
 // ------------------------------------------------------------------------- //
 // ------------------------------------------------------------------------- //
 
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
+ShType::~ShType()
+{
+}
 
-void ShScope::add(ShBase* obj)
+
+ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
+        : ShType(name), base(iBase)  { }
+
+
+// --- VARIABLE --- //
+
+ShVector* ShType::getVectorType()
+{
+    if (vector == NULL)
+        vector = new ShVector(this);
+    return vector;
+}
+
+
+ShVariable::ShVariable(ShType* iType)
+        : ShBase(), type(iType)  { }
+
+ShVariable::ShVariable(const string& name, ShType* iType)
+        : ShBase(name), type(iType)  { }
+
+ShArgument::ShArgument(const string& name, ShType* iType)
+        : ShVariable(name, type)  { }
+
+
+// --- SCOPE --- //
+
+ShScope::ShScope()
+        : ShType(), complete(false)  { }
+
+ShScope::ShScope(const string& name)
+        : ShType(name), complete(false)  { }
+
+void ShScope::addSymbol(ShBase* obj) throw(EDuplicate)
 {
     if (obj->owner != NULL)
-        throw EInternal(3, "ShScope::add(): obj->owner != NULL");
+        throw EInternal(3, "ShScope::addSymbol(): obj->owner != NULL");
+    if (obj->name.empty())
+        throw EInternal(3, "ShScope::addSymbol(): obj->name is empty");
     symbols.addUnique(obj);
-    obj->owner = this;
+    *(ShScope**)&obj->owner = this; // mute the const field
 }
+
+void ShScope::addType(ShType* obj) throw(EDuplicate)
+        { addSymbol(obj); types.add(obj); }
+
+
+void ShScope::addVar(ShVariable* obj) throw(EDuplicate)
+        { addSymbol(obj); vars.add(obj); }
 
 
 ShBase* ShScope::deepSearch(const string& name) const throw(ENotFound)
@@ -123,14 +283,26 @@ ShBase* ShScope::deepSearch(const string& name) const throw(ENotFound)
 }
 
 
+// --- STATE --- //
+
+void ShState::addState(ShState* obj)
+        { addSymbol(obj);  states.add(obj); }
+
+void ShState::addArgument(ShArgument* obj)
+        { addSymbol(obj);  args.add(obj); }
+
+
+// --- MODULE --- //
+
+ShModule::ShModule(const string& name)
+            : ShScope(name)  { }
+
+
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
 
-int ShType::alignedSize() const
-{
-    return ((physicalSize() / memAlign) + 1) * memAlign;
-}
-
+inline int align(int size)
+        { return ((size / memAlign) + 1) * memAlign; }
 
 
 int Range::physicalSize() const
@@ -160,10 +332,39 @@ int Range::physicalSize() const
 }
 
 
-ShInteger::ShInteger(large min, large max)
-    : range(min, max), size(range.physicalSize())
+ShInteger::ShInteger(const string& name, large min, large max)
+    : ShType(name), range(min, max), size(range.physicalSize())
 {
 }
+
+
+ShVector::ShVector(ShType* iElementType)
+        : ShType(), elementType(iElementType)  { }
+
+ShVector::ShVector(const string& name, ShType* iElementType)
+        : ShType(name), elementType(iElementType)  { }
+
+
+// --- SYSTEM MODULE --- //
+
+ShQueenBee::ShQueenBee()
+    : ShModule("System"),
+      defaultInt(new ShInteger("int", int32min, int32max)),
+      defaultLarge(new ShInteger("large", int64min, int64max)),
+      defaultChar(new ShChar("char")),
+      defaultString(defaultChar->getVectorType()),
+      defaultStr(new ShTypeAlias("str", defaultString))
+{
+    addType(defaultInt);
+    addType(defaultLarge);
+    addType(defaultChar);
+    addType(defaultStr);
+}
+
+
+
+
+// ------------------------------------------------------------------------- //
 
 
 class _AtExit
@@ -182,14 +383,19 @@ public:
 
 
 
-// ------------------------------------------------------------------------- //
-
-
 
 int main()
 {
-    ShInteger i(0, 255);
-    printf("sizeof(BaseTable): %lu\n", sizeof(BaseTable<ShBase>));
+    try
+    {
+        ShQueenBee system;
+    }
+    catch (Exception& e)
+    {
+        fprintf(stderr, "\n*** Exception: %s\n", e.what().c_str());
+    }
+
+    printf("sizeof(Base): %lu  sizeof(ShBase): %lu\n", sizeof(Base), sizeof(ShBase));
     return 0;
 }
 
