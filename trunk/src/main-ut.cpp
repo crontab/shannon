@@ -259,11 +259,22 @@ void testBaseObjects()
 {
     int saveObjCount = Base::objCount;
     {
+        Base b1("abc");
+        Base b2("bcd");
+        Base b3("cde");
         BaseTable<Base> t;
+        t.add(&b1);
+        t.add(&b2);
+        t.add(&b3);
+        assert(t.find("abc") == &b1);
+        assert(t.find("bcd") == &b2);
+        assert(t.find("xyz") == NULL);
+    }
+    assert(Base::objCount == saveObjCount);
+    {
+        BaseList<Base> t;
         t.add(new Base("a"));
         t.add(new Base("b"));
-        assert(t.find("a") != NULL);
-        assert(t.find("z") == NULL);
         assert(Base::objCount == saveObjCount + 2);
         t.remove(0);
         assert(Base::objCount == saveObjCount + 1);
@@ -271,7 +282,6 @@ void testBaseObjects()
         assert(Base::objCount == saveObjCount);
         t.add(new Base("c"));
     }
-    // check if the destructor calls clear()
     assert(Base::objCount == saveObjCount);
 }
 
