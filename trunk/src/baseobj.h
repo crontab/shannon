@@ -8,10 +8,10 @@
 #include "except.h"
 
 
-class Base
+class Base: noncopyable
 {
 public:
-    string name;
+    const string name;
 
     Base(): name()                          { }
     Base(const string& iName): name(iName)  { }
@@ -23,13 +23,54 @@ public:
 };
 
 
+class basetblimpl: protected PodArray<Base*>
+{
+public:
+    basetblimpl();
+    basetblimpl(const basetblimpl&);
+    ~basetblimpl();
+    void operator= (const basetblimpl&);
+
+    int size() const                { return PodArray<Base*>::size(); }
+    int empty() const               { return PodArray<Base*>::empty(); }
+    Base* operator[] (int i) const  { return PodArray<Base*>::operator[] (i); }
+
+    void insert(int, Base*);
+    void add(Base*);
+    void addUnique(Base* obj) throw(EDuplicate);
+    void erase(int);
+
+    bool search(const string&, int*) const;
+    Base* find(const string&) const;
+    int  compare(int, const string&) const;
+};
+
+
+//
+// BaseTable: sorted searchable collection of Base*, not owned
+//
+
+template<class T>
+class BaseTable: public basetblimpl
+{
+    typedef T* Tptr;
+public:
+    T* operator[] (int i) const    { return Tptr(basetblimpl::operator[] (i)); }
+    void insert(int i, Base* obj)  { basetblimpl::insert(i, obj); }
+    void add(T* obj)               { basetblimpl::add(obj); }
+    void addUnique(T* obj) throw(EDuplicate)  { basetblimpl::addUnique(obj); }
+    T* find(const string& s) const { return Tptr(basetblimpl::find(s)); }
+};
+
+
+
 template<class T>
 class Auto
 {
 public:
     T* obj;
     Auto()                          { }
-//    Auto(T* iObj): obj(iObj)        { }
+//    Auto(T* iObj): obj(iObj)      { }
     ~Auto()                         { delete obj; }
     operator T*() const             { return obj; }
 };
@@ -55,11 +96,12 @@ public:
     void remove(int);
     void erase(int);
     void clear();
-
-    int find(const string&) const;
-    int compare(int, const string&) const;
 };
 
+
+//
+// BaseList: collection of Base*, owned
+//
 
 template<class T>
 class BaseList: public baselistimpl
@@ -68,9 +110,8 @@ class BaseList: public baselistimpl
 public:
     T* operator[] (int i) const    { return Tptr(baselistimpl::operator[] (i)); }
     void insert(int i, Base* obj)  { baselistimpl::insert(i, obj); }
-    void add(Base* obj)            { baselistimpl::add(obj); }
+    void add(T* obj)               { baselistimpl::add(obj); }
 };
-
 
 
 #endif

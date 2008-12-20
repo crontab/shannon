@@ -84,4 +84,15 @@ inline large lmax(large x, large y)   { return (x > y) ? x : y; }
 inline large lmin(large x, large y)   { return (x < y) ? x : y; }
 
 
+class noncopyable 
+{
+private:
+    noncopyable(const noncopyable&);
+    const noncopyable& operator= (const noncopyable&);
+public:
+    noncopyable() {}
+    ~noncopyable() {}
+};
+
+
 #endif

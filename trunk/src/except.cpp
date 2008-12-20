@@ -20,13 +20,13 @@ EInternal::~EInternal() throw()  { }
 EDuplicate::EDuplicate(const string& ientry)
     : Exception(), entry(ientry) { }
 EDuplicate::~EDuplicate() throw()  { }
-string EDuplicate::what() const throw() { return "Duplicate entry '" + entry + '\''; }
+string EDuplicate::what() const throw() { return "Duplicate identifier '" + entry + '\''; }
 
 
 ENotFound::ENotFound(const string& ientry)
     : Exception(), entry(ientry) { }
 ENotFound::~ENotFound() throw()  { }
-string ENotFound::what() const throw() { return "Unknown entry '" + entry + '\''; }
+string ENotFound::what() const throw() { return "Unknown identifier '" + entry + '\''; }
 
 
 ESysError::~ESysError() throw()  { }
