@@ -13,7 +13,7 @@ void fatal(int code, const char* msg)
 }
 
 
-/*
+
 // Will be redefined later; currently the global new/delete are needed
 // by the STL classes we use.
 
@@ -26,7 +26,7 @@ void* operator new(size_t) throw()       { newdel(); return NULL; }
 void* operator new[](size_t) throw()     { newdel(); return NULL; }
 void  operator delete  (void*) throw()   { newdel(); }
 void  operator delete[](void*) throw()   { newdel(); }
-*/
+
 
 
 // dynamic reallocation policy for strings and lists

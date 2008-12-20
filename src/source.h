@@ -5,13 +5,14 @@
 #include "except.h"
 #include "charset.h"
 #include "contain.h"
+#include "baseobj.h"
 
 
 #define INFILE_BUFSIZE 8192
 #define DEFAULT_TAB_SIZE 8
 
 
-class InText
+class InText: public Base
 {
 protected:
     char* buffer;

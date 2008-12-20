@@ -4,8 +4,6 @@
 
 #include <string.h>
 
-#include <new>
-
 
 #ifdef DEBUG
 #  define CHECK_BOUNDS 
@@ -27,8 +25,9 @@ typedef char*               pchar;
 
 union quant
 {
-    void* ptr;
-    int   ord;
+    ptr   ptr_;
+    int   int_;
+    large large_;
 };
 
 
@@ -55,7 +54,7 @@ void  memfree(void* p);
 int   memquantize(int);
 
 
-/*
+
 // Default placement versions of operator new.
 inline void* operator new(size_t, void* p) throw() { return p; }
 inline void* operator new[](size_t, void* p) throw() { return p; }
@@ -63,7 +62,7 @@ inline void* operator new[](size_t, void* p) throw() { return p; }
 // Default placement versions of operator delete.
 inline void  operator delete  (void*, void*) throw() { }
 inline void  operator delete[](void*, void*) throw() { }
-*/
+
 
 
 // Disable all new/delete by default; redefine where necessary

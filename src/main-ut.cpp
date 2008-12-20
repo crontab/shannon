@@ -240,21 +240,6 @@ void testContainer()
 {
     int saveObjCount = Base::objCount;
     {
-        Container<Base> c;
-        c.add(new Base());
-        c.add(new Base());
-        c.add(new Base());
-        assert(Base::objCount == saveObjCount + 3);
-        c.pop();
-        assert(Base::objCount == saveObjCount + 2);
-        c.clear();
-        assert(Base::objCount == saveObjCount);
-        c.add(new Base());
-        c.add(new Base());
-    }
-    // check if the destructor calls clear()
-    assert(Base::objCount == saveObjCount);
-    {
         saveObjCount = Base::objCount;
         PodArray<Base*> c;
         c.add(new Base());
@@ -270,39 +255,24 @@ void testContainer()
 }
 
 
-void testHashTable()
+void testBaseObjects()
 {
     int saveObjCount = Base::objCount;
     {
-        HashTable<Base, true> t;
-        t.add("a", new Base());
-        assert_throw(EDuplicate, t.add("a", NULL));
-        t.add("b", new Base());
-        assert(t.find("a") != NULL);
-        assert(t.find("z") == NULL);
-        assert_nothrow(t.get("a"));
-        assert_throw(ENotFound, t.get("z"));
-        assert_throw(EInternal, t.remove("z"));
+        BaseList<Base> t;
+        t.add(new Base("a"));
+        t.add(new Base("b"));
+        assert(t.find("a") >= 0);
+        assert(t.find("z") == -1);
         assert(Base::objCount == saveObjCount + 2);
-        assert_nothrow(t.remove("a"));
+        t.remove(0);
         assert(Base::objCount == saveObjCount + 1);
         t.clear();
         assert(Base::objCount == saveObjCount);
-        t.add("c", new Base());
+        t.add(new Base("c"));
     }
     // check if the destructor calls clear()
     assert(Base::objCount == saveObjCount);
-    {
-        HashTable<Base, false> t;
-        t.add("a", new Base());
-        t.add("b", new Base());
-        assert(Base::objCount == saveObjCount + 2);
-        assert_nothrow(t.remove("a"));
-        assert(Base::objCount == saveObjCount + 2);
-        t.clear();
-        assert(Base::objCount == saveObjCount + 2);
-        Base::objCount = saveObjCount;
-    }
 }
 
 
@@ -399,11 +369,12 @@ public:
 
 int main ()
 {
+    assert(sizeof(int) == 4);
     testString();
     testCharset();
     testArrays();
     testContainer();
-    testHashTable();
+    testBaseObjects();
     testInText();
     testParser();
     return 0;
