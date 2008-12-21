@@ -80,12 +80,6 @@ void ShState::addArgument(ShArgument* obj)
         { addSymbol(obj);  args.add(obj); }
 
 
-// --- MODULE --- //
-
-ShModule::ShModule(const string& name)
-            : ShScope(name)  { }
-
-
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
 
@@ -133,6 +127,24 @@ ShVector::ShVector(const string& name, ShType* iElementType)
         : ShType(name), elementType(iElementType)  { }
 
 
+// --- LITERAL VALUES ----------------------------------------------------- //
+
+
+ShStringValue::ShStringValue(const string& value)
+        : BaseNamed(value)  { }
+
+
+
+// ------------------------------------------------------------------------ //
+
+
+// --- MODULE --- //
+
+
+ShModule::ShModule(const string& name)
+            : ShScope(name), strings()  { }
+
+
 // --- SYSTEM MODULE --- //
 
 ShQueenBee::ShQueenBee()
@@ -142,12 +154,50 @@ ShQueenBee::ShQueenBee()
       defaultChar(new ShChar("char")),
       defaultString(defaultChar->getVectorType()),  // owned by defaultChar
       defaultStr(new ShTypeAlias("str", defaultString)),
-      defaultBool(new ShBool("bool"))
+      defaultBool(new ShBool("bool")),
+      defaultVoid(new ShVoid("void"))
 {
     addType(defaultInt);
     addType(defaultLarge);
     addType(defaultChar);
     addTypeAlias(defaultStr);
     addType(defaultBool);
+    addType(defaultVoid);
 }
+
+
+// ------------------------------------------------------------------------ //
+
+
+ShQueenBee* queenBee;
+BaseTable<ShModule> moduleTable;
+BaseList<ShModule> moduleList;
+
+
+void initLangObjs()
+{
+    registerModule(queenBee = new ShQueenBee());
+}
+
+
+void doneLangObjs()
+{
+    moduleTable.clear();
+    moduleList.clear();
+    queenBee = NULL;
+}
+
+
+ShModule* findModule(const string& name)
+{
+    return moduleTable.find(name);
+}
+
+
+void registerModule(ShModule* module)
+{
+    moduleList.add(module);
+    moduleTable.addUnique(module);
+}
+
 

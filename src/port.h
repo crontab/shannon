@@ -23,6 +23,16 @@ typedef char*               pchar;
 #define ULARGE_MAX (18446744073709551615ull)
 
 
+struct largerec
+{
+    unsigned lo;
+    unsigned hi;
+    largerec(large v): lo(v), hi(v >> 32)  { }
+    largerec(int iLo, int iHi): lo(iLo), hi(iHi)  { }
+    operator large() const { return (large(hi) << 32) | lo; }
+};
+
+
 union quant
 {
     ptr   ptr_;

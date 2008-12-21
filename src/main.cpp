@@ -6,24 +6,54 @@
 #include "langobj.h"
 
 
+// --- VIRTUAL MACHINE ----------------------------------------------------- //
+
+
+class VmStack: public noncopyable
+{
+protected:
+    PodStack<ShQuant> stack;
+public:
+    VmStack();
+    ShQuant& push()           { return stack.push(); }
+    ShQuant  pop()            { return stack.pop(); }
+    void  pushInt(int v)      { push().int_ = v; }
+    void  pushPtr(ptr v)      { push().ptr_ = v; }
+    void  pushLarge(large v);
+    int   popInt()            { return pop().int_; }
+    ptr   popPtr()            { return pop().ptr_; }
+    large popLarge();
+    int   topInt()            { return stack.top().int_; }
+    ptr   topPtr()            { return stack.top().ptr_; }
+    large topLarge();
+};
+
+
 enum OpCode
 {
     opNone = 0,
     
-    opLoad0,        // []
+    opLoad0 = 256,  // []
     opLoadInt,      // [int]
     opLoadLarge,    // [int,int]
     opLoadChar,     // [int]
     opLoadFalse,    // []
     opLoadTrue,     // []
     opLoadNull,     // []
-    opLoadStr,      // [string]
+    opLoadStr,      // [string-index]
 };
 
-union OpQuant
+
+class VmCode: public noncopyable
 {
-    ptr ptr_;
-    int int_;
+protected:
+    PodArray<ShQuant> code;
+
+public:
+    ShType* const returnType;
+
+    VmCode(ShType* iReturnType)
+            : code(), returnType(iReturnType)  { }
 };
 
 
@@ -32,6 +62,18 @@ union OpQuant
 // ------------------------------------------------------------------------- //
 // ------------------------------------------------------------------------- //
 
+
+VmStack::VmStack()
+        : stack()  { }
+
+void VmStack::pushLarge(large v)
+        { push().int_ = int(v); push().int_ = int(v >> 32); }
+
+large VmStack::popLarge()
+        { return (large(popInt()) << 32) | popInt(); }
+
+large VmStack::topLarge()
+        { return (large(stack.at(-1).int_) << 32) | stack.at(-2).int_; }
 
 
 // ------------------------------------------------------------------------- //
@@ -48,6 +90,8 @@ public:
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
         if (FifoChunk::chunkCount != 0)
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
+        if (stackimpl::stackAlloc != 0)
+            fprintf(stderr, "Internal: stackAlloc = %d\n", stackimpl::stackAlloc);
     }
 } _atexit;
 
@@ -58,14 +102,15 @@ int main()
 {
     try
     {
-        ShQueenBee system;
+        initLangObjs();
+        
+        doneLangObjs();
     }
     catch (Exception& e)
     {
         fprintf(stderr, "\n*** Exception: %s\n", e.what().c_str());
     }
 
-    printf("sizeof(Base): %lu  sizeof(ShBase): %lu\n", sizeof(Base), sizeof(ShBase));
     return 0;
 }
 

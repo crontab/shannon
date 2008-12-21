@@ -181,7 +181,6 @@ class stackimpl
 public:
     char* stack;
     int capacity;
-    int threshold;
     int count;
 
     stackimpl();
@@ -203,14 +202,13 @@ public:
         return stack + count - len;
     }
     
-    void withdraw(int len)
+    void* withdraw(int len)
     {
         count -= len;
 #ifdef DEBUG
         if (count < 0) invstackop();
 #endif
-        if (count < threshold)
-            realloc(count);
+        return stack + count;
     }
     
     void* _at(int index) const // always negative
@@ -226,6 +224,8 @@ public:
 #endif
         return _at(index);
     }
+
+    static int stackAlloc;
 };
 
 
@@ -242,9 +242,10 @@ public:
     int size()                { return stackimpl::size() / Tsize; }
     const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
     const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
-    void push(const T& t)     { ::new(Tptr(stackimpl::advance(Tsize))) T(t); }
+    T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
+    void push(const T& t)     { ::new(&push()) T(t); }
     const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
-    void pop()                { stackimpl::withdraw(Tsize); }
+    const T& pop()            { return *Tptr(stackimpl::withdraw(Tsize)); }
 };
 
 

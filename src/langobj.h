@@ -6,6 +6,13 @@
 #include "baseobj.h"
 
 
+union ShQuant
+{
+    ptr ptr_;
+    int int_;
+};
+
+
 const large int8min   = -128LL;
 const large int8max   = 127LL;
 const large uint8max  = 255LL;
@@ -17,7 +24,7 @@ const large int32max  = 2147483647LL;
 const large uint32max = 4294967295LL;
 const large int64min  = LARGE_MIN;
 const large int64max  = LARGE_MAX;
-const int   memAlign  = sizeof(int);
+const int   memAlign  = sizeof(ShQuant);
 
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
@@ -141,15 +148,6 @@ public:
 };
 
 
-// --- MODULE --- //
-
-class ShModule: public ShScope
-{
-public:
-    ShModule(const string& name);
-};
-
-
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
 
@@ -190,12 +188,47 @@ public:
 };
 
 
+class ShVoid: public ShType
+{
+public:
+    ShVoid(const string& name): ShType(name)  { }
+};
+
+
 class ShVector: public ShType
 {
 public:
     ShType* const elementType;
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
+};
+
+
+// --- LITERAL VALUES ----------------------------------------------------- //
+
+
+class ShStringValue: public BaseNamed
+{
+public:
+    ShStringValue(const string&);
+    const string& getValue() const  { return name; }
+};
+
+
+// ------------------------------------------------------------------------ //
+
+
+// --- MODULE --- //
+
+class ShModule: public ShScope
+{
+    BaseList<ShStringValue> strings; // TODO: find duplicates
+
+    string registerString(const string& v)
+            { strings.add(new ShStringValue(v)); return v; }
+
+public:
+    ShModule(const string& name);
 };
 
 
@@ -207,12 +240,25 @@ public:
     ShInteger* const defaultInt;     // "int"
     ShInteger* const defaultLarge;   // "large"
     ShChar* const defaultChar;       // "char"
-    ShVector* const defaultString;   // anonymous
+    ShVector* const defaultString;   // <anonymous>
     ShTypeAlias* const defaultStr;   // "str"
     ShBool* const defaultBool;       // "bool"
+    ShVoid* const defaultVoid;       // "void"
     
     ShQueenBee();
 };
+
+
+// ------------------------------------------------------------------------ //
+
+
+extern ShQueenBee* queenBee;
+
+void initLangObjs();
+void doneLangObjs();
+
+ShModule* findModule(const string& name);
+void registerModule(ShModule* module);
 
 
 #endif

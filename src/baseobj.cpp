@@ -38,6 +38,9 @@ void basetblimpl::add(BaseNamed* obj)
 void basetblimpl::erase(int index)
         { PodArray<BaseNamed*>::del(index); }
 
+void basetblimpl::clear()
+        { PodArray<BaseNamed*>::clear(); }
+
 bool basetblimpl::search(const string& key, int* index) const
 {
     return bsearch<basetblimpl, string>(*this, key, size(), *index);

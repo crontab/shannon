@@ -362,6 +362,19 @@ void testParser()
 }
 
 
+void testVm()
+{
+/*
+    VmStack stack;
+    stack.pushLarge(1234567890123456789ll);
+    large i = stack.topLarge();
+    assert(1234567890123456789ll == i);
+    i = stack.popLarge();
+    assert(1234567890123456789ll == i);
+*/
+}
+
+
 class _AtExit
 {
 public:
@@ -373,6 +386,8 @@ public:
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
         if (FifoChunk::chunkCount != 0)
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
+//        if (stackimpl::stackAlloc != 0)
+//            fprintf(stderr, "Internal: stackAlloc = %d\n", stackimpl::stackAlloc);
     }
 } _atexit;
 
@@ -389,5 +404,6 @@ int main ()
     testBaseObjects();
     testInText();
     testParser();
+    testVm();
     return 0;
 }
