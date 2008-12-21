@@ -117,6 +117,9 @@ int fifoimpl::pull(char* data, int datasize)
 }
 
 
+
+int stackimpl::stackAlloc = 0;
+
 void stackimpl::stackunderflow() const
 {
     fatal(CRIT_FIRST + 30, "Stack underflow");
@@ -130,14 +133,15 @@ void stackimpl::invstackop() const
 
 
 stackimpl::stackimpl()
-    : stack(NULL), capacity(0), threshold(0), count(0)  { }
+    : stack(NULL), capacity(0), count(0)  { }
 
 
 void stackimpl::clear()
 {
-    if (stack > 0)
+    if (stack != NULL)
     {
-        capacity = threshold = count = 0;
+        stackAlloc -= capacity;
+        capacity = count = 0;
         memfree(stack);
         stack = NULL;
     }
@@ -153,11 +157,9 @@ void stackimpl::realloc(int newsize)
         int newcap = memquantize(newsize);
         if (newcap != capacity)
         {
+            stackAlloc += newcap - capacity;
             stack = (char*)memrealloc(stack, newcap);
             capacity = newcap;
-            threshold = capacity / 2;
-            if (threshold < 32)
-                threshold = 0;
         }
     }
 }

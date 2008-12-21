@@ -47,6 +47,7 @@ public:
     void add(BaseNamed*);
     void addUnique(BaseNamed* obj) throw(EDuplicate);
     void erase(int);
+    void clear();
 
     bool search(const string&, int*) const;
     Base* find(const string&) const;
