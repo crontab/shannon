@@ -104,6 +104,9 @@ int main()
     {
         initLangObjs();
         
+        ShModule module("tests/test.sn");
+        module.compile();
+        
         doneLangObjs();
     }
     catch (Exception& e)
