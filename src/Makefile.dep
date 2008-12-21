@@ -10,6 +10,6 @@ obj/contain.o: contain.h str.h port.h
 obj/baseobj.o: str.h port.h baseobj.h contain.h except.h bsearch.h
 obj/source.o: source.h str.h port.h except.h charset.h contain.h baseobj.h
 obj/source.o: bsearch.h
-obj/main.o: charset.h port.h str.h contain.h except.h source.h baseobj.h
-obj/main.o: bsearch.h
+obj/langobj.o: langobj.h str.h port.h except.h baseobj.h contain.h
+obj/main.o: str.h port.h except.h langobj.h baseobj.h contain.h
 obj/main-ut.o: charset.h port.h str.h contain.h baseobj.h except.h source.h

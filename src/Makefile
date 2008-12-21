@@ -4,13 +4,13 @@ CXXDEFS = -DDEBUG
 CXXOPTS = -Os -Wall -Werror $(CXXDEFS)
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
-    obj/contain.o obj/baseobj.o obj/source.o
+    obj/contain.o obj/baseobj.o obj/source.o obj/langobj.o
 
 SRCS = portatom.cpp portmem.cpp strbase.cpp strconv.cpp except.cpp charset.cpp \
-    contain.cpp baseobj.cpp source.cpp \
+    contain.cpp baseobj.cpp source.cpp langobj.cpp \
     main.cpp main-ut.cpp
 
-HDRS = port.h str.h except.h charset.h contain.h baseobj.h source.h
+HDRS = port.h str.h except.h charset.h contain.h baseobj.h source.h langobj.h
 
 all: dirs bin/shannon bin/shannon-ut
 

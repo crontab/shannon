@@ -18,25 +18,25 @@ void Base::operator delete(void* p)    { objCount--; memfree(p); }
 
 
 basetblimpl::basetblimpl()
-        : PodArray<Base*>()  { }
+        : PodArray<BaseNamed*>()  { }
 
 basetblimpl::basetblimpl(const basetblimpl& a)
-        : PodArray<Base*>(a)  { }
+        : PodArray<BaseNamed*>(a)  { }
 
 basetblimpl::~basetblimpl()
         { }
 
 void basetblimpl::operator= (const basetblimpl& a)
-        { PodArray<Base*>::operator=(a); }
+        { PodArray<BaseNamed*>::operator=(a); }
 
-void basetblimpl::insert(int index, Base* obj)
-        { PodArray<Base*>::ins(index, obj); }
+void basetblimpl::insert(int index, BaseNamed* obj)
+        { PodArray<BaseNamed*>::ins(index, obj); }
 
-void basetblimpl::add(Base* obj)
-        { PodArray<Base*>::add(obj); }
+void basetblimpl::add(BaseNamed* obj)
+        { PodArray<BaseNamed*>::add(obj); }
 
 void basetblimpl::erase(int index)
-        { PodArray<Base*>::del(index); }
+        { PodArray<BaseNamed*>::del(index); }
 
 bool basetblimpl::search(const string& key, int* index) const
 {
@@ -56,7 +56,7 @@ int basetblimpl::compare(int index, const string& key) const
     return _at(index)->name.compare(key);
 }
 
-void basetblimpl::addUnique(Base* obj) throw(EDuplicate)
+void basetblimpl::addUnique(BaseNamed* obj) throw(EDuplicate)
 {
     int index;
     if (search(obj->name, &index))
