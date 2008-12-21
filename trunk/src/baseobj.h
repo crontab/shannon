@@ -11,10 +11,7 @@
 class Base: noncopyable
 {
 public:
-    const string name;
-
-    Base(): name()                          { }
-    Base(const string& iName): name(iName)  { }
+    Base()  { }
     virtual ~Base();
 
     static int objCount;
@@ -23,7 +20,18 @@ public:
 };
 
 
-class basetblimpl: protected PodArray<Base*>
+class BaseNamed: public Base
+{
+public:
+    const string name;
+    BaseNamed()
+            : Base(), name()  { }
+    BaseNamed(const string& iName)
+            : Base(), name(iName)  { }
+};
+
+
+class basetblimpl: protected PodArray<BaseNamed*>
 {
 public:
     basetblimpl();
@@ -31,13 +39,13 @@ public:
     ~basetblimpl();
     void operator= (const basetblimpl&);
 
-    int size() const                { return PodArray<Base*>::size(); }
-    int empty() const               { return PodArray<Base*>::empty(); }
-    Base* operator[] (int i) const  { return PodArray<Base*>::operator[] (i); }
+    int size() const                { return PodArray<BaseNamed*>::size(); }
+    int empty() const               { return PodArray<BaseNamed*>::empty(); }
+    Base* operator[] (int i) const  { return PodArray<BaseNamed*>::operator[] (i); }
 
-    void insert(int, Base*);
-    void add(Base*);
-    void addUnique(Base* obj) throw(EDuplicate);
+    void insert(int, BaseNamed*);
+    void add(BaseNamed*);
+    void addUnique(BaseNamed* obj) throw(EDuplicate);
     void erase(int);
 
     bool search(const string&, int*) const;

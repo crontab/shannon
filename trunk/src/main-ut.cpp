@@ -259,10 +259,10 @@ void testBaseObjects()
 {
     int saveObjCount = Base::objCount;
     {
-        Base b1("abc");
-        Base b2("bcd");
-        Base b3("cde");
-        BaseTable<Base> t;
+        BaseNamed b1("abc");
+        BaseNamed b2("bcd");
+        BaseNamed b3("cde");
+        BaseTable<BaseNamed> t;
         t.add(&b1);
         t.add(&b2);
         t.add(&b3);
@@ -273,14 +273,14 @@ void testBaseObjects()
     assert(Base::objCount == saveObjCount);
     {
         BaseList<Base> t;
-        t.add(new Base("a"));
-        t.add(new Base("b"));
+        t.add(new Base());
+        t.add(new Base());
         assert(Base::objCount == saveObjCount + 2);
         t.remove(0);
         assert(Base::objCount == saveObjCount + 1);
         t.clear();
         assert(Base::objCount == saveObjCount);
-        t.add(new Base("c"));
+        t.add(new Base());
     }
     assert(Base::objCount == saveObjCount);
 }
@@ -380,6 +380,8 @@ public:
 int main ()
 {
     assert(sizeof(int) == 4);
+    assert(sizeof(string) == sizeof(void*));
+    assert(sizeof(Array<quant>) == sizeof(void*));
     testString();
     testCharset();
     testArrays();
