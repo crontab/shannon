@@ -4,6 +4,7 @@
 #include "str.h"
 #include "except.h"
 #include "baseobj.h"
+#include "source.h"
 
 
 union ShQuant
@@ -222,13 +223,17 @@ public:
 
 class ShModule: public ShScope
 {
-    BaseList<ShStringValue> strings; // TODO: find duplicates
+    string fileName;
+    Parser parser;
 
-    string registerString(const string& v)
-            { strings.add(new ShStringValue(v)); return v; }
+    string registerString(const string& v)  // TODO: find duplicates
+            { return v; }
 
 public:
-    ShModule(const string& name);
+    bool compiled;
+
+    ShModule(const string& filename);
+    void compile();
 };
 
 

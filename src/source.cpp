@@ -21,7 +21,7 @@ InText::~InText()  { }
 void InText::error(int code) throw(ESysError)
 {
     eof = true;
-    throw ESysError(code);
+    throw ESysError(code, getFileName());
 }
 
 
@@ -216,6 +216,7 @@ public:
 Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list be kept in sorted order
+        {"module", tokModule},
         {"state", tokState},
         {"void", tokVoid},
         {NULL, tokUndefined}
@@ -278,13 +279,14 @@ Parser::~Parser()
 
 void Parser::error(const string& msg) throw(EParser)
 {
-    throw EParser(input->getFileName(), input->getLinenum(), msg);
+    throw EParser(input->getFileName(), input->getLinenum(),
+        "Error: " + msg);
 }
 
 
 void Parser::syntax(const string& msg) throw(EParser)
 {
-    error("Syntax error: " + msg);
+    error(msg);
 }
 
 
@@ -514,4 +516,18 @@ restart:
     return tokUndefined;
 }
 
+
+string extractFileName(string filepath)
+{
+    const char* p = filepath.c_str();
+    const char* b = strrchr(p, '/');
+    if (b == NULL)
+        b = p;
+    else
+        b++;
+    const char* e = strchr(b, '.');
+    if (e == NULL)
+        e = b + strlen(b);
+    return filepath.copy(b - p, e - b);
+}
 

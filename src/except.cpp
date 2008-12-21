@@ -36,7 +36,10 @@ string ESysError::what() const throw()
 {
     char buf[1024];
     strerror_r(code, buf, sizeof(buf));
-    return buf;
+    string result = buf;
+    if (!arg.empty())
+        result += " (" + arg + ")";
+    return "Error: " + result;
 }
 
 

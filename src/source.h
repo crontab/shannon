@@ -84,7 +84,7 @@ enum Token
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
     // keywords
-    tokVoid, tokState,
+    tokModule, tokVoid, tokState,
     // special chars and sequences
     tokComma, tokPeriod, tokDiv
 };
@@ -121,6 +121,8 @@ public:
     int indentLevel()  { return indentStack.top(); }
 };
 
+
+string extractFileName(string filepath);
 
 
 #endif

@@ -1,4 +1,6 @@
 
+#include <stdio.h>
+
 #include "langobj.h"
 
 
@@ -141,8 +143,9 @@ ShStringValue::ShStringValue(const string& value)
 // --- MODULE --- //
 
 
-ShModule::ShModule(const string& name)
-            : ShScope(name), strings()  { }
+ShModule::ShModule(const string& iFileName)
+            : ShScope(extractFileName(iFileName)), fileName(iFileName),
+              parser(iFileName), compiled(false)  { }
 
 
 // --- SYSTEM MODULE --- //
@@ -200,4 +203,22 @@ void registerModule(ShModule* module)
     moduleTable.addUnique(module);
 }
 
+
+// ------------------------------------------------------------------------ //
+// --- COMPILER ----------------------------------------------------------- //
+// ------------------------------------------------------------------------ //
+
+void ShModule::compile()
+{
+    try
+    {
+        parser.next();
+
+        compiled = true;
+    }
+    catch (Exception& e)
+    {
+        fprintf(stderr, "%s\n", e.what().c_str());
+    }
+}
 

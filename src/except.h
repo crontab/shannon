@@ -57,8 +57,11 @@ public:
 class ESysError: public Exception
 {
     int code;
+    string arg;
 public:
     ESysError(int icode): Exception(), code(icode)  { }
+    ESysError(int icode, const string& iArg)
+            : Exception(), code(icode), arg(iArg)  { }
     virtual ~ESysError() throw();
     virtual string what() const throw();
 };

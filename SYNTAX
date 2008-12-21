@@ -11,16 +11,48 @@
 
 # Basic elements
 
-ident ::= (letter | "_") ## {letter | digit | "_"}
+ident ::= ( letter | "_" ) ## { letter | digit | "_" }
 
-decimal ::= digit ## {digit}
+decimal ::= digit ## { digit }
 
-hexadecimal ::= '0x' ## hexdigit ## {hexdigit}
+hexadecimal ::= '0x' ## hexdigit ## { hexdigit }
 
-string-literal ::= "'" ## {string-element} ## "'"
+string-literal ::= "'" ## { string-element } ## "'"
 
 string-element ::= printable-char | string-escape
 
 string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
-        | ("\x" ## hexdigit ## hexdigit)
+        | ( "\x" ## hexdigit ## hexdigit )
+
+
+# Expressions
+
+subexpr ::= "(" expr ")"
+
+set-ctor ::= "{" [ expr { "," expr } ] "}"
+
+array-ctor ::= "[" [ expr { "," expr } ] "]"
+
+fifo-ctor ::= "<" [ expr { "," expr } ] ">"
+
+expr-list ::= expr { "," expr }
+
+qualified-name ::= { ident "." } ident
+
+literal ::= number | string | "true" | "false" | "null"
+
+atom ::= literal | qualified-name | subexpr | set-ctor | array-ctor
+    | fifo-ctor
+
+array-item-selection ::= atom "[" expr "]"
+
+fifo-item-selection ::= atom "<" expr ">"
+
+function-call ::= atom "(" expr-list ")"
+
+fifo-pull ::= atom "::" set-ctor
+
+fifo-filter ::= atom "||" set-ctor
+
+range ::= atom ".." atom
 
