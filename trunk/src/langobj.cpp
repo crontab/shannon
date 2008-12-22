@@ -14,10 +14,10 @@ inline int align(int size)
 // --- TYPE --- //
 
 
-ShType::ShType(): ShBase(), derivedVectorType(NULL), derivedSetType(NULL)  { }
+ShType::ShType(): ShBase(), derivedVectorType(NULL)  { }
 
 ShType::ShType(const string& name)
-    : ShBase(name), derivedVectorType(NULL), derivedSetType(NULL)  { }
+    : ShBase(name), derivedVectorType(NULL)  { }
 
 ShType::~ShType()  { }
 
@@ -46,18 +46,6 @@ ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
     ShArray* array = new ShArray(this, indexType);
     scope->addAnonType(array);
     return array;
-}
-
-ShSet* ShType::deriveSetType(ShScope* scope)
-{
-    if (!canBeArrayIndex())
-        throw EInternal(10, getDisplayName("*") + " can't be used as set element");
-    if (derivedSetType == NULL)
-    {
-        derivedSetType = new ShSet(this);
-        scope->addAnonType(derivedSetType);
-    }
-    return derivedSetType;
 }
 
 
@@ -242,16 +230,6 @@ ShArray::ShArray(const string& name, ShType* iElementType, ShType* iIndexType)
 string ShArray::getFullDefinition(const string& objName) const
 {
     return elementType->getDisplayName(objName) + "[" + indexType->getDisplayName("") + "]";
-}
-
-
-// --- SET TYPE --- //
-
-ShSet::ShSet(ShType* iBaseType): ShType(), baseType(iBaseType)  { }
-
-string ShSet::getFullDefinition(const string& objName) const
-{
-    return baseType->getDisplayName(objName) + "{}";
 }
 
 

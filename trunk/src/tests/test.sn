@@ -1,7 +1,8 @@
 
 module Test
 
-System.void
-int *[][]
-int *[char][bool]
-char *{}
+def System.void
+# def int *[][]
+# def int *[char][bool]
+# def char *{}
+
