@@ -35,27 +35,40 @@ class ShType;
 class ShScope;
 class ShState;
 class ShVector;
-
+class ShArray;
+class ShModule;
 
 class ShBase: public BaseNamed
 {
 public:
-    ShScope* const owner;
+    ShScope* owner;
     
     ShBase(): BaseNamed(), owner(NULL)  { }
     ShBase(const string& name): BaseNamed(name), owner(NULL)  { }
+    
+    virtual bool isType()  { return false; }
+    virtual bool isScope() { return false; }
 };
 
 
 class ShType: public ShBase
 {
-    Auto<ShVector> vector;
+    ShVector* vector;
+
+protected:
+    virtual string getFullDefinition(const string& objName) const = 0;
+
 public:
-    ShType(): ShBase()  { }
+    ShType();
     ShType(const string& name): ShBase(name)  { }
     virtual ~ShType();
-    virtual bool isComplete() const  { return true; }
-    ShVector* getVectorType();
+    string getDisplayName(const string& objName) const;
+    virtual bool isType()
+        { return true; }
+    virtual bool isComplete() const
+        { return true; }
+    ShVector* getVectorType(ShScope* scope);
+    ShArray* getArrayType(ShType* indexType, ShScope* scope);
 };
 
 
@@ -66,8 +79,6 @@ public:
     ShTypeAlias(const string& name, ShType* iBase);
 };
 
-
-// --- VARIABLE --- //
 
 class ShVariable: public ShBase
 {
@@ -96,24 +107,26 @@ class ShScope: public ShType
 {
 protected:
     BaseTable<ShBase> symbols;
+    BaseTable<ShModule> uses; // not owned
     BaseList<ShType> types;
     BaseList<ShVariable> vars;
     BaseList<ShTypeAlias> typeAliases;
     
+    ShBase* own(ShBase* obj);
     void addSymbol(ShBase* obj) throw(EDuplicate);
 
 public:
     bool complete;
 
-    ShScope();
     ShScope(const string& name);
+    virtual bool isScope()
+            { return true; }
     virtual bool isComplete() const
             { return complete; };
-    void addAnonType(ShType* obj)
-            { types.add(obj); }
+    void addUses(ShModule* obj);
+    void addAnonType(ShType* obj);
     void addType(ShType* obj) throw(EDuplicate);
-    void addAnonVar(ShVariable* obj)
-            { vars.add(obj); }
+    void addAnonVar(ShVariable* obj);
     void addVar(ShVariable* obj) throw(EDuplicate);
     void addTypeAlias(ShTypeAlias* obj) throw(EDuplicate);
     void setCompleted()
@@ -121,31 +134,7 @@ public:
     ShBase* find(const string& name) const
             { return symbols.find(name); }
     ShBase* deepSearch(const string&) const throw(ENotFound);
-};
-
-
-// --- STATE --- //
-
-class ShState: public ShScope
-{
-protected:
-    BaseList<ShArgument> args;
-    BaseList<ShState> states;
-
-public:
-    void addArgument(ShArgument*);
-    void addState(ShState*);
-};
-
-
-// --- FUNCTION --- //
-
-class ShFunction: public ShState
-{
-    BaseList<ShType> retTypes;
-public:
-    void addReturnType(ShType* obj)
-            { retTypes.add(obj); }
+    void dump(string indent) const;
 };
 
 
@@ -165,6 +154,9 @@ struct Range
 
 class ShInteger: public ShType
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     const Range range;
     const int size;
@@ -177,6 +169,9 @@ public:
 
 class ShChar: public ShType
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     ShChar(const string& name): ShType(name)  { }
 };
@@ -184,6 +179,9 @@ public:
 
 class ShBool: public ShType
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     ShBool(const string& name): ShType(name)  { }
 };
@@ -191,6 +189,9 @@ public:
 
 class ShVoid: public ShType
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     ShVoid(const string& name): ShType(name)  { }
 };
@@ -198,6 +199,9 @@ public:
 
 class ShVector: public ShType
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     ShType* const elementType;
     ShVector(ShType* iElementType);
@@ -205,15 +209,57 @@ public:
 };
 
 
-// --- LITERAL VALUES ----------------------------------------------------- //
-
-
-class ShStringValue: public BaseNamed
+class ShArray: public ShVector
 {
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
-    ShStringValue(const string&);
-    const string& getValue() const  { return name; }
+    ShType* const indexType;
+    ShArray(ShType* iElementType, ShType* iIndexType);
+    ShArray(const string& name, ShType* iElementType, ShType* iIndexType);
 };
+
+
+class ShSet: public ShType
+{
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
+public:
+    ShType* const baseType;
+    ShSet(ShType* iBaseType);
+    ShSet(const string& name, ShType* iBaseType);
+};
+
+
+class ShState: public ShScope
+{
+protected:
+    BaseList<ShArgument> args;
+    BaseList<ShState> states;
+
+    virtual string getFullDefinition(const string& objName) const;
+    string getArgsDefinition() const;
+
+public:
+    void addArgument(ShArgument*);
+    void addState(ShState*);
+};
+
+
+// --- FUNCTION --- //
+
+class ShFunction: public ShState
+{
+    BaseList<ShType> retTypes;
+public:
+    void addReturnType(ShType* obj)
+            { retTypes.add(obj); }
+};
+
+
+// --- LITERAL VALUES ----------------------------------------------------- //
 
 
 // ------------------------------------------------------------------------ //
@@ -229,11 +275,25 @@ class ShModule: public ShScope
     string registerString(const string& v)  // TODO: find duplicates
             { return v; }
 
+    // --- Compiler ---
+    ShScope* currentScope;
+    void error(const string& msg)        { parser.error(msg); }
+    void notImpl()                       { error("Feature not implemented"); }
+    ShBase* qualifiedName();
+    ShType* derivedType(ShType*);
+    ShType* parseTypeId();
+    ShType* parseType();
+    void parseDefinition();
+
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
     bool compiled;
 
     ShModule(const string& filename);
     void compile();
+    void dump(string indent) const;
 };
 
 
@@ -242,13 +302,13 @@ public:
 class ShQueenBee: public ShModule
 {
 public:
-    ShInteger* const defaultInt;     // "int"
-    ShInteger* const defaultLarge;   // "large"
-    ShChar* const defaultChar;       // "char"
-    ShVector* const defaultString;   // <anonymous>
-    ShTypeAlias* const defaultStr;   // "str"
-    ShBool* const defaultBool;       // "bool"
-    ShVoid* const defaultVoid;       // "void"
+    ShInteger* defaultInt;     // "int"
+    ShInteger* defaultLarge;   // "large"
+    ShChar* defaultChar;       // "char"
+    ShVector* defaultString;   // <anonymous>
+    ShTypeAlias* defaultStr;   // "str"
+    ShBool* defaultBool;       // "bool"
+    ShVoid* defaultVoid;       // "void"
     
     ShQueenBee();
 };

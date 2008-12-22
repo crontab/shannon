@@ -24,10 +24,13 @@ class BaseNamed: public Base
 {
 public:
     const string name;
+
     BaseNamed()
             : Base(), name()  { }
     BaseNamed(const string& iName)
             : Base(), name(iName)  { }
+    void setNamePlease(const string& iName)  // make sure this obj is not in any symbol table
+            { *(string*)&name = iName; }
 };
 
 

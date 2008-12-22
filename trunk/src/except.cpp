@@ -3,36 +3,36 @@
 #include "except.h"
 
 
-Exception::~Exception() throw() { }
+Exception::~Exception()  { }
 
 
-string EMessage::what() const throw() { return message; }
-EMessage::~EMessage() throw()  { }
+string EMessage::what() const  { return message; }
+EMessage::~EMessage()  { }
 
 
 EInternal::EInternal(int code)
     : EMessage("Internal error #" + itostring(code))  {}
 EInternal::EInternal(int code, const string& hint)
     : EMessage("Internal error #" + itostring(code) + " (" + hint + ')')  {}
-EInternal::~EInternal() throw()  { }
+EInternal::~EInternal()  { }
 
 
 EDuplicate::EDuplicate(const string& ientry)
     : Exception(), entry(ientry) { }
-EDuplicate::~EDuplicate() throw()  { }
-string EDuplicate::what() const throw() { return "Duplicate identifier '" + entry + '\''; }
+EDuplicate::~EDuplicate()  { }
+string EDuplicate::what() const  { return "Duplicate identifier '" + entry + '\''; }
 
 
 ENotFound::ENotFound(const string& ientry)
     : Exception(), entry(ientry) { }
-ENotFound::~ENotFound() throw()  { }
-string ENotFound::what() const throw() { return "Unknown identifier '" + entry + '\''; }
+ENotFound::~ENotFound()  { }
+string ENotFound::what() const  { return "Unknown identifier '" + entry + '\''; }
 
 
-ESysError::~ESysError() throw()  { }
+ESysError::~ESysError()  { }
 
 
-string ESysError::what() const throw()
+string ESysError::what() const
 {
     char buf[1024];
     strerror_r(code, buf, sizeof(buf));

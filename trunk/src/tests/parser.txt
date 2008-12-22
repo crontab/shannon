@@ -1,7 +1,7 @@
 Thunder,
-        state
+        module
 	    Feel the magic
-  	    Thundercats are void.
+  	    Thundercats are const.
         42
             '\x54hunder, \'thunder\',\tthunder, Thundercats'
     	    Thunder, # thunder, thunder, Thundercats

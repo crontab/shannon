@@ -95,7 +95,7 @@ public:
     // char&  operator[] (int i)                     { idx(i); return unique()[i]; }
     const char& operator[] (int i) const          { idx(i); return data[i]; }
     const char* _at(int i) const                  { return data + i; }
-    const char* c_str();
+    const char* c_str() const;
     const char* c_bytes() const                   { return data; }
 
     void append(const char* sc, int catlen);
