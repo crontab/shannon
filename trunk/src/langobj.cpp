@@ -14,7 +14,10 @@ inline int align(int size)
 // --- TYPE --- //
 
 
-ShType::ShType(): ShBase(), vector(NULL)  { }
+ShType::ShType(): ShBase(), derivedVectorType(NULL), derivedSetType(NULL)  { }
+
+ShType::ShType(const string& name)
+    : ShBase(name), derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::~ShType()  { }
 
@@ -26,21 +29,35 @@ string ShType::getDisplayName(const string& objName) const
         return getFullDefinition(objName);
 }
 
-ShVector* ShType::getVectorType(ShScope* scope)
+ShVector* ShType::deriveVectorType(ShScope* scope)
 {
-    if (vector == NULL)
+    if (derivedVectorType == NULL)
     {
-        vector = new ShVector(this);
-        scope->addAnonType(vector);
+        derivedVectorType = new ShVector(this);
+        scope->addAnonType(derivedVectorType);
     }
-    return vector;
+    return derivedVectorType;
 }
 
-ShArray* ShType::getArrayType(ShType* indexType, ShScope* scope)
+ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
 {
+    if (!indexType->canBeArrayIndex())
+        throw EInternal(10, indexType->getDisplayName("*") + " can't be used as array index");
     ShArray* array = new ShArray(this, indexType);
     scope->addAnonType(array);
     return array;
+}
+
+ShSet* ShType::deriveSetType(ShScope* scope)
+{
+    if (!canBeArrayIndex())
+        throw EInternal(10, getDisplayName("*") + " can't be used as set element");
+    if (derivedSetType == NULL)
+    {
+        derivedSetType = new ShSet(this);
+        scope->addAnonType(derivedSetType);
+    }
+    return derivedSetType;
 }
 
 
@@ -208,6 +225,11 @@ string ShVector::getFullDefinition(const string& objName) const
     return elementType->getDisplayName(objName) + "[]";
 }
 
+bool ShVector::isComparable() const
+{
+    return elementType == queenBee->defaultChar;
+}
+
 
 // --- ARRAY TYPE --- //
 
@@ -224,6 +246,8 @@ string ShArray::getFullDefinition(const string& objName) const
 
 
 // --- SET TYPE --- //
+
+ShSet::ShSet(ShType* iBaseType): ShType(), baseType(iBaseType)  { }
 
 string ShSet::getFullDefinition(const string& objName) const
 {
@@ -305,7 +329,7 @@ ShQueenBee::ShQueenBee()
     addType(defaultChar);
     addType(defaultBool);
     addType(defaultVoid);
-    defaultString = defaultChar->getVectorType(this);
+    defaultString = defaultChar->deriveVectorType(this);
     defaultStr = new ShTypeAlias("str", defaultString);
     addTypeAlias(defaultStr);
 }

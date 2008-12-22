@@ -551,18 +551,22 @@ string Parser::skipIdent()
 }
 
 
+string Parser::errorLocation() const
+{
+    string msg;
+    if (!strValue.empty())
+    {
+        // TODO: cut long string literals maybe
+        msg += " before '" + strValue + "'";
+    }
+    return msg;
+}
+
+
 void Parser::skipSep()
 {
     if (token != tokSep && token != tokEof)
-    {
-        string msg = "End of statement expected";
-        if (!strValue.empty())
-        {
-            // TODO: cut long string literals maybe
-            msg += " before '" + strValue + "'";
-        }
-        error(msg);
-    }
+        error("End of statement expected" + errorLocation());
     next();
 }
 
@@ -570,7 +574,7 @@ void Parser::skipSep()
 void Parser::skip(Token tok, const char* errName)
 {
     if (token != tok)
-        error("'" + string(errName) + "' expected");
+        error("'" + string(errName) + "' expected" + errorLocation());
     next();
 }
 

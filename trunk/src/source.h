@@ -122,6 +122,7 @@ public:
     void error(const string& msg) throw(EParser);
     void syntax(const string& msg) throw(EParser);
     string skipIdent();
+    string errorLocation() const;
     void skipSep();
     void skip(Token tok, const char* errName);
     
