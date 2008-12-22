@@ -69,19 +69,19 @@ ShSet* ShType::deriveSetType(ShBool* elementType, ShScope* scope)
 // --- TYPE ALIAS --- //
 
 ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
-        : ShBase(name), base(iBase)  { }
+    : ShBase(name), base(iBase)  { }
 
 
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-        : ShBase(), type(iType)  { }
+    : ShBase(), type(iType)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-        : ShBase(name), type(iType)  { }
+    : ShBase(name), type(iType)  { }
 
 ShArgument::ShArgument(const string& name, ShType* iType)
-        : ShVariable(name, type)  { }
+    : ShVariable(name, type)  { }
 
 
 // --- SCOPE --- //
@@ -114,7 +114,7 @@ void ShScope::addType(ShType* obj)
 void ShScope::addAnonType(ShType* obj)
         { own(obj); types.add(obj); }
 
-void ShScope::addVar(ShVariable* obj)
+void ShScope::addVariable(ShVariable* obj)
         { addSymbol(obj); vars.add(obj); }
 
 void ShScope::addAnonVar(ShVariable* obj)
@@ -141,12 +141,19 @@ ShBase* ShScope::deepSearch(const string& name) const
 }
 
 
+#ifdef DEBUG
 void ShScope::dump(string indent) const
 {
-//    printf("%s%s:\n", indent.c_str(), getName().c_str());
     for (int i = 0; i < types.size(); i++)
-        printf("%s# def %s\n", indent.c_str(), types[i]->getDisplayName("").c_str());
+        printf("%s# def %s\n", indent.c_str(), types[i]->getDisplayName("*").c_str());
+    for (int i = 0; i < typeAliases.size(); i++)
+        printf("%sdef %s\n", indent.c_str(),
+            typeAliases[i]->base->getDisplayName(typeAliases[i]->name).c_str());
+    for (int i = 0; i < vars.size(); i++)
+        printf("%s%s\n", indent.c_str(),
+            vars[i]->type->getDisplayName(vars[i]->name).c_str());
 }
+#endif
 
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
@@ -182,7 +189,7 @@ int Range::physicalSize() const
 
 
 ShInteger::ShInteger(const string& name, large min, large max)
-    : ShType(name), range(min, max), size(range.physicalSize())
+    : ShOrdinal(name), range(min, max), size(range.physicalSize())
 {
 }
 
@@ -202,9 +209,6 @@ string ShChar::getFullDefinition(const string& objName) const
 
 
 // --- BOOL TYPE --- //
-
-ShBool::ShBool(const string& name)
-    : ShType(name)  { }
 
 string ShBool::getFullDefinition(const string& objName) const
 {
@@ -231,11 +235,6 @@ ShVector::ShVector(const string& name, ShType* iElementType)
 string ShVector::getFullDefinition(const string& objName) const
 {
     return elementType->getDisplayName(objName) + "[]";
-}
-
-bool ShVector::isComparable() const
-{
-    return elementType->isChar();
 }
 
 
@@ -301,16 +300,24 @@ ShModule::ShModule(const string& iFileName)
         addUses(queenBee);
 }
 
+string ShModule::registerString(const string& v)
+{
+    stringLiterals.add(v);
+    return v;
+}
+
 string ShModule::getFullDefinition(const string& objName) const
 {
     throw EInternal(5, "anonymous module");
 }
 
+#ifdef DEBUG
 void ShModule::dump(string indent) const
 {
     printf("\n%smodule %s\n", indent.c_str(), name.c_str());
     ShScope::dump(indent);
 }
+#endif
 
 
 // --- SYSTEM MODULE --- //
@@ -320,7 +327,7 @@ ShQueenBee::ShQueenBee()
       defaultInt(new ShInteger("int", int32min, int32max)),
       defaultLarge(new ShInteger("large", int64min, int64max)),
       defaultChar(new ShChar("char")),
-      defaultString(new ShVector("str", defaultChar)),
+      defaultStr(new ShString("str", defaultChar)),
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void"))
 {
@@ -329,8 +336,8 @@ ShQueenBee::ShQueenBee()
     addType(defaultChar);
     addType(defaultBool);
     addType(defaultVoid);
-    addType(defaultString);
-    defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultString);
+    addType(defaultStr);
+    defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultStr);
 }
 
 

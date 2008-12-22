@@ -7,13 +7,6 @@
 #include "source.h"
 
 
-union ShQuant
-{
-    ptr ptr_;
-    int int_;
-};
-
-
 const large int8min   = -128LL;
 const large int8max   = 127LL;
 const large uint8max  = 255LL;
@@ -25,7 +18,7 @@ const large int32max  = 2147483647LL;
 const large uint32max = 4294967295LL;
 const large int64min  = LARGE_MIN;
 const large int64max  = LARGE_MAX;
-const int   memAlign  = sizeof(ShQuant);
+const int   memAlign  = sizeof(ptr);
 
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
@@ -39,6 +32,8 @@ class ShVector;
 class ShSet;
 class ShArray;
 class ShModule;
+class ShQueenBee;
+
 
 class ShBase: public BaseNamed
 {
@@ -77,6 +72,8 @@ public:
     bool canBeArrayIndex() const
             { return isOrdinal() || isComparable(); }
     virtual bool isChar() const
+            { return false; }
+    virtual bool isString() const
             { return false; }
     virtual bool isBool() const
             { return false; }
@@ -142,12 +139,12 @@ public:
             { return complete; };
     virtual bool isOrdinal() const
             { return false; }
-    void addUses(ShModule* obj);
-    void addAnonType(ShType* obj);
-    void addType(ShType* obj);
-    void addAnonVar(ShVariable* obj);
-    void addVar(ShVariable* obj);
-    void addTypeAlias(ShTypeAlias* obj);
+    void addUses(ShModule*);
+    void addAnonType(ShType*);
+    void addType(ShType*);
+    void addAnonVar(ShVariable*);
+    void addTypeAlias(ShTypeAlias*);
+    void addVariable(ShVariable*);
     void setCompleted()
             { complete = true; }
     ShBase* find(const string& name) const
@@ -171,7 +168,16 @@ struct Range
 };
 
 
-class ShInteger: public ShType
+class ShOrdinal: public ShType
+{
+public:
+    ShOrdinal(const string& name): ShType(name)  { }
+    virtual bool isOrdinal() const
+            { return true; }
+};
+
+
+class ShInteger: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -181,36 +187,30 @@ public:
     const int size;
 
     ShInteger(const string& name, large min, large max);
-    virtual bool isOrdinal() const
-            { return true; }
     bool isUnsigned() const
             { return range.min >= 0; }
 };
 
 
-class ShChar: public ShType
+class ShChar: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShChar(const string& name): ShType(name)  { }
-    virtual bool isOrdinal() const
-            { return true; }
+    ShChar(const string& name): ShOrdinal(name)  { }
     virtual bool isChar() const
             { return true; }
 };
 
 
-class ShBool: public ShType
+class ShBool: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShBool(const string& name);
-    virtual bool isOrdinal() const
-            { return true; }
+    ShBool(const string& name): ShOrdinal(name)  { }
     virtual bool isBool() const
             { return true; }
 };
@@ -239,7 +239,23 @@ public:
     ShVector(const string& name, ShType* iElementType);
     virtual bool isOrdinal() const
             { return false; }
-    virtual bool isComparable() const;
+    virtual bool isString() const
+            { return elementType->isChar(); }
+    virtual bool isComparable() const
+            { return elementType->isChar(); }
+};
+
+
+class ShString: public ShVector
+{
+protected:
+    // Note that any char[] is a string, too
+    friend class ShQueenBee;
+    ShString(const string& name, ShChar* elementType)
+            : ShVector(name, elementType)  { }
+public:
+    virtual bool isString() const
+            { return true; }
 };
 
 
@@ -292,6 +308,26 @@ public:
 // --- LITERAL VALUES ----------------------------------------------------- //
 
 
+class ShValue: noncopyable
+{
+    union
+    {
+        ptr ptr_;
+        int int_;
+        large large_;
+    } value;
+
+public:
+    ShType* const type;
+
+    ShValue(ShOrdinal* iType, large iValue)
+            : type(iType)  { value.large_ = iValue; }
+    ShValue(ShString* iType, const string& iValue)
+            : type(iType)  { value.ptr_ = ptr(iValue.c_bytes()); }
+};
+
+
+
 // ------------------------------------------------------------------------ //
 
 
@@ -299,11 +335,11 @@ public:
 
 class ShModule: public ShScope
 {
+    Array<string> stringLiterals;
     string fileName;
     Parser parser;
 
-    string registerString(const string& v)  // TODO: find duplicates
-            { return v; }
+    string registerString(const string& v);  // TODO: find duplicates (?)
 
     // --- Compiler ---
     ShScope* currentScope;
@@ -311,8 +347,10 @@ class ShModule: public ShScope
     void notImpl()                       { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-    ShType* getType();
-    void parseDef();
+    ShType* getType(ShBase* previewObj);
+    ShBase* getAtom();
+    void parseTypeDef();
+    void parseObjectDef(ShBase* previewObj);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -331,12 +369,12 @@ public:
 class ShQueenBee: public ShModule
 {
 public:
-    ShInteger* defaultInt;     // "int"
-    ShInteger* defaultLarge;   // "large"
-    ShChar* defaultChar;       // "char"
-    ShVector* defaultString;   // "str"
-    ShBool* defaultBool;       // "bool"
-    ShVoid* defaultVoid;       // "void"
+    ShInteger* const defaultInt;     // "int"
+    ShInteger* const defaultLarge;   // "large"
+    ShChar* const defaultChar;       // "char"
+    ShString* const defaultStr;      // "str"
+    ShBool* const defaultBool;       // "bool"
+    ShVoid* const defaultVoid;       // "void"
     
     ShQueenBee();
 };

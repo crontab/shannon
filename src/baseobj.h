@@ -29,7 +29,7 @@ public:
             : Base(), name()  { }
     BaseNamed(const string& iName)
             : Base(), name(iName)  { }
-    void setNamePlease(const string& iName)  // make sure this obj is not in any symbol table
+    void setNamePleaseThisIsBadIKnow(const string& iName)
             { *(string*)&name = iName; }
 };
 

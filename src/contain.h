@@ -108,7 +108,15 @@ public:
 };
 
 
-#define FIFO_CHUNK_SIZE int(sizeof(quant) * 16)
+union fifoquant
+{
+    ptr   ptr_;
+    int   int_;
+    large large_;
+};
+
+
+#define FIFO_CHUNK_SIZE int(sizeof(fifoquant) * 16)
 
 
 struct FifoChunk
