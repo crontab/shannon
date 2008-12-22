@@ -349,6 +349,7 @@ class ShModule: public ShScope
     ShType* getDerivators(ShType*);
     ShType* getType(ShBase* previewObj);
     ShBase* getAtom();
+    
     void parseTypeDef();
     void parseObjectDef(ShBase* previewObj);
 
