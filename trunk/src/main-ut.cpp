@@ -12,6 +12,7 @@
 #include "contain.h"
 #include "baseobj.h"
 #include "source.h"
+#include "langobj.h"
 
 
 // ------------------------------------------------------------------------ //
@@ -396,7 +397,7 @@ int main ()
 {
     assert(sizeof(int) == 4);
     assert(sizeof(string) == sizeof(void*));
-    assert(sizeof(Array<quant>) == sizeof(void*));
+    // assert(sizeof(fifoquant) == sizeof(ShValue));
     testString();
     testCharset();
     testArrays();

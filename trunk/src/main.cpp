@@ -9,14 +9,22 @@
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
+union VmQuant
+{
+    ptr ptr_;
+    int int_;
+    large large_;
+};
+
+
 class VmStack: public noncopyable
 {
 protected:
-    PodStack<ShQuant> stack;
+    PodStack<VmQuant> stack;
 public:
     VmStack();
-    ShQuant& push()           { return stack.push(); }
-    ShQuant  pop()            { return stack.pop(); }
+    VmQuant& push()           { return stack.push(); }
+    VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
     void  pushLarge(large v);
@@ -47,7 +55,7 @@ enum OpCode
 class VmCode: public noncopyable
 {
 protected:
-    PodArray<ShQuant> code;
+    PodArray<ShValue> code;
 
 public:
     ShType* const returnType;
@@ -104,10 +112,10 @@ int main()
     {
         initLangObjs();
         
-#ifdef DEBUG
-        ShModule module("tests/test.sn");
-#else
+#ifdef XCODE
         ShModule module("../../src/tests/test.sn");
+#else
+        ShModule module("tests/test.sn");
 #endif
         module.compile();
         

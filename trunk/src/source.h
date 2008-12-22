@@ -102,6 +102,7 @@ protected:
     bool blankLine;
     Stack<int> indentStack;
 
+    string errorLocation() const;
     void parseStringLiteral();
     void skipMultilineComment();
     void skipSinglelineComment();
@@ -119,10 +120,10 @@ public:
     Token nextBegin();
     Token nextEnd();
 
-    void error(const string& msg) throw(EParser);
-    void syntax(const string& msg) throw(EParser);
+    void error(const string& msg);
+    void errorWithLoc(const string& msg);
+    void syntax(const string& msg);
     string skipIdent();
-    string errorLocation() const;
     void skipSep();
     void skip(Token tok, const char* errName);
     string getIdent();

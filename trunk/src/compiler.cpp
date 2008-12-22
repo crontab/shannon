@@ -38,7 +38,7 @@ ShType* ShModule::getDerivators(ShType* type)
         }
         else
         {
-            ShType* indexType = getType();
+            ShType* indexType = getType(NULL);
             parser.skip(tokRSquare, "]");
             if (!indexType->canBeArrayIndex())
                 error(indexType->getDisplayName("") + " can't be used as array index");
@@ -50,24 +50,68 @@ ShType* ShModule::getDerivators(ShType* type)
 }
 
 
-ShType* ShModule::getType()
+ShType* ShModule::getType(ShBase* previewObj)
 {
     // type ::= type-id { type-derivator }
-    ShBase* obj = getQualifiedName();
+    if (previewObj == NULL)
+        previewObj = getQualifiedName();
     ShType* type = NULL;
-    if (obj->isTypeAlias())
-        type = ((ShTypeAlias*)obj)->base;
-    else if (obj->isType())
-        type = (ShType*)obj;
+    if (previewObj->isTypeAlias())
+        type = ((ShTypeAlias*)previewObj)->base;
+    else if (previewObj->isType())
+        type = (ShType*)previewObj;
     else
-        error("Expected type identifier" + parser.errorLocation());
+        parser.errorWithLoc("Expected type identifier");
     return getDerivators(type);
 }
 
 
-void ShModule::parseDef()
+ShBase* ShModule::getAtom()
 {
-    getType();
+    if (parser.token == tokIdent)
+        return getQualifiedName();
+    error("Error in statement");
+    return NULL;
+}
+
+
+void ShModule::parseTypeDef()
+{
+    // type-alias ::= "def" type ident { type-derivator }
+    ShType* type = getType(NULL);
+    string ident = parser.getIdent();
+    type = getDerivators(type);
+    ShTypeAlias* alias = new ShTypeAlias(ident, type);
+    try
+    {
+        currentScope->addTypeAlias(alias);
+    }
+    catch (Exception& e)
+    {
+        delete alias;
+        throw;
+    }
+    parser.skipSep();
+}
+
+
+void ShModule::parseObjectDef(ShBase* previewObj)
+{
+    // object-def ::= type ident [ "=" expr ]
+    ShType* type = getType(previewObj);
+    string ident = parser.getIdent();
+    type = getDerivators(type);
+    ShVariable* var = new ShVariable(ident, type);
+    try
+    {
+        currentScope->addVariable(var);
+    }
+    catch(Exception& e)
+    {
+        delete var;
+        throw;
+    }
+    // TODO: initializer
     parser.skipSep();
 }
 
@@ -87,25 +131,35 @@ void ShModule::compile()
             string modName = parser.getIdent();
             if (strcasecmp(modName.c_str(), name.c_str()) != 0)
                 error("Module name mismatch");
-            setNamePlease(modName);
+            setNamePleaseThisIsBadIKnow(modName);
             parser.skipSep();
         }
-        
+
         // { statement | definition }
         while (parser.token != tokEof)
         {
             if (parser.token == tokDef)
             {
                 parser.next();
-                parseDef();
+                parseTypeDef();
             }
+            
             else
-                error("Expected definition or statement" + parser.errorLocation());
+            {
+                ShBase* obj = getAtom();
+                if (obj->isType() || obj->isTypeAlias())
+                    parseObjectDef(obj);
+                else
+                    parser.errorWithLoc("Expected definition or statement");
+            }
         }
-    
+
         compiled = true;
-        
+
+#ifdef DEBUG
         dump("");
+#endif
+
     }
     catch(Exception& e)
     {

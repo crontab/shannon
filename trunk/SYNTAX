@@ -78,13 +78,13 @@ statement ::= function-call | pipe | assignment | compount-statement
 
 definition ::= type-def | object-def | state-def
 
-type-def ::= type-alias | state-def
+type-def ::= type-alias | function-def
 
 type-alias ::= "def" type ident { type-derivator }
 
 type ::= type-id { type-derivator }
 
-type-id ::= ident | "typeof" "(" type-expr ")"
+type-id ::= ident | "typeof" "(" type-expr ")" | range
 
 type-derivator ::= array-derivator | mute-derivator
 
@@ -92,8 +92,11 @@ array-derivator ::= "[" [ type ] "]"
 
 mute-derivator ::= "^"
 
-state-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ state-body ]
+function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
 
 pipe-type ::= type "/" type
 
+
+
+object-def ::= type ident [ "=" expr ]
 

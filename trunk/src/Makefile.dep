@@ -17,3 +17,4 @@ obj/compiler.o: charset.h
 obj/main.o: str.h port.h except.h langobj.h baseobj.h contain.h source.h
 obj/main.o: charset.h
 obj/main-ut.o: charset.h port.h str.h contain.h baseobj.h except.h source.h
+obj/main-ut.o: langobj.h

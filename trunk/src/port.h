@@ -33,14 +33,6 @@ struct largerec
 };
 
 
-union quant
-{
-    ptr   ptr_;
-    int   int_;
-    large large_;
-};
-
-
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
 
 #ifdef SINGLE_THREADED

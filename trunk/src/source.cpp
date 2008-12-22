@@ -277,16 +277,22 @@ Parser::~Parser()
 }
 
 
-void Parser::error(const string& msg) throw(EParser)
+void Parser::error(const string& msg)
 {
     throw EParser(input->getFileName(), input->getLinenum(),
         "Error: " + msg);
 }
 
 
-void Parser::syntax(const string& msg) throw(EParser)
+void Parser::syntax(const string& msg)
 {
     error(msg);
+}
+
+
+void Parser::errorWithLoc(const string& msg)
+{
+    error(msg + errorLocation());
 }
 
 
@@ -567,7 +573,7 @@ string Parser::errorLocation() const
 void Parser::skipSep()
 {
     if (token != tokSep && token != tokEof)
-        error("End of statement expected" + errorLocation());
+        errorWithLoc("End of statement expected");
     next();
 }
 
@@ -575,7 +581,7 @@ void Parser::skipSep()
 void Parser::skip(Token tok, const char* errName)
 {
     if (token != tok)
-        error("'" + string(errName) + "' expected" + errorLocation());
+        errorWithLoc("'" + string(errName) + "' expected");
     next();
 }
 
@@ -583,7 +589,7 @@ void Parser::skip(Token tok, const char* errName)
 string Parser::getIdent()
 {
     if (token != tokIdent)
-        error("Identifier expected" + errorLocation());
+        errorWithLoc("Identifier expected");
     string result = strValue;
     next();
     return result;
