@@ -1,7 +1,7 @@
 
-module \
-    Test
+module Test
 
 System.void
 int *[][]
 int *[char][bool]
+char *{}

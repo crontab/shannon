@@ -69,7 +69,7 @@ range ::= atom ".." atom
 
 module ::= [module-header] { statement }
 
-module-header ::= "module" ident
++ module-header ::= "module" ident
 
 statement ::= definition | function-def | function-call | pipe
     | assignment | compount-statement | type-alias
@@ -97,7 +97,7 @@ compound-derivator ::= array-derivator | set-derivator | fifo-derivator
 
 + array-derivator ::= "[" [ type ] "]"
 
-set-derivator ::= "{" "}"
++ set-derivator ::= "{" "}"
 
 fifo-derivator ::= "<" ">"
 

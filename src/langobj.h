@@ -36,6 +36,7 @@ class ShScope;
 class ShState;
 class ShVector;
 class ShArray;
+class ShSet;
 class ShModule;
 
 class ShBase: public BaseNamed
@@ -53,22 +54,29 @@ public:
 
 class ShType: public ShBase
 {
-    ShVector* vector;
+    ShVector* derivedVectorType;
+    ShSet* derivedSetType;
 
 protected:
     virtual string getFullDefinition(const string& objName) const = 0;
 
 public:
     ShType();
-    ShType(const string& name): ShBase(name)  { }
+    ShType(const string& name);
     virtual ~ShType();
     string getDisplayName(const string& objName) const;
     virtual bool isType()
-        { return true; }
+            { return true; }
     virtual bool isComplete() const
-        { return true; }
-    ShVector* getVectorType(ShScope* scope);
-    ShArray* getArrayType(ShType* indexType, ShScope* scope);
+            { return true; }
+    virtual bool isOrdinal() const = 0;
+    virtual bool isComparable() const
+            { return isOrdinal(); }
+    bool canBeArrayIndex() const
+            { return isOrdinal() || isComparable(); }
+    ShVector* deriveVectorType(ShScope* scope);
+    ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
+    ShSet* deriveSetType(ShScope* scope);
 };
 
 
@@ -123,6 +131,8 @@ public:
             { return true; }
     virtual bool isComplete() const
             { return complete; };
+    virtual bool isOrdinal() const
+            { return false; }
     void addUses(ShModule* obj);
     void addAnonType(ShType* obj);
     void addType(ShType* obj) throw(EDuplicate);
@@ -162,6 +172,8 @@ public:
     const int size;
 
     ShInteger(const string& name, large min, large max);
+    virtual bool isOrdinal() const
+            { return true; }
     bool isUnsigned() const
             { return range.min >= 0; }
 };
@@ -174,6 +186,8 @@ protected:
 
 public:
     ShChar(const string& name): ShType(name)  { }
+    virtual bool isOrdinal() const
+            { return true; }
 };
 
 
@@ -184,6 +198,8 @@ protected:
 
 public:
     ShBool(const string& name): ShType(name)  { }
+    virtual bool isOrdinal() const
+            { return true; }
 };
 
 
@@ -194,6 +210,8 @@ protected:
 
 public:
     ShVoid(const string& name): ShType(name)  { }
+    virtual bool isOrdinal() const
+            { return false; }
 };
 
 
@@ -206,6 +224,9 @@ public:
     ShType* const elementType;
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
+    virtual bool isOrdinal() const
+            { return false; }
+    virtual bool isComparable() const;
 };
 
 
@@ -218,6 +239,8 @@ public:
     ShType* const indexType;
     ShArray(ShType* iElementType, ShType* iIndexType);
     ShArray(const string& name, ShType* iElementType, ShType* iIndexType);
+    virtual bool isOrdinal() const
+            { return false; }
 };
 
 
@@ -229,7 +252,8 @@ protected:
 public:
     ShType* const baseType;
     ShSet(ShType* iBaseType);
-    ShSet(const string& name, ShType* iBaseType);
+    virtual bool isOrdinal() const
+            { return false; }
 };
 
 
