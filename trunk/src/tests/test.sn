@@ -13,4 +13,9 @@ def bool oy[char[]]
 bool b
 int c[]
 
-blooh d
+blooh d = 1
+char f = 'a'
+
+const int g = 9223372036854775807
+const h = 'h'
+

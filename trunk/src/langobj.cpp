@@ -123,8 +123,11 @@ void ShScope::addAnonVar(ShVariable* obj)
 void ShScope::addTypeAlias(ShTypeAlias* obj)
         { addSymbol(obj); typeAliases.add(obj); }
 
+void ShScope::addConstant(ShConstant* obj)
+        { addSymbol(obj); consts.add(obj); }
 
-ShBase* ShScope::deepSearch(const string& name) const
+
+ShBase* ShScope::deepFind(const string& name) const
 {
     ShBase* obj = find(name);
     if (obj != NULL)
@@ -137,8 +140,18 @@ ShBase* ShScope::deepSearch(const string& name) const
     }
     if (owner != NULL)
         return owner->deepSearch(name);
-    throw ENotFound(name);
+    return NULL;
 }
+
+
+ShBase* ShScope::deepSearch(const string& name) const
+{
+    ShBase* obj = deepFind(name);
+    if (obj == NULL)
+        throw ENotFound(name);
+    return obj;
+}
+
 
 
 #ifdef DEBUG
@@ -188,10 +201,9 @@ int Range::physicalSize() const
 }
 
 
-ShInteger::ShInteger(const string& name, large min, large max)
-    : ShOrdinal(name), range(min, max), size(range.physicalSize())
-{
-}
+ShOrdinal::ShOrdinal(const string& name, large min, large max)
+    : ShType(name), range(min, max), size(range.physicalSize())  { }
+
 
 string ShInteger::getFullDefinition(const string& objName) const
 {
@@ -204,7 +216,8 @@ string ShInteger::getFullDefinition(const string& objName) const
 
 string ShChar::getFullDefinition(const string& objName) const
 {
-    throw EInternal(8, "anonymous char type");
+    return "'" + mkPrintable(range.min)  + "'..'" + mkPrintable(range.max)
+        + "' " + objName;
 }
 
 
@@ -212,7 +225,7 @@ string ShChar::getFullDefinition(const string& objName) const
 
 string ShBool::getFullDefinition(const string& objName) const
 {
-    throw EInternal(7, "anonymous bool type");
+    return "false..true" + objName;
 }
 
 

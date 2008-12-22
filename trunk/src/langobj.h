@@ -25,10 +25,13 @@ const int   memAlign  = sizeof(ptr);
 
 
 class ShType;
+class ShConstant;
+class ShOrdinal;
 class ShBool;
 class ShScope;
 class ShState;
 class ShVector;
+class ShString;
 class ShSet;
 class ShArray;
 class ShModule;
@@ -43,9 +46,10 @@ public:
     ShBase(): BaseNamed(), owner(NULL)  { }
     ShBase(const string& name): BaseNamed(name), owner(NULL)  { }
     
-    virtual bool isType()       { return false; }
-    virtual bool isTypeAlias()  { return false; }
-    virtual bool isScope()      { return false; }
+    virtual bool isType() const       { return false; }
+    virtual bool isTypeAlias() const  { return false; }
+    virtual bool isConstant() const   { return false; }
+    virtual bool isScope() const      { return false; }
 };
 
 
@@ -62,20 +66,25 @@ public:
     ShType(const string& name);
     virtual ~ShType();
     string getDisplayName(const string& objName) const;
-    virtual bool isType()
+    virtual bool isType() const
             { return true; }
     virtual bool isComplete() const
             { return true; }
-    virtual bool isOrdinal() const = 0;
+    virtual bool isOrdinal() const
+            { return false; }
     virtual bool isComparable() const
             { return isOrdinal(); }
     bool canBeArrayIndex() const
             { return isOrdinal() || isComparable(); }
+    virtual bool isInt() const
+            { return false; }
     virtual bool isChar() const
             { return false; }
     virtual bool isString() const
             { return false; }
     virtual bool isBool() const
+            { return false; }
+    virtual bool isRange() const
             { return false; }
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
@@ -90,7 +99,7 @@ class ShTypeAlias: public ShBase
 public:
     ShType* const base;
     ShTypeAlias(const string& name, ShType* iBase);
-    virtual bool isTypeAlias()  { return true; }
+    virtual bool isTypeAlias() const  { return true; }
 };
 
 
@@ -125,6 +134,7 @@ protected:
     BaseList<ShType> types;
     BaseList<ShVariable> vars;
     BaseList<ShTypeAlias> typeAliases;
+    BaseList<ShConstant> consts;
     
     ShBase* own(ShBase* obj);
     void addSymbol(ShBase* obj);
@@ -133,23 +143,23 @@ public:
     bool complete;
 
     ShScope(const string& name);
-    virtual bool isScope()
+    virtual bool isScope() const
             { return true; }
     virtual bool isComplete() const
             { return complete; };
-    virtual bool isOrdinal() const
-            { return false; }
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
     void addAnonVar(ShVariable*);
-    void addTypeAlias(ShTypeAlias*);
     void addVariable(ShVariable*);
+    void addTypeAlias(ShTypeAlias*);
+    void addConstant(ShConstant*);
     void setCompleted()
             { complete = true; }
-    ShBase* find(const string& name) const
+    ShBase* find(const string& name) const // doesn't throw
             { return symbols.find(name); }
-    ShBase* deepSearch(const string&) const;
+    ShBase* deepSearch(const string&) const; // throws ENotFound
+    ShBase* deepFind(const string&) const; // doesn't throw
     void dump(string indent) const;
 };
 
@@ -163,7 +173,6 @@ struct Range
     const large max;
 
     Range(large iMin, large iMax): min(iMin), max(iMax)  { }
-    bool has(large v) const   { return v >= min && v <= max; }
     int  physicalSize() const;
 };
 
@@ -171,9 +180,15 @@ struct Range
 class ShOrdinal: public ShType
 {
 public:
-    ShOrdinal(const string& name): ShType(name)  { }
+    const Range range;
+    const int size;
+
+    ShOrdinal(const string& name, large min, large max);
     virtual bool isOrdinal() const
             { return true; }
+    virtual bool isCompatibleWith(ShType*) const = 0;
+    bool contains(large value) const
+            { return value >= range.min && value <= range.max; }
 };
 
 
@@ -183,10 +198,12 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    const Range range;
-    const int size;
-
-    ShInteger(const string& name, large min, large max);
+    ShInteger(const string& name, large min, large max)
+            : ShOrdinal(name, min, max)  { }
+    virtual bool isInt() const
+            { return true; }
+    virtual bool isCompatibleWith(ShType* type) const
+            { return type->isInt(); }
     bool isUnsigned() const
             { return range.min >= 0; }
 };
@@ -198,9 +215,12 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShChar(const string& name): ShOrdinal(name)  { }
+    ShChar(const string& name, int min = 0, int max = 255)
+            : ShOrdinal(name, min, max)  { }
     virtual bool isChar() const
             { return true; }
+    virtual bool isCompatibleWith(ShType* type) const
+            { return type->isChar(); }
 };
 
 
@@ -210,9 +230,11 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShBool(const string& name): ShOrdinal(name)  { }
+    ShBool(const string& name): ShOrdinal(name, 0, 1)  { }
     virtual bool isBool() const
             { return true; }
+    virtual bool isCompatibleWith(ShType* type) const
+            { return type->isBool(); }
 };
 
 
@@ -223,8 +245,17 @@ protected:
 
 public:
     ShVoid(const string& name): ShType(name)  { }
-    virtual bool isOrdinal() const
-            { return false; }
+};
+
+
+class ShRange: public ShType
+{
+public:
+    ShOrdinal* base;
+    
+    ShRange(ShOrdinal* iBase): ShType(), base(iBase)  { }
+    virtual bool isRange() const
+            { return true; }
 };
 
 
@@ -237,8 +268,6 @@ public:
     ShType* const elementType;
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
-    virtual bool isOrdinal() const
-            { return false; }
     virtual bool isString() const
             { return elementType->isChar(); }
     virtual bool isComparable() const
@@ -267,8 +296,6 @@ protected:
 public:
     ShType* const indexType;
     ShArray(ShType* iElementType, ShType* iIndexType);
-    virtual bool isOrdinal() const
-            { return false; }
 };
 
 
@@ -294,8 +321,6 @@ public:
 };
 
 
-// --- FUNCTION --- //
-
 class ShFunction: public ShState
 {
     BaseList<ShType> retTypes;
@@ -307,8 +332,7 @@ public:
 
 // --- LITERAL VALUES ----------------------------------------------------- //
 
-
-class ShValue: noncopyable
+class ShValue
 {
     union
     {
@@ -316,16 +340,29 @@ class ShValue: noncopyable
         int int_;
         large large_;
     } value;
-
 public:
-    ShType* const type;
+    ShType* type;
 
+    ShValue(): type(NULL)  { }
+    ShValue(const ShValue& v)
+            : type(v.type) { value = v.value; }
     ShValue(ShOrdinal* iType, large iValue)
             : type(iType)  { value.large_ = iValue; }
     ShValue(ShString* iType, const string& iValue)
             : type(iType)  { value.ptr_ = ptr(iValue.c_bytes()); }
+    void operator= (const ShValue& v)
+            { value = v.value; type = v.type; }
 };
 
+
+class ShConstant: public ShBase
+{
+public:
+    const ShValue value;
+    ShConstant(const string& name, const ShValue& iValue)
+        : ShBase(name), value(iValue)  { }
+    virtual bool isConstant() const   { return true; }
+};
 
 
 // ------------------------------------------------------------------------ //
@@ -344,13 +381,18 @@ class ShModule: public ShScope
     // --- Compiler ---
     ShScope* currentScope;
     void error(const string& msg)        { parser.error(msg); }
+    void error(const char* msg)          { parser.error(msg); }
     void notImpl()                       { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
+    ShRange* getRangeType();
     ShType* getType(ShBase* previewObj);
     ShBase* getAtom();
+    ShValue getOrdinalConst();
+    ShValue getConstExpr(ShType* typeHint);
     
     void parseTypeDef();
+    void parseConstDef();
     void parseObjectDef(ShBase* previewObj);
 
 protected:
