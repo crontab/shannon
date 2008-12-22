@@ -86,9 +86,10 @@ enum Token
     // keywords
     tokModule, tokConst, tokDef,
     // special chars and sequences
-    tokComma, tokPeriod, tokDiv, tokMul, tokNoname = tokMul,
+    tokComma, tokPeriod, tokDiv, tokMul,
     tokLSquare, tokRSquare, /* tokLCurly, tokRCurly, */
     tokLAngle, tokLessThan = tokLAngle, tokRAngle, tokGreaterThan = tokRAngle,
+    tokEqual,
 };
 
 
@@ -122,7 +123,8 @@ public:
 
     void error(const string& msg);
     void errorWithLoc(const string& msg);
-    void syntax(const string& msg);
+    void error(const char*);
+    void errorWithLoc(const char*);
     string skipIdent();
     void skipSep();
     void skip(Token tok, const char* errName);
@@ -133,7 +135,7 @@ public:
 
 
 string extractFileName(string filepath);
-
+string mkPrintable(char c);
 
 #endif
 

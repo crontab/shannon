@@ -41,14 +41,14 @@ enum OpCode
 {
     opNone = 0,
     
-    opLoad0 = 256,  // []
+    opLoad0,        // []
     opLoadInt,      // [int]
     opLoadLarge,    // [int,int]
     opLoadChar,     // [int]
     opLoadFalse,    // []
     opLoadTrue,     // []
     opLoadNull,     // []
-    opLoadStr,      // [string-index]
+    opLoadStr,      // [string-data-ptr]
 };
 
 
@@ -70,6 +70,9 @@ public:
 // --- HIS MAJESTY THE COMPILER -------------------------------------------- //
 // ------------------------------------------------------------------------- //
 
+
+// --- CONST EXPRESSION ---------------------------------------------------- //
+
 ShBase* ShModule::getQualifiedName()
 {
     // qualified-name ::= { ident "." } ident
@@ -89,6 +92,60 @@ ShBase* ShModule::getQualifiedName()
     return obj;
 }
 
+
+ShValue ShModule::getOrdinalConst()
+{
+    // TODO: read constant names as well; check previewObj
+    // TODO: const expr
+    if (parser.token == tokIntValue)
+    {
+        large value = parser.intValue;
+        ShInteger* type = queenBee->defaultInt->contains(value) ?
+            queenBee->defaultInt : queenBee->defaultLarge;
+        parser.next();
+        return ShValue(type, parser.intValue);
+    }
+    else if (parser.token == tokStrValue)
+    {
+        if (parser.strValue.size() != 1)
+            error("Character expected instead of '" + parser.strValue + "'");
+        int value = parser.strValue[0];
+        parser.next();
+        return ShValue(queenBee->defaultChar, value);
+    }
+    return ShValue();
+}
+
+
+ShValue ShModule::getConstExpr(ShType* typeHint)
+{
+    // TODO:
+    ShValue result;
+    if (typeHint == NULL)
+    {
+        result = getOrdinalConst();
+        typeHint = result.type;
+    }
+    else if (typeHint->isOrdinal())
+    {
+        result = getOrdinalConst();
+        if (result.type != NULL && !((ShOrdinal*)typeHint)->isCompatibleWith(result.type))
+            error("Type mismatch in constant expression");
+    }
+    if (result.type == NULL)
+        error("Constant expression expected");
+    return result;
+}
+
+
+// --- TYPES --------------------------------------------------------------- //
+
+/*
+ShRange* ShModule::getRangeType()
+{
+    return NULL;
+}
+*/
 
 ShType* ShModule::getDerivators(ShType* type)
 {
@@ -118,6 +175,8 @@ ShType* ShModule::getDerivators(ShType* type)
 ShType* ShModule::getType(ShBase* previewObj)
 {
     // type ::= type-id { type-derivator }
+    // type-id ::= ident | "typeof" "(" type-expr ")" | range
+    // TODO: range type
     if (previewObj == NULL)
         previewObj = getQualifiedName();
     ShType* type = NULL;
@@ -130,6 +189,8 @@ ShType* ShModule::getType(ShBase* previewObj)
     return getDerivators(type);
 }
 
+
+// --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
 
 ShBase* ShModule::getAtom()
 {
@@ -160,6 +221,41 @@ void ShModule::parseTypeDef()
 }
 
 
+void ShModule::parseConstDef()
+{
+    // const-def ::= "const" [ type ] ident "=" const-expr
+    string ident;
+    ShType* type = NULL;
+    if (parser.token == tokIdent)
+    {
+        ident = parser.strValue;
+        parser.next();
+        ShBase* obj = deepFind(ident);
+        if (obj != NULL && obj->isType())
+        {
+            type = getType(obj);
+            ident = parser.skipIdent();
+        }
+    }
+    else
+    {
+        type = getType(NULL);
+        ident = parser.skipIdent();
+    }
+    
+    if (type != NULL)
+        type = getDerivators(type);
+        
+    parser.skip(tokEqual, "=");
+    
+    ShValue value = getConstExpr(type);
+    if (type == NULL)
+        type = value.type;
+        
+    parser.skipSep();
+}
+
+
 void ShModule::parseObjectDef(ShBase* previewObj)
 {
     // object-def ::= type ident [ "=" expr ]
@@ -176,7 +272,15 @@ void ShModule::parseObjectDef(ShBase* previewObj)
         delete var;
         throw;
     }
-    // TODO: initializer
+
+    if (parser.token == tokEqual)
+    {
+        parser.next();
+        ShValue value = getOrdinalConst();
+        if (value.type == NULL)
+            error("Constant value expected");
+    }
+
     parser.skipSep();
 }
 
@@ -203,10 +307,18 @@ void ShModule::compile()
         // { statement | definition }
         while (parser.token != tokEof)
         {
+            // definition ::= type-def | const-def | object-def | function-def
+
             if (parser.token == tokDef)
             {
                 parser.next();
                 parseTypeDef();
+            }
+            
+            else if (parser.token == tokConst)
+            {
+                parser.next();
+                parseConstDef();
             }
             
             else

@@ -249,7 +249,7 @@ const charset hexDigits = "0-9A-Fa-f";
 const charset printableChars = "~20-~FF";
 
 
-static string mkPrintable(char c)
+string mkPrintable(char c)
 {
     if (c == '\\')
         return string("\\\\");
@@ -278,22 +278,19 @@ Parser::~Parser()
 
 
 void Parser::error(const string& msg)
-{
-    throw EParser(input->getFileName(), input->getLinenum(),
-        "Error: " + msg);
-}
-
-
-void Parser::syntax(const string& msg)
-{
-    error(msg);
-}
+    { throw EParser(input->getFileName(), input->getLinenum(), "Error: " + msg); }
 
 
 void Parser::errorWithLoc(const string& msg)
-{
-    error(msg + errorLocation());
-}
+    { error(msg + errorLocation()); }
+
+
+void Parser::error(const char* msg)
+    { error(string(msg)); }
+
+
+void Parser::errorWithLoc(const char* msg)
+    { errorWithLoc(string(msg)); }
 
 
 void Parser::parseStringLiteral()
@@ -304,10 +301,10 @@ void Parser::parseStringLiteral()
     {
         strValue += input->token(stringChars);
         if (input->getEof())
-            syntax("Unexpected end of file in string literal");
+            error("Unexpected end of file in string literal");
         char c = input->get();
         if (input->isEolChar(c))
-            syntax("Unexpected end of line in string literal");
+            error("Unexpected end of line in string literal");
         if (c == '\'')
             return;
         else if (c == '\\')
@@ -332,13 +329,13 @@ void Parser::parseStringLiteral()
                     strValue += char(value);
                 }
                 else
-                    syntax("Malformed hex sequence");
+                    error("Malformed hex sequence");
             }
             else
                 strValue += c;
         }
         else
-            syntax("Illegal character in string literal '" + mkPrintable(c) + "'");
+            error("Illegal character in string literal '" + mkPrintable(c) + "'");
     }
 }
 
@@ -366,11 +363,11 @@ void Parser::skipMultilineComment()
             }
         }
         else
-            syntax("Illegal character in comments '" + mkPrintable(e) + "'");
+            error("Illegal character in comments '" + mkPrintable(e) + "'");
     }
     input->skip(wsChars);
     if (!input->getEol())
-        syntax("Multiline comments must end with a new line");
+        error("Multiline comments must end with a new line");
 }
 
 
@@ -379,7 +376,7 @@ void Parser::skipSinglelineComment()
     static const charset commentChars = printableChars + wsChars;
     input->skip(commentChars);
     if (!input->getEol())
-        syntax("Illegal character in comments '" + mkPrintable(input->preview()) + "'");
+        error("Illegal character in comments '" + mkPrintable(input->preview()) + "'");
 }
 
 
@@ -458,7 +455,7 @@ restart:
             indentStack.pop();
             oldIndent = indentStack.top();
             if (newIndent > oldIndent)
-                syntax("Unmatched un-indent");
+                error("Unmatched un-indent");
             else if (newIndent == oldIndent)
             {
                 blankLine = false; // don't return to this branch again
@@ -506,7 +503,7 @@ restart:
         case '\\':
             input->skip(wsChars);
             if (!input->getEol())
-                syntax("New line expected after '\\'");
+                error("New line expected after '\\'");
             input->skipEol();
             goto restart;
         case ',': return token = tokComma;
@@ -525,10 +522,11 @@ restart:
         // case '}': return token = tokRCurly;
         case '<': return token = tokLAngle;
         case '>': return token = tokRAngle;
+        case '=': return token = tokEqual;
         }
     }
 
-    syntax("Illegal character '" + mkPrintable(c) + "'");
+    error("Illegal character '" + mkPrintable(c) + "'");
 
     return tokUndefined;
 }
