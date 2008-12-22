@@ -32,9 +32,11 @@ const int   memAlign  = sizeof(ShQuant);
 
 
 class ShType;
+class ShBool;
 class ShScope;
 class ShState;
 class ShVector;
+class ShSet;
 class ShArray;
 class ShModule;
 
@@ -46,14 +48,16 @@ public:
     ShBase(): BaseNamed(), owner(NULL)  { }
     ShBase(const string& name): BaseNamed(name), owner(NULL)  { }
     
-    virtual bool isType()  { return false; }
-    virtual bool isScope() { return false; }
+    virtual bool isType()       { return false; }
+    virtual bool isTypeAlias()  { return false; }
+    virtual bool isScope()      { return false; }
 };
 
 
 class ShType: public ShBase
 {
     ShVector* derivedVectorType;
+    ShSet* derivedSetType;
 
 protected:
     virtual string getFullDefinition(const string& objName) const = 0;
@@ -72,8 +76,15 @@ public:
             { return isOrdinal(); }
     bool canBeArrayIndex() const
             { return isOrdinal() || isComparable(); }
+    virtual bool isChar() const
+            { return false; }
+    virtual bool isBool() const
+            { return false; }
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
+    ShSet* deriveSetType(ShBool* elementType, ShScope* scope);
+    void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
+            { derivedVectorType = v; }
 };
 
 
@@ -82,6 +93,7 @@ class ShTypeAlias: public ShBase
 public:
     ShType* const base;
     ShTypeAlias(const string& name, ShType* iBase);
+    virtual bool isTypeAlias()  { return true; }
 };
 
 
@@ -118,7 +130,7 @@ protected:
     BaseList<ShTypeAlias> typeAliases;
     
     ShBase* own(ShBase* obj);
-    void addSymbol(ShBase* obj) throw(EDuplicate);
+    void addSymbol(ShBase* obj);
 
 public:
     bool complete;
@@ -132,15 +144,15 @@ public:
             { return false; }
     void addUses(ShModule* obj);
     void addAnonType(ShType* obj);
-    void addType(ShType* obj) throw(EDuplicate);
+    void addType(ShType* obj);
     void addAnonVar(ShVariable* obj);
-    void addVar(ShVariable* obj) throw(EDuplicate);
-    void addTypeAlias(ShTypeAlias* obj) throw(EDuplicate);
+    void addVar(ShVariable* obj);
+    void addTypeAlias(ShTypeAlias* obj);
     void setCompleted()
             { complete = true; }
     ShBase* find(const string& name) const
             { return symbols.find(name); }
-    ShBase* deepSearch(const string&) const throw(ENotFound);
+    ShBase* deepSearch(const string&) const;
     void dump(string indent) const;
 };
 
@@ -185,6 +197,8 @@ public:
     ShChar(const string& name): ShType(name)  { }
     virtual bool isOrdinal() const
             { return true; }
+    virtual bool isChar() const
+            { return true; }
 };
 
 
@@ -194,8 +208,10 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShBool(const string& name): ShType(name)  { }
+    ShBool(const string& name);
     virtual bool isOrdinal() const
+            { return true; }
+    virtual bool isBool() const
             { return true; }
 };
 
@@ -235,9 +251,15 @@ protected:
 public:
     ShType* const indexType;
     ShArray(ShType* iElementType, ShType* iIndexType);
-    ShArray(const string& name, ShType* iElementType, ShType* iIndexType);
     virtual bool isOrdinal() const
             { return false; }
+};
+
+
+class ShSet: public ShArray
+{
+public:
+    ShSet(ShBool* iElementType, ShType* iIndexType);
 };
 
 
@@ -288,8 +310,9 @@ class ShModule: public ShScope
     void error(const string& msg)        { parser.error(msg); }
     void notImpl()                       { error("Feature not implemented"); }
     ShBase* getQualifiedName();
-    ShType* deriveType(ShType*);
-    void parseDefinition();
+    ShType* getDerivators(ShType*);
+    ShType* getType();
+    void parseDef();
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -311,8 +334,7 @@ public:
     ShInteger* defaultInt;     // "int"
     ShInteger* defaultLarge;   // "large"
     ShChar* defaultChar;       // "char"
-    ShVector* defaultString;   // <anonymous>
-    ShTypeAlias* defaultStr;   // "str"
+    ShVector* defaultString;   // "str"
     ShBool* defaultBool;       // "bool"
     ShVoid* defaultVoid;       // "void"
     

@@ -14,10 +14,11 @@ inline int align(int size)
 // --- TYPE --- //
 
 
-ShType::ShType(): ShBase(), derivedVectorType(NULL)  { }
+ShType::ShType()
+    : ShBase(), derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::ShType(const string& name)
-    : ShBase(name), derivedVectorType(NULL)  { }
+    : ShBase(name), derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::~ShType()  { }
 
@@ -42,11 +43,27 @@ ShVector* ShType::deriveVectorType(ShScope* scope)
 ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
 {
     if (!indexType->canBeArrayIndex())
-        throw EInternal(10, indexType->getDisplayName("*") + " can't be used as array index");
-    ShArray* array = new ShArray(this, indexType);
-    scope->addAnonType(array);
-    return array;
+        throw EInternal(10, indexType->getDisplayName("") + " can't be used as array index");
+    if (isBool())
+        return indexType->deriveSetType((ShBool*)this, scope);
+    else
+    {
+        ShArray* array = new ShArray(this, indexType);
+        scope->addAnonType(array);
+        return array;
+    }
 }
+
+ShSet* ShType::deriveSetType(ShBool* elementType, ShScope* scope)
+{
+    if (derivedSetType == NULL)
+    {
+        derivedSetType = new ShSet(elementType, this);
+        scope->addAnonType(derivedSetType);
+    }
+    return derivedSetType;
+}
+
 
 
 // --- TYPE ALIAS --- //
@@ -80,7 +97,7 @@ ShBase* ShScope::own(ShBase* obj)
     return obj;
 }
 
-void ShScope::addSymbol(ShBase* obj) throw(EDuplicate)
+void ShScope::addSymbol(ShBase* obj)
 {
     own(obj);
     if (obj->name.empty())
@@ -91,23 +108,23 @@ void ShScope::addSymbol(ShBase* obj) throw(EDuplicate)
 void ShScope::addUses(ShModule* obj)
         { addSymbol(obj); uses.add(obj); }
 
-void ShScope::addType(ShType* obj) throw(EDuplicate)
+void ShScope::addType(ShType* obj)
         { addSymbol(obj); types.add(obj); }
 
 void ShScope::addAnonType(ShType* obj)
         { own(obj); types.add(obj); }
 
-void ShScope::addVar(ShVariable* obj) throw(EDuplicate)
+void ShScope::addVar(ShVariable* obj)
         { addSymbol(obj); vars.add(obj); }
 
 void ShScope::addAnonVar(ShVariable* obj)
         { own(obj); vars.add(obj); }
 
-void ShScope::addTypeAlias(ShTypeAlias* obj) throw(EDuplicate)
+void ShScope::addTypeAlias(ShTypeAlias* obj)
         { addSymbol(obj); typeAliases.add(obj); }
 
 
-ShBase* ShScope::deepSearch(const string& name) const throw(ENotFound)
+ShBase* ShScope::deepSearch(const string& name) const
 {
     ShBase* obj = find(name);
     if (obj != NULL)
@@ -128,7 +145,7 @@ void ShScope::dump(string indent) const
 {
 //    printf("%s%s:\n", indent.c_str(), getName().c_str());
     for (int i = 0; i < types.size(); i++)
-        printf("%s# %s\n", indent.c_str(), types[i]->getDisplayName("*").c_str());
+        printf("%s# def %s\n", indent.c_str(), types[i]->getDisplayName("").c_str());
 }
 
 
@@ -186,6 +203,9 @@ string ShChar::getFullDefinition(const string& objName) const
 
 // --- BOOL TYPE --- //
 
+ShBool::ShBool(const string& name)
+    : ShType(name)  { }
+
 string ShBool::getFullDefinition(const string& objName) const
 {
     throw EInternal(7, "anonymous bool type");
@@ -215,7 +235,7 @@ string ShVector::getFullDefinition(const string& objName) const
 
 bool ShVector::isComparable() const
 {
-    return elementType == queenBee->defaultChar;
+    return elementType->isChar();
 }
 
 
@@ -224,13 +244,16 @@ bool ShVector::isComparable() const
 ShArray::ShArray(ShType* iElementType, ShType* iIndexType)
         : ShVector(iElementType), indexType(iIndexType)  { }
 
-ShArray::ShArray(const string& name, ShType* iElementType, ShType* iIndexType)
-        : ShVector(name, iElementType), indexType(iIndexType)  { }
-
 string ShArray::getFullDefinition(const string& objName) const
 {
     return elementType->getDisplayName(objName) + "[" + indexType->getDisplayName("") + "]";
 }
+
+
+// --- SET TYPE --- //
+
+ShSet::ShSet(ShBool* iElementType, ShType* iIndexType)
+        : ShArray(iElementType, iIndexType)  { }
 
 
 // --- STATE --- //
@@ -297,8 +320,7 @@ ShQueenBee::ShQueenBee()
       defaultInt(new ShInteger("int", int32min, int32max)),
       defaultLarge(new ShInteger("large", int64min, int64max)),
       defaultChar(new ShChar("char")),
-      defaultString(NULL),
-      defaultStr(NULL),
+      defaultString(new ShVector("str", defaultChar)),
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void"))
 {
@@ -307,9 +329,8 @@ ShQueenBee::ShQueenBee()
     addType(defaultChar);
     addType(defaultBool);
     addType(defaultVoid);
-    defaultString = defaultChar->deriveVectorType(this);
-    defaultStr = new ShTypeAlias("str", defaultString);
-    addTypeAlias(defaultStr);
+    addType(defaultString);
+    defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultString);
 }
 
 

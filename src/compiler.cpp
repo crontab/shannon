@@ -19,39 +19,55 @@ ShBase* ShModule::getQualifiedName()
         ident = parser.getIdent();
         obj = scope->find(ident);
         if (obj == NULL)
-            throw ENotFound(ident);
+            error("'" + ident + "' is not known within '" + scope->name + "'");
     }
     return obj;
 }
 
 
-ShType* ShModule::deriveType(ShType* type)
+ShType* ShModule::getDerivators(ShType* type)
 {
+    // array-derivator ::= "[" [ type ] "]"
     if (parser.token == tokLSquare)
     {
+        parser.next();
+        if (parser.token == tokRSquare)
+        {
+            type = type->deriveVectorType(currentScope);
+            parser.next();
+        }
+        else
+        {
+            ShType* indexType = getType();
+            parser.skip(tokRSquare, "]");
+            if (!indexType->canBeArrayIndex())
+                error(indexType->getDisplayName("") + " can't be used as array index");
+            type = type->deriveArrayType(indexType, currentScope);
+        }
+        type = getDerivators(type);
     }
     return type;
 }
 
 
-void ShModule::parseDefinition()
+ShType* ShModule::getType()
 {
-    bool isConst = parser.token == tokConst;
-    parser.next(); // "def" | "const"
-    
+    // type ::= type-id { type-derivator }
     ShBase* obj = getQualifiedName();
-    if (!obj->isType())
+    ShType* type = NULL;
+    if (obj->isTypeAlias())
+        type = ((ShTypeAlias*)obj)->base;
+    else if (obj->isType())
+        type = (ShType*)obj;
+    else
         error("Expected type identifier" + parser.errorLocation());
-    ShType* type = (ShType*)obj;
-    
-    if (token == tokAnon)
-    {
-        if (isConst)
-            error("'const' can't be used with type definition");
-        parser.next(); // "*"
-        type = deriveType();
-    }
-    
+    return getDerivators(type);
+}
+
+
+void ShModule::parseDef()
+{
+    getType();
     parser.skipSep();
 }
 
@@ -78,13 +94,18 @@ void ShModule::compile()
         // { statement | definition }
         while (parser.token != tokEof)
         {
-            if (parser.token == tokDef || parser.token == tokConst)
-                parseDefinition();
+            if (parser.token == tokDef)
+            {
+                parser.next();
+                parseDef();
+            }
             else
                 error("Expected definition or statement" + parser.errorLocation());
         }
     
         compiled = true;
+        
+        dump("");
     }
     catch(Exception& e)
     {
