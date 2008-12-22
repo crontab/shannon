@@ -216,9 +216,8 @@ public:
 Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list be kept in sorted order
+        {"const", tokConst},
         {"module", tokModule},
-        {"state", tokState},
-        {"void", tokVoid},
         {NULL, tokUndefined}
     };
 
@@ -377,7 +376,7 @@ void Parser::skipSinglelineComment()
 }
 
 
-Token Parser::next(bool expectBlock) throw(EParser, ESysError)
+Token Parser::next()
 {
 restart:
     strValue.clear();
@@ -497,23 +496,82 @@ restart:
         strValue = input->get();
         switch (c)
         {
+        case '\\':
+            input->skip(wsChars);
+            if (!input->getEol())
+                syntax("New line expected after '\\'");
+            input->skipEol();
+            goto restart;
         case ',': return token = tokComma;
         case '.': return token = tokPeriod;
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
-            if (!expectBlock)
-                syntax("Nested block expected");
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
             return token = tokBegin;
         case '/': return token = tokDiv;
+        case '*': return token = tokMul;
+        case '[': return token = tokLSquare;
+        case ']': return token = tokRSquare;
+        case '{': return token = tokLCurly;
+        case '}': return token = tokRCurly;
+        case '<': return token = tokLAngle;
+        case '>': return token = tokRAngle;
         }
     }
 
     syntax("Illegal character '" + mkPrintable(c) + "'");
 
     return tokUndefined;
+}
+
+
+Token Parser::nextBegin()
+{
+    // In the future, this will convert '{' to tokBegin
+    return next();
+}
+
+
+Token Parser::nextEnd()
+{
+    // In the future, this will convert '}' to tokEnd
+    return next();
+}
+
+
+string Parser::skipIdent()
+{
+    if (token != tokIdent)
+        error("Identifier expected");
+    string result = strValue;
+    next();
+    return result;
+}
+
+
+void Parser::skipSep()
+{
+    if (token != tokSep && token != tokEof)
+    {
+        string msg = "End of statement expected";
+        if (!strValue.empty())
+        {
+            // TODO: cut long string literals maybe
+            msg += " before '" + strValue + "'";
+        }
+        error(msg);
+    }
+    next();
+}
+
+
+void Parser::skip(Token tok, const char* errName)
+{
+    if (token != tok)
+        error("'" + string(errName) + "' expected");
+    next();
 }
 
 

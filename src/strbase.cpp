@@ -143,12 +143,12 @@ void string::initialize(const string& s)
 }
 
 
-const char* string::c_str()
+const char* string::c_str() const
 {
     int len = STR_LENGTH(data);
     if (len != 0 && len == STR_CAPACITY(data))
     {
-        appendn(1);
+        pstring(this)->appendn(1);
         STR_LENGTH(data)--;
     }
     return data;

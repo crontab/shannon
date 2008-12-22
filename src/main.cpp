@@ -104,7 +104,11 @@ int main()
     {
         initLangObjs();
         
+#ifdef DEBUG
         ShModule module("tests/test.sn");
+#else
+        ShModule module("../../src/tests/test.sn");
+#endif
         module.compile();
         
         doneLangObjs();

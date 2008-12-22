@@ -1,12 +1,20 @@
 
+#
 # BNF for Shannon:
 #   repeat 0 or more times: {...}
 #   optional: [...]
 #   group: (...)
 #   OR: |
 #   literal: "..." or '...'
-#   any word: reference to a syntactic element
-#   glue: ##
+#   any word: reference to another syntactic element
+#   glue: ## (otherwise elements are separated by whitespace or can be 
+#       distinguished by the parser)
+#   end of statement: <SEP> (end-of-line or ';')
+#   block-begin and block-end: <BEGIN> and <END> (':' followed by indented
+#       blocks until unindent to the previous level, or a special case with
+#       a single line that follows after ':', also C-style blocks will be
+#       supported in the future
+#
 
 
 # Basic elements
@@ -37,7 +45,7 @@ fifo-ctor ::= "<" [ expr { "," expr } ] ">"
 
 expr-list ::= expr { "," expr }
 
-qualified-name ::= { ident "." } ident
++ qualified-name ::= { ident "." } ident
 
 literal ::= number | string | "true" | "false" | "null"
 
@@ -55,4 +63,49 @@ fifo-pull ::= atom "::" set-ctor
 fifo-filter ::= atom "||" set-ctor
 
 range ::= atom ".." atom
+
+
+# Module
+
+module ::= [module-header] { statement }
+
+module-header ::= "module" ident
+
+statement ::= definition | function-def | function-call | pipe
+    | assignment | compount-statement | type-alias
+
+
+# Definitions
+
+definition ::= object-def <SEP>
+
+object-def ::= [ "const" ] type new-ident { type-modifiers } [ "=" expr ]
+
+type ::= typeof | type-id | anon-type | range
+
+typeof ::= "typeof" "(" ( type | expr ) ")"
+
++ type-id ::= qualified-name
+
++ anon-type ::= type "*" type-derivator
+
+type-derivator ::= function-derivator | { compound-derivator }
+
+function-derivator ::= "(" [ formal-param-list ] ")"
+
+compound-derivator ::= array-derivator | set-derivator | fifo-derivator
+
++ array-derivator ::= "[" [ type ] "]"
+
+set-derivator ::= "{" "}"
+
+fifo-derivator ::= "<" ">"
+
+
+function-def ::= type [ "/" type ] new-ident function-derivator
+    ( <SEP> | block )
+
+formal-param-list ::= object-def { "," object-def }
+
+block ::= <BEGIN> { statement } <END>
 
