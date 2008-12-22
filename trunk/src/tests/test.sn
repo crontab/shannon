@@ -2,7 +2,9 @@
 module Test
 
 def System.void
-# def int *[][]
-# def int *[char][bool]
-# def char *{}
+def int [][]
+def int [char][bool]
+
+def bool [str]
+def bool [char[]]
 

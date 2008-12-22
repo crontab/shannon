@@ -73,20 +73,27 @@ module ::= [module-header] { statement | definition }
 
 statement ::= function-call | pipe | assignment | compount-statement
 
-definition ::= type-def | object-def | state-def
-
 
 # Definitions
 
-type-def ::= "def" type-id "*" { type-derivator } ident
+definition ::= type-def | object-def | state-def
 
-type-id ::= qualified-name
+type-def ::= type-alias | state-def
 
-object-def ::= ( "def" | "const" ) type ident { type-derivator }
+type-alias ::= "def" type ident { type-derivator }
 
-type ::= type-id | typeof | range
+type ::= type-id { type-derivator }
 
-type-derivator ::= function-derivator | array-derivator | fifo-derivator
+type-id ::= ident | "typeof" "(" type-expr ")"
+
+type-derivator ::= array-derivator | mute-derivator
 
 array-derivator ::= "[" [ type ] "]"
+
+mute-derivator ::= "^"
+
+state-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ state-body ]
+
+pipe-type ::= type "/" type
+
 
