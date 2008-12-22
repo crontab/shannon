@@ -270,6 +270,7 @@ ShSet::ShSet(ShBool* iElementType, ShType* iIndexType)
 
 // --- STATE --- //
 
+/*
 void ShState::addState(ShState* obj)
         { addSymbol(obj);  states.add(obj); }
 
@@ -293,6 +294,7 @@ string ShState::getFullDefinition(const string& objName) const
 {
     return "state " + objName + getArgsDefinition();
 }
+*/
 
 
 // --- LITERAL VALUES ----------------------------------------------------- //

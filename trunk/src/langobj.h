@@ -80,12 +80,17 @@ public:
             { return false; }
     virtual bool isChar() const
             { return false; }
+    virtual bool isBool() const
+            { return false; }
+    virtual bool isVector() const
+            { return false; }
     virtual bool isString() const
             { return false; }
-    virtual bool isBool() const
+    virtual bool isArray() const
             { return false; }
     virtual bool isRange() const
             { return false; }
+    virtual bool equals(ShType*) const = 0;
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
     ShSet* deriveSetType(ShBool* elementType, ShScope* scope);
@@ -189,6 +194,8 @@ public:
     virtual bool isCompatibleWith(ShType*) const = 0;
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
+    bool rangeEquals(const Range r) const
+            { return range.min == r.min && range.max == r.max; }
 };
 
 
@@ -206,6 +213,8 @@ public:
             { return type->isInt(); }
     bool isUnsigned() const
             { return range.min >= 0; }
+    virtual bool equals(ShType* type) const
+            { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };
 
 
@@ -221,6 +230,8 @@ public:
             { return true; }
     virtual bool isCompatibleWith(ShType* type) const
             { return type->isChar(); }
+    virtual bool equals(ShType* type) const
+            { return type->isChar() && rangeEquals(((ShChar*)type)->range); }
 };
 
 
@@ -235,6 +246,8 @@ public:
             { return true; }
     virtual bool isCompatibleWith(ShType* type) const
             { return type->isBool(); }
+    virtual bool equals(ShType* type) const
+            { return type->isBool(); }
 };
 
 
@@ -245,9 +258,12 @@ protected:
 
 public:
     ShVoid(const string& name): ShType(name)  { }
+    virtual bool equals(ShType* type) const
+            { return false; }
 };
 
 
+/*
 class ShRange: public ShType
 {
 public:
@@ -256,7 +272,10 @@ public:
     ShRange(ShOrdinal* iBase): ShType(), base(iBase)  { }
     virtual bool isRange() const
             { return true; }
+    virtual equals(ShType* type) const
+            { return type->isRange() && base->equals(((ShRange*)type)->base); }
 };
+*/
 
 
 class ShVector: public ShType
@@ -268,10 +287,14 @@ public:
     ShType* const elementType;
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
+    virtual bool isVector() const
+            { return true; }
     virtual bool isString() const
             { return elementType->isChar(); }
     virtual bool isComparable() const
             { return elementType->isChar(); }
+    virtual bool equals(ShType* type) const
+            { return type->isVector() && elementType->equals(((ShVector*)type)->elementType); }
 };
 
 
@@ -296,6 +319,11 @@ protected:
 public:
     ShType* const indexType;
     ShArray(ShType* iElementType, ShType* iIndexType);
+    virtual bool isArray() const
+            { return true; }
+    virtual bool equals(ShType* type) const
+            { return type->isArray() && elementType->equals(((ShArray*)type)->elementType)
+                && indexType->equals(((ShArray*)type)->indexType); }
 };
 
 
@@ -306,6 +334,7 @@ public:
 };
 
 
+/*
 class ShState: public ShScope
 {
 protected:
@@ -319,8 +348,10 @@ public:
     void addArgument(ShArgument*);
     void addState(ShState*);
 };
+*/
 
 
+/*
 class ShFunction: public ShState
 {
     BaseList<ShType> retTypes;
@@ -328,6 +359,7 @@ public:
     void addReturnType(ShType* obj)
             { retTypes.add(obj); }
 };
+*/
 
 
 // --- LITERAL VALUES ----------------------------------------------------- //
@@ -385,7 +417,7 @@ class ShModule: public ShScope
     void notImpl()                       { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-    ShRange* getRangeType();
+//    ShRange* getRangeType();
     ShType* getType(ShBase* previewObj);
     ShBase* getAtom();
     ShValue getOrdinalConst();
@@ -404,6 +436,8 @@ public:
     ShModule(const string& filename);
     void compile();
     void dump(string indent) const;
+    virtual bool equals(ShType* type) const
+            { return false; }
 };
 
 
