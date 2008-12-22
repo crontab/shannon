@@ -217,6 +217,7 @@ Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list be kept in sorted order
         {"const", tokConst},
+        {"def", tokDef},
         {"module", tokModule},
         {NULL, tokUndefined}
     };
@@ -514,8 +515,8 @@ restart:
         case '*': return token = tokMul;
         case '[': return token = tokLSquare;
         case ']': return token = tokRSquare;
-        case '{': return token = tokLCurly;
-        case '}': return token = tokRCurly;
+        // case '{': return token = tokLCurly;
+        // case '}': return token = tokRCurly;
         case '<': return token = tokLAngle;
         case '>': return token = tokRAngle;
         }
@@ -557,7 +558,7 @@ string Parser::errorLocation() const
     if (!strValue.empty())
     {
         // TODO: cut long string literals maybe
-        msg += " before '" + strValue + "'";
+        msg += " near '" + strValue + "'";
     }
     return msg;
 }
@@ -576,6 +577,16 @@ void Parser::skip(Token tok, const char* errName)
     if (token != tok)
         error("'" + string(errName) + "' expected" + errorLocation());
     next();
+}
+
+
+string Parser::getIdent()
+{
+    if (token != tokIdent)
+        error("Identifier expected" + errorLocation());
+    string result = strValue;
+    next();
+    return result;
 }
 
 

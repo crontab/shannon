@@ -76,7 +76,7 @@ baselistimpl::baselistimpl()
 baselistimpl::baselistimpl(const baselistimpl& a)
         : Array<BasePtr>(a)  { }
 
-baselistimpl::~basetblimpl()
+baselistimpl::~baselistimpl()
         { }
 
 void baselistimpl::operator= (const baselistimpl& a)

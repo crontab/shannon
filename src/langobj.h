@@ -36,7 +36,6 @@ class ShScope;
 class ShState;
 class ShVector;
 class ShArray;
-class ShSet;
 class ShModule;
 
 class ShBase: public BaseNamed
@@ -55,7 +54,6 @@ public:
 class ShType: public ShBase
 {
     ShVector* derivedVectorType;
-    ShSet* derivedSetType;
 
 protected:
     virtual string getFullDefinition(const string& objName) const = 0;
@@ -76,7 +74,6 @@ public:
             { return isOrdinal() || isComparable(); }
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
-    ShSet* deriveSetType(ShScope* scope);
 };
 
 
@@ -244,19 +241,6 @@ public:
 };
 
 
-class ShSet: public ShType
-{
-protected:
-    virtual string getFullDefinition(const string& objName) const;
-
-public:
-    ShType* const baseType;
-    ShSet(ShType* iBaseType);
-    virtual bool isOrdinal() const
-            { return false; }
-};
-
-
 class ShState: public ShScope
 {
 protected:
@@ -303,10 +287,8 @@ class ShModule: public ShScope
     ShScope* currentScope;
     void error(const string& msg)        { parser.error(msg); }
     void notImpl()                       { error("Feature not implemented"); }
-    ShBase* qualifiedName();
-    ShType* derivedType(ShType*);
-    ShType* parseTypeId();
-    ShType* parseType();
+    ShBase* getQualifiedName();
+    ShType* deriveType(ShType*);
     void parseDefinition();
 
 protected:
