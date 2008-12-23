@@ -5,6 +5,7 @@ def bool mySet[myInt]
 def System.void blah
 def int [][] blaahhh
 def int blooh [char][bool]
+def void set[]
 
 def bool yopt[str]
 def bool oy[char[]]
