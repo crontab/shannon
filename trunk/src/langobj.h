@@ -204,6 +204,8 @@ public:
 
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual bool isCompatibleWith(ShType*) const = 0;
+    bool isLarge() const
+            { return size > 4; }
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
     bool rangeEquals(const Range& r) const
@@ -225,8 +227,6 @@ public:
             { return type->isInt(); }
     bool isUnsigned() const
             { return range.min >= 0; }
-    bool isLarge() const
-            { return size > 4; }
     virtual bool equals(ShType* type) const
             { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };

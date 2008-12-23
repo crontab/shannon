@@ -13,7 +13,6 @@ union VmQuant
 {
     ptr ptr_;
     int int_;
-    large large_;
 };
 
 
@@ -48,22 +47,90 @@ enum OpCode
     opLoadFalse,    // []
     opLoadTrue,     // []
     opLoadNull,     // []
+    opLoadNullStr,  // []
     opLoadStr,      // [string-data-ptr]
+    opLoadTypeRef,  // [ShType*]
 };
 
 
 class VmCode: public noncopyable
 {
 protected:
-    PodArray<ShValue> code;
+    struct EmulStackItem
+    {
+        ShType* type;
+        EmulStackItem(ShType* iType): type(iType)  { }
+    };
+
+    PodArray<VmQuant> code;
+    PodStack<EmulStackItem> emulStack;
+
+    void addOp(OpCode o)  { code.add().int_ = o; }
+    void addInt(int v)    { code.add().int_ = v; }
+    void addPtr(ptr v)    { code.add().ptr_ = v; }
 
 public:
-    ShType* const returnType;
-
-    VmCode(ShType* iReturnType)
-            : code(), returnType(iReturnType)  { }
+    VmCode();
+    
+    void addLoadConst(const ShValue&);
 };
 
+
+// ------------------------------------------------------------------------- //
+
+
+VmCode::VmCode(): code()  { }
+
+void VmCode::addLoadConst(const ShValue& v)
+{
+    emulStack.push(v.type);
+    if (v.type->isOrdinal())
+    {
+        if (v.type->isBool())
+        {
+            addOp(v.value.int_ ? opLoadTrue : opLoadFalse);
+        }
+        else if (v.type->isChar())
+        {
+            addOp(opLoadChar);
+            addInt(v.value.int_);
+        }
+        else if (((ShOrdinal*)v.type)->isLarge())
+        {
+            addOp(opLoadLarge);
+            addInt(int(v.value.large_));
+            addInt(int(v.value.large_ >> 32));
+        }
+        else if (v.value.int_ == 0)
+        {
+            addOp(opLoad0);
+        }
+        else
+        {
+            addOp(opLoadInt);
+            addInt(v.value.int_);
+        }
+    }
+    else if (v.type->isString())
+    {
+        const string& s = PTR_TO_STRING(v.value.ptr_);
+        if (s.empty())
+        {
+            addOp(opLoadNullStr);
+        }
+        else
+        {
+            addOp(opLoadStr);
+            addPtr(ptr(s.c_bytes()));
+        }
+    }
+    else if (v.type->isVoid())
+    {
+        addOp(opLoadNull);
+    }
+    else
+        throw EInternal(50, "unknown type in VmCode::addLoadConst()");
+}
 
 
 // ------------------------------------------------------------------------- //
@@ -78,7 +145,6 @@ public:
     *, /, div, mod, and, shl, shr, as
     +, –, or, xor
     =, <>, <, >, <=, >=, in, is
-    >>, <<
 */
 
 ShBase* ShModule::getQualifiedName()
@@ -119,7 +185,7 @@ ShValue ShModule::getOrdinalConst()
     {
         if (parser.strValue.size() != 1)
             error("Character expected instead of '" + parser.strValue + "'");
-        int value = parser.strValue[0];
+        int value = (unsigned)parser.strValue[0];
         parser.next();
         return ShValue(queenBee->defaultChar, value);
     }

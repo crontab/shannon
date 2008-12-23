@@ -184,7 +184,7 @@ public:
 };
 
 
-class stackimpl
+class stackimpl: noncopyable
 {
 public:
     char* stack;
