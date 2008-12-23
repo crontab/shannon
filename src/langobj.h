@@ -412,11 +412,9 @@ class ShModule: public ShScope
     void errorWithLoc(const string& msg) { parser.errorWithLoc(msg); }
     void errorWithLoc(const char* msg)   { parser.errorWithLoc(msg); }
     void notImpl()                       { error("Feature not implemented"); }
-    ShBase* getQualifiedName(string strToken);
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-//    ShOrdinal* getRangeType();
-    ShType* getTypeWithIdent(const string&);
+    ShOrdinal* getRangeType();
     ShType* getType();
     ShValue getOrdinalConst();
     ShValue getConstExpr(ShType* typeHint);
