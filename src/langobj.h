@@ -28,6 +28,7 @@ class ShType;
 class ShConstant;
 class ShValue;
 class ShOrdinal;
+class ShVoid;
 class ShBool;
 class ShScope;
 class ShState;
@@ -108,7 +109,7 @@ public:
     virtual bool canAssign(const ShValue& value) const;
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
-    ShSet* deriveSetType(ShBool* elementType, ShScope* scope);
+    ShSet* deriveSetType(ShVoid* elementType, ShScope* scope);
     void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
             { derivedVectorType = v; }
 };
@@ -324,7 +325,7 @@ public:
 class ShSet: public ShArray
 {
 public:
-    ShSet(ShBool* iElementType, ShType* iIndexType);
+    ShSet(ShVoid* iElementType, ShType* iIndexType);
     virtual string displayValue(const ShValue& v) const;
 };
 
