@@ -258,14 +258,14 @@ string mkPrintable(char c)
     else if (printableChars[c])
         return string(c);
     else
-        return "\\x" + itostring(unsigned(c), 16);
+        return "\\x" + itostring(unsigned(c), 16, 2, '0');
 }
 
 
 Parser::Parser(const string& filename)
     : input(new InFile(filename)), blankLine(true),
-      indentStack(), singleLineBlock(false),
-      token(tokUndefined), strValue(), intValue(0)
+      indentStack(), linenum(0),
+      singleLineBlock(false), token(tokUndefined), strValue(), intValue(0)
 {
     indentStack.push(0);
 }
@@ -278,7 +278,7 @@ Parser::~Parser()
 
 
 void Parser::error(const string& msg)
-    { throw EParser(input->getFileName(), input->getLinenum(), "Error: " + msg); }
+    { throw EParser(input->getFileName(), getLineNum(), "Error: " + msg); }
 
 
 void Parser::errorWithLoc(const string& msg)
@@ -351,6 +351,7 @@ void Parser::skipMultilineComment()
             if (input->getEof())
                 error("Unexpected end of file in comments");
             input->skipEol();
+            linenum = input->getLineNum();
             continue;
         }
         char e = input->get();
@@ -384,6 +385,8 @@ Token Parser::next()
 {
 restart:
     strValue.clear();
+
+    linenum = input->getLineNum();
 
     input->skip(wsChars);
 

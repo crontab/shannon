@@ -303,7 +303,7 @@ void testInText()
         assert(" " == in.token(wschars));
         in.skipLine();
         assert(' ' == in.preview());
-        assert(2 == in.getLinenum());
+        assert(2 == in.getLineNum());
         in.skip(wschars);
         assert(4 == in.getColumn());
         in.skipLine();
@@ -312,7 +312,7 @@ void testInText()
         while (!in.getEof())
             in.skipLine();
         assert(20 == in.getColumn());
-        assert(11 == in.getLinenum());
+        assert(11 == in.getLineNum());
     }
     catch (Exception& e)
     {

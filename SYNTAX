@@ -76,7 +76,7 @@ statement ::= function-call | pipe | assignment | compount-statement
 
 # Definitions
 
-definition ::= type-def | object-def | state-def
+definition ::= type-def | const-def | object-def | function-def
 
 type-def ::= type-alias | function-def
 
@@ -96,7 +96,7 @@ function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
 
 pipe-type ::= type "/" type
 
-
+const-def ::= "const" [ type ] ident "=" const-expr
 
 object-def ::= type ident [ "=" expr ]
 

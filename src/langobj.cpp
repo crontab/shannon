@@ -7,18 +7,31 @@
 inline int align(int size)
         { return ((size / memAlign) + 1) * memAlign; }
 
+static void notImpl()
+{
+    throw EInternal(11, "Feature not implemented");
+}
+
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
+
+
+ShBase::ShBase(ShBaseId iBaseId)
+    : BaseNamed(), baseId(iBaseId), owner(NULL)  { }
+
+ShBase::ShBase(const string& name, ShBaseId iBaseId)
+    : BaseNamed(name), baseId(iBaseId), owner(NULL)  { }
 
 
 // --- TYPE --- //
 
 
-ShType::ShType()
-    : ShBase(), derivedVectorType(NULL), derivedSetType(NULL)  { }
+ShType::ShType(ShTypeId iTypeId)
+    : ShBase(baseType), typeId(iTypeId),
+      derivedVectorType(NULL), derivedSetType(NULL)  { }
 
-ShType::ShType(const string& name)
-    : ShBase(name), derivedVectorType(NULL), derivedSetType(NULL)  { }
+ShType::ShType(const string& name, ShTypeId iTypeId)
+    : ShBase(name, baseType), typeId(iTypeId), derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::~ShType()  { }
 
@@ -28,6 +41,11 @@ string ShType::getDisplayName(const string& objName) const
         return name + (objName.empty() ? "" : " " + objName);
     else
         return getFullDefinition(objName);
+}
+
+bool ShType::canAssign(const ShValue& value) const
+{
+    return equals(value.type);
 }
 
 ShVector* ShType::deriveVectorType(ShScope* scope)
@@ -65,29 +83,34 @@ ShSet* ShType::deriveSetType(ShBool* elementType, ShScope* scope)
 }
 
 
-
 // --- TYPE ALIAS --- //
 
 ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
-    : ShBase(name), base(iBase)  { }
+    : ShBase(name, baseTypeAlias), base(iBase)  { }
 
 
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-    : ShBase(), type(iType)  { }
+    : ShBase(baseVariable), type(iType)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name), type(iType)  { }
+    : ShBase(name, baseVariable), type(iType)  { }
 
 ShArgument::ShArgument(const string& name, ShType* iType)
     : ShVariable(name, type)  { }
 
 
+// --- CONSTANT --- //
+
+ShConstant::ShConstant(const string& name, const ShValue& iValue)
+    : ShBase(name, baseConstant), value(iValue)  { }
+
+
 // --- SCOPE --- //
 
-ShScope::ShScope(const string& name)
-        : ShType(name), complete(false)  { }
+ShScope::ShScope(const string& name, ShTypeId iTypeId)
+        : ShType(name, iTypeId), complete(false)  { }
 
 ShBase* ShScope::own(ShBase* obj)
 {
@@ -139,17 +162,8 @@ ShBase* ShScope::deepFind(const string& name) const
             return obj;
     }
     if (owner != NULL)
-        return owner->deepSearch(name);
+        return owner->deepFind(name);
     return NULL;
-}
-
-
-ShBase* ShScope::deepSearch(const string& name) const
-{
-    ShBase* obj = deepFind(name);
-    if (obj == NULL)
-        throw ENotFound(name);
-    return obj;
 }
 
 
@@ -165,11 +179,23 @@ void ShScope::dump(string indent) const
     for (int i = 0; i < vars.size(); i++)
         printf("%s%s\n", indent.c_str(),
             vars[i]->type->getDisplayName(vars[i]->name).c_str());
+    for (int i = 0; i < consts.size(); i++)
+    {
+        ShConstant* c = consts[i];
+        ShType* t = c->value.type;
+        printf("%sconst %s = %s\n", indent.c_str(),
+            t->getDisplayName(c->name).c_str(),
+            t->displayValue(c->value).c_str());
+    }
 }
 #endif
 
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
+
+
+ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
+    : ShType(name, iTypeId), range(min, max), size(range.physicalSize())  { }
 
 
 // --- INTEGER TYPE --- //
@@ -201,9 +227,8 @@ int Range::physicalSize() const
 }
 
 
-ShOrdinal::ShOrdinal(const string& name, large min, large max)
-    : ShType(name), range(min, max), size(range.physicalSize())  { }
-
+ShInteger::ShInteger(const string& name, large min, large max)
+    : ShOrdinal(name, typeInt, min, max)  { }
 
 string ShInteger::getFullDefinition(const string& objName) const
 {
@@ -211,8 +236,14 @@ string ShInteger::getFullDefinition(const string& objName) const
         + ' ' + objName;
 }
 
+string ShInteger::displayValue(const ShValue& v) const
+    { return itostring(isLarge() ? v.value.large_ : v.value.int_); }
+
 
 // --- CHAR TYPE --- //
+
+ShChar::ShChar(const string& name, int min, int max)
+    : ShOrdinal(name, typeChar, min, max)  { }
 
 string ShChar::getFullDefinition(const string& objName) const
 {
@@ -220,35 +251,58 @@ string ShChar::getFullDefinition(const string& objName) const
         + "' " + objName;
 }
 
+string ShChar::displayValue(const ShValue& v) const
+    { return "'" + mkPrintable(v.value.int_) + "'"; }
+
 
 // --- BOOL TYPE --- //
 
+ShBool::ShBool(const string& name)
+    : ShOrdinal(name, typeBool, 0, 1)  { }
+
 string ShBool::getFullDefinition(const string& objName) const
-{
-    return "false..true" + objName;
-}
+    { return "false..true" + objName; }
+
+string ShBool::displayValue(const ShValue& v) const
+    { return v.value.int_ ? "true" : "false"; }
+
 
 
 // --- VOID TYPE --- //
 
+ShVoid::ShVoid(const string& name)
+    : ShType(name, typeVoid)  { }
+
 string ShVoid::getFullDefinition(const string& objName) const
-{
-    throw EInternal(6, "anonymous void type");
-}
+    { throw EInternal(6, "anonymous void type"); }
+
+string ShVoid::displayValue(const ShValue& v) const
+    { return "null"; }
 
 
 // --- VECTOR TYPE --- //
 
 ShVector::ShVector(ShType* iElementType)
-        : ShType(), elementType(iElementType)  { }
+        : ShType(typeVector), elementType(iElementType)  { }
 
 ShVector::ShVector(const string& name, ShType* iElementType)
-        : ShType(name), elementType(iElementType)  { }
+        : ShType(name, typeVector), elementType(iElementType)  { }
 
 string ShVector::getFullDefinition(const string& objName) const
-{
-    return elementType->getDisplayName(objName) + "[]";
-}
+    { return elementType->getDisplayName(objName) + "[]"; }
+
+string ShVector::displayValue(const ShValue& v) const
+    { notImpl(); return "null"; }
+
+
+// --- STRING TYPE --- //
+
+ShString::ShString(const string& name, ShChar* elementType)
+    : ShVector(name, elementType)  { }
+
+string ShString::displayValue(const ShValue& v) const
+    { return PTR_TO_STRING(v.value.ptr_); }
+
 
 
 // --- ARRAY TYPE --- //
@@ -261,11 +315,18 @@ string ShArray::getFullDefinition(const string& objName) const
     return elementType->getDisplayName(objName) + "[" + indexType->getDisplayName("") + "]";
 }
 
+string ShArray::displayValue(const ShValue& v) const
+    { notImpl(); return "null"; }
+
+
 
 // --- SET TYPE --- //
 
 ShSet::ShSet(ShBool* iElementType, ShType* iIndexType)
         : ShArray(iElementType, iIndexType)  { }
+
+string ShSet::displayValue(const ShValue& v) const
+    { notImpl(); return "null"; }
 
 
 // --- STATE --- //
@@ -297,10 +358,6 @@ string ShState::getFullDefinition(const string& objName) const
 */
 
 
-// --- LITERAL VALUES ----------------------------------------------------- //
-
-
-
 // ------------------------------------------------------------------------ //
 
 
@@ -308,7 +365,7 @@ string ShState::getFullDefinition(const string& objName) const
 
 
 ShModule::ShModule(const string& iFileName)
-    : ShScope(extractFileName(iFileName)), fileName(iFileName),
+    : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
       parser(iFileName), currentScope(NULL), compiled(false)
 {
     if (queenBee != NULL)
