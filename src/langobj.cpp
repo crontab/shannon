@@ -9,7 +9,7 @@ inline int align(int size)
 
 static void notImpl()
 {
-    throw EInternal(11, "Feature not implemented");
+    throw EInternal(11, "feature not implemented");
 }
 
 
@@ -149,7 +149,6 @@ void ShScope::addTypeAlias(ShTypeAlias* obj)
 void ShScope::addConstant(ShConstant* obj)
         { addSymbol(obj); consts.add(obj); }
 
-
 ShBase* ShScope::deepFind(const string& name) const
 {
     ShBase* obj = find(name);
@@ -177,7 +176,7 @@ void ShScope::dump(string indent) const
         printf("%sdef %s\n", indent.c_str(),
             typeAliases[i]->base->getDisplayName(typeAliases[i]->name).c_str());
     for (int i = 0; i < vars.size(); i++)
-        printf("%s%s\n", indent.c_str(),
+        printf("%svar %s\n", indent.c_str(),
             vars[i]->type->getDisplayName(vars[i]->name).c_str());
     for (int i = 0; i < consts.size(); i++)
     {
@@ -376,6 +375,32 @@ string ShModule::registerString(const string& v)
 {
     stringLiterals.add(v);
     return v;
+}
+
+void ShModule::addObject(ShBase* obj)
+{
+    string objName = obj->name;
+    try
+    {
+        if (obj->isTypeAlias())
+            currentScope->addTypeAlias((ShTypeAlias*)obj);
+        else if (obj->isVariable())
+            currentScope->addVariable((ShVariable*)obj);
+        else if (obj->isConstant())
+            currentScope->addConstant((ShConstant*)obj);
+        else
+            throw EInternal(11, "unknown object type in addObject()");
+    }
+    catch (EDuplicate& e)
+    {
+        delete obj;
+        error("'" + objName + "' already defined within this scope");
+    }
+    catch (Exception& e)
+    {
+        delete obj;
+        throw;
+    }
 }
 
 string ShModule::getFullDefinition(const string& objName) const

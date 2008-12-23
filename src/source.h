@@ -84,12 +84,12 @@ enum Token
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
     // keywords
-    tokModule, tokConst, tokDef,
+    tokModule, tokConst, tokDef, tokVar,
     // special chars and sequences
     tokComma, tokPeriod, tokDiv, tokMul,
     tokLSquare, tokRSquare, /* tokLCurly, tokRCurly, */
     tokLAngle, tokLessThan = tokLAngle, tokRAngle, tokGreaterThan = tokRAngle,
-    tokEqual,
+    tokAssign,
 };
 
 
@@ -127,12 +127,13 @@ public:
     void errorWithLoc(const string& msg);
     void error(const char*);
     void errorWithLoc(const char*);
-    string skipIdent();
     void skipSep();
     void skip(Token tok, const char* errName);
+    bool skipIf(Token tok)
+            { if (token == tok) { next(); return true; } return false; }
     string getIdent();
     
-    int indentLevel()  { return indentStack.top(); }
+//    int indentLevel()  { return indentStack.top(); }
 };
 
 

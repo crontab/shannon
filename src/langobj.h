@@ -404,23 +404,27 @@ class ShModule: public ShScope
     Parser parser;
 
     string registerString(const string& v);  // TODO: find duplicates (?)
+    void addObject(ShBase*); // deletes the object in case of an exception
 
     // --- Compiler ---
     ShScope* currentScope;
     void error(const string& msg)        { parser.error(msg); }
     void error(const char* msg)          { parser.error(msg); }
+    void errorWithLoc(const string& msg) { parser.errorWithLoc(msg); }
+    void errorWithLoc(const char* msg)   { parser.errorWithLoc(msg); }
     void notImpl()                       { error("Feature not implemented"); }
+    ShBase* getQualifiedName(string strToken);
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-//    ShRange* getRangeType();
-    ShType* getType(ShBase* previewObj);
-    ShBase* getAtom();
+//    ShOrdinal* getRangeType();
+    ShType* getTypeWithIdent(const string&);
+    ShType* getType();
     ShValue getOrdinalConst();
     ShValue getConstExpr(ShType* typeHint);
-    
+
     void parseTypeDef();
-    void parseConstDef();
-    void parseObjectDef(ShBase* previewObj);
+    void parseVarConstDef(bool isVar);
+    void parseVarDef();
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
