@@ -76,7 +76,7 @@ statement ::= function-call | pipe | assignment | compount-statement
 
 # Definitions
 
-definition ::= type-def | const-def | object-def | function-def
+definition ::= type-def | const-def | var-def
 
 type-def ::= type-alias | function-def
 
@@ -84,7 +84,7 @@ type-alias ::= "def" type ident { type-derivator }
 
 type ::= type-id { type-derivator }
 
-type-id ::= ident | "typeof" "(" type-expr ")" | range
+type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
 
 type-derivator ::= array-derivator | mute-derivator
 
@@ -96,7 +96,11 @@ function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
 
 pipe-type ::= type "/" type
 
-const-def ::= "const" [ type ] ident "=" const-expr
+const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
 
-object-def ::= type ident [ "=" expr ]
+var-def ::= "var" ( auto-object-spec | typed-object-spec ) "=" expr
+
+auto-object-spec ::= ident
+
+typed-object-spec ::= type ident { type-derivator }
 
