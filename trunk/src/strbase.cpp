@@ -51,17 +51,24 @@ void string::_realloc(int newchars)
     if (newchars > cap || newchars < cap / 2) // grow faster, shrink slower
     {
         int allocate = memquantize(newchars + strrecsize);
-        if (allocate != STR_CAPACITY(data) + strrecsize)
+        if (allocate != cap + strrecsize)
         {
 #ifdef DEBUG
-            stralloc += allocate - STR_CAPACITY(data) - strrecsize;
+            stralloc += allocate - cap - strrecsize;
 #endif
             data = (char*)(memrealloc(data - strrecsize, allocate)) + strrecsize;
-            STR_CAPACITY(data) = allocate - strrecsize;
+            cap = STR_CAPACITY(data) = allocate - strrecsize;
         }
     }
     STR_LENGTH(data) = newchars;
-    if (newchars < STR_CAPACITY(data))
+    // Put NULL char after actual data so that c_str() can return the string
+    // without modifying the object most of the time. The exception is when
+    // the string occupies exactly "capacity" bytes, in which case c_str()
+    // allocates additional data to make room for the NULL char. The reason
+    // we don't always reserve the NULL char is that this class is used as a
+    // basis for many containers classes as well, where the extra NULL char
+    // and c_str() are not needed.
+    if (newchars < cap)
         data[newchars] = 0;
 }
 
@@ -148,7 +155,8 @@ const char* string::c_str() const
     int len = STR_LENGTH(data);
     if (len != 0 && len == STR_CAPACITY(data))
     {
-        pstring(this)->appendn(1);
+        // Mute the object so that we keep c_str() as a const method
+        *(pstring(this)->appendn(1)) = 0;
         STR_LENGTH(data)--;
     }
     return data;
