@@ -291,17 +291,21 @@ string ShVector::getFullDefinition(const string& objName) const
     { return elementType->getDisplayName(objName) + "[]"; }
 
 string ShVector::displayValue(const ShValue& v) const
-    { notImpl(); return "null"; }
+{
+    if (isString())
+        return "'" + mkPrintable(PTR_TO_STRING(v.value.ptr_)) + "'";
+    else
+    {
+        notImpl();
+        return "null";
+    }
+}
 
 
 // --- STRING TYPE --- //
 
 ShString::ShString(const string& name, ShChar* elementType)
     : ShVector(name, elementType)  { }
-
-string ShString::displayValue(const ShValue& v) const
-    { return "'" + mkPrintable(PTR_TO_STRING(v.value.ptr_)) + "'"; }
-
 
 
 // --- ARRAY TYPE --- //

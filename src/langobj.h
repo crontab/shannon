@@ -244,6 +244,8 @@ public:
             { return type->isChar(); }
     virtual bool equals(ShType* type) const
             { return type->isChar() && rangeEquals(((ShChar*)type)->range); }
+    bool isFullRange() const
+            { return range.min == 0 && range.max == 255; }
 };
 
 
@@ -286,7 +288,7 @@ public:
     ShVector(const string& name, ShType* iElementType);
     virtual string displayValue(const ShValue& v) const;
     virtual bool isString() const
-            { return elementType->isChar(); }
+            { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
     virtual bool isComparable() const
             { return elementType->isChar(); }
     virtual bool equals(ShType* type) const
@@ -296,12 +298,9 @@ public:
 
 class ShString: public ShVector
 {
-protected:
-    // Note that any char[] is a string, too
-    friend class ShQueenBee;
-    ShString(const string& name, ShChar* elementType);
 public:
-    virtual string displayValue(const ShValue& v) const;
+    // Note that any char[] is a string, too
+    ShString(const string& name, ShChar* elementType);
     virtual bool isString() const
             { return true; }
 };
