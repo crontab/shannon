@@ -1,0 +1,11 @@
+Thunder, thunder, thundercats, Ho!
+    Thundercats are on the move,
+  	    Thundercats are loose.
+	  Feel the magic, hear the roar,
+Thundercats are loose.
+
+            'Thunder, thunder, thunder, Thundercats!'
+        /* Thunder, thunder, thunder, Thundercats!
+        Thunder, thunder, thunder, Thundercats! */
+// Thunder, thunder, thunder, Thundercats!
+	Thundercats!

@@ -1,0 +1,17 @@
+Thunder,
+        module
+	    Feel the magic
+  	    Thundercats are const.
+        42
+            '\x54hunder, \'thunder\',\tthunder, Thundercats'
+    	    Thunder, # thunder, thunder, Thundercats
+     #Thunder, thunder, thunder, Thundercats
+      # Thundercats
+
+
+
+#{
+  	Thundercats are loose.
+	    Feel the magic, hear the roar!
+}#   
+            Finalcats

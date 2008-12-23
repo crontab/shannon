@@ -1,0 +1,102 @@
+
+#
+# BNF for Shannon:
+#   repeat 0 or more times: {...}
+#   optional: [...]
+#   group: (...)
+#   OR: |
+#   literal: "..." or '...'
+#   any word: reference to another syntactic element
+#   glue: ## (otherwise elements are separated by whitespace or can be 
+#       distinguished by the parser)
+#   end of statement: <SEP> (end-of-line or ';')
+#   block-begin and block-end: <BEGIN> and <END> (':' followed by indented
+#       blocks until unindent to the previous level, or a special case with
+#       a single line that follows after ':', also C-style blocks will be
+#       supported in the future
+#
+
+
+# Basic elements
+
+ident ::= ( letter | "_" ) ## { letter | digit | "_" }
+
+decimal ::= digit ## { digit }
+
+hexadecimal ::= '0x' ## hexdigit ## { hexdigit }
+
+string-literal ::= "'" ## { string-element } ## "'"
+
+string-element ::= printable-char | string-escape
+
+string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
+        | ( "\x" ## hexdigit ## hexdigit )
+
+
+# Expressions
+
+subexpr ::= "(" expr ")"
+
+set-ctor ::= "{" [ expr { "," expr } ] "}"
+
+array-ctor ::= "[" [ expr { "," expr } ] "]"
+
+fifo-ctor ::= "<" [ expr { "," expr } ] ">"
+
+expr-list ::= expr { "," expr }
+
++ qualified-name ::= { ident "." } ident
+
+literal ::= number | string | "true" | "false" | "null"
+
+atom ::= literal | qualified-name | subexpr | set-ctor | array-ctor
+    | fifo-ctor
+
+array-item-selection ::= atom "[" expr "]"
+
+fifo-item-selection ::= atom "<" expr ">"
+
+function-call ::= atom "(" expr-list ")"
+
+fifo-pull ::= atom "::" set-ctor
+
+fifo-filter ::= atom "||" set-ctor
+
+range ::= atom ".." atom
+
+
+# Module
+
+module ::= [module-header] { statement | definition }
+
++ module-header ::= "module" ident
+
+statement ::= function-call | pipe | assignment | compount-statement
+
+
+# Definitions
+
+definition ::= type-def | const-def | object-def | function-def
+
+type-def ::= type-alias | function-def
+
+type-alias ::= "def" type ident { type-derivator }
+
+type ::= type-id { type-derivator }
+
+type-id ::= ident | "typeof" "(" type-expr ")" | range
+
+type-derivator ::= array-derivator | mute-derivator
+
+array-derivator ::= "[" [ type ] "]"
+
+mute-derivator ::= "^"
+
+function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
+
+pipe-type ::= type "/" type
+
+const-def ::= "const" [ type ] ident "=" const-expr
+
+object-def ::= type ident [ "=" expr ]
+
