@@ -6,6 +6,7 @@ def System.void blah
 def int [][] blaahhh
 def int blooh [char][bool]
 def void set[]
+# def [0..9] digit
 
 def bool yopt[str]
 def bool oy[char[]]
@@ -16,10 +17,9 @@ var int d = 0
 var char f = 'a'
 
 const int g = 922337
-const glarge = 9223372036854775807
-const h = 'h'
+const large glarge = 9223372036854775807
+const char h = 'h'
 const char i = '\x00'
-const j = h
-const int = 1
-const k = 0
+const char j = h
+const int int = 1
 # f = 0

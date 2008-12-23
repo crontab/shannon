@@ -73,10 +73,18 @@ public:
 
 // --- CONST EXPRESSION ---------------------------------------------------- //
 
-ShBase* ShModule::getQualifiedName(string ident)
+/*
+    - (unary), not
+    *, /, div, mod, and, shl, shr, as
+    +, –, or, xor
+    =, <>, <, >, <=, >=, in, is
+    >>, <<
+*/
+
+ShBase* ShModule::getQualifiedName()
 {
     // qualified-name ::= { ident "." } ident
-    // string ident = parser.getIdent();
+    string ident = parser.getIdent();
     ShBase* obj = currentScope->deepFind(ident);
     if (obj == NULL)
         error("Unknown identifier '" + ident + "'");
@@ -92,12 +100,6 @@ ShBase* ShModule::getQualifiedName(string ident)
             error("'" + ident + "' is not known within '" + scope->name + "'");
     }
     return obj;
-}
-
-
-ShBase* ShModule::getQualifiedName()
-{
-    return getQualifiedName(parser.getIdent());
 }
 
 
@@ -188,12 +190,14 @@ ShType* ShModule::getDerivators(ShType* type)
 }
 
 
-ShType* ShModule::getTypeWithIdent(const string& ident)
+ShType* ShModule::getType()
 {
-    // One string token has been read already - some other routine tried to
-    // guess if a type spec is omitted.
+    // type ::= type-id { type-derivator }
+    // type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
+
+    // TODO: check if this is a range first
     ShType* type = NULL;
-    ShBase* obj = getQualifiedName(ident);
+    ShBase* obj = getQualifiedName();
     if (obj->isTypeAlias())
         type = ((ShTypeAlias*)obj)->base;
     else if (obj->isType())
@@ -201,19 +205,6 @@ ShType* ShModule::getTypeWithIdent(const string& ident)
     if (type == NULL)
         errorWithLoc("Expected type specifier");
     return getDerivators(type);
-}
-
-
-ShType* ShModule::getType()
-{
-    // type ::= type-id { type-derivator }
-    // type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
-
-    // TODO: check if this is a range first
-    if (parser.token == tokIdent)
-        return getTypeWithIdent(parser.getIdent());
-    errorWithLoc("Expected type specifier");
-    return NULL;
 }
 
 
@@ -231,22 +222,10 @@ void ShModule::parseTypeDef()
 
 void ShModule::parseVarConstDef(bool isVar)
 {
-    string ident;
-    ShType* type = NULL;
-    if (parser.token == tokIdent)
-    {
-        ident = parser.getIdent();
-        if (parser.token == tokAssign)
-            goto initializer;
-        type = getTypeWithIdent(ident);
-    }
-    else
-        type = getType();
-
-    ident = parser.getIdent();
+    // TODO: skip type if ident is new or if it is followed by '='
+    ShType* type = getType();
+    string ident = parser.getIdent();
     type = getDerivators(type);
-
-initializer:
     parser.skip(tokAssign, "=");
     ShValue value = getConstExpr(type);
     if (isVar)
