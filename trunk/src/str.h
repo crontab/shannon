@@ -27,7 +27,7 @@ const int strrecsize = sizeof(_strrec);
 #define STR_LEFT(x)      (STR_BASE(x)->left)
 #define STR_RIGHT(x)     (STR_BASE(x)->right)
 
-#define PTR_TO_PSTRING(p)   (pstring(&(p)))
+#define PTR_TO_PSTRING(p)   ((string*)(void*)&(p))
 #define PTR_TO_STRING(p)    (*PTR_TO_PSTRING(p))
 
 
