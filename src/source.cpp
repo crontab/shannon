@@ -262,6 +262,17 @@ string mkPrintable(char c)
 }
 
 
+string mkPrintable(const string& s)
+{
+    const char* p = s.c_bytes();
+    const char* e = p + s.size();
+    string result;
+    for (; p < e; p++)
+        result += mkPrintable(*p);
+    return result;
+}
+
+
 Parser::Parser(const string& filename)
     : input(new InFile(filename)), blankLine(true),
       indentStack(), linenum(0),
