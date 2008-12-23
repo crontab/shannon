@@ -77,7 +77,9 @@ ShBase* ShModule::getQualifiedName()
 {
     // qualified-name ::= { ident "." } ident
     string ident = parser.getIdent();
-    ShBase* obj = currentScope->deepSearch(ident);
+    ShBase* obj = currentScope->deepFind(ident);
+    if (obj == NULL)
+        error("Unknown identifier '" + ident + "'");
     while (parser.token == tokPeriod)
     {
         if (!obj->isScope())
@@ -129,11 +131,23 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
     else if (typeHint->isOrdinal())
     {
         result = getOrdinalConst();
-        if (result.type != NULL && !((ShOrdinal*)typeHint)->isCompatibleWith(result.type))
-            error("Type mismatch in constant expression");
+    }
+    else // not ordinal, with hint
+    {
+        notImpl();
     }
     if (result.type == NULL)
         error("Constant expression expected");
+    if (typeHint->isOrdinal() && result.type->isOrdinal())
+    {
+        ShOrdinal* ordHint = (ShOrdinal*)typeHint;
+        if (!ordHint->isCompatibleWith(result.type))
+            error("Ordinal type mismatch in constant expression");
+        if (!ordHint->contains(result.largeValue()))
+            error("Value out of range");
+    }
+    else if (!typeHint->canAssign(result))
+        error("Type mismatch in constant expression");
     return result;
 }
 
@@ -249,9 +263,16 @@ void ShModule::parseConstDef()
     parser.skip(tokEqual, "=");
     
     ShValue value = getConstExpr(type);
-    if (type == NULL)
-        type = value.type;
-        
+    ShConstant* const_ = new ShConstant(ident, value);
+    try
+    {
+        currentScope->addConstant(const_);
+    }
+    catch(Exception& e)
+    {
+        delete const_;
+        throw;
+    }
     parser.skipSep();
 }
 
@@ -276,9 +297,7 @@ void ShModule::parseObjectDef(ShBase* previewObj)
     if (parser.token == tokEqual)
     {
         parser.next();
-        ShValue value = getOrdinalConst();
-        if (value.type == NULL)
-            error("Constant value expected");
+        ShValue value = getConstExpr(type);
     }
 
     parser.skipSep();

@@ -1,5 +1,5 @@
-
 module Test
+const int g = 922337 # 2036854775807
 
 def int myInt
 def bool mySet[myInt]
@@ -13,9 +13,8 @@ def bool oy[char[]]
 bool b
 int c[]
 
-blooh d = 1
+blooh d
 char f = 'a'
 
-const int g = 9223372036854775807
 const h = 'h'
-
+const i = '\x00'

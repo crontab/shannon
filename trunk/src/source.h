@@ -34,7 +34,7 @@ public:
     virtual ~InText();
     
     virtual string getFileName() = 0;
-    int  getLinenum()       { return linenum; }
+    int  getLineNum()       { return linenum; }
     int  getColumn()        { return column; }
     bool getEof()           { return eof; }
     bool getEol();
@@ -102,11 +102,13 @@ protected:
     InText* input;
     bool blankLine;
     Stack<int> indentStack;
+    int linenum;
 
     string errorLocation() const;
     void parseStringLiteral();
     void skipMultilineComment();
     void skipSinglelineComment();
+    int getLineNum() { return linenum; }
 
 public:
     bool singleLineBlock; // if a: b = c
