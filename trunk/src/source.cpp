@@ -219,6 +219,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"const", tokConst},
         {"def", tokDef},
         {"module", tokModule},
+        {"var", tokVar},
         {NULL, tokUndefined}
     };
 
@@ -397,6 +398,8 @@ Token Parser::next()
 restart:
     strValue.clear();
 
+    // Deferred linenum update; this helps to point to a better location
+    // in error messages.
     linenum = input->getLineNum();
 
     input->skip(wsChars);
@@ -536,7 +539,7 @@ restart:
         // case '}': return token = tokRCurly;
         case '<': return token = tokLAngle;
         case '>': return token = tokRAngle;
-        case '=': return token = tokEqual;
+        case '=': return token = tokAssign;
         }
     }
 
@@ -560,10 +563,10 @@ Token Parser::nextEnd()
 }
 
 
-string Parser::skipIdent()
+string Parser::getIdent()
 {
     if (token != tokIdent)
-        error("Identifier expected");
+        errorWithLoc("Identifier expected");
     string result = strValue;
     next();
     return result;
@@ -595,16 +598,6 @@ void Parser::skip(Token tok, const char* errName)
     if (token != tok)
         errorWithLoc("'" + string(errName) + "' expected");
     next();
-}
-
-
-string Parser::getIdent()
-{
-    if (token != tokIdent)
-        errorWithLoc("Identifier expected");
-    string result = strValue;
-    next();
-    return result;
 }
 
 

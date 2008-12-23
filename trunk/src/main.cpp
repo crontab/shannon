@@ -73,10 +73,10 @@ public:
 
 // --- CONST EXPRESSION ---------------------------------------------------- //
 
-ShBase* ShModule::getQualifiedName()
+ShBase* ShModule::getQualifiedName(string ident)
 {
     // qualified-name ::= { ident "." } ident
-    string ident = parser.getIdent();
+    // string ident = parser.getIdent();
     ShBase* obj = currentScope->deepFind(ident);
     if (obj == NULL)
         error("Unknown identifier '" + ident + "'");
@@ -95,10 +95,16 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
+ShBase* ShModule::getQualifiedName()
+{
+    return getQualifiedName(parser.getIdent());
+}
+
+
 ShValue ShModule::getOrdinalConst()
 {
-    // TODO: read constant names as well; check previewObj
-    // TODO: const expr
+    // TODO: const ordinal expr
+    // expr can start with a number, char, const ident or '-'
     if (parser.token == tokIntValue)
     {
         large value = parser.intValue;
@@ -115,39 +121,35 @@ ShValue ShModule::getOrdinalConst()
         parser.next();
         return ShValue(queenBee->defaultChar, value);
     }
+    else if (parser.token == tokIdent)
+    {
+        ShBase* obj = getQualifiedName();
+        if (obj->isConstant())
+            return ((ShConstant*)obj)->value;
+    }
+    errorWithLoc("Constant expression expected");
     return ShValue();
 }
 
 
 ShValue ShModule::getConstExpr(ShType* typeHint)
 {
-    // TODO:
     ShValue result;
+    result = getOrdinalConst(); // TODO: general const expr
     if (typeHint == NULL)
-    {
-        result = getOrdinalConst();
         typeHint = result.type;
-    }
-    else if (typeHint->isOrdinal())
-    {
-        result = getOrdinalConst();
-    }
-    else // not ordinal, with hint
-    {
-        notImpl();
-    }
-    if (result.type == NULL)
-        error("Constant expression expected");
+
     if (typeHint->isOrdinal() && result.type->isOrdinal())
     {
         ShOrdinal* ordHint = (ShOrdinal*)typeHint;
         if (!ordHint->isCompatibleWith(result.type))
-            error("Ordinal type mismatch in constant expression");
+            error("Type mismatch in constant expression");
         if (!ordHint->contains(result.largeValue()))
             error("Value out of range");
     }
     else if (!typeHint->canAssign(result))
         error("Type mismatch in constant expression");
+
     return result;
 }
 
@@ -155,7 +157,7 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
 // --- TYPES --------------------------------------------------------------- //
 
 /*
-ShRange* ShModule::getRangeType()
+ShOrdinal* ShModule::getRangeType()
 {
     return NULL;
 }
@@ -174,7 +176,7 @@ ShType* ShModule::getDerivators(ShType* type)
         }
         else
         {
-            ShType* indexType = getType(NULL);
+            ShType* indexType = getType();
             parser.skip(tokRSquare, "]");
             if (!indexType->canBeArrayIndex())
                 error(indexType->getDisplayName("") + " can't be used as array index");
@@ -186,121 +188,71 @@ ShType* ShModule::getDerivators(ShType* type)
 }
 
 
-ShType* ShModule::getType(ShBase* previewObj)
+ShType* ShModule::getTypeWithIdent(const string& ident)
+{
+    // One string token has been read already - some other routine tried to
+    // guess if a type spec is omitted.
+    ShType* type = NULL;
+    ShBase* obj = getQualifiedName(ident);
+    if (obj->isTypeAlias())
+        type = ((ShTypeAlias*)obj)->base;
+    else if (obj->isType())
+        type = (ShType*)obj;
+    if (type == NULL)
+        errorWithLoc("Expected type specifier");
+    return getDerivators(type);
+}
+
+
+ShType* ShModule::getType()
 {
     // type ::= type-id { type-derivator }
-    // type-id ::= ident | "typeof" "(" type-expr ")" | range
-    // TODO: range type
-    if (previewObj == NULL)
-        previewObj = getQualifiedName();
-    ShType* type = NULL;
-    if (previewObj->isTypeAlias())
-        type = ((ShTypeAlias*)previewObj)->base;
-    else if (previewObj->isType())
-        type = (ShType*)previewObj;
-    else
-        parser.errorWithLoc("Expected type identifier");
-    return getDerivators(type);
+    // type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
+
+    // TODO: check if this is a range first
+    if (parser.token == tokIdent)
+        return getTypeWithIdent(parser.getIdent());
+    errorWithLoc("Expected type specifier");
+    return NULL;
 }
 
 
 // --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
 
-ShBase* ShModule::getAtom()
-{
-    if (parser.token == tokIdent)
-        return getQualifiedName();
-    error("Error in statement");
-    return NULL;
-}
-
 
 void ShModule::parseTypeDef()
 {
-    // type-alias ::= "def" type ident { type-derivator }
-    ShType* type = getType(NULL);
+    ShType* type = getType();
     string ident = parser.getIdent();
     type = getDerivators(type);
-    ShTypeAlias* alias = new ShTypeAlias(ident, type);
-    try
-    {
-        currentScope->addTypeAlias(alias);
-    }
-    catch (Exception& e)
-    {
-        delete alias;
-        throw;
-    }
-    parser.skipSep();
+    addObject(new ShTypeAlias(ident, type));
 }
 
 
-void ShModule::parseConstDef()
+void ShModule::parseVarConstDef(bool isVar)
 {
-    // const-def ::= "const" [ type ] ident "=" const-expr
     string ident;
     ShType* type = NULL;
     if (parser.token == tokIdent)
     {
-        ident = parser.strValue;
-        parser.next();
-        ShBase* obj = deepFind(ident);
-        if (obj != NULL && obj->isType())
-        {
-            type = getType(obj);
-            ident = parser.skipIdent();
-        }
+        ident = parser.getIdent();
+        if (parser.token == tokAssign)
+            goto initializer;
+        type = getTypeWithIdent(ident);
     }
     else
-    {
-        type = getType(NULL);
-        ident = parser.skipIdent();
-    }
-    
-    if (type != NULL)
-        type = getDerivators(type);
-        
-    parser.skip(tokEqual, "=");
-    
-    ShValue value = getConstExpr(type);
-    ShConstant* const_ = new ShConstant(ident, value);
-    try
-    {
-        currentScope->addConstant(const_);
-    }
-    catch(Exception& e)
-    {
-        delete const_;
-        throw;
-    }
-    parser.skipSep();
-}
+        type = getType();
 
-
-void ShModule::parseObjectDef(ShBase* previewObj)
-{
-    // object-def ::= type ident [ "=" expr ]
-    ShType* type = getType(previewObj);
-    string ident = parser.getIdent();
+    ident = parser.getIdent();
     type = getDerivators(type);
-    ShVariable* var = new ShVariable(ident, type);
-    try
-    {
-        currentScope->addVariable(var);
-    }
-    catch(Exception& e)
-    {
-        delete var;
-        throw;
-    }
 
-    if (parser.token == tokEqual)
-    {
-        parser.next();
-        ShValue value = getConstExpr(type);
-    }
-
-    parser.skipSep();
+initializer:
+    parser.skip(tokAssign, "=");
+    ShValue value = getConstExpr(type);
+    if (isVar)
+        addObject(new ShVariable(ident, type)); // TODO: initializer
+    else
+        addObject(new ShConstant(ident, value));
 }
 
 
@@ -312,7 +264,6 @@ void ShModule::compile()
         
         parser.next();
         
-        // module-header ::= "module" ident
         if (parser.token == tokModule)
         {
             parser.next();
@@ -323,31 +274,17 @@ void ShModule::compile()
             parser.skipSep();
         }
 
-        // { statement | definition }
         while (parser.token != tokEof)
         {
-            // definition ::= type-def | const-def | object-def | function-def
-
-            if (parser.token == tokDef)
-            {
-                parser.next();
+            if (parser.skipIf(tokDef))
                 parseTypeDef();
-            }
-            
-            else if (parser.token == tokConst)
-            {
-                parser.next();
-                parseConstDef();
-            }
-            
+            else if (parser.skipIf(tokConst))
+                parseVarConstDef(false);
+            else if (parser.skipIf(tokVar))
+                parseVarConstDef(true);
             else
-            {
-                ShBase* obj = getAtom();
-                if (obj->isType() || obj->isTypeAlias())
-                    parseObjectDef(obj);
-                else
-                    parser.errorWithLoc("Expected definition or statement");
-            }
+                errorWithLoc("Expected definition or statement");
+            parser.skipSep();
         }
 
         compiled = true;
