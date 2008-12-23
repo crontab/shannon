@@ -62,8 +62,8 @@ ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
 {
     if (!indexType->canBeArrayIndex())
         throw EInternal(10, indexType->getDisplayName("") + " can't be used as array index");
-    if (isBool())
-        return indexType->deriveSetType((ShBool*)this, scope);
+    if (isVoid())
+        return indexType->deriveSetType((ShVoid*)this, scope);
     else
     {
         ShArray* array = new ShArray(this, indexType);
@@ -72,7 +72,7 @@ ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
     }
 }
 
-ShSet* ShType::deriveSetType(ShBool* elementType, ShScope* scope)
+ShSet* ShType::deriveSetType(ShVoid* elementType, ShScope* scope)
 {
     if (derivedSetType == NULL)
     {
@@ -322,7 +322,7 @@ string ShArray::displayValue(const ShValue& v) const
 
 // --- SET TYPE --- //
 
-ShSet::ShSet(ShBool* iElementType, ShType* iIndexType)
+ShSet::ShSet(ShVoid* iElementType, ShType* iIndexType)
         : ShArray(iElementType, iIndexType)  { }
 
 string ShSet::displayValue(const ShValue& v) const
