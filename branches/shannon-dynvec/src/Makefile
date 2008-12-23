@@ -2,6 +2,7 @@
 CXXDEFS = -DDEBUG
 # DDEBUG = -DNDEBUG
 CXXOPTS = -Os -g -Wall -Werror $(CXXDEFS)
+# LDLIBS =
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
     obj/contain.o obj/baseobj.o obj/source.o obj/langobj.o
@@ -33,10 +34,10 @@ Makefile.dep: $(SRCS) $(HDRS)
 include Makefile.dep
 
 bin/shannon: $(OBJS) obj/main.o
-	$(CXX) $^ -o $@
+	$(CXX) $(LDLIBS) $^ -o $@
 
 bin/shannon-ut: $(OBJS) obj/main-ut.o
-	$(CXX) $^ -o $@
+	$(CXX) $(LDLIBS) $^ -o $@
 
 obj/%.o: %.cpp
 	$(CXX) $(CXXOPTS) -c $< -o $@
