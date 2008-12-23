@@ -301,7 +301,7 @@ ShString::ShString(const string& name, ShChar* elementType)
     : ShVector(name, elementType)  { }
 
 string ShString::displayValue(const ShValue& v) const
-    { return PTR_TO_STRING(v.value.ptr_); }
+    { return "'" + mkPrintable(PTR_TO_STRING(v.value.ptr_)) + "'"; }
 
 
 

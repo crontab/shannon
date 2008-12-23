@@ -138,6 +138,7 @@ public:
 
 string extractFileName(string filepath);
 string mkPrintable(char c);
+string mkPrintable(const string&);
 
 #endif
 
