@@ -566,7 +566,7 @@ restart:
         case '<':
             if (input->preview() == '=')
                 { input->get(); token = tokLessEq; }
-            if (input->preview() == '>')
+            else if (input->preview() == '>')
                 { input->get(); token = tokNotEq; }
             else
                 token = tokLAngle;

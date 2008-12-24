@@ -1,6 +1,7 @@
 
 CXXDEFS = -DSINGLE_THREADED
-CXXOPTS = -Os -Wall -Werror $(CXXDEFS)
+CXXOPTIM = -Os
+CXXOPTS = -Wall -Werror $(CXXDEFS)
 CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -NDEBUG
 # LDLIBS =
@@ -14,15 +15,15 @@ SRCS = portatom.cpp portmem.cpp strbase.cpp strconv.cpp except.cpp charset.cpp \
 
 HDRS = port.h str.h except.h charset.h contain.h baseobj.h source.h langobj.h
 
-all: dirs bin/shannon bin/shannon-ut
+all: dirs shannon shannon-ut
 
-ut: dirs bin/shannon-ut
+ut: dirs shannon-ut
 	@echo
-	@if bin/shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
+	@if shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
 	@echo
 
 dirs:
-	@mkdir -p obj bin
+	@mkdir -p obj
 
 depend: Makefile.dep
 
@@ -34,20 +35,20 @@ Makefile.dep: $(SRCS) $(HDRS)
 
 include Makefile.dep
 
-bin/shannon: $(OBJS) obj/main.o
+shannon: $(OBJS) obj/main.o
 	$(CXX) $(LDLIBS) $^ -o $@
 
-bin/shannon-ut: $(OBJS) obj/main-ut.o
+shannon-ut: $(OBJS) obj/main-ut.o
 	$(CXX) $(LDLIBS) $^ -o $@
 
 obj/%.o: %.cpp Makefile Makefile.dep
-	$(CXX) $(CXXDEBUG) $(CXXOPTS) -c $< -o $@
+	$(CXX) $(CXXDEBUG) $(CXXOPTIM) $(CXXOPTS) -c $< -o $@
 
 %.s: %.cpp
-	$(CXX) $(CXXOPTS) -S $< -o $@
+	$(CXX) $(CXXOPTIM) $(CXXOPTS) -S $< -o $@
 
 clean:
 	@rm -f $(OBJS) obj/main.o obj/main-ut.o
-	@rm -f bin/shannon bin/shannon-ut
+	@rm -f shannon shannon-ut
 	@rm -f core *.core
 
