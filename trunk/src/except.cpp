@@ -23,12 +23,6 @@ EDuplicate::~EDuplicate()  { }
 string EDuplicate::what() const  { return "Duplicate identifier '" + entry + '\''; }
 
 
-ENotFound::ENotFound(const string& ientry)
-    : Exception(), entry(ientry) { }
-ENotFound::~ENotFound()  { }
-string ENotFound::what() const  { return "Unknown identifier '" + entry + '\''; }
-
-
 ESysError::~ESysError()  { }
 
 
