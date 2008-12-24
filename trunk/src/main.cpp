@@ -9,36 +9,10 @@
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-union VmQuant
-{
-    ptr ptr_;
-    int int_;
-};
-
-
-class VmStack: public noncopyable
-{
-protected:
-    PodStack<VmQuant> stack;
-public:
-    VmStack();
-    VmQuant& push()           { return stack.push(); }
-    VmQuant  pop()            { return stack.pop(); }
-    void  pushInt(int v)      { push().int_ = v; }
-    void  pushPtr(ptr v)      { push().ptr_ = v; }
-    void  pushLarge(large v);
-    int   popInt()            { return pop().int_; }
-    ptr   popPtr()            { return pop().ptr_; }
-    large popLarge();
-    int   topInt()            { return stack.top().int_; }
-    ptr   topPtr()            { return stack.top().ptr_; }
-    large topLarge();
-};
-
-
 enum OpCode
 {
-    opNone = 0,
+    opNop,          // []
+    opEnd,          // []
     
     opLoad0,        // []
     opLoadInt,      // [int]
@@ -50,6 +24,37 @@ enum OpCode
     opLoadNullStr,  // []
     opLoadStr,      // [string-data-ptr]
     opLoadTypeRef,  // [ShType*]
+};
+
+
+union VmQuant
+{
+    OpCode op_;
+    int int_;
+    ptr ptr_;
+};
+
+
+class VmStack: public noncopyable
+{
+protected:
+    PodStack<VmQuant> stack;
+public:
+    VmStack();
+    int size() const          { return stack.size(); }
+    bool empty() const        { return stack.empty(); }
+    void clear()              { return stack.clear(); }
+    VmQuant& push()           { return stack.push(); }
+    VmQuant  pop()            { return stack.pop(); }
+    void  pushInt(int v)      { push().int_ = v; }
+    void  pushPtr(ptr v)      { push().ptr_ = v; }
+    void  pushLarge(large v);
+    int   popInt()            { return pop().int_; }
+    ptr   popPtr()            { return pop().ptr_; }
+    large popLarge();
+    int   topInt()            { return stack.top().int_; }
+    ptr   topPtr()            { return stack.top().ptr_; }
+    large topLarge();
 };
 
 
@@ -65,23 +70,37 @@ protected:
     PodArray<VmQuant> code;
     PodStack<EmulStackItem> emulStack;
 
-    void addOp(OpCode o)  { code.add().int_ = o; }
+    void addOp(OpCode o)  { code.add().op_ = o; }
     void addInt(int v)    { code.add().int_ = v; }
     void addPtr(ptr v)    { code.add().ptr_ = v; }
+
+    static void run(VmQuant* p);
 
 public:
     VmCode();
     
-    void addLoadConst(const ShValue&);
+    void genLoadConst(const ShValue&);
+    void endGeneration();
+    
+    ShValue runConst();
 };
 
 
 // ------------------------------------------------------------------------- //
 
 
+class ENoContext: public Exception
+{
+public:
+    virtual string what() const { return "No execution context"; }
+};
+
+
+
 VmCode::VmCode(): code()  { }
 
-void VmCode::addLoadConst(const ShValue& v)
+
+void VmCode::genLoadConst(const ShValue& v)
 {
     emulStack.push(v.type);
     if (v.type->isOrdinal())
@@ -129,7 +148,69 @@ void VmCode::addLoadConst(const ShValue& v)
         addOp(opLoadNull);
     }
     else
-        throw EInternal(50, "unknown type in VmCode::addLoadConst()");
+        throw EInternal(50, "unknown type in VmCode::genLoadConst()");
+}
+
+
+void VmCode::endGeneration()
+{
+    addOp(opEnd);
+}
+
+
+#ifdef SINGLE_THREADED
+
+VmStack vmStack;
+
+#endif
+
+
+void VmCode::run(VmQuant* p)
+{
+    while (1)
+    {
+        switch ((p++)->op_)
+        {
+        case opNop: break;
+        case opEnd: return;
+        case opLoad0: vmStack.pushInt(0); break;
+        case opLoadInt: vmStack.pushInt((p++)->int_); break;
+        case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
+        case opLoadChar: vmStack.pushInt((p++)->int_); break;
+        case opLoadFalse: vmStack.pushInt(0); break;
+        case opLoadTrue: vmStack.pushInt(1); break;
+        case opLoadNull: vmStack.pushInt(0); break;
+        case opLoadNullStr: vmStack.pushPtr(emptystr); break;
+        case opLoadStr: vmStack.pushPtr((p++)->ptr_); break;
+        case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
+        default: fatal(CRIT_FIRST + 50, "[VM] Unknown opcode");
+        }
+    }
+}
+
+
+ShValue VmCode::runConst()
+{
+    if (!vmStack.empty())
+        fatal(CRIT_FIRST + 51, "[VM] Stack not clean before const run");
+
+    run(&code._at(0));
+
+    if (emulStack.size() != 1)
+        fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state after const run");
+
+    ShType* type = emulStack.pop().type;
+
+    int expectSize = type->isLarge() ? 2 : 1;
+    if (vmStack.size() != expectSize)
+        fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state after const run");
+
+    if (type->isLarge())
+        return ShValue(type, vmStack.popLarge());
+    if (type->isPointer())
+        return ShValue(type, vmStack.popPtr());
+    else
+        return ShValue(type, vmStack.popInt());
 }
 
 
@@ -141,7 +222,8 @@ void VmCode::addLoadConst(const ShValue& v)
 // --- CONST EXPRESSION ---------------------------------------------------- //
 
 /*
-    - (unary), not
+    (expr), ident, int, string, char
+    -, not
     *, /, div, mod, and, shl, shr, as
     +, –, or, xor
     =, <>, <, >, <=, >=, in, is
@@ -169,41 +251,79 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
-ShValue ShModule::getOrdinalConst()
+void ShModule::parseAtom(VmCode& code)
 {
-    // TODO: const ordinal expr
-    // expr can start with a number, char, const ident or '-'
-    if (parser.token == tokIntValue)
+    if (parser.token == tokLParen)
+    {
+        parser.next();
+        parseExpr(code);
+        parser.skip(tokRParen, ")");
+    }
+    else if (parser.token == tokIntValue)
     {
         large value = parser.intValue;
         ShInteger* type = queenBee->defaultInt->contains(value) ?
             queenBee->defaultInt : queenBee->defaultLarge;
         parser.next();
-        return ShValue(type, parser.intValue);
+        code.genLoadConst(ShValue(type, parser.intValue));
     }
     else if (parser.token == tokStrValue)
     {
-        if (parser.strValue.size() != 1)
-            error("Character expected instead of '" + parser.strValue + "'");
-        int value = (unsigned)parser.strValue[0];
-        parser.next();
-        return ShValue(queenBee->defaultChar, value);
+        if (parser.strValue.size() == 1)
+        {
+            int value = (unsigned)parser.strValue[0];
+            parser.next();
+            code.genLoadConst(ShValue(queenBee->defaultChar, value));
+        }
+        else
+        {
+            const string s = parser.strValue;
+            parser.next();
+            code.genLoadConst(ShValue(queenBee->defaultStr, s));
+        }
     }
     else if (parser.token == tokIdent)
     {
         ShBase* obj = getQualifiedName();
         if (obj->isConstant())
-            return ((ShConstant*)obj)->value;
+            code.genLoadConst(((ShConstant*)obj)->value);
+        else
+            errorWithLoc("Constant expected");
     }
-    errorWithLoc("Constant expression expected");
-    return ShValue();
+}
+
+
+void ShModule::parseFactor(VmCode& code)
+{
+    parseAtom(code);
+}
+
+
+void ShModule::parseTerm(VmCode& code)
+{
+    parseFactor(code);
+}
+
+
+void ShModule::parseSimpleExpr(VmCode& code)
+{
+    parseTerm(code);
+}
+
+
+void ShModule::parseExpr(VmCode& code)
+{
+    parseSimpleExpr(code);
 }
 
 
 ShValue ShModule::getConstExpr(ShType* typeHint)
 {
-    ShValue result;
-    result = getOrdinalConst(); // TODO: general const expr
+    VmCode code;
+    parseExpr(code);
+    code.endGeneration();
+    ShValue result = code.runConst();
+
     if (typeHint == NULL)
         typeHint = result.type;
 
@@ -378,6 +498,9 @@ public:
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
         if (FifoChunk::chunkCount != 0)
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
+#ifdef SINGLE_THREADED
+        vmStack.clear();
+#endif
         if (stackimpl::stackAlloc != 0)
             fprintf(stderr, "Internal: stackAlloc = %d\n", stackimpl::stackAlloc);
     }

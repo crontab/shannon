@@ -535,6 +535,8 @@ restart:
         case '*': return token = tokMul;
         case '[': return token = tokLSquare;
         case ']': return token = tokRSquare;
+        case '(': return token = tokLParen;
+        case ')': return token = tokRParen;
         // case '{': return token = tokLCurly;
         // case '}': return token = tokRCurly;
         case '<': return token = tokLAngle;

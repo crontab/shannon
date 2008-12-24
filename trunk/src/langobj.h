@@ -39,6 +39,7 @@ class ShArray;
 class ShModule;
 class ShQueenBee;
 
+class VmCode;
 
 enum ShBaseId
 {
@@ -96,6 +97,10 @@ public:
             { return isOrdinal() || isComparable(); }
     virtual bool isString() const
             { return false; }
+    virtual bool isLarge() const
+            { return false; }
+    bool isPointer() const
+            { return typeId == typeVector || typeId == typeArray; }
 
     bool isVoid() const { return typeId == typeVoid; }
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
@@ -204,7 +209,7 @@ public:
 
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual bool isCompatibleWith(ShType*) const = 0;
-    bool isLarge() const
+    virtual bool isLarge() const
             { return size > 4; }
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
@@ -373,8 +378,10 @@ struct ShValue
     ShValue(): type(NULL)  { }
     ShValue(const ShValue& v)
             : type(v.type) { value = v.value; }
-    ShValue(ShOrdinal* iType, large iValue)
+    ShValue(ShType* iType, large iValue)
             : type(iType)  { value.large_ = iValue; }
+    ShValue(ShType* iType, ptr iValue)
+            : type(iType)  { value.ptr_ = iValue; }
     ShValue(ShString* iType, const string& iValue)
             : type(iType)  { value.ptr_ = ptr(iValue.c_bytes()); }
     void operator= (const ShValue& v)
@@ -416,7 +423,11 @@ class ShModule: public ShScope
     ShType* getDerivators(ShType*);
     ShOrdinal* getRangeType();
     ShType* getType();
-    ShValue getOrdinalConst();
+    void parseAtom(VmCode&);
+    void parseFactor(VmCode&);
+    void parseTerm(VmCode&);
+    void parseSimpleExpr(VmCode&);
+    void parseExpr(VmCode&);
     ShValue getConstExpr(ShType* typeHint);
 
     void parseTypeDef();

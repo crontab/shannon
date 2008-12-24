@@ -87,7 +87,7 @@ enum Token
     tokModule, tokConst, tokDef, tokVar,
     // special chars and sequences
     tokComma, tokPeriod, tokDiv, tokMul,
-    tokLSquare, tokRSquare, /* tokLCurly, tokRCurly, */
+    tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
     tokLAngle, tokLessThan = tokLAngle, tokRAngle, tokGreaterThan = tokRAngle,
     tokAssign,
 };

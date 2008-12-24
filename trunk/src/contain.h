@@ -16,8 +16,9 @@ public:
     
     int size() const                { return string::size(); }
     int bytesize() const            { return string::bytesize(); }
-    void clear()                    { string::clear(); }
     bool empty() const              { return string::empty(); }
+    const char* c_bytes() const     { return string::c_bytes(); }
+    void clear()                    { string::clear(); }
     char* add(int cnt)              { return string::appendn(cnt); }
     char* ins(int where, int cnt)   { return string::ins(where, cnt); }
     void del(int where, int cnt)    { string::del(where, cnt); }
@@ -54,6 +55,7 @@ public:
     int size() const                { return arrayimpl::size() / Tsize; }
     int bytesize() const            { return arrayimpl::bytesize(); }
     bool empty() const              { return arrayimpl::empty(); }
+    const char* c_bytes() const     { return arrayimpl::c_bytes(); }
     int refcount() const            { return arrayimpl::refcount(); }
     void clear()                    { arrayimpl::clear(); }
     T& add()                        { return *::new(Tptr(arrayimpl::add(Tsize))) T(); }
@@ -199,8 +201,8 @@ public:
     void realloc(int newsize);
     void clear();
 
-    bool empty()  { return count == 0; }
-    int size()    { return count; }
+    bool empty() const  { return count == 0; }
+    int size() const    { return count; }
 
     void* advance(int len)
     {
@@ -246,8 +248,9 @@ protected:
 public:
     PodStack(): stackimpl()   { }
     ~PodStack()               { }
-    bool empty()              { return stackimpl::empty(); }
-    int size()                { return stackimpl::size() / Tsize; }
+    bool empty() const        { return stackimpl::empty(); }
+    int size() const          { return stackimpl::size() / Tsize; }
+    void clear()              { stackimpl::clear(); }
     const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
     const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
