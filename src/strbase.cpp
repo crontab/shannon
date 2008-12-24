@@ -91,11 +91,7 @@ void string::_free()
 
 int string::_unlock()
 {
-#ifdef SINGLE_THREADED
-    return --STR_REFCOUNT(data);
-#else
     return pdecrement(&STR_REFCOUNT(data));
-#endif
 }
 
 
@@ -142,11 +138,7 @@ void string::initialize(char c)
 void string::initialize(const string& s)
 {
     data = s.data;
-#ifdef SINGLE_THREADED
-    STR_REFCOUNT(data)++;
-#else
     pincrement(&STR_REFCOUNT(data));
-#endif
 }
 
 
@@ -252,12 +244,8 @@ char* string::resize(int newlen)
         _alloc(newlen);
         int copylen = imin(curlen, newlen);
         memcpy(data, odata, copylen);
-#ifdef SINGLE_THREADED
-        STR_REFCOUNT(odata)--;
-#else
         if (pdecrement(&STR_REFCOUNT(odata)) == 0)
             _freedata(odata);
-#endif
     }
 
     // unique reallocation
@@ -275,12 +263,8 @@ char* string::unique()
         char* odata = data;
         _alloc(STR_LENGTH(data));
         memcpy(data, odata, STR_LENGTH(data));
-#ifdef SINGLE_THREADED
-        STR_REFCOUNT(odata)--;
-#else
         if (pdecrement(&STR_REFCOUNT(odata)) == 0)
             _freedata(odata);
-#endif
     }
     return data;
 }

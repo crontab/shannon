@@ -37,8 +37,8 @@ struct largerec
 
 #ifdef SINGLE_THREADED
 
-int pincrement(int* target)  { return ++(*target); }
-int pdecrement(int* target)  { return --(*target); }
+inline int pincrement(int* target)  { return ++(*target); }
+inline int pdecrement(int* target)  { return --(*target); }
 
 #else
 
