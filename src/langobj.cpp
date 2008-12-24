@@ -44,11 +44,6 @@ string ShType::getDisplayName(const string& objName) const
         return getFullDefinition(objName);
 }
 
-bool ShType::canAssign(const ShValue& value) const
-{
-    return equals(value.type);
-}
-
 ShVector* ShType::deriveVectorType(ShScope* scope)
 {
     if (derivedVectorType == NULL)
@@ -273,7 +268,7 @@ string ShInteger::getFullDefinition(const string& objName) const
 }
 
 string ShInteger::displayValue(const ShValue& v) const
-    { return itostring(large(isLargeSize() ? v.value.large_ : v.value.int_)); }
+    { return itostring(large(isLarge() ? v.value.large_ : v.value.int_)); }
 
 ShOrdinal* ShInteger::cloneWithRange(large min, large max)
     { return new ShInteger(min, max); }
@@ -456,6 +451,8 @@ ShModule::ShModule(const string& iFileName)
 
 string ShModule::registerString(const string& v)
 {
+    // Lock all used string literals, as we don't refcount them during
+    // compilation, instead we just copy pointers.
     stringLiterals.add(v);
     return v;
 }

@@ -41,6 +41,7 @@ public:
     bool isEolChar(char c)  { return c == '\r' || c == '\n'; }
     char preview();
     char get();
+    bool getIf(char);
     void skipEol();
     void skipLine();
     string token(const charset& chars) throw(ESysError);
@@ -97,11 +98,19 @@ enum Token
     tokIdent, tokIntValue, tokStrValue,
     // keywords
     tokModule, tokConst, tokDef, tokVar,
+    
+    // the order in this group is important: it's in sync with OpComparison
+    tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
+    
     // special chars and sequences
+    tokIn, tokIs,
     tokComma, tokPeriod, tokRange, tokDiv, tokMul,
     tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
-    tokLAngle, tokLessThan = tokLAngle, tokRAngle, tokGreaterThan = tokRAngle,
     tokAssign,
+    
+    // aliases; don't define new consts after this group
+    tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,
+    tokCmpFirst = tokEqual, tokCmpLast = tokNotEq
 };
 
 

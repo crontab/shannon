@@ -92,13 +92,11 @@ public:
     virtual string displayValue(const ShValue&) const = 0;
     virtual bool isComplete() const
             { return true; }
-    virtual bool isComparable() const
-            { return isOrdinal(); }
-    bool canBeArrayIndex() const
-            { return isOrdinal() || isComparable(); }
+    virtual bool canBeArrayIndex() const
+            { return false; }
     virtual bool isString() const
             { return false; }
-    virtual bool isLargeSize() const
+    virtual bool isLarge() const
             { return false; }
     virtual bool isPointer() const = 0;
 
@@ -113,7 +111,15 @@ public:
     bool isArray() const { return typeId == typeArray; }
 
     virtual bool equals(ShType*) const = 0;
-    virtual bool canAssign(const ShValue& value) const;
+    // isCompatibleWith() is for binary operators, requires strict equality
+    // of types unless redefined in descendant classes. Actually redefined
+    // in ordinals.
+    virtual bool isCompatibleWith(ShType* type) const
+            { return equals(type); }
+    // Assignments require strict equality of types except for ordinals, 
+    // and also for a special case str = char
+    virtual bool canAssign(ShType* type) const
+            { return equals(type); }
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
     ShSet* deriveSetType(ShVoid* elementType, ShScope* scope);
@@ -226,7 +232,11 @@ public:
     virtual bool isPointer() const
             { return false; }
     virtual bool isCompatibleWith(ShType*) const = 0;
-    virtual bool isLargeSize() const
+    virtual bool canAssign(ShType* type) const
+            { return isCompatibleWith(type); }
+    virtual bool canBeArrayIndex() const
+            { return true; }
+    virtual bool isLarge() const
             { return size > 4; }
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
@@ -269,6 +279,8 @@ public:
     ShChar(const string& name, int min, int max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool isCompatibleWith(ShType* type) const
+            { return type->isChar() || type->isString(); }
+    virtual bool canAssign(ShType* type) const
             { return type->isChar(); }
     virtual bool equals(ShType* type) const
             { return type->isChar() && rangeEquals(((ShChar*)type)->range); }
@@ -325,7 +337,7 @@ public:
 class ShRange: public ShType
 {
     // Not to be confused with subrange, which is ordinal. A value of type
-    // range is a pair of ordinals, not bigger than 32-bit.
+    // range is a pair of ordinals, not bigger than 32-bit each.
     virtual string getFullDefinition(const string& objName) const;
 public:
     ShOrdinal* base;
@@ -334,7 +346,7 @@ public:
     virtual string displayValue(const ShValue& v) const;
     virtual bool isPointer() const
             { return false; }
-    virtual bool isLargeSize() const
+    virtual bool isLarge() const
             { return true; }
     virtual bool equals(ShType* type) const
             { return type->isRange() && base->equals(((ShRange*)type)->base); }
@@ -353,8 +365,12 @@ public:
     virtual string displayValue(const ShValue& v) const;
     virtual bool isString() const
             { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
-    virtual bool isComparable() const
-            { return elementType->isChar(); }
+    virtual bool canBeArrayIndex() const
+            { return isString(); }
+    virtual bool isCompatibleWith(ShType* type) const
+            { return equals(type) || (isString() && type->isChar()); }
+    virtual bool canAssign(ShType* type) const
+            { return type->isCompatibleWith(type); }
     virtual bool isPointer() const
             { return true; }
     virtual bool equals(ShType* type) const
@@ -365,7 +381,8 @@ public:
 class ShString: public ShVector
 {
 public:
-    // Note that any char[] is a string, too
+    // Note that any char[] is a string, too. This class is used only once
+    // for defining the built-in "str".
     ShString(const string& name, ShChar* elementType);
     virtual bool isString() const
             { return true; }
@@ -489,6 +506,7 @@ class ShModule: public ShScope
     ShType* getType();
     ShType* getTypeOrNewIdent(string* strToken);
     void parseAtom(VmCode&);
+    void parseDesignator(VmCode&);
     void parseFactor(VmCode&);
     void parseTerm(VmCode&);
     void parseSimpleExpr(VmCode&);

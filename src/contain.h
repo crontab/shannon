@@ -188,6 +188,14 @@ public:
 
 class stackimpl: noncopyable
 {
+protected:
+
+#ifdef DEBUG
+    void idx(int i) const  { if (unsigned(~i) >= unsigned(count)) invstackop(); }
+#else
+    void idx(int) const  { }
+#endif
+    
 public:
     char* stack;
     int capacity;
@@ -221,19 +229,10 @@ public:
         return stack + count;
     }
     
-    void* _at(int index) const // always negative
-    {
-        return stack + count + index;
-    }
-    
-    void* at(int index) const
-    {
-#ifdef DEBUG
-        if (unsigned(~index) >= unsigned(count))
-            invstackop();
-#endif
-        return _at(index);
-    }
+    void* _at(int i)        { return stack + count + i; }
+    void* _at(int i) const  { return stack + count + i; }
+    void* at(int i)         { idx(i); return _at(i); }
+    void* at(int i) const   { idx(i); return _at(i); }
 
     static int stackAlloc;
 };
@@ -251,10 +250,13 @@ public:
     bool empty() const        { return stackimpl::empty(); }
     int size() const          { return stackimpl::size() / Tsize; }
     void clear()              { stackimpl::clear(); }
-    const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
-    const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
     void push(const T& t)     { ::new(&push()) T(t); }
+    T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }
+    T& at(int i)              { return *Tptr(stackimpl::at(i * Tsize)); }
+    T& top()                  { return *Tptr(stackimpl::at(-Tsize)); }
+    const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
+    const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
     const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
     const T& pop()            { return *Tptr(stackimpl::withdraw(Tsize)); }
 };
@@ -274,6 +276,15 @@ public:
                 PodStack<T>::_at(i).~T();
         PodStack<T>::clear();
     }
+};
+
+
+template<class X>
+struct twins
+{
+    X first, second;
+    twins(const X& iFirst, const X& iSecond)
+        : first(iFirst), second(iSecond)  { }
 };
 
 

@@ -45,6 +45,17 @@ char InText::get()
 }
 
 
+bool InText::getIf(char c)
+{
+    if (preview() == c)
+    {
+        get();
+        return true;
+    }
+    return false;
+}
+
+
 void InText::doSkipEol()
 {
     linenum++;
@@ -215,9 +226,11 @@ public:
 
 Keywords::kwinfo Keywords::keywords[] =
     {
-        // NOTE: this list be kept in sorted order
+        // NOTE: this list must be kept in sorted order
         {"const", tokConst},
         {"def", tokDef},
+        {"in", tokIn},
+        {"is", tokIs},
         {"module", tokModule},
         {"var", tokVar},
         {NULL, tokUndefined}
@@ -512,6 +525,7 @@ restart:
     
     else if (digits[c])  // numeric
     {
+        // TODO: hex
         strValue = input->token(digits);
         bool e, o;
         intValue = stringtou(strValue.c_str(), &e, &o, 10);
@@ -534,14 +548,7 @@ restart:
             input->skipEol();
             goto restart;
         case ',': return token = tokComma;
-        case '.':
-            if (input->preview() == '.')
-            {
-                input->get();
-                return token = tokRange;
-            }
-            else
-                return token = tokPeriod;
+        case '.': return token = (input->getIf('.') ? tokRange : tokPeriod);
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
@@ -556,9 +563,16 @@ restart:
         case ')': return token = tokRParen;
         // case '{': return token = tokLCurly;
         // case '}': return token = tokRCurly;
-        case '<': return token = tokLAngle;
-        case '>': return token = tokRAngle;
-        case '=': return token = tokAssign;
+        case '<':
+            if (input->preview() == '=')
+                { input->get(); token = tokLessEq; }
+            if (input->preview() == '>')
+                { input->get(); token = tokNotEq; }
+            else
+                token = tokLAngle;
+            return token;
+        case '>': return token = (input->getIf('=') ? tokGreaterEq : tokRAngle);
+        case '=': return token = (input->getIf('=') ? tokEqual : tokAssign);
         }
     }
 
