@@ -62,7 +62,7 @@ fifo-pull ::= atom "::" set-ctor
 
 fifo-filter ::= atom "||" set-ctor
 
-range ::= atom ".." atom
+subrange ::= simple-expr ".." simple-expr
 
 
 # Module
@@ -84,7 +84,7 @@ type-alias ::= "def" type ident { type-derivator }
 
 type ::= type-id { type-derivator }
 
-type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
+type-id ::= qualified-name | "typeof" "(" type-expr ")" | subrange
 
 type-derivator ::= array-derivator | mute-derivator | range-derivator
 
