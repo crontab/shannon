@@ -230,16 +230,24 @@ Keywords::kwinfo Keywords::keywords[] =
 // ------------------------------------------------------------------------ //
 
 
-EParser::~EParser() throw() { }
+EParser::EParser(const string& ifilename, int ilinenum, const string& msg)
+    : EMessage(msg), filename(ifilename), linenum(ilinenum)  { }
+
+EParser::~EParser() { }
 
 
-string EParser::what() const throw()
+string EParser::what() const
 {
     string s;
     if (!filename.empty())
         s = filename + '(' + itostring(linenum) + "): ";
     return s + EMessage::what();
 }
+
+
+ENotFound::ENotFound(const string& ifilename, int ilinenum, const string& ientry)
+    : EParser(ifilename, ilinenum, "Unknown identifier '" + ientry + '\''), entry(ientry) { }
+ENotFound::~ENotFound()  { }
 
 
 const charset wsChars = "\t ";
@@ -292,17 +300,19 @@ Parser::~Parser()
 void Parser::error(const string& msg)
     { throw EParser(input->getFileName(), getLineNum(), "Error: " + msg); }
 
-
 void Parser::errorWithLoc(const string& msg)
     { error(msg + errorLocation()); }
-
 
 void Parser::error(const char* msg)
     { error(string(msg)); }
 
-
 void Parser::errorWithLoc(const char* msg)
     { errorWithLoc(string(msg)); }
+
+void Parser::errorNotFound(const string& ident)
+    { throw ENotFound(input->getFileName(), getLineNum(), ident); }
+
+
 
 
 void Parser::parseStringLiteral()

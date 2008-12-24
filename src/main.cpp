@@ -8,6 +8,11 @@
 
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
+#ifdef SINGLE_THREADED
+#  define VM_STATIC static
+#else
+#  define VM_STATIC
+#endif
 
 enum OpCode
 {
@@ -101,7 +106,8 @@ protected:
     void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
 #endif
 
-    static void run(VmQuant* p);
+    VM_STATIC void runtimeError(int code, const char*);
+    VM_STATIC void run(VmQuant* p);
 
 public:
     VmCode(ShScope* iCompilationScope);
@@ -214,6 +220,12 @@ VmStack vmStack;
 #endif
 
 
+void VmCode::runtimeError(int code, const char* msg)
+{
+    fatal(RUNTIME_FIRST + code, msg);
+}
+
+
 void VmCode::run(VmQuant* p)
 {
     while (1)
@@ -292,7 +304,7 @@ ShValue VmCode::runConst()
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    (expr), ident, int, string, char
+    <nested-expr>, <typecast>, <ident>, <int>, <string>, <char>
     -, not
     *, /, div, mod, and, shl, shr, as
     +, –, or, xor
@@ -306,7 +318,8 @@ ShBase* ShModule::getQualifiedName()
     string ident = parser.getIdent();
     ShBase* obj = currentScope->deepFind(ident);
     if (obj == NULL)
-        error("Unknown identifier '" + ident + "'");
+        errorNotFound(ident);
+    string errIdent = ident;
     while (parser.token == tokPeriod)
     {
         if (!obj->isScope())
@@ -314,9 +327,10 @@ ShBase* ShModule::getQualifiedName()
         ShScope* scope = (ShScope*)obj;
         parser.next(); // "."
         ident = parser.getIdent();
+        errIdent += '.' + ident; // this is important for the hack in getTypeOrNewIdent()
         obj = scope->find(ident);
         if (obj == NULL)
-            error("'" + ident + "' is not known within '" + scope->name + "'");
+            errorNotFound(errIdent);
     }
     return obj;
 }
@@ -365,6 +379,10 @@ void ShModule::parseAtom(VmCode& code)
         // symbolic constant
         if (obj->isConstant())
             code.genLoadConst(((ShConstant*)obj)->value);
+        else if (obj->isType())
+            code.genLoadTypeRef(getDerivators((ShType*)obj));
+        else if (obj->isTypeAlias())
+            code.genLoadTypeRef(getDerivators(((ShTypeAlias*)obj)->base));
         else
             errorWithLoc("Constant expected");
     }
@@ -430,29 +448,27 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
     if (typeHint == NULL)
         typeHint = result.type;
 
+    // Ordinal values have broader compatibility, while other types
+    // must match exactly.
     if (typeHint->isOrdinal() && result.type->isOrdinal())
     {
         ShOrdinal* ordHint = (ShOrdinal*)typeHint;
         if (!ordHint->isCompatibleWith(result.type))
             error("Type mismatch in constant expression");
-        if (!ordHint->contains(result.largeValue()))
+        if (!ordHint->contains(result.value.large_))
             error("Value out of range");
     }
     else if (!typeHint->canAssign(result))
         error("Type mismatch in constant expression");
+
+    if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
+        error("Invalid range");
 
     return result;
 }
 
 
 // --- TYPES --------------------------------------------------------------- //
-
-/*
-ShOrdinal* ShModule::getRangeType()
-{
-    return NULL;
-}
-*/
 
 ShType* ShModule::getDerivators(ShType* type)
 {
@@ -505,6 +521,40 @@ ShType* ShModule::getType()
 }
 
 
+ShType* ShModule::getTypeOrNewIdent(string* ident)
+{
+    ident->clear();
+    
+    // remember the ident in case we get ENotFound so that we can signal
+    // the caller this might be a declaration, not a type spec.
+    if (parser.token == tokIdent)
+        *ident = parser.strValue;   
+
+    try
+    {
+        ShValue value = getConstExpr(NULL);
+        if (value.type->isTypeRef())
+            return (ShType*)value.value.ptr_;
+        else if (value.type->isRange())
+            return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value, currentScope);
+        else
+            errorWithLoc("Type specification or new identifier expected");
+    }
+    catch (ENotFound& e)
+    {
+        // if this is a more complicated expression, just re-throw the exception
+        // othrwise return NULL and thus indicate this was a new ident
+        if (e.getEntry() != *ident)
+            throw;
+    }
+    catch(EInvalidSubrange& e)
+    {
+        error(e.what());
+    }
+    return NULL;
+}
+
+
 // --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
 
 
@@ -519,12 +569,19 @@ void ShModule::parseTypeDef()
 
 void ShModule::parseVarConstDef(bool isVar)
 {
-    // TODO: skip type if ident is new or if it is followed by '='
-    ShType* type = getType();
-    string ident = parser.getIdent();
-    type = getDerivators(type);
+    string ident;
+    ShType* type = getTypeOrNewIdent(&ident);
+    if (type != NULL)  // if not auto, derivators are possible after the ident
+    {
+        ident = parser.getIdent();
+        type = getDerivators(type);
+    }
     parser.skip(tokAssign, "=");
     ShValue value = getConstExpr(type);
+    if (type == NULL) // auto
+        type = value.type;
+    else
+        value.type = type;
     if (isVar)
         addObject(new ShVariable(ident, type)); // TODO: initializer
     else

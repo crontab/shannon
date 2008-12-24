@@ -195,22 +195,9 @@ void ShScope::dump(string indent) const
 
 // TODO: define lo() and hi() for ordinals and also ranges
 
-ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
-    : ShType(name, iTypeId), derivedRangeType(NULL),
-      range(min, max), size(range.physicalSize())  { }
-
-ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
-{
-    if (derivedRangeType == NULL)
-    {
-        derivedRangeType = new ShRange(this);
-        scope->addAnonType(derivedRangeType);
-    }
-    return derivedRangeType;
-}
-
-
-// --- INTEGER TYPE --- //
+EInvalidSubrange::EInvalidSubrange(ShOrdinal* type)
+    : EMessage("Invalid subrange for " + type->getDisplayName(""))  { }
+    
 
 int Range::physicalSize() const
 {
@@ -239,6 +226,43 @@ int Range::physicalSize() const
 }
 
 
+ShOrdinal::ShOrdinal(ShTypeId iTypeId, large min, large max)
+    : ShType(iTypeId), derivedRangeType(NULL),
+      range(min, max), size(range.physicalSize())  { }
+
+ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
+    : ShType(name, iTypeId), derivedRangeType(NULL),
+      range(min, max), size(range.physicalSize())  { }
+
+ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
+{
+    if (derivedRangeType == NULL)
+    {
+        derivedRangeType = new ShRange(this);
+        scope->addAnonType(derivedRangeType);
+    }
+    return derivedRangeType;
+}
+
+ShOrdinal* ShOrdinal::deriveOrdinalFromRange(ShValue value, ShScope* scope)
+{
+    large min = value.rangeMin();
+    large max = value.rangeMax();
+    if (rangeEquals(min, max))
+        return this;
+    if (min >= max || !rangeIsGreaterOrEqual(min, max))
+        throw EInvalidSubrange(this);
+    ShOrdinal* derived = cloneWithRange(min, max);
+    scope->addAnonType(derived);
+    return derived;
+}
+
+
+// --- INTEGER TYPE --- //
+
+ShInteger::ShInteger(large min, large max)
+    : ShOrdinal(typeInt, min, max)  { }
+
 ShInteger::ShInteger(const string& name, large min, large max)
     : ShOrdinal(name, typeInt, min, max)  { }
 
@@ -251,8 +275,14 @@ string ShInteger::getFullDefinition(const string& objName) const
 string ShInteger::displayValue(const ShValue& v) const
     { return itostring(large(isLargeSize() ? v.value.large_ : v.value.int_)); }
 
+ShOrdinal* ShInteger::cloneWithRange(large min, large max)
+    { return new ShInteger(min, max); }
+
 
 // --- CHAR TYPE --- //
+
+ShChar::ShChar(int min, int max)
+    : ShOrdinal(typeChar, min, max)  { }
 
 ShChar::ShChar(const string& name, int min, int max)
     : ShOrdinal(name, typeChar, min, max)  { }
@@ -266,6 +296,9 @@ string ShChar::getFullDefinition(const string& objName) const
 string ShChar::displayValue(const ShValue& v) const
     { return "'" + mkPrintable(v.value.int_) + "'"; }
 
+ShOrdinal* ShChar::cloneWithRange(large min, large max)
+    { return new ShChar(min, max); }
+
 
 // --- BOOL TYPE --- //
 
@@ -277,6 +310,9 @@ string ShBool::getFullDefinition(const string& objName) const
 
 string ShBool::displayValue(const ShValue& v) const
     { return v.value.int_ ? "true" : "false"; }
+
+ShOrdinal* ShBool::cloneWithRange(large min, large max)
+    { throw EInvalidSubrange(this); }
 
 
 
@@ -470,7 +506,7 @@ ShQueenBee::ShQueenBee()
     : ShModule("System"),
       defaultInt(new ShInteger("int", int32min, int32max)),
       defaultLarge(new ShInteger("large", int64min, int64max)),
-      defaultChar(new ShChar("char")),
+      defaultChar(new ShChar("char", 0, 255)),
       defaultStr(new ShString("str", defaultChar)),
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void")),

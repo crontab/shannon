@@ -70,11 +70,23 @@ protected:
     string filename;
     int linenum;
 public:
-    EParser(const string& ifilename, int ilinenum, const string& msg)
-        : EMessage(msg), filename(ifilename), linenum(ilinenum)  { }
-    virtual ~EParser() throw();
-    virtual string what() const throw();
+    EParser(const string& ifilename, int ilinenum, const string& msg);
+    virtual ~EParser();
+    virtual string what() const;
 };
+
+
+class ENotFound: public EParser
+{
+    string entry;
+public:
+    ENotFound(const string& ifilename, int ilinenum, const string& ientry);
+    virtual ~ENotFound();
+    const string& getEntry() const  { return entry; }
+};
+
+
+
 
 
 enum Token
@@ -127,6 +139,7 @@ public:
     void errorWithLoc(const string& msg);
     void error(const char*);
     void errorWithLoc(const char*);
+    void errorNotFound(const string& ident);
     void skipSep();
     void skip(Token tok, const char* errName);
     bool skipIf(Token tok)

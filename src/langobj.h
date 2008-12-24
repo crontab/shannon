@@ -194,6 +194,12 @@ public:
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
+class EInvalidSubrange: public EMessage
+{
+public:
+    EInvalidSubrange(ShOrdinal*);
+};
+
 
 struct Range
 {
@@ -201,17 +207,21 @@ struct Range
     const large max;
 
     Range(large iMin, large iMax): min(iMin), max(iMax)  { }
-    int  physicalSize() const;
+    int physicalSize() const;
 };
 
 
 class ShOrdinal: public ShType
 {
     ShRange* derivedRangeType;
+    
+    virtual ShOrdinal* cloneWithRange(large min, large max) = 0;
+
 public:
     const Range range;
     const int size;
 
+    ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual bool isPointer() const
             { return false; }
@@ -222,9 +232,12 @@ public:
             { return value >= range.min && value <= range.max; }
     bool rangeEquals(const Range& r) const
             { return range.min == r.min && range.max == r.max; }
-    bool isGreaterOrEqual(const Range& r)
-            { return range.min <= r.min && range.max >= r.max; }
+    bool rangeEquals(large n, large x) const
+            { return range.min == n && range.max == x; }
+    bool rangeIsGreaterOrEqual(large n, large x)
+            { return range.min <= n && range.max >= x; }
     ShRange* deriveRangeType(ShScope* scope);
+    ShOrdinal* deriveOrdinalFromRange(ShValue value, ShScope* scope);
 };
 
 
@@ -232,8 +245,9 @@ class ShInteger: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
-
+    virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
+    ShInteger(large min, large max);
     ShInteger(const string& name, large min, large max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool isCompatibleWith(ShType* type) const
@@ -249,9 +263,10 @@ class ShChar: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
-
+    virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-    ShChar(const string& name, int min = 0, int max = 255);
+    ShChar(int min, int max);
+    ShChar(const string& name, int min, int max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool isCompatibleWith(ShType* type) const
             { return type->isChar(); }
@@ -266,7 +281,7 @@ class ShBool: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
-
+    virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
     ShBool(const string& name);
     virtual string displayValue(const ShValue& v) const;
@@ -432,7 +447,10 @@ struct ShValue
             : type(iType)  { value.ptr_ = ptr(iValue.c_bytes()); }
     void operator= (const ShValue& v)
             { value = v.value; type = v.type; }
-    large largeValue() const { return value.large_; }
+    int rangeMin() const
+            { return int(value.large_); }
+    int rangeMax() const
+            { return int(value.large_ >> 32); }
 };
 
 
@@ -460,15 +478,16 @@ class ShModule: public ShScope
 
     // --- Compiler ---
     ShScope* currentScope;
-    void error(const string& msg)        { parser.error(msg); }
-    void error(const char* msg)          { parser.error(msg); }
-    void errorWithLoc(const string& msg) { parser.errorWithLoc(msg); }
-    void errorWithLoc(const char* msg)   { parser.errorWithLoc(msg); }
-    void notImpl()                       { error("Feature not implemented"); }
+    void error(const string& msg)           { parser.error(msg); }
+    void error(const char* msg)             { parser.error(msg); }
+    void errorWithLoc(const string& msg)    { parser.errorWithLoc(msg); }
+    void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
+    void errorNotFound(const string& msg)   { parser.errorNotFound(msg); }
+    void notImpl()                          { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-    ShOrdinal* getRangeType();
     ShType* getType();
+    ShType* getTypeOrNewIdent(string* strToken);
     void parseAtom(VmCode&);
     void parseFactor(VmCode&);
     void parseTerm(VmCode&);

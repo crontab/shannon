@@ -43,17 +43,6 @@ public:
 };
 
 
-class ENotFound: public Exception
-{
-    string entry;
-public:
-    ENotFound(const string& ientry);
-    virtual ~ENotFound();
-    virtual string what() const;
-    const string& getEntry() const  { return entry; }
-};
-
-
 class ESysError: public Exception
 {
     int code;
