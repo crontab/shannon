@@ -41,6 +41,9 @@ bin/shannon-ut: $(OBJS) obj/main-ut.o
 obj/%.o: %.cpp
 	$(CXX) $(CXXOPTS) -c $< -o $@
 
+%.s: %.cpp
+	$(CXX) $(CXXOPTS) -S $< -o $@
+
 clean:
 	@rm -f $(OBJS) obj/main.o obj/main-ut.o
 	@rm -f bin/shannon bin/shannon-ut

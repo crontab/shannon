@@ -14,12 +14,12 @@
 #  define VM_STATIC
 #endif
 
+
 enum OpCode
 {
-    opNop,          // []
     opEnd,          // []
+    opNop,          // []
     
-    // pushers
     opLoad0,        // []                   +1
     opLoadInt,      // [int]                +1
     opLoadLarge,    // [large]            +2/1
@@ -31,10 +31,29 @@ enum OpCode
     opLoadStr,      // [str-data-ptr]       +1
     opLoadTypeRef,  // [ShType*]            +1
     
-    // poppers
-    opMkSubrange,   // []                -2 +1
+    opMkSubrange,   // []               -2  +1
+    opCmpInt,       // [opcmp]          -2  +1
+    opCmpIntLarge,  // [opcmp]          -2  +1
+    opCmpLarge,     // [opcmp]          -2  +1
+    opCmpLargeInt,  // [opcmp]          -2  +1
+    opCmpStr,       // [opcmp]          -2  +1
+    opCmpStrChr,    // [opcmp]          -2  +1
+    opCmpChrStr,    // [opcmp]          -2  +1
 
+    // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
+
+    // compare the stack top with 0 and replace it with a bool value
+    opEQ,           // []               -1  +1
+    opLT,           // []               -1  +1
+    opLE,           // []               -1  +1
+    opGE,           // []               -1  +1
+    opGT,           // []               -1  +1
+    opNE,           // []               -1  +1
     // TODO: linenum, rangecheck opcodes
+    
+    opInv = -1,
+    
+    opCmpFirst = opEQ
 };
 
 
@@ -49,13 +68,15 @@ union VmQuant
 };
 
 
+typedef twins<ShType*> ShTypePair;
+
+
 class VmStack: public noncopyable
 {
-protected:
     PodStack<VmQuant> stack;
+
 public:
-    VmStack()
-            : stack()  { }
+    VmStack(): stack()        { }
     int size() const          { return stack.size(); }
     bool empty() const        { return stack.empty(); }
     void clear()              { return stack.clear(); }
@@ -64,6 +85,7 @@ public:
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
     int   popInt()            { return pop().int_; }
+    int   replInt(int v)      { return stack.top().int_ = v; }
     ptr   popPtr()            { return pop().ptr_; }
     int   topInt()            { return stack.top().int_; }
     ptr   topPtr()            { return stack.top().ptr_; }
@@ -95,10 +117,14 @@ protected:
     PodArray<VmQuant> code;
     PodStack<EmulStackItem> emulStack;
     ShScope* compilationScope;
+    int lastOpIndex;
 
-    void genOp(OpCode o)    { code.add().op_ = o; }
-    void genInt(int v)      { code.add().int_ = v; }
-    void genPtr(ptr v)      { code.add().ptr_ = v; }
+    void genOp(OpCode o)            { code.add().op_ = o; }
+    void genInt(int v)              { code.add().int_ = v; }
+    void genPtr(ptr v)              { code.add().ptr_ = v; }
+    void genCmpOp(OpCode op, OpCode cmp);
+    int  updateLastOpIndex()
+        { int t = lastOpIndex; lastOpIndex = code.size(); return t; }    
 
 #ifdef PTR64
     void genLarge(large v)  { code.add().large_ = v; }
@@ -115,10 +141,13 @@ public:
     void genLoadConst(const ShValue&);
     void genLoadTypeRef(ShType*);
     void genMkSubrange();
+    void genComparison(OpCode);
     void endGeneration();
     
     ShValue runConst();
     ShType* topType() const  { return emulStack.top().type; }
+    ShTypePair topTwoTypes() const
+        { return ShTypePair(emulStack.at(-2).type, emulStack.top().type); }
 };
 
 
@@ -134,11 +163,148 @@ public:
 
 
 VmCode::VmCode(ShScope* iCompilationScope)
-    : code(), compilationScope(iCompilationScope)  { }
+    : code(), compilationScope(iCompilationScope), lastOpIndex(0)  { }
+
+
+#ifdef SINGLE_THREADED
+
+VmStack vmStack;
+
+#endif
+
+
+void VmCode::runtimeError(int code, const char* msg)
+{
+    fatal(RUNTIME_FIRST + code, msg);
+}
+
+
+static int compareInt(int a, int b)
+    { if (a < b) return -1; else if (a == b) return 0; return 1; }
+
+static int compareLarge(large a, large b)
+    { if (a < b) return -1; else if (a == b) return 0; return 1; }
+
+
+void VmCode::run(VmQuant* p)
+{
+    while (1)
+    {
+        switch ((p++)->op_)
+        {
+        case opEnd: return;
+        case opNop: break;
+
+        // --- LOADERS ----------------------------------------------------- //
+        case opLoad0: vmStack.pushInt(0); break;
+        case opLoadInt: vmStack.pushInt((p++)->int_); break;
+#ifdef PTR64
+        case opLoadLarge: vmStack.pushLarge((p++)->large_); break;
+#else
+        case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
+#endif
+        case opLoadChar: vmStack.pushInt((p++)->int_); break;
+        case opLoadFalse: vmStack.pushInt(0); break;
+        case opLoadTrue: vmStack.pushInt(1); break;
+        case opLoadNull: vmStack.pushInt(0); break;
+        case opLoadNullStr: vmStack.pushPtr(emptystr); break;
+        case opLoadStr: vmStack.pushPtr((p++)->ptr_); break;
+        case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
+
+#ifdef PTR64
+        case opMkSubrange:
+            {
+                large hi = large(vmStack.popInt()) << 32;
+                vmStack.pushLarge(unsigned(vmStack.popInt()) | hi);
+            }
+            break;
+#else
+        case opMkSubrange: /* two ints become a subrange, haha! */ break;
+#endif
+
+        // --- COMPARISONS ------------------------------------------------- //
+        case opCmpInt:
+            {
+                int r = vmStack.popInt();
+                vmStack.replInt(compareInt(vmStack.topInt(), r));
+            }
+            break;
+        case opCmpIntLarge:
+            {
+                large r = vmStack.popLarge();
+                vmStack.replInt(compareLarge(vmStack.topInt(), r));
+            }
+            break;
+        case opCmpLarge:
+            {
+                large r = vmStack.popLarge();
+                large l = vmStack.popLarge();
+                vmStack.pushInt(compareLarge(l, r));
+            }
+            break;
+        case opCmpLargeInt:
+            {
+                int r = vmStack.popInt();
+                large l = vmStack.popLarge();
+                vmStack.pushInt(compareLarge(l, r));
+            }
+            break;
+/*
+    opCmpStr,       // [opcmp]           -2 +1
+    opCmpStrChr,    // [opcmp]           -2 +1
+    opCmpChrStr,    // [opcmp]           -2 +1
+*/
+        case opEQ: vmStack.replInt(vmStack.topInt() == 0); break;
+        case opLT: vmStack.replInt(vmStack.topInt() < 0); break;
+        case opLE: vmStack.replInt(vmStack.topInt() <= 0); break;
+        case opGE: vmStack.replInt(vmStack.topInt() >= 0); break;
+        case opGT: vmStack.replInt(vmStack.topInt() > 0); break;
+        case opNE: vmStack.replInt(vmStack.topInt() != 0); break;
+        default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
+        }
+    }
+}
+
+
+ShValue VmCode::runConst()
+{
+    if (!vmStack.empty())
+        fatal(CRIT_FIRST + 51, "[VM] Stack not clean before const run");
+
+    run(&code._at(0));
+
+    if (emulStack.size() != 1)
+        fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state after const run");
+
+    ShType* type = emulStack.pop().type;
+
+#ifdef PTR64
+    int expectSize = 1;
+#else
+    int expectSize = type->isLarge() ? 2 : 1;
+#endif
+    if (vmStack.size() != expectSize)
+        fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state after const run");
+
+    if (type->isLarge())
+        return ShValue(type, vmStack.popLarge());
+    if (type->isPointer())
+        return ShValue(type, vmStack.popPtr());
+    else
+        return ShValue(type, vmStack.popInt());
+}
+
+
+void VmCode::genCmpOp(OpCode op, OpCode cmp)
+{
+    genOp(op);
+    genOp(cmp);
+}
 
 
 void VmCode::genLoadConst(const ShValue& v)
 {
+    updateLastOpIndex();
     emulStack.push(v.type);
     if (v.type->isOrdinal())
     {
@@ -151,7 +317,7 @@ void VmCode::genLoadConst(const ShValue& v)
             genOp(opLoadChar);
             genInt(v.value.int_);
         }
-        else if (((ShOrdinal*)v.type)->isLargeSize())
+        else if (((ShOrdinal*)v.type)->isLarge())
         {
             genOp(opLoadLarge);
             genLarge(v.value.large_);
@@ -184,12 +350,13 @@ void VmCode::genLoadConst(const ShValue& v)
         genOp(opLoadNull);
     }
     else
-        throw EInternal(50, "unknown type in VmCode::genLoadConst()");
+        throw EInternal(50, "Unknown type in VmCode::genLoadConst()");
 }
 
 
 void VmCode::genLoadTypeRef(ShType* type)
 {
+    updateLastOpIndex();
     emulStack.push(queenBee->defaultTypeRef);
     genOp(opLoadTypeRef);
     genPtr(type);
@@ -198,6 +365,7 @@ void VmCode::genLoadTypeRef(ShType* type)
 
 void VmCode::genMkSubrange()
 {
+    updateLastOpIndex();
     emulStack.pop();
     ShType* type = emulStack.pop().type;
     if (!type->isOrdinal())
@@ -207,92 +375,51 @@ void VmCode::genMkSubrange()
 }
 
 
+void VmCode::genComparison(OpCode cmp)
+{
+    updateLastOpIndex();
+
+    OpCode op = opInv;
+    ShType* right = emulStack.pop().type;
+    ShType* left = emulStack.pop().type;
+
+    bool leftStr = left->isString();
+    bool rightStr = right->isString();
+    if (leftStr)
+    {
+        if (right->isChar())
+            op = opCmpStrChr;
+        else if (rightStr)
+            op = opCmpStr;
+    }
+    else if (rightStr)
+    {
+        if (left->isChar())
+            op = opCmpStrChr;
+        else if (leftStr)
+            op = opCmpStr;
+    }
+
+    else if (left->isOrdinal() && right->isOrdinal())
+    {
+        // TODO: check if one of the operands is 0
+        static OpCode alchemy[2][2] =
+            {{opCmpInt, opCmpIntLarge}, {opCmpLargeInt, opCmpLarge}};
+        op = alchemy[left->isLarge()][right->isLarge()];
+    }
+    // TODO: string comparison
+
+    if (op == opInv)
+        throw EInternal(52, "Invalid operand types");
+printf("CMP=%d:%d\n", op - opCmpInt, cmp - opCmpFirst);
+    genCmpOp(op, cmp);
+    emulStack.push(queenBee->defaultBool);
+}
+
+
 void VmCode::endGeneration()
 {
     genOp(opEnd);
-}
-
-
-#ifdef SINGLE_THREADED
-
-VmStack vmStack;
-
-#endif
-
-
-void VmCode::runtimeError(int code, const char* msg)
-{
-    fatal(RUNTIME_FIRST + code, msg);
-}
-
-
-void VmCode::run(VmQuant* p)
-{
-    while (1)
-    {
-        switch ((p++)->op_)
-        {
-        case opNop: break;
-        case opEnd: return;
-        // pushers
-        case opLoad0: vmStack.pushInt(0); break;
-        case opLoadInt: vmStack.pushInt((p++)->int_); break;
-#ifdef PTR64
-        case opLoadLarge: vmStack.pushLarge((p++)->large_); break;
-#else
-        case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
-#endif
-        case opLoadChar: vmStack.pushInt((p++)->int_); break;
-        case opLoadFalse: vmStack.pushInt(0); break;
-        case opLoadTrue: vmStack.pushInt(1); break;
-        case opLoadNull: vmStack.pushInt(0); break;
-        case opLoadNullStr: vmStack.pushPtr(emptystr); break;
-        case opLoadStr: vmStack.pushPtr((p++)->ptr_); break;
-        case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
-        
-        // poppers
-#ifdef PTR64
-        case opMkSubrange:
-            {
-                large hi = large(vmStack.popInt()) << 32;
-                vmStack.pushLarge(unsigned(vmStack.popInt()) | hi);
-            }
-            break;
-#else
-        case opMkSubrange: /* two ints become a subrange, haha! */ break;
-#endif
-        default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
-        }
-    }
-}
-
-
-ShValue VmCode::runConst()
-{
-    if (!vmStack.empty())
-        fatal(CRIT_FIRST + 51, "[VM] Stack not clean before const run");
-
-    run(&code._at(0));
-
-    if (emulStack.size() != 1)
-        fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state after const run");
-
-    ShType* type = emulStack.pop().type;
-
-#ifdef PTR64
-    int expectSize = 1;
-#else
-    int expectSize = type->isLargeSize() ? 2 : 1;
-#endif
-    if (vmStack.size() != expectSize)
-        fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state after const run");
-
-    if (type->isLargeSize())
-        return ShValue(type, vmStack.popLarge());
-    if (type->isPointer())
-        return ShValue(type, vmStack.popPtr());
-    else
-        return ShValue(type, vmStack.popInt());
 }
 
 
@@ -305,11 +432,12 @@ ShValue VmCode::runConst()
 
 /*
     <nested-expr>, <typecast>, <ident>, <int>, <string>, <char>
+    <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
     *, /, div, mod, and, shl, shr, as
     +, –, or, xor
     ..
-    =, <>, <, >, <=, >=, in, is
+    ==, <>, != <, >, <=, >=, in, is
 */
 
 ShBase* ShModule::getQualifiedName()
@@ -366,7 +494,7 @@ void ShModule::parseAtom(VmCode& code)
         }
         else
         {
-            const string s = parser.strValue;
+            const string s = registerString(parser.strValue);
             parser.next();
             code.genLoadConst(ShValue(queenBee->defaultStr, s));
         }
@@ -379,19 +507,28 @@ void ShModule::parseAtom(VmCode& code)
         // symbolic constant
         if (obj->isConstant())
             code.genLoadConst(((ShConstant*)obj)->value);
+        // type
         else if (obj->isType())
             code.genLoadTypeRef(getDerivators((ShType*)obj));
+        // type alias
         else if (obj->isTypeAlias())
             code.genLoadTypeRef(getDerivators(((ShTypeAlias*)obj)->base));
+        // TODO: vars, funcs
         else
-            errorWithLoc("Constant expected");
+            notImpl();
     }
+}
+
+
+void ShModule::parseDesignator(VmCode& code)
+{
+    parseAtom(code);
 }
 
 
 void ShModule::parseFactor(VmCode& code)
 {
-    parseAtom(code);
+    parseDesignator(code);
 }
 
 
@@ -414,18 +551,14 @@ void ShModule::parseSubrange(VmCode& code)
     {
         // TODO: check bounds for left < right maybe?
         ShType* left = code.topType();
-        if (!left->isOrdinal())
-            error("Only ordinal types are allowed in subranges");
-        ShOrdinal* leftOrd = (ShOrdinal*)left;
         parser.next();
         parseSimpleExpr(code);
         ShType* right = code.topType();
-        if (!right->isOrdinal())
+        if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
-        ShOrdinal* rightOrd = (ShOrdinal*)right;
-        if (!leftOrd->isCompatibleWith(rightOrd))
+        if (!left->isCompatibleWith(right))
             error("Left and right values of a subrange must be compatible");
-        if (leftOrd->isLargeSize() || rightOrd->isLargeSize())
+        if (left->isLarge() || right->isLarge())
             error("Large subrange bounds are not supported");
         code.genMkSubrange();
     }
@@ -435,7 +568,21 @@ void ShModule::parseSubrange(VmCode& code)
 void ShModule::parseExpr(VmCode& code)
 {
     parseSubrange(code);
+    while (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
+    {
+        OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
+        ShType* leftType = code.topType();
+        parser.next();
+        parseSubrange(code);
+        ShType* rightType = code.topType();
+        if (!leftType->isCompatibleWith(rightType))
+            error("Type mismatch in comparison");
+        code.genComparison(op);
+    }
 }
+
+
+// TODO: type expr
 
 
 ShValue ShModule::getConstExpr(ShType* typeHint)
@@ -448,20 +595,18 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
     if (typeHint == NULL)
         typeHint = result.type;
 
-    // Ordinal values have broader compatibility, while other types
-    // must match exactly.
-    if (typeHint->isOrdinal() && result.type->isOrdinal())
-    {
-        ShOrdinal* ordHint = (ShOrdinal*)typeHint;
-        if (!ordHint->isCompatibleWith(result.type))
-            error("Type mismatch in constant expression");
-        if (!ordHint->contains(result.value.large_))
-            error("Value out of range");
-    }
-    else if (!typeHint->canAssign(result))
+    if (!typeHint->canAssign(result.type))
         error("Type mismatch in constant expression");
 
-    if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
+    if (typeHint->isOrdinal() && result.type->isOrdinal()
+        && !((ShOrdinal*)typeHint)->contains(result.value.large_))
+            error("Value out of range");
+
+    else if (typeHint->isString() && result.type->isChar())
+        result = ShValue(queenBee->defaultStr,
+            registerString(string(char(result.value.int_))));
+
+    else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
 
     return result;
