@@ -17,7 +17,7 @@ enum OpCode
     // pushers
     opLoad0,        // []                   +1
     opLoadInt,      // [int]                +1
-    opLoadLarge,    // [int,int]            +2
+    opLoadLarge,    // [large]            +2/1
     opLoadChar,     // [int]                +1
     opLoadFalse,    // []                   +1
     opLoadTrue,     // []                   +1
@@ -38,6 +38,9 @@ union VmQuant
     OpCode op_;
     int int_;
     ptr ptr_;
+#ifdef PTR64
+    large large_;
+#endif
 };
 
 
@@ -46,7 +49,8 @@ class VmStack: public noncopyable
 protected:
     PodStack<VmQuant> stack;
 public:
-    VmStack();
+    VmStack()
+            : stack()  { }
     int size() const          { return stack.size(); }
     bool empty() const        { return stack.empty(); }
     void clear()              { return stack.clear(); }
@@ -54,13 +58,23 @@ public:
     VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
-    void  pushLarge(large v);
     int   popInt()            { return pop().int_; }
     ptr   popPtr()            { return pop().ptr_; }
-    large popLarge();
     int   topInt()            { return stack.top().int_; }
     ptr   topPtr()            { return stack.top().ptr_; }
-    large topLarge();
+
+#ifdef PTR64
+    void  pushLarge(large v)  { push().large_ = v; }
+    large popLarge()          { return pop().large_; }
+    large topLarge()          { return stack.top().large_; }
+#else
+    void  pushLarge(large v)
+        { push().int_ = int(v); push().int_ = int(v >> 32); }
+    large popLarge()
+        { int hi = popInt(); return largerec(popInt(), hi); }
+    large topLarge()
+        { return (large(stack.at(-1).int_) << 32) | unsigned(stack.at(-2).int_); }
+#endif
 };
 
 
@@ -77,9 +91,15 @@ protected:
     PodStack<EmulStackItem> emulStack;
     ShScope* compilationScope;
 
-    void addOp(OpCode o)  { code.add().op_ = o; }
-    void addInt(int v)    { code.add().int_ = v; }
-    void addPtr(ptr v)    { code.add().ptr_ = v; }
+    void genOp(OpCode o)    { code.add().op_ = o; }
+    void genInt(int v)      { code.add().int_ = v; }
+    void genPtr(ptr v)      { code.add().ptr_ = v; }
+
+#ifdef PTR64
+    void genLarge(large v)  { code.add().large_ = v; }
+#else
+    void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
+#endif
 
     static void run(VmQuant* p);
 
@@ -87,6 +107,7 @@ public:
     VmCode(ShScope* iCompilationScope);
     
     void genLoadConst(const ShValue&);
+    void genLoadTypeRef(ShType*);
     void genMkSubrange();
     void endGeneration();
     
@@ -117,27 +138,26 @@ void VmCode::genLoadConst(const ShValue& v)
     {
         if (v.type->isBool())
         {
-            addOp(v.value.int_ ? opLoadTrue : opLoadFalse);
+            genOp(v.value.int_ ? opLoadTrue : opLoadFalse);
         }
         else if (v.type->isChar())
         {
-            addOp(opLoadChar);
-            addInt(v.value.int_);
+            genOp(opLoadChar);
+            genInt(v.value.int_);
         }
         else if (((ShOrdinal*)v.type)->isLargeSize())
         {
-            addOp(opLoadLarge);
-            addInt(int(v.value.large_));
-            addInt(int(v.value.large_ >> 32));
+            genOp(opLoadLarge);
+            genLarge(v.value.large_);
         }
         else if (v.value.int_ == 0)
         {
-            addOp(opLoad0);
+            genOp(opLoad0);
         }
         else
         {
-            addOp(opLoadInt);
-            addInt(v.value.int_);
+            genOp(opLoadInt);
+            genInt(v.value.int_);
         }
     }
     else if (v.type->isString())
@@ -145,20 +165,28 @@ void VmCode::genLoadConst(const ShValue& v)
         const string& s = PTR_TO_STRING(v.value.ptr_);
         if (s.empty())
         {
-            addOp(opLoadNullStr);
+            genOp(opLoadNullStr);
         }
         else
         {
-            addOp(opLoadStr);
-            addPtr(ptr(s.c_bytes()));
+            genOp(opLoadStr);
+            genPtr(ptr(s.c_bytes()));
         }
     }
     else if (v.type->isVoid())
     {
-        addOp(opLoadNull);
+        genOp(opLoadNull);
     }
     else
         throw EInternal(50, "unknown type in VmCode::genLoadConst()");
+}
+
+
+void VmCode::genLoadTypeRef(ShType* type)
+{
+    emulStack.push(queenBee->defaultTypeRef);
+    genOp(opLoadTypeRef);
+    genPtr(type);
 }
 
 
@@ -169,13 +197,13 @@ void VmCode::genMkSubrange()
     if (!type->isOrdinal())
         throw EInternal(51, "Ordinal type expected");
     emulStack.push(((ShOrdinal*)type)->deriveRangeType(compilationScope));
-    addOp(opMkSubrange);
+    genOp(opMkSubrange);
 }
 
 
 void VmCode::endGeneration()
 {
-    addOp(opEnd);
+    genOp(opEnd);
 }
 
 
@@ -197,7 +225,11 @@ void VmCode::run(VmQuant* p)
         // pushers
         case opLoad0: vmStack.pushInt(0); break;
         case opLoadInt: vmStack.pushInt((p++)->int_); break;
+#ifdef PTR64
+        case opLoadLarge: vmStack.pushLarge((p++)->large_); break;
+#else
         case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
+#endif
         case opLoadChar: vmStack.pushInt((p++)->int_); break;
         case opLoadFalse: vmStack.pushInt(0); break;
         case opLoadTrue: vmStack.pushInt(1); break;
@@ -207,8 +239,17 @@ void VmCode::run(VmQuant* p)
         case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
         
         // poppers
+#ifdef PTR64
+        case opMkSubrange:
+            {
+                large hi = large(vmStack.popInt()) << 32;
+                vmStack.pushLarge(unsigned(vmStack.popInt()) | hi);
+            }
+            break;
+#else
         case opMkSubrange: /* two ints become a subrange, haha! */ break;
-        default: fatal(CRIT_FIRST + 50, "[VM] Unknown opcode");
+#endif
+        default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
     }
 }
@@ -226,7 +267,11 @@ ShValue VmCode::runConst()
 
     ShType* type = emulStack.pop().type;
 
+#ifdef PTR64
+    int expectSize = 1;
+#else
     int expectSize = type->isLargeSize() ? 2 : 1;
+#endif
     if (vmStack.size() != expectSize)
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state after const run");
 
@@ -244,7 +289,7 @@ ShValue VmCode::runConst()
 // ------------------------------------------------------------------------- //
 
 
-// --- CONST EXPRESSION ---------------------------------------------------- //
+// --- EXPRESSION ---------------------------------------------------------- //
 
 /*
     (expr), ident, int, string, char
@@ -285,6 +330,8 @@ void ShModule::parseAtom(VmCode& code)
         parseExpr(code);
         parser.skip(tokRParen, ")");
     }
+
+    // numeric literal
     else if (parser.token == tokIntValue)
     {
         large value = parser.intValue;
@@ -293,6 +340,8 @@ void ShModule::parseAtom(VmCode& code)
         parser.next();
         code.genLoadConst(ShValue(type, parser.intValue));
     }
+
+    // string or char literal
     else if (parser.token == tokStrValue)
     {
         if (parser.strValue.size() == 1)
@@ -308,9 +357,12 @@ void ShModule::parseAtom(VmCode& code)
             code.genLoadConst(ShValue(queenBee->defaultStr, s));
         }
     }
+
+    // identifier
     else if (parser.token == tokIdent)
     {
         ShBase* obj = getQualifiedName();
+        // symbolic constant
         if (obj->isConstant())
             code.genLoadConst(((ShConstant*)obj)->value);
         else
@@ -527,22 +579,6 @@ void ShModule::compile()
 
 // ------------------------------------------------------------------------- //
 // ------------------------------------------------------------------------- //
-// ------------------------------------------------------------------------- //
-
-
-VmStack::VmStack()
-        : stack()  { }
-
-void VmStack::pushLarge(large v)
-        { push().int_ = int(v); push().int_ = int(v >> 32); }
-
-large VmStack::popLarge()
-        { return (large(popInt()) << 32) | popInt(); }
-
-large VmStack::topLarge()
-        { return (large(stack.at(-1).int_) << 32) | stack.at(-2).int_; }
-
-
 // ------------------------------------------------------------------------- //
 
 

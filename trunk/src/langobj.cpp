@@ -31,7 +31,8 @@ ShType::ShType(ShTypeId iTypeId)
       derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::ShType(const string& name, ShTypeId iTypeId)
-    : ShBase(name, baseType), typeId(iTypeId), derivedVectorType(NULL), derivedSetType(NULL)  { }
+    : ShBase(name, baseType), typeId(iTypeId), 
+      derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::~ShType()  { }
 

@@ -398,6 +398,7 @@ int main ()
     assert(sizeof(int) == 4);
     assert(sizeof(string) == sizeof(void*));
     // assert(sizeof(fifoquant) == sizeof(ShValue));
+    printf("--- Pointers are %lu bit\n", sizeof(ptr) * 8);
     testString();
     testCharset();
     testArrays();
