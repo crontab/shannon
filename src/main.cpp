@@ -28,6 +28,8 @@ enum OpCode
     
     // poppers
     opMkSubrange,   // []                -2 +1
+
+    // TODO: linenum, rangecheck opcodes
 };
 
 
