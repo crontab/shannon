@@ -322,7 +322,7 @@ public:
     virtual bool isLargeSize() const
             { return true; }
     virtual bool equals(ShType* type) const
-            { return type->isRange(); }
+            { return type->isRange() && base->equals(((ShRange*)type)->base); }
 };
 
 
@@ -473,6 +473,7 @@ class ShModule: public ShScope
     void parseFactor(VmCode&);
     void parseTerm(VmCode&);
     void parseSimpleExpr(VmCode&);
+    void parseSubrange(VmCode&);
     void parseExpr(VmCode&);
     ShValue getConstExpr(ShType* typeHint);
 

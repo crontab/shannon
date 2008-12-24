@@ -195,7 +195,8 @@ void ShScope::dump(string indent) const
 // TODO: define lo() and hi() for ordinals and also ranges
 
 ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
-    : ShType(name, iTypeId), range(min, max), size(range.physicalSize())  { }
+    : ShType(name, iTypeId), derivedRangeType(NULL),
+      range(min, max), size(range.physicalSize())  { }
 
 ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
 {

@@ -14,16 +14,20 @@ enum OpCode
     opNop,          // []
     opEnd,          // []
     
-    opLoad0,        // []
-    opLoadInt,      // [int]
-    opLoadLarge,    // [int,int]
-    opLoadChar,     // [int]
-    opLoadFalse,    // []
-    opLoadTrue,     // []
-    opLoadNull,     // []
-    opLoadNullStr,  // []
-    opLoadStr,      // [string-data-ptr]
-    opLoadTypeRef,  // [ShType*]
+    // pushers
+    opLoad0,        // []                   +1
+    opLoadInt,      // [int]                +1
+    opLoadLarge,    // [int,int]            +2
+    opLoadChar,     // [int]                +1
+    opLoadFalse,    // []                   +1
+    opLoadTrue,     // []                   +1
+    opLoadNull,     // []                   +1
+    opLoadNullStr,  // []                   +1
+    opLoadStr,      // [str-data-ptr]       +1
+    opLoadTypeRef,  // [ShType*]            +1
+    
+    // poppers
+    opMkSubrange,   // []                -2 +1
 };
 
 
@@ -69,6 +73,7 @@ protected:
 
     PodArray<VmQuant> code;
     PodStack<EmulStackItem> emulStack;
+    ShScope* compilationScope;
 
     void addOp(OpCode o)  { code.add().op_ = o; }
     void addInt(int v)    { code.add().int_ = v; }
@@ -77,12 +82,14 @@ protected:
     static void run(VmQuant* p);
 
 public:
-    VmCode();
+    VmCode(ShScope* iCompilationScope);
     
     void genLoadConst(const ShValue&);
+    void genMkSubrange();
     void endGeneration();
     
     ShValue runConst();
+    ShType* topType() const  { return emulStack.top().type; }
 };
 
 
@@ -97,7 +104,8 @@ public:
 
 
 
-VmCode::VmCode(): code()  { }
+VmCode::VmCode(ShScope* iCompilationScope)
+    : code(), compilationScope(iCompilationScope)  { }
 
 
 void VmCode::genLoadConst(const ShValue& v)
@@ -152,6 +160,17 @@ void VmCode::genLoadConst(const ShValue& v)
 }
 
 
+void VmCode::genMkSubrange()
+{
+    emulStack.pop();
+    ShType* type = emulStack.pop().type;
+    if (!type->isOrdinal())
+        throw EInternal(51, "Ordinal type expected");
+    emulStack.push(((ShOrdinal*)type)->deriveRangeType(compilationScope));
+    addOp(opMkSubrange);
+}
+
+
 void VmCode::endGeneration()
 {
     addOp(opEnd);
@@ -173,6 +192,7 @@ void VmCode::run(VmQuant* p)
         {
         case opNop: break;
         case opEnd: return;
+        // pushers
         case opLoad0: vmStack.pushInt(0); break;
         case opLoadInt: vmStack.pushInt((p++)->int_); break;
         case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
@@ -183,6 +203,9 @@ void VmCode::run(VmQuant* p)
         case opLoadNullStr: vmStack.pushPtr(emptystr); break;
         case opLoadStr: vmStack.pushPtr((p++)->ptr_); break;
         case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
+        
+        // poppers
+        case opMkSubrange: /* two ints become a subrange, haha! */ break;
         default: fatal(CRIT_FIRST + 50, "[VM] Unknown opcode");
         }
     }
@@ -312,15 +335,40 @@ void ShModule::parseSimpleExpr(VmCode& code)
 }
 
 
-void ShModule::parseExpr(VmCode& code)
+void ShModule::parseSubrange(VmCode& code)
 {
     parseSimpleExpr(code);
+    if (parser.token == tokRange)
+    {
+        // TODO: check bounds for left < right maybe?
+        ShType* left = code.topType();
+        if (!left->isOrdinal())
+            error("Only ordinal types are allowed in subranges");
+        ShOrdinal* leftOrd = (ShOrdinal*)left;
+        parser.next();
+        parseSimpleExpr(code);
+        ShType* right = code.topType();
+        if (!right->isOrdinal())
+            error("Only ordinal types are allowed in subranges");
+        ShOrdinal* rightOrd = (ShOrdinal*)right;
+        if (!leftOrd->isCompatibleWith(rightOrd))
+            error("Left and right values of a subrange must be compatible");
+        if (leftOrd->isLargeSize() || rightOrd->isLargeSize())
+            error("Large subrange bounds are not supported");
+        code.genMkSubrange();
+    }
+}
+
+
+void ShModule::parseExpr(VmCode& code)
+{
+    parseSubrange(code);
 }
 
 
 ShValue ShModule::getConstExpr(ShType* typeHint)
 {
-    VmCode code;
+    VmCode code(currentScope);
     parseExpr(code);
     code.endGeneration();
     ShValue result = code.runConst();
