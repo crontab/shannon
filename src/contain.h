@@ -244,7 +244,7 @@ class PodStack: protected stackimpl
 {
 protected:
     typedef T* Tptr;
-    enum { Tsize = sizeof(T) };
+    enum { Tsize = int(sizeof(T)) };
 public:
     PodStack(): stackimpl()   { }
     ~PodStack()               { }

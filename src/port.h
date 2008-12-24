@@ -15,12 +15,29 @@ typedef unsigned int        uint;
 typedef void*               ptr;
 typedef long long           large;
 typedef unsigned long long  ularge;
+
 typedef const char*         pconst;
 typedef char*               pchar;
+typedef uchar*              puchar;
+typedef int*                pint;  // if (pint(Guinness)) return euro(5);
+typedef uint*               puint;
+typedef ptr*                pptr;
+typedef large*              plarge;
+typedef ularge*             pularge;
+
 
 #define LARGE_MIN (-9223372036854775807ll-1)
 #define LARGE_MAX (9223372036854775807ll)
 #define ULARGE_MAX (18446744073709551615ull)
+
+
+#if defined __x86_64__
+#  define PTR64
+#elif defined __i386__
+#  define PTR32
+#else
+#  error Unknown architecure.
+#endif
 
 
 struct largerec
@@ -76,7 +93,7 @@ void  operator delete[](void*) throw();
 
 // --- MISC --------------------------------------------------------------- //
 
-#define CRIT_FIRST 0xC0000
+#define CRIT_FIRST 0x10000
 
 void fatal(int code, const char* msg);
 
