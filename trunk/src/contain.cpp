@@ -133,34 +133,35 @@ void stackimpl::invstackop() const
 
 
 stackimpl::stackimpl()
-    : stack(NULL), capacity(0), count(0)  { }
+    : end(NULL), begin(NULL), capend(NULL)  { }
 
 
 void stackimpl::clear()
 {
-    if (stack != NULL)
+    if (begin != NULL)
     {
-        stackAlloc -= capacity;
-        capacity = count = 0;
-        memfree(stack);
-        stack = NULL;
+        stackAlloc -= capend - begin;
+        memfree(begin);
+        end = begin = capend = NULL;
     }
 }
 
 
-void stackimpl::realloc(int newsize)
+void stackimpl::grow()
 {
-    if (newsize == 0)
-        clear();
-    else
+    int newsize = end - begin;
+    int oldcap = capend - begin;
+    int newcap = memquantize(newsize);
+    if (newcap > oldcap)
     {
-        int newcap = memquantize(newsize);
-        if (newcap != capacity)
-        {
-            stackAlloc += newcap - capacity;
-            stack = (char*)memrealloc(stack, newcap);
-            capacity = newcap;
-        }
+        stackAlloc += newcap - oldcap;
+        begin = (char*)memrealloc(begin, newcap);
+        capend = begin + newcap;
+        end = begin + newsize;
+#ifdef DEBUG
+        if (end >= capend)
+            invstackop();
+#endif
     }
 }
 

@@ -191,46 +191,47 @@ class stackimpl: noncopyable
 protected:
 
 #ifdef DEBUG
-    void idx(int i) const  { if (unsigned(~i) >= unsigned(count)) invstackop(); }
+    void idx(int i) const  { if (unsigned(~i) >= unsigned(end - begin)) invstackop(); }
 #else
     void idx(int) const  { }
 #endif
     
-public:
-    char* stack;
-    int capacity;
-    int count;
-
-    stackimpl();
-    ~stackimpl()  { clear(); }
+    char* end;
+    char* begin;
+    char* capend;
 
     void stackunderflow() const;
     void invstackop() const;
-    void realloc(int newsize);
+    void grow();
+
+public:
+    stackimpl();
+    ~stackimpl()  { clear(); }
+
     void clear();
 
-    bool empty() const  { return count == 0; }
-    int size() const    { return count; }
+    bool empty() const  { return end == begin; }
+    int size() const    { return end - begin; }
 
     void* advance(int len)
     {
-        count += len;
-        if (count > capacity)
-            realloc(count);
-        return stack + count - len;
+        end += len;
+        if (end > capend)
+            grow();
+        return end - len;
     }
     
     void* withdraw(int len)
     {
-        count -= len;
+        end -= len;
 #ifdef DEBUG
-        if (count < 0) invstackop();
+        if (end < begin) invstackop();
 #endif
-        return stack + count;
+        return end;
     }
     
-    void* _at(int i)        { return stack + count + i; }
-    void* _at(int i) const  { return stack + count + i; }
+    void* _at(int i)        { return end + i; }
+    void* _at(int i) const  { return end + i; }
     void* at(int i)         { idx(i); return _at(i); }
     void* at(int i) const   { idx(i); return _at(i); }
 
