@@ -29,6 +29,7 @@ class ShConstant;
 class ShValue;
 class ShOrdinal;
 class ShVoid;
+class ShRange;
 class ShBool;
 class ShScope;
 class ShState;
@@ -69,7 +70,7 @@ enum ShTypeId
 {
     typeVoid,
     typeInt, typeChar, typeEnum, typeBool,
-    typeVector, typeArray,
+    typeVector, typeArray, typeTypeRef, typeRange,
     typeModule
 };
 
@@ -97,12 +98,13 @@ public:
             { return isOrdinal() || isComparable(); }
     virtual bool isString() const
             { return false; }
-    virtual bool isLarge() const
+    virtual bool isLargeSize() const
             { return false; }
-    bool isPointer() const
-            { return typeId == typeVector || typeId == typeArray; }
+    virtual bool isPointer() const = 0;
 
     bool isVoid() const { return typeId == typeVoid; }
+    bool isTypeRef() const { return typeId == typeTypeRef; }
+    bool isRange() const { return typeId == typeRange; }
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
     bool isInt() const { return typeId == typeInt; }
     bool isChar() const { return typeId == typeChar; }
@@ -172,6 +174,8 @@ public:
             { return "*undefined*"; }
     virtual bool isComplete() const
             { return complete; };
+    virtual bool isPointer() const
+            { return true; }
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
@@ -203,13 +207,16 @@ struct Range
 
 class ShOrdinal: public ShType
 {
+    ShRange* derivedRangeType;
 public:
     const Range range;
     const int size;
 
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
+    virtual bool isPointer() const
+            { return false; }
     virtual bool isCompatibleWith(ShType*) const = 0;
-    virtual bool isLarge() const
+    virtual bool isLargeSize() const
             { return size > 4; }
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
@@ -217,6 +224,7 @@ public:
             { return range.min == r.min && range.max == r.max; }
     bool isGreaterOrEqual(const Range& r)
             { return range.min <= r.min && range.max >= r.max; }
+    ShRange* deriveRangeType(ShScope* scope);
 };
 
 
@@ -276,9 +284,45 @@ protected:
 
 public:
     ShVoid(const string& name);
+    virtual bool isPointer() const
+            { return false; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
+            { return type->isVoid(); }
+    virtual bool canAssign(const ShValue& value) const
             { return false; }
+};
+
+
+class ShTypeRef: public ShType
+{
+    virtual string getFullDefinition(const string& objName) const;
+public:
+    ShTypeRef(const string& name);
+    virtual string displayValue(const ShValue& v) const;
+    virtual bool isPointer() const
+            { return false; }
+    virtual bool equals(ShType* type) const
+            { return type->isTypeRef(); }
+};
+
+
+class ShRange: public ShType
+{
+    // Not to be confused with subrange, which is ordinal. A value of type
+    // range is a pair of ordinals, not bigger than 32-bit.
+    virtual string getFullDefinition(const string& objName) const;
+public:
+    ShOrdinal* base;
+    ShRange(ShOrdinal* iBase);
+    ShRange(const string& name, ShOrdinal* iBase);
+    virtual string displayValue(const ShValue& v) const;
+    virtual bool isPointer() const
+            { return false; }
+    virtual bool isLargeSize() const
+            { return true; }
+    virtual bool equals(ShType* type) const
+            { return type->isRange(); }
 };
 
 
@@ -296,6 +340,8 @@ public:
             { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
     virtual bool isComparable() const
             { return elementType->isChar(); }
+    virtual bool isPointer() const
+            { return true; }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementType->equals(((ShVector*)type)->elementType); }
 };
@@ -459,6 +505,7 @@ public:
     ShString* const defaultStr;      // "str"
     ShBool* const defaultBool;       // "bool"
     ShVoid* const defaultVoid;       // "void"
+    ShTypeRef* const defaultTypeRef; // "typeref"
     
     ShQueenBee();
 };
