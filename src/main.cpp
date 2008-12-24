@@ -114,7 +114,7 @@ void VmCode::genLoadConst(const ShValue& v)
             addOp(opLoadChar);
             addInt(v.value.int_);
         }
-        else if (((ShOrdinal*)v.type)->isLarge())
+        else if (((ShOrdinal*)v.type)->isLargeSize())
         {
             addOp(opLoadLarge);
             addInt(int(v.value.large_));
@@ -201,11 +201,11 @@ ShValue VmCode::runConst()
 
     ShType* type = emulStack.pop().type;
 
-    int expectSize = type->isLarge() ? 2 : 1;
+    int expectSize = type->isLargeSize() ? 2 : 1;
     if (vmStack.size() != expectSize)
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state after const run");
 
-    if (type->isLarge())
+    if (type->isLargeSize())
         return ShValue(type, vmStack.popLarge());
     if (type->isPointer())
         return ShValue(type, vmStack.popPtr());
@@ -226,6 +226,7 @@ ShValue VmCode::runConst()
     -, not
     *, /, div, mod, and, shl, shr, as
     +, –, or, xor
+    ..
     =, <>, <, >, <=, >=, in, is
 */
 
@@ -361,6 +362,14 @@ ShType* ShModule::getDerivators(ShType* type)
         {
             type = type->deriveVectorType(currentScope);
             parser.next();
+        }
+        else if (parser.token == tokRange)
+        {
+            parser.next();
+            parser.skip(tokRSquare, "]");
+            if (!type->isOrdinal())
+                error("Ranges apply only to ordinal types");
+            type = ((ShOrdinal*)type)->deriveRangeType(currentScope);
         }
         else
         {

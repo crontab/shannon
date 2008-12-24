@@ -192,9 +192,20 @@ void ShScope::dump(string indent) const
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
+// TODO: define lo() and hi() for ordinals and also ranges
 
 ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
     : ShType(name, iTypeId), range(min, max), size(range.physicalSize())  { }
+
+ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
+{
+    if (derivedRangeType == NULL)
+    {
+        derivedRangeType = new ShRange(this);
+        scope->addAnonType(derivedRangeType);
+    }
+    return derivedRangeType;
+}
 
 
 // --- INTEGER TYPE --- //
@@ -236,7 +247,7 @@ string ShInteger::getFullDefinition(const string& objName) const
 }
 
 string ShInteger::displayValue(const ShValue& v) const
-    { return itostring(isLarge() ? v.value.large_ : v.value.int_); }
+    { return itostring(large(isLargeSize() ? v.value.large_ : v.value.int_)); }
 
 
 // --- CHAR TYPE --- //
@@ -277,6 +288,36 @@ string ShVoid::getFullDefinition(const string& objName) const
 
 string ShVoid::displayValue(const ShValue& v) const
     { return "null"; }
+
+
+// --- TYPEREF TYPE --- //
+
+ShTypeRef::ShTypeRef(const string& name)
+    : ShType(name, typeTypeRef)  { }
+
+string ShTypeRef::getFullDefinition(const string& objName) const
+    { throw EInternal(7, "anonymous typeref type"); }
+
+string ShTypeRef::displayValue(const ShValue& v) const
+    { return "typeof(" + ((ShType*)(v.value.ptr_))->getDisplayName("") + ")"; }
+
+
+// --- RANGE TYPE --- //
+
+ShRange::ShRange(ShOrdinal* iBase)
+    : ShType(typeRange), base(iBase)  { }
+
+ShRange::ShRange(const string& name, ShOrdinal* iBase)
+    : ShType(name, typeTypeRef), base(iBase)  { }
+
+string ShRange::getFullDefinition(const string& objName) const
+    { return base->getDisplayName(objName) + "[..]"; }
+
+string ShRange::displayValue(const ShValue& v) const
+{
+    return base->displayValue(ShValue(base, int(v.value.large_)))
+        + ".." + base->displayValue(ShValue(base, int(v.value.large_ >> 32)));
+}
 
 
 // --- VECTOR TYPE --- //
@@ -430,15 +471,17 @@ ShQueenBee::ShQueenBee()
       defaultChar(new ShChar("char")),
       defaultStr(new ShString("str", defaultChar)),
       defaultBool(new ShBool("bool")),
-      defaultVoid(new ShVoid("void"))
+      defaultVoid(new ShVoid("void")),
+      defaultTypeRef(new ShTypeRef("typeref"))
 {
     addType(defaultInt);
     addType(defaultLarge);
     addType(defaultChar);
-    addType(defaultBool);
-    addType(defaultVoid);
     addType(defaultStr);
     defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultStr);
+    addType(defaultBool);
+    addType(defaultVoid);
+    addType(defaultTypeRef);
 }
 
 

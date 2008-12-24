@@ -524,7 +524,14 @@ restart:
             input->skipEol();
             goto restart;
         case ',': return token = tokComma;
-        case '.': return token = tokPeriod;
+        case '.':
+            if (input->preview() == '.')
+            {
+                input->get();
+                return token = tokRange;
+            }
+            else
+                return token = tokPeriod;
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':

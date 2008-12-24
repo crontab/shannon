@@ -1,5 +1,6 @@
 module Test
 
+def bool oy[char[]]
 def int myInt
 def bool mySet[myInt]
 def System.void blah
@@ -7,9 +8,9 @@ def int [][] blaahhh
 def int blooh [char][bool]
 def void set[]
 # def [0..9] digit
-
 def bool yopt[str]
-def bool oy[char[]]
+def int intr[..]
+def typeref mytr
 
 # var bool b = 0
 # var int c[] = 0

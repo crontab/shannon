@@ -86,11 +86,13 @@ type ::= type-id { type-derivator }
 
 type-id ::= qualified-name | "typeof" "(" type-expr ")" | range
 
-type-derivator ::= array-derivator | mute-derivator
+type-derivator ::= array-derivator | mute-derivator | range-derivator
 
 array-derivator ::= "[" [ type ] "]"
 
 mute-derivator ::= "^"
+
+range-derivator ::= "[" ".." "]"
 
 function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
 
