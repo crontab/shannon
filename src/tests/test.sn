@@ -14,7 +14,7 @@ def typeref mytr
 
 # var bool b = 0
 # var int c[] = 0
-var int d = 0
+var int d[..] = 0..1
 var char f = 'a'
 
 const int g = 922337
@@ -22,5 +22,6 @@ const large glarge = 9223372036854775807
 const char h = 'h'
 const char i = '\x00'
 const char j = h
+const int dc[..] = 0..1
 const int int = 1
 # f = 0
