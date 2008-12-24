@@ -1,6 +1,8 @@
 
-CXXDEFS = -DDEBUG -DSINGLE_THREADED
-CXXOPTS = -Os -g -Wall -Werror $(CXXDEFS)
+CXXDEFS = -DSINGLE_THREADED
+CXXOPTS = -Os -Wall -Werror $(CXXDEFS)
+CXXDEBUG = -DDEBUG -g
+# CXXDEBUG = -NDEBUG
 # LDLIBS =
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
@@ -38,8 +40,8 @@ bin/shannon: $(OBJS) obj/main.o
 bin/shannon-ut: $(OBJS) obj/main-ut.o
 	$(CXX) $(LDLIBS) $^ -o $@
 
-obj/%.o: %.cpp
-	$(CXX) $(CXXOPTS) -c $< -o $@
+obj/%.o: %.cpp Makefile Makefile.dep
+	$(CXX) $(CXXDEBUG) $(CXXOPTS) -c $< -o $@
 
 %.s: %.cpp
 	$(CXX) $(CXXOPTS) -S $< -o $@
