@@ -103,6 +103,7 @@ public:
     bool isRange() const { return typeId == typeRange; }
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
     bool isInt() const { return typeId == typeInt; }
+    bool isLargeOrd() const;
     bool isChar() const { return typeId == typeChar; }
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }

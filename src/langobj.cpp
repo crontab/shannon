@@ -88,6 +88,9 @@ ShSet* ShType::deriveSetType(ShVoid* elementType, ShScope* scope)
     return derivedSetType;
 }
 
+bool ShType::isLargeOrd() const
+        { return isOrdinal() && POrdinal(this)->isLarge(); }
+
 
 // --- TYPE ALIAS --- //
 
