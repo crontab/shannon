@@ -92,8 +92,6 @@ public:
     string getDefinition() const;
     string getDefinitionQ() const; // quoted
     virtual string displayValue(const ShValue&) const = 0;
-    virtual bool isComplete() const
-            { return true; }
     virtual bool isString() const
             { return false; }
     virtual bool isLarge() const
@@ -106,6 +104,7 @@ public:
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
     bool isInt() const { return typeId == typeInt; }
     bool isChar() const { return typeId == typeChar; }
+    bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
     bool isVector() const { return typeId == typeVector; }
     bool isArray() const { return typeId == typeArray; }
@@ -177,15 +176,11 @@ protected:
     void addSymbol(ShBase* obj);
 
 public:
-    bool complete;
-
     ShScope(const string& name, ShTypeId iTypeId);
     virtual bool isScope() const
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
-    virtual bool isComplete() const
-            { return complete; };
     virtual bool isPointer() const
             { return true; }
     void addUses(ShModule*);
@@ -195,8 +190,6 @@ public:
     void addVariable(ShVariable*);
     void addTypeAlias(ShTypeAlias*);
     void addConstant(ShConstant*);
-    void setCompleted()
-            { complete = true; }
     ShBase* find(const string& name) const
             { return symbols.find(name); }
     ShBase* deepFind(const string&) const;
@@ -215,8 +208,8 @@ public:
 
 struct Range
 {
-    const large min;
-    const large max;
+    large min;
+    large max;
 
     Range(large iMin, large iMax): min(iMin), max(iMax)  { }
     int physicalSize() const;
@@ -225,19 +218,20 @@ struct Range
 
 class ShOrdinal: public ShType
 {
+protected:
     ShRange* derivedRangeType;
-    
+    Range range;
+    int size;
+
+    void recalcSize()
+            { size = range.physicalSize(); }
     virtual ShOrdinal* cloneWithRange(large min, large max) = 0;
 
 public:
-    const Range range;
-    const int size;
-
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual bool isPointer() const
             { return false; }
-    virtual bool isCompatibleWith(ShType*) const = 0;
     virtual bool canAssign(ShType* type) const
             { return isCompatibleWith(type); }
     virtual bool canBeArrayIndex() const
@@ -297,6 +291,31 @@ public:
 };
 
 
+class ShEnum: public ShOrdinal
+{
+protected:
+    BaseTable<ShConstant> values;
+
+    ShEnum(const BaseTable<ShConstant>& t, int min, int max);
+    virtual string getFullDefinition(const string& objName) const;
+    virtual ShOrdinal* cloneWithRange(large min, large max);
+
+public:
+    ShEnum();
+    virtual bool equals(ShType* type) const
+            { return type == this; }
+    virtual bool isCompatibleWith(ShType* type) const
+            { return type->isEnum() && values._isClone(((ShEnum*)type)->values); }
+    virtual string displayValue(const ShValue& v) const;
+    void registerConst(ShConstant* obj)
+            { values.add(obj); }
+    int nextValue()
+            { return values.size(); }
+    void finish();
+};
+
+
+// TODO: define bool as enum of (false, true) ?
 class ShBool: public ShOrdinal
 {
 protected:
@@ -524,6 +543,7 @@ class ShModule: public ShScope
     void parseExpr(VmCode&);
     ShValue getConstExpr(ShType* typeHint);
 
+    ShEnum* parseEnumType();
     void parseTypeDef();
     void parseVarConstDef(bool isVar);
     void parseVarDef();
