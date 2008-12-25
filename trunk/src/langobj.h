@@ -94,7 +94,7 @@ public:
     virtual string displayValue(const ShValue&) const = 0;
     virtual bool isString() const
             { return false; }
-    virtual bool isLarge() const
+    virtual bool isLargePod() const
             { return false; }
     virtual bool isPointer() const = 0;
 
@@ -238,7 +238,9 @@ public:
             { return true; }
     virtual bool canStaticCastTo(ShType* type) const
             { return true; }
-    virtual bool isLarge() const
+    virtual bool isLargePod() const
+            { return isLarge(); }
+    bool isLarge() const
             { return size > 4; }
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
@@ -251,6 +253,8 @@ public:
     ShRange* deriveRangeType(ShScope* scope);
     ShOrdinal* deriveOrdinalFromRange(ShValue value, ShScope* scope);
 };
+
+typedef ShOrdinal* POrdinal;
 
 
 class ShInteger: public ShOrdinal
@@ -373,7 +377,7 @@ public:
     virtual string displayValue(const ShValue& v) const;
     virtual bool isPointer() const
             { return false; }
-    virtual bool isLarge() const
+    virtual bool isLargePod() const
             { return true; }
     virtual bool equals(ShType* type) const
             { return type->isRange() && base->equals(((ShRange*)type)->base); }
