@@ -529,10 +529,20 @@ restart:
     
     else if (digits[c])  // numeric
     {
-        // TODO: hex
-        strValue = input->token(digits);
         bool e, o;
-        intValue = stringtou(strValue.c_str(), &e, &o, 10);
+        char c = input->get();
+        if (c == '0' and input->preview() == 'x')
+        {
+            input->get(); // 'x'
+            strValue = input->token(identRest);
+            intValue = stringtou(strValue.c_str(), &e, &o, 16);
+            strValue = "0x" + strValue; // reconstruct for err messages below
+        }
+        else
+        {
+            strValue = c + input->token(identRest);
+            intValue = stringtou(strValue.c_str(), &e, &o, 10);
+        }
         if (e)
             error("'" + strValue + "' is not a valid number");
         if (o)
