@@ -516,7 +516,7 @@ string typeVsType(ShType* a, ShType* b)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    <nested-expr>, <typecast>, <ident>, <int>, <string>, <char>
+    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>
     <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
     *, /, div, mod, and, shl, shr, as
@@ -527,7 +527,6 @@ string typeVsType(ShType* a, ShType* b)
 
 ShBase* ShModule::getQualifiedName()
 {
-    // qualified-name ::= { ident "." } ident
     string ident = parser.getIdent();
     ShBase* obj = currentScope->deepFind(ident);
     if (obj == NULL)
@@ -631,6 +630,19 @@ void ShModule::parseAtom(VmCode& code)
         parser.skip(tokRParen, ")");
         code.genLoadTypeRef(type);
     }
+
+    else if (parser.token == tokTrue)
+    {
+        parser.next();
+        code.genLoadConst(ShValue(queenBee->defaultBool, 1));
+    }
+
+    else if (parser.token == tokFalse)
+    {
+        int myFunnyFalseValue = 0; // are you happy now, GCC?
+        parser.next();
+        code.genLoadConst(ShValue(queenBee->defaultBool, myFunnyFalseValue));
+    }
 }
 
 
@@ -728,7 +740,6 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
 
 ShType* ShModule::getDerivators(ShType* type)
 {
-    // array-derivator ::= "[" [ type ] "]"
     if (parser.token == tokLSquare)
     {
         parser.next();

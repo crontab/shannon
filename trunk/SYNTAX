@@ -35,32 +35,37 @@ string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
 
 # Expressions
 
-subexpr ::= "(" expr ")"
-
-set-ctor ::= "{" [ expr { "," expr } ] "}"
-
-array-ctor ::= "[" [ expr { "," expr } ] "]"
-
-fifo-ctor ::= "<" [ expr { "," expr } ] ">"
-
-expr-list ::= expr { "," expr }
-
-+ qualified-name ::= { ident "." } ident
+atom ::= literal | qualified-name | subexpr | array-ctor
+    | fifo-ctor | type
 
 literal ::= number | string | "true" | "false" | "null"
 
-atom ::= literal | qualified-name | subexpr | set-ctor | array-ctor
-    | fifo-ctor
+qualified-name ::= { ident "." } ident
 
-array-item-selection ::= atom "[" expr "]"
+subexpr ::= "(" expr ")"
 
-fifo-item-selection ::= atom "<" expr ">"
 
-function-call ::= atom "(" expr-list ")"
 
-fifo-pull ::= atom "::" set-ctor
 
-fifo-filter ::= atom "||" set-ctor
+compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
+
+element-ctor ::= [ expr "=" ] expr
+
+fifo-ctor ::= "<" [ expr-list ] ">"
+
+expr-list ::= expr { "," expr }
+
+array-item-selection ::= "[" expr "]"
+
+fifo-item-selection ::= "<" ">"
+
+function-call ::= "(" [ expr-list ] ")"
+
+mute ::= "^"
+
+fifo-pull ::= atom "::" expr
+
+fifo-filter ::= atom "||" expr
 
 subrange ::= simple-expr ".." simple-expr
 
@@ -69,9 +74,9 @@ subrange ::= simple-expr ".." simple-expr
 
 module ::= [module-header] { statement | definition }
 
-+ module-header ::= "module" ident
+module-header ::= "module" ident
 
-statement ::= function-call | pipe | assignment | compount-statement
+statement ::= call | pipe | assignment | compount-statement
 
 
 # Definitions
@@ -84,9 +89,10 @@ type-alias ::= "def" type ident { type-derivator }
 
 type ::= type-id { type-derivator }
 
-type-id ::= qualified-name | "typeof" "(" type-expr ")" | subrange
+type-id ::= qualified-name | "typeof" "(" expr ")" | subrange | "enum"
 
 type-derivator ::= array-derivator | mute-derivator | range-derivator
+        | enum-spec
 
 array-derivator ::= "[" [ type ] "]"
 
@@ -94,7 +100,9 @@ mute-derivator ::= "^"
 
 range-derivator ::= "[" ".." "]"
 
-function-def ::= "def" ( "self" | type | pipe-type ) [ arg-list ] [ state-body ]
+enum-spec ::= "(" ident { "," ident ")"
+
+function-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ function-body ]
 
 pipe-type ::= type "/" type
 
