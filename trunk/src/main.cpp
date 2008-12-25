@@ -643,6 +643,9 @@ void ShModule::parseAtom(VmCode& code)
         parser.next();
         code.genLoadConst(ShValue(queenBee->defaultBool, myFunnyFalseValue));
     }
+    
+    else
+        errorWithLoc("Expression syntax");
 }
 
 
@@ -801,6 +804,8 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
         else if (value.type->isRange())
             return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value, currentScope);
         else
+            // TODO: give a better error message in case ident was a known one.
+            // How? What if it was an expression?
             errorWithLoc("Type specification or new identifier expected");
     }
     catch (ENotFound& e)
@@ -821,11 +826,41 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 // --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
 
 
+ShEnum* ShModule::parseEnumType()
+{
+    ShEnum* type = new ShEnum();
+    currentScope->addAnonType(type);
+    parser.skip(tokLParen, "(");
+    while (1)
+    {
+        string ident = parser.getIdent();
+        ShConstant* value = new ShConstant(ident, ShValue(type, type->nextValue()));
+        addObject(value);
+        type->registerConst(value);
+        if (parser.skipIf(tokRParen))
+            break;
+        parser.skip(tokComma, ")");
+    }
+    type->finish();
+    return type;
+}
+
+
 void ShModule::parseTypeDef()
 {
-    ShType* type = getType();
-    string ident = parser.getIdent();
-    type = getDerivators(type);
+    string ident;
+    ShType* type;
+    if (parser.skipIf(tokEnum))
+    {
+        ident = parser.getIdent();
+        type = parseEnumType();
+    }
+    else
+    {
+        type = getType();
+        ident = parser.getIdent();
+        type = getDerivators(type);
+    }
     addObject(new ShTypeAlias(ident, type));
 }
 
@@ -833,12 +868,23 @@ void ShModule::parseTypeDef()
 void ShModule::parseVarConstDef(bool isVar)
 {
     string ident;
-    ShType* type = getTypeOrNewIdent(&ident);
-    if (type != NULL)  // if not auto, derivators are possible after the ident
+    ShType* type = NULL;
+
+    if (parser.skipIf(tokEnum))
     {
         ident = parser.getIdent();
-        type = getDerivators(type);
+        type = parseEnumType();
     }
+    else
+    {
+        type = getTypeOrNewIdent(&ident);
+        if (type != NULL)  // if not auto, derivators are possible after the ident
+        {
+            ident = parser.getIdent();
+            type = getDerivators(type);
+        }
+    }
+
     parser.skip(tokAssign, "=");
     ShValue value = getConstExpr(type);
     if (type == NULL) // auto
@@ -886,6 +932,7 @@ void ShModule::compile()
         compiled = true;
 
 #ifdef DEBUG
+        queenBee->dump("");
         dump("");
 #endif
 

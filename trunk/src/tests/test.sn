@@ -1,4 +1,4 @@
-module Test
+module Z
 
 def bool oy[char[]]
 def int myInt
@@ -33,3 +33,28 @@ const s2 = 'abc'
 const a3 = 1 <> 2
 const a4 = 1 > 9223372036854775806
 const a5 = glarge > 9223372036854775806
+const a8 = 'ab' > 'abc'
+const a6 = 'abc' == 'a'
+const a7 = 'b' <> 'def'
+
+const typeof(h) h1 = 'a'
+const typeof(char) h2 = 'b'
+const typeof(typeref) h3 = typeof(char)
+const typeref h4 = int
+
+const t1 = int('A')
+const t2 = int(1000000000000000000)
+const t3 = large(1)
+
+const b4 = false
+const b5 = int(true)
+const b6 = bool(1)
+const b7 = false..true
+const false..true b8 = bool('\x00')
+
+def enum e1(C1, C2, C3)
+const e2 = C2
+const C2..C3 e3 = e1(1)
+const C1..C2 e4 = e3
+
+const enum e5(C5, C6, C7) = C6

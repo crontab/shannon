@@ -225,7 +225,7 @@ public:
     {
         end -= len;
 #ifdef DEBUG
-        if (end < begin) invstackop();
+        if (begin == NULL || end < begin) invstackop();
 #endif
         return end;
     }

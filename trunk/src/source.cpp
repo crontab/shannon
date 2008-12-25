@@ -229,6 +229,7 @@ Keywords::kwinfo Keywords::keywords[] =
         // NOTE: this list must be kept in sorted order
         {"const", tokConst},
         {"def", tokDef},
+        {"enum", tokEnum},
         {"false", tokFalse},
         {"in", tokIn},
         {"is", tokIs},

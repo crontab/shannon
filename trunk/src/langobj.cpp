@@ -116,7 +116,7 @@ ShConstant::ShConstant(const string& name, const ShValue& iValue)
 // --- SCOPE --- //
 
 ShScope::ShScope(const string& name, ShTypeId iTypeId)
-        : ShType(name, iTypeId), complete(false)  { }
+        : ShType(name, iTypeId)  { }
 
 ShBase* ShScope::own(ShBase* obj)
 {
@@ -218,8 +218,8 @@ int Range::physicalSize() const
     {
         if (max <= uint8max)
             return 1;
-        if (max <= uint16max)
-            return 2;
+//        if (max <= uint16max)
+//            return 2;
         if (max <= uint32max)
             return 4;
         return 8;
@@ -231,8 +231,8 @@ int Range::physicalSize() const
         t = max;
     if (t <= int8max)
         return 1;
-    if (t <= int16max)
-        return 2;
+//    if (t <= int16max)
+//        return 2;
     if (t <= int32max)
         return 4;
     return 8;
@@ -313,13 +313,51 @@ ShOrdinal* ShChar::cloneWithRange(large min, large max)
     { return new ShChar(min, max); }
 
 
+// --- ENUM TYPE --- //
+
+ShEnum::ShEnum()
+    : ShOrdinal(typeEnum, 0, 0)  { }
+
+ShEnum::ShEnum(const BaseTable<ShConstant>& t, int min, int max)
+    : ShOrdinal(typeEnum, min, max), values(t)  { }
+
+void ShEnum::finish()
+{
+    range.max = values.size() - 1;
+    recalcSize();
+}
+
+// TODO: better printing maybe
+string ShEnum::getFullDefinition(const string& objName) const
+{
+    return values[range.min]->name + ".." + values[range.max]->name
+        + ' ' + objName;
+}
+
+ShOrdinal* ShEnum::cloneWithRange(large min, large max)
+{
+    return new ShEnum(values, min, max);
+}
+
+string ShEnum::displayValue(const ShValue& v) const
+{
+    int i = v.value.int_;
+    if (i >= 0 && i < values.size())
+        return values[i]->name;
+    else if (!name.empty())
+        return name + "(" + itostring(i) + ")";
+    else
+        return itostring(i);
+}
+
+
 // --- BOOL TYPE --- //
 
 ShBool::ShBool(const string& name)
     : ShOrdinal(name, typeBool, 0, 1)  { }
 
 string ShBool::getFullDefinition(const string& objName) const
-    { return "false..true" + objName; }
+    { return "false..true " + objName; }
 
 string ShBool::displayValue(const ShValue& v) const
     { return v.value.int_ ? "true" : "false"; }
@@ -335,7 +373,7 @@ ShVoid::ShVoid(const string& name)
     : ShType(name, typeVoid)  { }
 
 string ShVoid::getFullDefinition(const string& objName) const
-    { throw EInternal(6, "anonymous void type"); }
+    { return "void"; }
 
 string ShVoid::displayValue(const ShValue& v) const
     { return "null"; }
@@ -347,7 +385,7 @@ ShTypeRef::ShTypeRef(const string& name)
     : ShType(name, typeTypeRef)  { }
 
 string ShTypeRef::getFullDefinition(const string& objName) const
-    { throw EInternal(7, "anonymous typeref type"); }
+    { return "typeref"; }
 
 string ShTypeRef::displayValue(const ShValue& v) const
     { return "typeof(" + ((ShType*)(v.value.ptr_))->getDefinition() + ")"; }
@@ -480,7 +518,9 @@ void ShModule::addObject(ShBase* obj)
     string objName = obj->name;
     try
     {
-        if (obj->isTypeAlias())
+        if (obj->isType())
+            currentScope->addType((ShType*)obj);
+        else if (obj->isTypeAlias())
             currentScope->addTypeAlias((ShTypeAlias*)obj);
         else if (obj->isVariable())
             currentScope->addVariable((ShVariable*)obj);
@@ -502,9 +542,7 @@ void ShModule::addObject(ShBase* obj)
 }
 
 string ShModule::getFullDefinition(const string& objName) const
-{
-    throw EInternal(5, "anonymous module");
-}
+    { return name; }
 
 #ifdef DEBUG
 void ShModule::dump(string indent) const

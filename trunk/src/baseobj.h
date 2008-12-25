@@ -72,6 +72,8 @@ public:
     void add(T* obj)               { basetblimpl::add(obj); }
     void addUnique(T* obj) throw(EDuplicate)  { basetblimpl::addUnique(obj); }
     T* find(const string& s) const { return Tptr(basetblimpl::find(s)); }
+    bool _isClone(const BaseTable& t) const
+            { return data == t.data; }
 };
 
 
