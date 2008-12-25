@@ -88,12 +88,12 @@ public:
     ShType(ShTypeId iTypeId);
     ShType(const string& name, ShTypeId iTypeId);
     virtual ~ShType();
-    string getDisplayName(const string& objName) const;
+    string getDefinition(const string& objName) const;
+    string getDefinition() const;
+    string getDefinitionQ() const; // quoted
     virtual string displayValue(const ShValue&) const = 0;
     virtual bool isComplete() const
             { return true; }
-    virtual bool canBeArrayIndex() const
-            { return false; }
     virtual bool isString() const
             { return false; }
     virtual bool isLarge() const
@@ -111,15 +111,20 @@ public:
     bool isArray() const { return typeId == typeArray; }
 
     virtual bool equals(ShType*) const = 0;
-    // isCompatibleWith() is for binary operators, requires strict equality
-    // of types unless redefined in descendant classes. Actually redefined
-    // in ordinals.
+    virtual bool canBeArrayIndex() const
+            { return false; }
+    // isCompatibleWith() is for binary operators and also typecasts, requires
+    // strict equality of types unless redefined in descendant classes.
+    // Actually redefined in ordinals.
     virtual bool isCompatibleWith(ShType* type) const
             { return equals(type); }
     // Assignments require strict equality of types except for ordinals, 
     // and also for a special case str = char
     virtual bool canAssign(ShType* type) const
             { return equals(type); }
+    virtual bool canStaticCastTo(ShType* type) const
+            { return isCompatibleWith(type); }
+
     ShVector* deriveVectorType(ShScope* scope);
     ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
     ShSet* deriveSetType(ShVoid* elementType, ShScope* scope);
@@ -236,6 +241,8 @@ public:
     virtual bool canAssign(ShType* type) const
             { return isCompatibleWith(type); }
     virtual bool canBeArrayIndex() const
+            { return true; }
+    virtual bool canStaticCastTo(ShType* type) const
             { return true; }
     virtual bool isLarge() const
             { return size > 4; }
