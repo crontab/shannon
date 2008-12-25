@@ -1,11 +1,12 @@
 
 #include <stdio.h>
+#include <limits.h>
 
 #include "langobj.h"
 
 
-inline int align(int size)
-        { return ((size / memAlign) + 1) * memAlign; }
+// inline int align(int size)
+//         { return ((size / memAlign) + 1) * memAlign; }
 
 static void notImpl()
 {
@@ -88,8 +89,8 @@ ShSet* ShType::deriveSetType(ShVoid* elementType, ShScope* scope)
     return derivedSetType;
 }
 
-bool ShType::isLargeOrd() const
-        { return isOrdinal() && POrdinal(this)->isLarge(); }
+// bool ShType::isLargeInt() const
+//         { return isInt() && PInteger(this)->isLargeInt(); }
 
 
 // --- TYPE ALIAS --- //
@@ -219,24 +220,24 @@ int Range::physicalSize() const
 {
     if (min >= 0)
     {
-        if (max <= uint8max)
+        if (max <= UCHAR_MAX)
             return 1;
-//        if (max <= uint16max)
+//        if (max <= USHRT_MAX)
 //            return 2;
-        if (max <= uint32max)
+        if (max <= UINT_MAX)
             return 4;
         return 8;
     }
-    if (min == int64min)
+    if (min == LLONG_MIN)
         return 8;
     large t = ~min;
     if (max > t)
         t = max;
-    if (t <= int8max)
+    if (t <= CHAR_MAX)
         return 1;
-//    if (t <= int16max)
+//    if (t <= SHRT_MAX)
 //        return 2;
-    if (t <= int32max)
+    if (t <= INT_MAX)
         return 4;
     return 8;
 }
@@ -289,7 +290,7 @@ string ShInteger::getFullDefinition(const string& objName) const
 }
 
 string ShInteger::displayValue(const ShValue& v) const
-    { return itostring(large(isLarge() ? v.value.large_ : v.value.int_)); }
+    { return itostring(large(isLargeInt() ? v.value.large_ : v.value.int_)); }
 
 ShOrdinal* ShInteger::cloneWithRange(large min, large max)
     { return new ShInteger(min, max); }
@@ -560,8 +561,8 @@ void ShModule::dump(string indent) const
 
 ShQueenBee::ShQueenBee()
     : ShModule("System"),
-      defaultInt(new ShInteger("int", int32min, int32max)),
-      defaultLarge(new ShInteger("large", int64min, int64max)),
+      defaultInt(new ShInteger("int", INT_MIN, INT_MAX)),
+      defaultLarge(new ShInteger("large", LLONG_MIN, LLONG_MAX)),
       defaultChar(new ShChar("char", 0, 255)),
       defaultStr(new ShString("str", defaultChar)),
       defaultBool(new ShBool("bool")),

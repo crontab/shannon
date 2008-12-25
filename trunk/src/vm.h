@@ -36,9 +36,9 @@ enum OpCode
     opLoadTypeRef,  // [ShType*]            +1
     
     opCmpInt,       // []               -2  +1
-    opCmpIntLarge,  // []               -2  +1
+//    opCmpIntLarge,  // []               -2  +1
     opCmpLarge,     // []               -2  +1
-    opCmpLargeInt,  // []               -2  +1
+//    opCmpLargeInt,  // []               -2  +1
     opCmpStr,       // []               -2  +1
     opCmpStrChr,    // []               -2  +1
     opCmpChrStr,    // []               -2  +1
@@ -136,31 +136,29 @@ public:
 class VmCode: public noncopyable
 {
 protected:
-    struct EmulStackInfo: ShValue
+    struct GenStackInfo: ShValue
     {
         int opIndex;
         bool isValue;
-        EmulStackInfo(const ShValue& iValue, int iOpIndex);
-        EmulStackInfo(ShType* iType, int iOpIndex);
+        GenStackInfo(const ShValue& iValue, int iOpIndex);
+        GenStackInfo(ShType* iType, int iOpIndex);
     };
 
     PodArray<VmQuant> code;
-    PodStack<EmulStackInfo> emulStack;
+    PodStack<GenStackInfo> genStack;
     ShScope* compilationScope;
-    int lastOpIndex;
 
-    void emulPush(const ShValue& v);
-    void emulPush(ShType* v);
-    ShType* emulPopType()           { return emulStack.pop().type; }
-    EmulStackInfo& emulTop()        { return emulStack.top(); }
-    void emulPop()                  { emulStack.pop(); }
+    void genPush(const ShValue& v);
+    void genPush(ShType* v);
+    ShType* genPopType()                { return genStack.pop().type; }
+    GenStackInfo& genTop()              { return genStack.top(); }
+    void genPop()                       { genStack.pop(); }
 
-    void genOp(OpCode o)            { code.add().op_ = o; }
-    void genInt(int v)              { code.add().int_ = v; }
-    void genPtr(ptr v)              { code.add().ptr_ = v; }
+    void genOp(OpCode op)               { code.add().op_ = op; }
+    void genInsOp(int at, OpCode op)    { code.ins(at).op_ = op; } // TODO: handle jumps
+    void genInt(int v)                  { code.add().int_ = v; }
+    void genPtr(ptr v)                  { code.add().ptr_ = v; }
     void genCmpOp(OpCode op, OpCode cmp);
-    int  updateLastOpIndex()
-        { int t = lastOpIndex; lastOpIndex = code.size(); return t; }
     void verifyClean();
 
 #ifdef PTR64
@@ -180,11 +178,14 @@ public:
     void genMkSubrange();
     void genComparison(OpCode);
     void genStaticCast(ShType*);
+    void genInsCastToLarge(int at)      { genInsOp(at, opIntToLarge); }
+    void genCastToLarge()               { genOp(opIntToLarge); }
     void endGeneration();
     
     ShValue runConstExpr();
     ShType* runTypeExpr();
-    ShType* topType() const  { return emulStack.top().type; }
+    ShType* topType() const  { return genStack.top().type; }
+    int nextOpIndex() const  { return code.size(); }
 };
 
 

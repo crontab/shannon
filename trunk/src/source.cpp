@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "source.h"
 #include "bsearch.h"
@@ -303,7 +304,8 @@ string mkPrintable(const string& s)
 Parser::Parser(const string& filename)
     : input(new InFile(filename)), blankLine(true),
       indentStack(), linenum(0),
-      singleLineBlock(false), token(tokUndefined), strValue(), intValue(0)
+      singleLineBlock(false), token(tokUndefined), strValue(),
+      intValue(0), largeValue(0)
 {
     indentStack.push(0);
 }
@@ -426,6 +428,7 @@ Token Parser::next()
 restart:
     strValue.clear();
     intValue = 0;
+    largeValue = 0;
 
     // Deferred linenum update; this helps to point to a better location
     // in error messages.
@@ -532,24 +535,28 @@ restart:
     else if (digits[c])  // numeric
     {
         bool e, o;
-        char c = input->get();
-        if (c == '0' and input->preview() == 'x')
-        {
-            input->get(); // 'x'
-            strValue = input->token(identRest);
-            intValue = stringtou(strValue.c_str(), &e, &o, 16);
-            strValue = "0x" + strValue; // reconstruct for err messages below
-        }
-        else
-        {
-            strValue = c + input->token(identRest);
-            intValue = stringtou(strValue.c_str(), &e, &o, 10);
-        }
+
+        strValue = input->token(identRest);
+        string s = strValue;
+        bool isHex = s.size() >= 2 && s[0] == '0' && s[1] == 'x';
+        if (isHex)
+            s.del(0, 2);
+        bool isLarge = !s.empty() && s[s.size() - 1] == 'L';
+        if (isLarge)
+            s.resize(s.size() - 1);
+
+        ularge v = stringtou(s.c_str(), &e, &o, isHex ? 16 : 10);
         if (e)
             error("'" + strValue + "' is not a valid number");
-        if (o)
+        if (o || (isLarge && v > LLONG_MAX) || (!isLarge && v > INT_MAX))
             error("Numeric overflow (" + strValue + ")");
-        return token = tokIntValue;
+
+        if (isLarge)
+            largeValue = v;
+        else
+            intValue = v;
+        
+        return token = isLarge ? tokLargeValue : tokIntValue;
     }
     
     else  // special chars

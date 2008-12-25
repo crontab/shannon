@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "charset.h"
 #include "str.h"
@@ -126,13 +127,13 @@ void testString()
         assert("123" == itostring(char(123)));
         assert("-000123" == itostring(-123, 10, 7, '0'));
         assert("0ABCDE" == itostring(0xabcde, 16, 6));
-        assert("-9223372036854775808" == itostring(LARGE_MIN));
-        assert("18446744073709551615" == itostring(ULARGE_MAX));
+        assert("-9223372036854775808" == itostring(LLONG_MIN));
+        assert("18446744073709551615" == itostring(ULLONG_MAX));
 
         bool e, o;
         assert(1234 == stringtou("1234", &e, &o));
         assert(0x15AF == stringtou("15AF", &e, &o, 16));
-        assert(LARGE_MAX == stringtou("5zzzzzzzzzz", &e, &o, 64));
+        assert(LLONG_MAX == stringtou("5zzzzzzzzzz", &e, &o, 64));
         assert(!e && !o);
 
         // out of range by 1
