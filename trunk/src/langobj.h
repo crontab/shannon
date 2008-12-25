@@ -140,6 +140,7 @@ class ShVariable: public ShBase
 {
 public:
     ShType* const type;
+    int scopeIndex;
 
     ShVariable(ShType* iType);
     ShVariable(const string& name, ShType* iType);
@@ -456,6 +457,8 @@ struct ShValue
     ShValue(): type(NULL)  { }
     ShValue(const ShValue& v)
             : type(v.type) { value = v.value; }
+    ShValue(ShType* iType)
+            : type(iType)  { }
     ShValue(ShType* iType, large iValue)
             : type(iType)  { value.large_ = iValue; }
     ShValue(ShType* iType, ptr iValue)

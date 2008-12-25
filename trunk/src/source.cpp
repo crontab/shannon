@@ -232,6 +232,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"in", tokIn},
         {"is", tokIs},
         {"module", tokModule},
+        {"typeof", tokTypeOf},
         {"var", tokVar},
         {NULL, tokUndefined}
     };
