@@ -516,7 +516,7 @@ string typeVsType(ShType* a, ShType* b)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>
+    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>, true, false, null
     <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
     *, /, div, mod, and, shl, shr, as
@@ -550,9 +550,10 @@ ShBase* ShModule::getQualifiedName()
 
 void ShModule::parseAtom(VmCode& code)
 {
-    if (parser.token == tokLParen)
+    static int myFunnyZeroValue = 0; // are you happy now, GCC?
+
+    if (parser.skipIf(tokLParen))
     {
-        parser.next();
         parseExpr(code);
         parser.skip(tokRParen, ")");
     }
@@ -561,10 +562,10 @@ void ShModule::parseAtom(VmCode& code)
     else if (parser.token == tokIntValue)
     {
         large value = parser.intValue;
+        parser.next();
         ShInteger* type = queenBee->defaultInt->contains(value) ?
             queenBee->defaultInt : queenBee->defaultLarge;
-        parser.next();
-        code.genLoadConst(ShValue(type, parser.intValue));
+        code.genLoadConst(ShValue(type, value));
     }
 
     // string or char literal
@@ -617,9 +618,8 @@ void ShModule::parseAtom(VmCode& code)
             notImpl();
     }
     
-    else if (parser.token == tokTypeOf)
+    else if (parser.skipIf(tokTypeOf))
     {
-        parser.next();
         parser.skip(tokLParen, "(");
         ShType* type;
         {
@@ -631,18 +631,14 @@ void ShModule::parseAtom(VmCode& code)
         code.genLoadTypeRef(type);
     }
 
-    else if (parser.token == tokTrue)
-    {
-        parser.next();
+    else if (parser.skipIf(tokTrue))
         code.genLoadConst(ShValue(queenBee->defaultBool, 1));
-    }
 
-    else if (parser.token == tokFalse)
-    {
-        int myFunnyFalseValue = 0; // are you happy now, GCC?
-        parser.next();
-        code.genLoadConst(ShValue(queenBee->defaultBool, myFunnyFalseValue));
-    }
+    else if (parser.skipIf(tokFalse))
+        code.genLoadConst(ShValue(queenBee->defaultBool, myFunnyZeroValue));
+    
+    else if (parser.skipIf(tokNull))
+        code.genLoadConst(ShValue(queenBee->defaultVoid, myFunnyZeroValue));
     
     else
         errorWithLoc("Expression syntax");
