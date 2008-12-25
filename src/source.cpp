@@ -234,6 +234,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"in", tokIn},
         {"is", tokIs},
         {"module", tokModule},
+        {"null", tokNull},
         {"true", tokTrue},
         {"typeof", tokTypeOf},
         {"var", tokVar},
@@ -424,6 +425,7 @@ Token Parser::next()
 {
 restart:
     strValue.clear();
+    intValue = 0;
 
     // Deferred linenum update; this helps to point to a better location
     // in error messages.

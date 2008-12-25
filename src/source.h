@@ -97,7 +97,8 @@ enum Token
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
     // keywords
-    tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokEnum,
+    tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
+    tokEnum,
     
     // the order in this group is important: it's in sync with OpComparison
     tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
