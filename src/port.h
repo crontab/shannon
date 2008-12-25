@@ -26,11 +26,6 @@ typedef large*              plarge;
 typedef ularge*             pularge;
 
 
-#define LARGE_MIN (-9223372036854775807ll-1)
-#define LARGE_MAX (9223372036854775807ll)
-#define ULARGE_MAX (18446744073709551615ull)
-
-
 #if defined __x86_64__
 #  define PTR64
 #elif defined __i386__

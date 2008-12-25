@@ -10,15 +10,15 @@ public:
 };
 
 
-VmCode::EmulStackInfo::EmulStackInfo(const ShValue& iValue, int iOpIndex)
+VmCode::GenStackInfo::GenStackInfo(const ShValue& iValue, int iOpIndex)
     : ShValue(iValue), opIndex(iOpIndex), isValue(true)  { }
 
-VmCode::EmulStackInfo::EmulStackInfo(ShType* iType, int iOpIndex)
+VmCode::GenStackInfo::GenStackInfo(ShType* iType, int iOpIndex)
     : ShValue(iType), opIndex(iOpIndex), isValue(false)  { }
 
 
 VmCode::VmCode(ShScope* iCompilationScope)
-    : code(), compilationScope(iCompilationScope), lastOpIndex(0)  { }
+    : code(), compilationScope(iCompilationScope)  { }
 
 
 #ifdef SINGLE_THREADED
@@ -84,23 +84,9 @@ void VmCode::run(VmQuant* p)
                 t = compareInt(t, r);
             }
             break;
-        case opCmpIntLarge:
-            {
-                large r = vmStack.popLarge();
-                int& t = vmStack.topIntRef();
-                t = compareLarge(t, r);
-            }
-            break;
         case opCmpLarge:
             {
                 large r = vmStack.popLarge();
-                large l = vmStack.popLarge();
-                vmStack.pushInt(compareLarge(l, r));
-            }
-            break;
-        case opCmpLargeInt:
-            {
-                int r = vmStack.popInt();
                 large l = vmStack.popLarge();
                 vmStack.pushInt(compareLarge(l, r));
             }
@@ -157,7 +143,7 @@ void VmCode::run(VmQuant* p)
 
 void VmCode::verifyClean()
 {
-    if (!emulStack.empty())
+    if (!genStack.empty())
         fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
     if (!vmStack.empty())
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
@@ -168,7 +154,7 @@ ShValue VmCode::runConstExpr()
 {
     endGeneration();
     run(&code._at(0));
-    ShType* type = emulPopType();
+    ShType* type = genPopType();
     if (type->isLargePod())
         return ShValue(type, vmStack.popLarge());
     if (type->isPointer())
@@ -182,11 +168,11 @@ ShValue VmCode::runConstExpr()
 ShType* VmCode::runTypeExpr()
 {
     endGeneration();
-    EmulStackInfo& e = emulTop();
+    GenStackInfo& e = genTop();
     ShType* type = e.type;
     if (e.type->isTypeRef() && e.isValue)
         type = (ShType*)e.value.ptr_;
-    emulPop();
+    genPop();
     verifyClean();
     return type;
 }
@@ -199,22 +185,21 @@ void VmCode::genCmpOp(OpCode op, OpCode cmp)
 }
 
 
-void VmCode::emulPush(const ShValue& v)
+void VmCode::genPush(const ShValue& v)
 {
-    emulStack.push(EmulStackInfo(v, code.size()));
+    genStack.push(GenStackInfo(v, nextOpIndex()));
 }
 
 
-void VmCode::emulPush(ShType* t)
+void VmCode::genPush(ShType* t)
 {
-    emulStack.push(EmulStackInfo(t, code.size()));
+    genStack.push(GenStackInfo(t, nextOpIndex()));
 }
 
 
 void VmCode::genLoadConst(const ShValue& v)
 {
-    updateLastOpIndex();
-    emulPush(v);
+    genPush(v);
     if (v.type->isOrdinal())
     {
         if (v.type->isBool())
@@ -224,7 +209,7 @@ void VmCode::genLoadConst(const ShValue& v)
             genOp(opLoadChar);
             genInt(v.value.int_);
         }
-        else if (POrdinal(v.type)->isLarge())
+        else if (POrdinal(v.type)->isLargeInt())
         {
             genOp(opLoadLarge);
             genLarge(v.value.large_);
@@ -255,8 +240,7 @@ void VmCode::genLoadConst(const ShValue& v)
 
 void VmCode::genLoadTypeRef(ShType* type)
 {
-    updateLastOpIndex();
-    emulPush(ShValue(queenBee->defaultTypeRef, type));
+    genPush(ShValue(queenBee->defaultTypeRef, type));
     genOp(opLoadTypeRef);
     genPtr(type);
 }
@@ -264,23 +248,20 @@ void VmCode::genLoadTypeRef(ShType* type)
 
 void VmCode::genMkSubrange()
 {
-    updateLastOpIndex();
-    emulPop();
-    ShType* type = emulPopType();
+    genPop();
+    ShType* type = genPopType();
     if (!type->isOrdinal())
         throw EInternal(51, "Ordinal type expected");
-    emulPush(POrdinal(type)->deriveRangeType(compilationScope));
+    genPush(POrdinal(type)->deriveRangeType(compilationScope));
     genOp(opMkSubrange);
 }
 
 
 void VmCode::genComparison(OpCode cmp)
 {
-    updateLastOpIndex();
-
     OpCode op = opInv;
-    ShType* right = emulPopType();
-    ShType* left = emulPopType();
+    ShType* right = genPopType();
+    ShType* left = genPopType();
 
     bool leftStr = left->isString();
     bool rightStr = right->isString();
@@ -299,23 +280,23 @@ void VmCode::genComparison(OpCode cmp)
     else if (left->isOrdinal() && right->isOrdinal())
     {
         // TODO: check if one of the operands is 0
-        static OpCode alchemy[2][2] =
-            {{opCmpInt, opCmpIntLarge}, {opCmpLargeInt, opCmpLarge}};
-        op = alchemy[POrdinal(left)->isLarge()][POrdinal(right)->isLarge()];
+        // If even one of the operands is 64-bit, we generate 64-bit ops
+        // with the hope that the parser took care of the rest.
+        op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
     }
 
     if (op == opInv)
         throw EInternal(52, "Invalid operand types");
 
-    emulPush(queenBee->defaultBool);
+    genPush(queenBee->defaultBool);
     genCmpOp(op, cmp);
 }
 
 
 void VmCode::genStaticCast(ShType* type)
 {
-    ShType* fromType = emulPopType();
-    emulPush(type);
+    ShType* fromType = genPopType();
+    genPush(type);
     bool isDstLarge = type->isLargePod();
     bool isSrcLarge = fromType->isLargePod();
     if (isSrcLarge && !isDstLarge)

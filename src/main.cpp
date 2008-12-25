@@ -66,11 +66,18 @@ void ShModule::parseAtom(VmCode& code)
     // numeric literal
     else if (parser.token == tokIntValue)
     {
-        large value = parser.intValue;
+        large value = parser.intValue; // intValue is unsigned int
         parser.next();
-        ShInteger* type = queenBee->defaultInt->contains(value) ?
-            queenBee->defaultInt : queenBee->defaultLarge;
-        code.genLoadConst(ShValue(type, value));
+        if (!queenBee->defaultInt->contains(value))
+            error("Value out of range (use the 'L' suffix for large consts)");
+        code.genLoadConst(ShValue(queenBee->defaultInt, value));
+    }
+
+    else if (parser.token == tokLargeValue)
+    {
+        ularge value = parser.largeValue; // largeValue is unsigned int
+        parser.next();
+        code.genLoadConst(ShValue(queenBee->defaultLarge, value));
     }
 
     // string or char literal
@@ -188,7 +195,7 @@ void ShModule::parseSubrange(VmCode& code)
             error("Only ordinal types are allowed in subranges");
         if (!left->isCompatibleWith(right))
             error("Left and right values of a subrange must be compatible");
-        if (POrdinal(left)->isLarge() || POrdinal(right)->isLarge())
+        if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
         code.genMkSubrange();
     }
@@ -201,12 +208,12 @@ void ShModule::parseExpr(VmCode& code)
     while (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
     {
         OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
-        ShType* leftType = code.topType();
+        ShType* left = code.topType();
         parser.next();
         parseSubrange(code);
-        ShType* rightType = code.topType();
-        if (!leftType->isCompatibleWith(rightType))
-            error("Type mismatch in comparison: " + typeVsType(leftType, rightType));
+        ShType* right = code.topType();
+        if (!left->isCompatibleWith(right))
+            error("Type mismatch in comparison: " + typeVsType(left, right));
         code.genComparison(op);
     }
 }

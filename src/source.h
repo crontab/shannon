@@ -95,7 +95,7 @@ enum Token
     tokUndefined = -1,
     tokBegin, tokEnd, tokSep, // these will depend on C-style vs. Python-style modes in the future
     tokEof,
-    tokIdent, tokIntValue, tokStrValue,
+    tokIdent, tokIntValue, tokLargeValue, tokStrValue,
     // keywords
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
     tokEnum,
@@ -136,7 +136,8 @@ public:
     bool singleLineBlock; // if a: b = c
     Token token;
     string strValue;
-    ularge intValue;
+    uint intValue;
+    ularge largeValue;
     
     Parser(const string& filename);
     ~Parser();

@@ -7,20 +7,6 @@
 #include "source.h"
 
 
-const large int8min   = -128LL;
-const large int8max   = 127LL;
-const large uint8max  = 255LL;
-const large int16min  = -32768LL;
-const large int16max  = 32767LL;
-const large uint16max = 65535LL;
-const large int32min  = -2147483648LL;
-const large int32max  = 2147483647LL;
-const large uint32max = 4294967295LL;
-const large int64min  = LARGE_MIN;
-const large int64max  = LARGE_MAX;
-const int   memAlign  = sizeof(ptr);
-
-
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
 
@@ -28,6 +14,7 @@ class ShType;
 class ShConstant;
 class ShValue;
 class ShOrdinal;
+class ShInteger;
 class ShVoid;
 class ShRange;
 class ShBool;
@@ -103,7 +90,7 @@ public:
     bool isRange() const { return typeId == typeRange; }
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
     bool isInt() const { return typeId == typeInt; }
-    bool isLargeOrd() const;
+//    bool isLargeOrd() const;
     bool isChar() const { return typeId == typeChar; }
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
@@ -239,10 +226,7 @@ public:
             { return true; }
     virtual bool canStaticCastTo(ShType* type) const
             { return true; }
-    virtual bool isLargePod() const
-            { return isLarge(); }
-    bool isLarge() const
-            { return size > 4; }
+    bool isLargeInt() const;
     bool contains(large value) const
             { return value >= range.min && value <= range.max; }
     bool rangeEquals(const Range& r) const
@@ -256,7 +240,7 @@ public:
 };
 
 typedef ShOrdinal* POrdinal;
-
+typedef ShInteger* PInteger;
 
 class ShInteger: public ShOrdinal
 {
@@ -267,13 +251,20 @@ public:
     ShInteger(large min, large max);
     ShInteger(const string& name, large min, large max);
     virtual string displayValue(const ShValue& v) const;
+    bool isLargeInt() const
+            { return size > 4; }
     virtual bool isCompatibleWith(ShType* type) const
-            { return type->isInt(); }
+            { return type->isInt() && (isLargeInt() == PInteger(type)->isLargeInt()); }
+    virtual bool isLargePod() const
+            { return isLargeInt(); }
     bool isUnsigned() const
             { return range.min >= 0; }
     virtual bool equals(ShType* type) const
             { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };
+
+inline bool ShOrdinal::isLargeInt() const
+        { return isInt() && PInteger(this)->isLargeInt(); }
 
 
 class ShChar: public ShOrdinal
@@ -296,6 +287,7 @@ public:
 };
 
 
+// TODO: limit the max number of consts
 class ShEnum: public ShOrdinal
 {
 protected:
@@ -320,7 +312,6 @@ public:
 };
 
 
-// TODO: define bool as enum of (false, true) ?
 class ShBool: public ShOrdinal
 {
 protected:
