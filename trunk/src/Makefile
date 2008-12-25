@@ -19,7 +19,7 @@ all: dirs shannon shannon-ut
 
 ut: dirs shannon-ut
 	@echo
-	@if shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
+	@if ./shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
 	@echo
 
 dirs:

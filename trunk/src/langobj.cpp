@@ -36,12 +36,22 @@ ShType::ShType(const string& name, ShTypeId iTypeId)
 
 ShType::~ShType()  { }
 
-string ShType::getDisplayName(const string& objName) const
+string ShType::getDefinition(const string& objName) const
 {
     if (!name.empty())
         return name + (objName.empty() ? "" : " " + objName);
     else
         return getFullDefinition(objName);
+}
+
+string ShType::getDefinition() const
+{
+    return getDefinition("");
+}
+
+string ShType::getDefinitionQ() const
+{
+    return '\'' + getDefinition() + '\'';
 }
 
 ShVector* ShType::deriveVectorType(ShScope* scope)
@@ -57,7 +67,7 @@ ShVector* ShType::deriveVectorType(ShScope* scope)
 ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
 {
     if (!indexType->canBeArrayIndex())
-        throw EInternal(10, indexType->getDisplayName("") + " can't be used as array index");
+        throw EInternal(10, indexType->getDefinition() + " can't be used as array index");
     if (isVoid())
         return indexType->deriveSetType((ShVoid*)this, scope);
     else
@@ -91,7 +101,7 @@ ShVariable::ShVariable(ShType* iType)
     : ShBase(baseVariable), type(iType), scopeIndex(0)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name, baseVariable), type(iType)  { }
+    : ShBase(name, baseVariable), type(iType), scopeIndex(0)  { }
 
 ShArgument::ShArgument(const string& name, ShType* iType)
     : ShVariable(name, type)  { }
@@ -134,10 +144,18 @@ void ShScope::addAnonType(ShType* obj)
         { own(obj); types.add(obj); }
 
 void ShScope::addVariable(ShVariable* obj)
-        { addSymbol(obj); vars.add(obj); }
+{
+    addSymbol(obj);
+    obj->scopeIndex = vars.size();
+    vars.add(obj);
+}
 
 void ShScope::addAnonVar(ShVariable* obj)
-        { own(obj); vars.add(obj); }
+{
+    own(obj);
+    obj->scopeIndex = vars.size();
+    vars.add(obj);
+}
 
 void ShScope::addTypeAlias(ShTypeAlias* obj)
         { addSymbol(obj); typeAliases.add(obj); }
@@ -167,19 +185,19 @@ ShBase* ShScope::deepFind(const string& name) const
 void ShScope::dump(string indent) const
 {
     for (int i = 0; i < types.size(); i++)
-        printf("%s# def %s\n", indent.c_str(), types[i]->getDisplayName("*").c_str());
+        printf("%s# def %s\n", indent.c_str(), types[i]->getDefinition("*").c_str());
     for (int i = 0; i < typeAliases.size(); i++)
         printf("%sdef %s\n", indent.c_str(),
-            typeAliases[i]->base->getDisplayName(typeAliases[i]->name).c_str());
+            typeAliases[i]->base->getDefinition(typeAliases[i]->name).c_str());
     for (int i = 0; i < vars.size(); i++)
         printf("%svar %s\n", indent.c_str(),
-            vars[i]->type->getDisplayName(vars[i]->name).c_str());
+            vars[i]->type->getDefinition(vars[i]->name).c_str());
     for (int i = 0; i < consts.size(); i++)
     {
         ShConstant* c = consts[i];
         ShType* t = c->value.type;
         printf("%sconst %s = %s\n", indent.c_str(),
-            t->getDisplayName(c->name).c_str(),
+            t->getDefinition(c->name).c_str(),
             t->displayValue(c->value).c_str());
     }
 }
@@ -191,7 +209,7 @@ void ShScope::dump(string indent) const
 // TODO: define lo() and hi() for ordinals and also ranges
 
 EInvalidSubrange::EInvalidSubrange(ShOrdinal* type)
-    : EMessage("Invalid subrange for " + type->getDisplayName(""))  { }
+    : EMessage("Invalid subrange for " + type->getDefinition())  { }
     
 
 int Range::physicalSize() const
@@ -332,7 +350,7 @@ string ShTypeRef::getFullDefinition(const string& objName) const
     { throw EInternal(7, "anonymous typeref type"); }
 
 string ShTypeRef::displayValue(const ShValue& v) const
-    { return "typeof(" + ((ShType*)(v.value.ptr_))->getDisplayName("") + ")"; }
+    { return "typeof(" + ((ShType*)(v.value.ptr_))->getDefinition() + ")"; }
 
 
 // --- RANGE TYPE --- //
@@ -344,7 +362,7 @@ ShRange::ShRange(const string& name, ShOrdinal* iBase)
     : ShType(name, typeTypeRef), base(iBase)  { }
 
 string ShRange::getFullDefinition(const string& objName) const
-    { return base->getDisplayName(objName) + "[..]"; }
+    { return base->getDefinition(objName) + "[..]"; }
 
 string ShRange::displayValue(const ShValue& v) const
 {
@@ -362,7 +380,7 @@ ShVector::ShVector(const string& name, ShType* iElementType)
         : ShType(name, typeVector), elementType(iElementType)  { }
 
 string ShVector::getFullDefinition(const string& objName) const
-    { return elementType->getDisplayName(objName) + "[]"; }
+    { return elementType->getDefinition(objName) + "[]"; }
 
 string ShVector::displayValue(const ShValue& v) const
 {
@@ -389,7 +407,7 @@ ShArray::ShArray(ShType* iElementType, ShType* iIndexType)
 
 string ShArray::getFullDefinition(const string& objName) const
 {
-    return elementType->getDisplayName(objName) + "[" + indexType->getDisplayName("") + "]";
+    return elementType->getDefinition(objName) + "[" + indexType->getDefinition() + "]";
 }
 
 string ShArray::displayValue(const ShValue& v) const
@@ -420,9 +438,9 @@ string ShState::getArgsDefinition() const
     string result = '(';
     if (!args.empty())
     {
-        result += args[0]->type->getDisplayName(args[0]->name);
+        result += args[0]->type->getDefinition(args[0]->name);
         for (int i = 1; i < args.size(); i++)
-            result += ", " + args[i]->type->getDisplayName(args[0]->name);
+            result += ", " + args[i]->type->getDefinition(args[0]->name);
     }
     result += ')';
     return result;
