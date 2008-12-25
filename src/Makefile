@@ -41,7 +41,7 @@ shannon: $(OBJS) obj/main.o
 shannon-ut: $(OBJS) obj/main-ut.o
 	$(CXX) $(LDLIBS) $^ -o $@
 
-obj/%.o: %.cpp Makefile Makefile.dep
+obj/%.o: %.cpp Makefile
 	$(CXX) $(CXXDEBUG) $(CXXOPTIM) $(CXXOPTS) -c $< -o $@
 
 %.s: %.cpp

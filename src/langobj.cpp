@@ -88,7 +88,7 @@ ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-    : ShBase(baseVariable), type(iType)  { }
+    : ShBase(baseVariable), type(iType), scopeIndex(0)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
     : ShBase(name, baseVariable), type(iType)  { }
