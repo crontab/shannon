@@ -1,0 +1,384 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 44;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3626BA970EFAE758005644AF /* except.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BA930EFAE758005644AF /* except.cpp */; };
+		3626BA980EFAE758005644AF /* source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BA950EFAE758005644AF /* source.cpp */; };
+		3626BA990EFAE758005644AF /* except.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BA930EFAE758005644AF /* except.cpp */; };
+		3626BA9A0EFAE758005644AF /* source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BA950EFAE758005644AF /* source.cpp */; };
+		3626BAAD0EFAF570005644AF /* contain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BAAB0EFAF570005644AF /* contain.cpp */; };
+		3626BAAE0EFAF570005644AF /* contain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3626BAAB0EFAF570005644AF /* contain.cpp */; };
+		363C70F40EF70F4400866D2C /* baseobj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70E80EF70F4400866D2C /* baseobj.cpp */; };
+		363C70F50EF70F4400866D2C /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70EA0EF70F4400866D2C /* charset.cpp */; };
+		363C70F70EF70F4400866D2C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70ED0EF70F4400866D2C /* main.cpp */; };
+		363C70F80EF70F4400866D2C /* portatom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70EF0EF70F4400866D2C /* portatom.cpp */; };
+		363C70F90EF70F4400866D2C /* portmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F00EF70F4400866D2C /* portmem.cpp */; };
+		363C70FA0EF70F4400866D2C /* strbase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F20EF70F4400866D2C /* strbase.cpp */; };
+		363C70FB0EF70F4400866D2C /* strconv.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F30EF70F4400866D2C /* strconv.cpp */; };
+		363C70FE0EF70F6000866D2C /* baseobj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70E80EF70F4400866D2C /* baseobj.cpp */; };
+		363C70FF0EF70F6000866D2C /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70EA0EF70F4400866D2C /* charset.cpp */; };
+		363C71010EF70F6000866D2C /* portatom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70EF0EF70F4400866D2C /* portatom.cpp */; };
+		363C71020EF70F6000866D2C /* portmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F00EF70F4400866D2C /* portmem.cpp */; };
+		363C71030EF70F6000866D2C /* strbase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F20EF70F4400866D2C /* strbase.cpp */; };
+		363C71040EF70F6000866D2C /* strconv.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F30EF70F4400866D2C /* strconv.cpp */; };
+		363C710D0EF70FBE00866D2C /* main-ut.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C710C0EF70FBE00866D2C /* main-ut.cpp */; };
+		364858020EFDC31A006DDD57 /* langobj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 364858000EFDC31A006DDD57 /* langobj.cpp */; };
+		364858030EFDC31A006DDD57 /* langobj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 364858000EFDC31A006DDD57 /* langobj.cpp */; };
+		36E5ABE90F042AE0008E9A6C /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36E5ABE70F042AE0008E9A6C /* vm.cpp */; };
+		36E5ABEA0F042AE0008E9A6C /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36E5ABE70F042AE0008E9A6C /* vm.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		363C71060EF70F6000866D2C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8DD76F690486A84900D96B5E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		3626BA930EFAE758005644AF /* except.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = except.cpp; path = src/except.cpp; sourceTree = "<group>"; };
+		3626BA940EFAE758005644AF /* except.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = except.h; path = src/except.h; sourceTree = "<group>"; };
+		3626BA950EFAE758005644AF /* source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = source.cpp; path = src/source.cpp; sourceTree = "<group>"; };
+		3626BA960EFAE758005644AF /* source.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = source.h; path = src/source.h; sourceTree = "<group>"; };
+		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
+		3626BAAB0EFAF570005644AF /* contain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = contain.cpp; path = src/contain.cpp; sourceTree = "<group>"; };
+		3626BAAC0EFAF570005644AF /* contain.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = contain.h; path = src/contain.h; sourceTree = "<group>"; };
+		363C70E80EF70F4400866D2C /* baseobj.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = baseobj.cpp; path = src/baseobj.cpp; sourceTree = "<group>"; };
+		363C70E90EF70F4400866D2C /* baseobj.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = baseobj.h; path = src/baseobj.h; sourceTree = "<group>"; };
+		363C70EA0EF70F4400866D2C /* charset.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = charset.cpp; path = src/charset.cpp; sourceTree = "<group>"; };
+		363C70EB0EF70F4400866D2C /* charset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = charset.h; path = src/charset.h; sourceTree = "<group>"; };
+		363C70ED0EF70F4400866D2C /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = src/main.cpp; sourceTree = "<group>"; };
+		363C70EE0EF70F4400866D2C /* port.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = port.h; path = src/port.h; sourceTree = "<group>"; };
+		363C70EF0EF70F4400866D2C /* portatom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = portatom.cpp; path = src/portatom.cpp; sourceTree = "<group>"; };
+		363C70F00EF70F4400866D2C /* portmem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = portmem.cpp; path = src/portmem.cpp; sourceTree = "<group>"; };
+		363C70F10EF70F4400866D2C /* str.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = str.h; path = src/str.h; sourceTree = "<group>"; };
+		363C70F20EF70F4400866D2C /* strbase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = strbase.cpp; path = src/strbase.cpp; sourceTree = "<group>"; };
+		363C70F30EF70F4400866D2C /* strconv.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = strconv.cpp; path = src/strconv.cpp; sourceTree = "<group>"; };
+		363C710A0EF70F6000866D2C /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
+		363C710C0EF70FBE00866D2C /* main-ut.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "main-ut.cpp"; path = "src/main-ut.cpp"; sourceTree = "<group>"; };
+		364858000EFDC31A006DDD57 /* langobj.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = langobj.cpp; path = src/langobj.cpp; sourceTree = "<group>"; };
+		364858010EFDC31A006DDD57 /* langobj.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = langobj.h; path = src/langobj.h; sourceTree = "<group>"; };
+		3664D3850EFC40E5007D1E1C /* bsearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bsearch.h; path = src/bsearch.h; sourceTree = "<group>"; };
+		36E5ABE70F042AE0008E9A6C /* vm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vm.cpp; path = src/vm.cpp; sourceTree = "<group>"; };
+		36E5ABE80F042AE0008E9A6C /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vm.h; path = src/vm.h; sourceTree = "<group>"; };
+		36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "The Shannon Project, Draft 1.2 - Google Docs.webloc"; sourceTree = "<group>"; };
+		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		363C71050EF70F6000866D2C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DD76F660486A84900D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* Shannon */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6859E8C029090F304C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = Shannon;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				36E5ABE70F042AE0008E9A6C /* vm.cpp */,
+				36E5ABE80F042AE0008E9A6C /* vm.h */,
+				364858000EFDC31A006DDD57 /* langobj.cpp */,
+				364858010EFDC31A006DDD57 /* langobj.h */,
+				3664D3850EFC40E5007D1E1C /* bsearch.h */,
+				3626BAAB0EFAF570005644AF /* contain.cpp */,
+				3626BAAC0EFAF570005644AF /* contain.h */,
+				3626BA930EFAE758005644AF /* except.cpp */,
+				3626BA940EFAE758005644AF /* except.h */,
+				3626BA950EFAE758005644AF /* source.cpp */,
+				3626BA960EFAE758005644AF /* source.h */,
+				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
+				363C70E80EF70F4400866D2C /* baseobj.cpp */,
+				363C70E90EF70F4400866D2C /* baseobj.h */,
+				363C70EA0EF70F4400866D2C /* charset.cpp */,
+				363C70EB0EF70F4400866D2C /* charset.h */,
+				363C70ED0EF70F4400866D2C /* main.cpp */,
+				363C70EE0EF70F4400866D2C /* port.h */,
+				363C70EF0EF70F4400866D2C /* portatom.cpp */,
+				363C70F00EF70F4400866D2C /* portmem.cpp */,
+				363C70F10EF70F4400866D2C /* str.h */,
+				363C70F20EF70F4400866D2C /* strbase.cpp */,
+				363C70F30EF70F4400866D2C /* strconv.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76F6C0486A84900D96B5E /* Shannon */,
+				363C710A0EF70F6000866D2C /* Shannon */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6859E8C029090F304C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */,
+				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		363C70FC0EF70F6000866D2C /* Shannon Unit Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 363C71070EF70F6000866D2C /* Build configuration list for PBXNativeTarget "Shannon Unit Tests" */;
+			buildPhases = (
+				363C70FD0EF70F6000866D2C /* Sources */,
+				363C71050EF70F6000866D2C /* Frameworks */,
+				363C71060EF70F6000866D2C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Shannon Unit Tests";
+			productInstallPath = "$(HOME)/bin";
+			productName = Shannon;
+			productReference = 363C710A0EF70F6000866D2C /* Shannon */;
+			productType = "com.apple.product-type.tool";
+		};
+		8DD76F620486A84900D96B5E /* Shannon */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB923108733DC60010E9CD /* Build configuration list for PBXNativeTarget "Shannon" */;
+			buildPhases = (
+				8DD76F640486A84900D96B5E /* Sources */,
+				8DD76F660486A84900D96B5E /* Frameworks */,
+				8DD76F690486A84900D96B5E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Shannon;
+			productInstallPath = "$(HOME)/bin";
+			productName = Shannon;
+			productReference = 8DD76F6C0486A84900D96B5E /* Shannon */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB923508733DC60010E9CD /* Build configuration list for PBXProject "Shannon" */;
+			compatibilityVersion = "Xcode 3.0";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* Shannon */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DD76F620486A84900D96B5E /* Shannon */,
+				363C70FC0EF70F6000866D2C /* Shannon Unit Tests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		363C70FD0EF70F6000866D2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				363C70FE0EF70F6000866D2C /* baseobj.cpp in Sources */,
+				363C70FF0EF70F6000866D2C /* charset.cpp in Sources */,
+				363C71010EF70F6000866D2C /* portatom.cpp in Sources */,
+				363C71020EF70F6000866D2C /* portmem.cpp in Sources */,
+				363C71030EF70F6000866D2C /* strbase.cpp in Sources */,
+				363C71040EF70F6000866D2C /* strconv.cpp in Sources */,
+				363C710D0EF70FBE00866D2C /* main-ut.cpp in Sources */,
+				3626BA970EFAE758005644AF /* except.cpp in Sources */,
+				3626BA980EFAE758005644AF /* source.cpp in Sources */,
+				3626BAAE0EFAF570005644AF /* contain.cpp in Sources */,
+				364858030EFDC31A006DDD57 /* langobj.cpp in Sources */,
+				36E5ABEA0F042AE0008E9A6C /* vm.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DD76F640486A84900D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				363C70F40EF70F4400866D2C /* baseobj.cpp in Sources */,
+				363C70F50EF70F4400866D2C /* charset.cpp in Sources */,
+				363C70F70EF70F4400866D2C /* main.cpp in Sources */,
+				363C70F80EF70F4400866D2C /* portatom.cpp in Sources */,
+				363C70F90EF70F4400866D2C /* portmem.cpp in Sources */,
+				363C70FA0EF70F4400866D2C /* strbase.cpp in Sources */,
+				363C70FB0EF70F4400866D2C /* strconv.cpp in Sources */,
+				3626BA990EFAE758005644AF /* except.cpp in Sources */,
+				3626BA9A0EFAE758005644AF /* source.cpp in Sources */,
+				3626BAAD0EFAF570005644AF /* contain.cpp in Sources */,
+				364858020EFDC31A006DDD57 /* langobj.cpp in Sources */,
+				36E5ABE90F042AE0008E9A6C /* vm.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB923208733DC60010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"_GLIBCXX_DEBUG=1",
+					"_GLIBCXX_DEBUG_PEDANTIC=1",
+				);
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = Shannon;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		1DEB923308733DC60010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = Shannon;
+			};
+			name = Release;
+		};
+		1DEB923608733DC60010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-DDEBUG",
+					"-DXCODE",
+					"-DSINGLE_THREADED",
+				);
+				PREBINDING = NO;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.5.sdk";
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Debug;
+		};
+		1DEB923708733DC60010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.5.sdk";
+			};
+			name = Release;
+		};
+		363C71080EF70F6000866D2C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"_GLIBCXX_DEBUG=1",
+					"_GLIBCXX_DEBUG_PEDANTIC=1",
+				);
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = Shannon;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		363C71090EF70F6000866D2C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = Shannon;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB923108733DC60010E9CD /* Build configuration list for PBXNativeTarget "Shannon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB923208733DC60010E9CD /* Debug */,
+				1DEB923308733DC60010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB923508733DC60010E9CD /* Build configuration list for PBXProject "Shannon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB923608733DC60010E9CD /* Debug */,
+				1DEB923708733DC60010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		363C71070EF70F6000866D2C /* Build configuration list for PBXNativeTarget "Shannon Unit Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				363C71080EF70F6000866D2C /* Debug */,
+				363C71090EF70F6000866D2C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}
