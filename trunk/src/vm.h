@@ -165,11 +165,12 @@ public:
 class VmCode: public noncopyable
 {
 protected:
-    struct GenStackInfo: ShValue
+    struct GenStackInfo
     {
+        ShValue value;
         int opOffset;
         bool isValue;
-        GenStackInfo(const ShValue& iValue, int iOpOffset);
+        GenStackInfo(const ShValue&, int iOpOffset);
         GenStackInfo(ShType* iType, int iOpOffset);
     };
 
@@ -177,9 +178,9 @@ protected:
     PodStack<GenStackInfo> genStack;
     ShScope* compilationScope;
 
-    void genPush(const ShValue& v);
+    void genPush(const ShValue& value);
     void genPush(ShType* v);
-    ShType* genPopType()                { return genStack.pop().type; }
+    ShType* genPopType()                { return genStack.pop().value.type; }
     GenStackInfo& genTop()              { return genStack.top(); }
     void genPop()                       { genStack.pop(); }
 
@@ -201,30 +202,33 @@ protected:
 public:
     VmCode(ShScope* iCompilationScope);
     
-    void genLoadConst(const ShValue&);
+    void genLoadIntConst(ShOrdinal*, int);
+    void genLoadLargeConst(ShOrdinal*, large);
+    void genLoadNull();
+    void genLoadStrConst(const char*);
     void genLoadTypeRef(ShType*);
+    void genLoadConst(ShType*, podvalue);
     void genMkSubrange();
     void genComparison(OpCode);
     void genStaticCast(ShType*);
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
     void genBoolXor()
-            { genOp(opBitXor); }
+            { genPop(); genOp(opBitXor); }
     void genBoolNot()
             { genOp(opBoolNot); }
     void genBitNot(ShInteger* type)
             { genOp(OpCode(opBitNot + type->isLargeInt())); }
-    int  genForwardJump(OpCode op)
-            { int t = genOffset(); genOp(op); genInt(0); return t; }
+    int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
     int  genOffset() const
             { return code.size(); }
     void endGeneration();
     
-    ShValue runConstExpr();
+    void runConstExpr(ShValue& result);
     ShType* runTypeExpr();
-    ShType* topType() const
-            { return genStack.top().type; }
+    ShType* topType()
+            { return genTop().value.type; }
 };
 
 

@@ -89,12 +89,6 @@ void string::_free()
 }
 
 
-int string::_unlock()
-{
-    return pdecrement(&STR_REFCOUNT(data));
-}
-
-
 void string::initialize(const char* s1, int len1, const char* s2, int len2)
 {
     if (len1 <= 0)
@@ -155,21 +149,14 @@ const char* string::c_str() const
 }
 
 
-void string::_unref(string& s)
-{
-#ifdef DEBUG
-    if (STR_LENGTH(s.data) == 0 || STR_REFCOUNT(s.data) <= 1)
-        stringoverflow();
-#endif
-    if (s._unlock() == 0)
-        _freedata(s.data);
-}
-
-
 void string::finalize() 
 {
     if (STR_LENGTH(data) != 0)
     {
+#ifdef DEBUG
+        if (STR_REFCOUNT(data) <= 0)
+            stringoverflow();
+#endif
         if (_unlock() == 0)
             _freedata(data);
         data = emptystr;

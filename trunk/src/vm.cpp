@@ -10,11 +10,12 @@ public:
 };
 
 
+
 VmCode::GenStackInfo::GenStackInfo(const ShValue& iValue, int iOpOffset)
-    : ShValue(iValue), opOffset(iOpOffset), isValue(true)  { }
+    : value(iValue), opOffset(iOpOffset), isValue(true)  { }
 
 VmCode::GenStackInfo::GenStackInfo(ShType* iType, int iOpOffset)
-    : ShValue(iType), opOffset(iOpOffset), isValue(false)  { }
+    : value(iType), opOffset(iOpOffset), isValue(false)  { }
 
 
 VmCode::VmCode(ShScope* iCompilationScope)
@@ -186,17 +187,19 @@ void VmCode::verifyClean()
 }
 
 
-ShValue VmCode::runConstExpr()
+void VmCode::runConstExpr(ShValue& result)
 {
     endGeneration();
     run(&code._at(0));
     ShType* type = genPopType();
     if (type->isLargePod())
-        return ShValue(type, vmStack.popLarge());
-    if (type->isPointer())
-        return ShValue(type, vmStack.popPtr());
+        result.assignLarge(type, vmStack.popLarge());
+    else if (type->isStrBased())
+        result.assignStr(type, pconst(vmStack.popPtr()));
+    else if (type->isPodPointer())
+        result.assignPtr(type, vmStack.popPtr());
     else
-        return ShValue(type, vmStack.popInt());
+        result.assignInt(type, vmStack.popInt());
     verifyClean();
 }
 
@@ -205,9 +208,9 @@ ShType* VmCode::runTypeExpr()
 {
     endGeneration();
     GenStackInfo& e = genTop();
-    ShType* type = e.type;
-    if (e.type->isTypeRef() && e.isValue)
-        type = (ShType*)e.value.ptr_;
+    ShType* type = e.value.type;
+    if (e.value.type->isTypeRef() && e.isValue)
+        type = (ShType*)e.value.value.ptr_;
     genPop();
     verifyClean();
     return type;
@@ -221,9 +224,9 @@ void VmCode::genCmpOp(OpCode op, OpCode cmp)
 }
 
 
-void VmCode::genPush(const ShValue& v)
+void VmCode::genPush(const ShValue& value)
 {
-    genStack.push(GenStackInfo(v, genOffset()));
+    genStack.push(GenStackInfo(value, genOffset()));
 }
 
 
@@ -233,55 +236,47 @@ void VmCode::genPush(ShType* t)
 }
 
 
-void VmCode::genLoadConst(const ShValue& v)
+void VmCode::genLoadIntConst(ShOrdinal* type, int value)
 {
-    genPush(v);
-    if (v.type->isOrdinal())
+    genPush(ShValue(type, value));
+    if (type->isBool())
     {
-        if (v.type->isBool())
-        {
-            genOp(v.value.int_ ? opLoadTrue : opLoadFalse);
-        }
-        else if (POrdinal(v.type)->isLargeInt())
-        {
-            if (v.value.large_ == 0)
-                genOp(opLoadLargeZero);
-            else if (v.value.large_ == 1)
-                genOp(opLoadLargeOne);
-            else
-            {
-                genOp(opLoadLarge);
-                genLarge(v.value.large_);
-            }
-        }
-        else
-        {
-            if (v.value.int_ == 0)
-                genOp(opLoadZero);
-            else if (v.value.int_ == 1)
-                genOp(opLoadOne);
-            else
-            {
-                genOp(opLoadInt);
-                genInt(v.value.int_);
-            }
-        }
+        genOp(value ? opLoadTrue : opLoadFalse);
     }
-    else if (v.type->isString())
-    {
-        const string& s = PTR_TO_STRING(v.value.ptr_);
-        if (s.empty())
-            genOp(opLoadNullStr);
-        else
-        {
-            genOp(opLoadStr);
-            genPtr(ptr(s.c_bytes()));
-        }
-    }
-    else if (v.type->isVoid())
-        genOp(opLoadNull);
     else
-        internal(50);
+    {
+        if (value == 0)
+            genOp(opLoadZero);
+        else if (value == 1)
+            genOp(opLoadOne);
+        else
+        {
+            genOp(opLoadInt);
+            genInt(value);
+        }
+    }
+}
+
+
+void VmCode::genLoadLargeConst(ShOrdinal* type, large value)
+{
+    genPush(ShValue(type, value));
+    if (value == 0)
+        genOp(opLoadLargeZero);
+    else if (value == 1)
+        genOp(opLoadLargeOne);
+    else
+    {
+        genOp(opLoadLarge);
+        genLarge(value);
+    }
+}
+
+
+void VmCode::genLoadNull()
+{
+    genPush(ShValue(queenBee->defaultVoid, 0));
+    genOp(opLoadNull);
 }
 
 
@@ -293,6 +288,39 @@ void VmCode::genLoadTypeRef(ShType* type)
 }
 
 
+void VmCode::genLoadStrConst(const char* s)
+{
+    genPush(ShValue(queenBee->defaultStr, s));
+    if (*s == 0)
+        genOp(opLoadNullStr);
+    else
+    {
+        genOp(opLoadStr);
+        genPtr(ptr(s));
+    }
+}
+
+
+void VmCode::genLoadConst(ShType* type, podvalue value)
+{
+    if (type->isOrdinal())
+    {
+        if (POrdinal(type)->isLargeInt())
+            genLoadLargeConst(POrdinal(type), value.large_);
+        else
+            genLoadIntConst(POrdinal(type), value.int_);
+    }
+    else if (type->isStrBased())
+        genLoadStrConst(pconst(value.ptr_));
+    else if (type->isTypeRef())
+        genLoadTypeRef((ShType*)value.ptr_);
+    else if (type->isVoid())
+        genLoadNull();
+    else
+        internal(50);
+}
+
+
 void VmCode::genMkSubrange()
 {
     genPop();
@@ -300,6 +328,7 @@ void VmCode::genMkSubrange()
     if (!type->isOrdinal())
         internal(51);
     genPush(POrdinal(type)->deriveRangeType(compilationScope));
+    type = topType();
     genOp(opMkSubrange);
 }
 
@@ -355,8 +384,8 @@ void VmCode::genStaticCast(ShType* type)
 
 void VmCode::genBinArithm(OpCode op, ShInteger* resultType)
 {
-    genPopType();
-    genPopType();
+    genPop();
+    genPop();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
 }
@@ -364,9 +393,19 @@ void VmCode::genBinArithm(OpCode op, ShInteger* resultType)
 
 void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
 {
-    genPopType();
+    genPop();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
+}
+
+
+int VmCode::genForwardBoolJump(OpCode op)
+{
+    genPop(); // because bool jump pops an item if it doesn't jump
+    int t = genOffset();
+    genOp(op);
+    genInt(0);
+    return t;
 }
 
 

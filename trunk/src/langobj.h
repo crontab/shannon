@@ -83,19 +83,19 @@ public:
             { return false; }
     virtual bool isLargePod() const
             { return false; }
-    virtual bool isPointer() const = 0;
 
     bool isVoid() const { return typeId == typeVoid; }
     bool isTypeRef() const { return typeId == typeTypeRef; }
     bool isRange() const { return typeId == typeRange; }
     bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
     bool isInt() const { return typeId == typeInt; }
-//    bool isLargeOrd() const;
     bool isChar() const { return typeId == typeChar; }
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
     bool isVector() const { return typeId == typeVector; }
     bool isArray() const { return typeId == typeArray; }
+    bool isStrBased() const { return typeId == typeVector; }
+    bool isPodPointer() const { return typeId == typeTypeRef; }
 
     virtual bool equals(ShType*) const = 0;
     virtual bool canBeArrayIndex() const
@@ -170,8 +170,6 @@ public:
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
-    virtual bool isPointer() const
-            { return true; }
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
@@ -219,8 +217,6 @@ protected:
 public:
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
-    virtual bool isPointer() const
-            { return false; }
     virtual bool canAssign(ShType* type) const
             { return isCompatibleWith(type); }
     virtual bool canBeArrayIndex() const
@@ -228,8 +224,9 @@ public:
     virtual bool canStaticCastTo(ShType* type) const
             { return true; }
     bool isLargeInt() const;
-    bool contains(large value) const
-            { return value >= range.min && value <= range.max; }
+    bool contains(large v) const
+            { return v >= range.min && v <= range.max; }
+    bool contains(const ShValue&) const;
     bool rangeEquals(const Range& r) const
             { return range.min == r.min && range.max == r.max; }
     bool rangeEquals(large n, large x) const
@@ -239,7 +236,7 @@ public:
     bool rangeIsGreaterOrEqual(large n, large x)
             { return range.min <= n && range.max >= x; }
     ShRange* deriveRangeType(ShScope* scope);
-    ShOrdinal* deriveOrdinalFromRange(ShValue value, ShScope* scope);
+    ShOrdinal* deriveOrdinalFromRange(const ShValue& value, ShScope* scope);
 };
 
 typedef ShOrdinal* POrdinal;
@@ -337,8 +334,6 @@ protected:
 
 public:
     ShVoid(const string& name);
-    virtual bool isPointer() const
-            { return false; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isVoid(); }
@@ -353,8 +348,6 @@ class ShTypeRef: public ShType
 public:
     ShTypeRef(const string& name);
     virtual string displayValue(const ShValue& v) const;
-    virtual bool isPointer() const
-            { return false; }
     virtual bool equals(ShType* type) const
             { return type->isTypeRef(); }
 };
@@ -370,8 +363,6 @@ public:
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
     virtual string displayValue(const ShValue& v) const;
-    virtual bool isPointer() const
-            { return false; }
     virtual bool isLargePod() const
             { return true; }
     virtual bool equals(ShType* type) const
@@ -397,8 +388,6 @@ public:
             { return equals(type) || (isString() && type->isChar()); }
     virtual bool canAssign(ShType* type) const
             { return type->isCompatibleWith(type); }
-    virtual bool isPointer() const
-            { return true; }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementType->equals(((ShVector*)type)->elementType); }
 };
@@ -468,30 +457,39 @@ public:
 
 // --- LITERAL VALUES ----------------------------------------------------- //
 
+
+union podvalue
+{
+    ptr ptr_;
+    int int_;
+    large large_;
+};
+
+
 struct ShValue
 {
-    union
-    {
-        ptr ptr_;
-        int int_;
-        large large_;
-    } value;
-
+    podvalue value;
     ShType* type;
 
     ShValue(): type(NULL)  { }
-    ShValue(const ShValue& v)
-            : type(v.type) { value = v.value; }
     ShValue(ShType* iType)
-            : type(iType)  { }
+            : type(iType) { }
+    ShValue(ShType* iType, int iValue)
+            : type(iType) { value.int_ = iValue; }
     ShValue(ShType* iType, large iValue)
-            : type(iType)  { value.large_ = iValue; }
+            : type(iType) { value.large_ = iValue; }
     ShValue(ShType* iType, ptr iValue)
-            : type(iType)  { value.ptr_ = iValue; }
-    ShValue(ShString* iType, const string& iValue)
-            : type(iType)  { value.ptr_ = ptr(iValue.c_bytes()); }
-    void operator= (const ShValue& v)
-            { value = v.value; type = v.type; }
+            : type(iType) { value.ptr_ = iValue; }
+    ShValue(ShType* iType, const char* iValue)
+            : type(iType) { value.ptr_ = ptr(iValue); }
+    void ShValue::assignPtr(ShType* iType, ptr p)
+            { type = iType; value.ptr_ = p; }
+    void ShValue::assignInt(ShType* iType, int i)
+            { type = iType; value.int_ = i; }
+    void ShValue::assignLarge(ShType* iType, large l)
+            { type = iType; value.large_ = l; }
+    void ShValue::assignStr(ShType* iType, const char* s)
+            { type = iType; value.ptr_ = ptr(s); }
     int rangeMin() const
             { return int(value.large_); }
     int rangeMax() const
@@ -504,6 +502,7 @@ class ShConstant: public ShBase
 public:
     const ShValue value;
     ShConstant(const string& name, const ShValue& iValue);
+    ShConstant(const string& name, ShEnum* type, int value);
 };
 
 
@@ -514,11 +513,12 @@ public:
 
 class ShModule: public ShScope
 {
-    Array<string> stringLiterals;
     string fileName;
     Parser parser;
+    Array<string> stringLiterals;
 
-    string registerString(const string& v);  // TODO: find duplicates (?)
+    string registerString(const string& v) // TODO: fund duplicates
+            { stringLiterals.add(v); return v; }
     void addObject(ShBase*); // deletes the object in case of an exception
 
     // --- Compiler ---
@@ -548,7 +548,7 @@ class ShModule: public ShScope
             { return parseOrLevel(code); }
     ShType* parseExpr(VmCode& code)
             { return parseSubrange(code); }
-    ShValue getConstExpr(ShType* typeHint);
+    void getConstExpr(ShType* typeHint, ShValue& result);
 
     ShEnum* parseEnumType();
     void parseTypeDef();

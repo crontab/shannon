@@ -111,12 +111,6 @@ ShArgument::ShArgument(const string& name, ShType* iType)
     : ShVariable(name, type)  { }
 
 
-// --- CONSTANT --- //
-
-ShConstant::ShConstant(const string& name, const ShValue& iValue)
-    : ShBase(name, baseConstant), value(iValue)  { }
-
-
 // --- SCOPE --- //
 
 ShScope::ShScope(const string& name, ShTypeId iTypeId)
@@ -270,7 +264,7 @@ ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
     return derivedRangeType;
 }
 
-ShOrdinal* ShOrdinal::deriveOrdinalFromRange(ShValue value, ShScope* scope)
+ShOrdinal* ShOrdinal::deriveOrdinalFromRange(const ShValue& value, ShScope* scope)
 {
     large min = value.rangeMin();
     large max = value.rangeMax();
@@ -281,6 +275,20 @@ ShOrdinal* ShOrdinal::deriveOrdinalFromRange(ShValue value, ShScope* scope)
     ShOrdinal* derived = cloneWithRange(min, max);
     scope->addAnonType(derived);
     return derived;
+}
+
+bool ShOrdinal::contains(const ShValue& v) const
+{
+    if (v.type->isOrdinal())
+    {
+        if (POrdinal(v.type)->isLargeInt())
+            return v.value.large_ >= range.min && v.value.large_ <= range.max;
+        else
+            return v.value.int_ >= range.min && v.value.int_ <= range.max;
+    }
+    else
+        internal(40);
+    return false;
 }
 
 
@@ -422,8 +430,9 @@ string ShRange::getFullDefinition(const string& objName) const
 
 string ShRange::displayValue(const ShValue& v) const
 {
-    return base->displayValue(ShValue(base, int(v.value.large_)))
-        + ".." + base->displayValue(ShValue(base, int(v.value.large_ >> 32)));
+    ShValue left(base, int(v.value.large_));
+    ShValue right(base, int(v.value.large_ >> 32));
+    return base->displayValue(left) + ".." + base->displayValue(right);
 }
 
 
@@ -509,6 +518,17 @@ string ShState::getFullDefinition(const string& objName) const
 */
 
 
+// --- CONSTANT --- //
+
+ShConstant::ShConstant(const string& name, const ShValue& iValue)
+    : ShBase(name, baseConstant), value(iValue)  { }
+
+
+ShConstant::ShConstant(const string& name, ShEnum* type, int value)
+    : ShBase(name, baseConstant), value(type, value)  { }
+
+
+
 // ------------------------------------------------------------------------ //
 
 
@@ -521,14 +541,6 @@ ShModule::ShModule(const string& iFileName)
 {
     if (queenBee != NULL)
         addUses(queenBee);
-}
-
-string ShModule::registerString(const string& v)
-{
-    // Lock all used string literals, as we don't refcount them during
-    // compilation, instead we just copy pointers.
-    stringLiterals.add(v);
-    return v;
 }
 
 void ShModule::addObject(ShBase* obj)

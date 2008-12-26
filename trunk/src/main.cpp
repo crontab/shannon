@@ -59,8 +59,6 @@ ShBase* ShModule::getQualifiedName()
 
 ShType* ShModule::parseAtom(VmCode& code)
 {
-    static int myFunnyZeroValue = 0; // are you happy now, GCC?
-
     if (parser.skipIf(tokLParen))
     {
         parseExpr(code);
@@ -74,14 +72,14 @@ ShType* ShModule::parseAtom(VmCode& code)
         parser.next();
         if (!queenBee->defaultInt->contains(value))
             error("Value out of range (use the 'L' suffix for large consts)");
-        code.genLoadConst(ShValue(queenBee->defaultInt, value));
+        code.genLoadIntConst(queenBee->defaultInt, value);
     }
 
     else if (parser.token == tokLargeValue)
     {
         ularge value = parser.largeValue; // largeValue is unsigned int
         parser.next();
-        code.genLoadConst(ShValue(queenBee->defaultLarge, value));
+        code.genLoadLargeConst(queenBee->defaultLarge, value);
     }
 
     // string or char literal
@@ -91,13 +89,13 @@ ShType* ShModule::parseAtom(VmCode& code)
         {
             int value = (unsigned)parser.strValue[0];
             parser.next();
-            code.genLoadConst(ShValue(queenBee->defaultChar, value));
+            code.genLoadIntConst(queenBee->defaultChar, value);
         }
         else
         {
-            const string s = registerString(parser.strValue);
+            string s = parser.strValue;
             parser.next();
-            code.genLoadConst(ShValue(queenBee->defaultStr, s));
+            code.genLoadStrConst(registerString(s).c_bytes());
         }
     }
 
@@ -108,12 +106,16 @@ ShType* ShModule::parseAtom(VmCode& code)
         bool isAlias = obj->isTypeAlias();
         // symbolic constant
         if (obj->isConstant())
-            code.genLoadConst(((ShConstant*)obj)->value);
+        {
+            ShConstant* c = (ShConstant*)obj;
+            code.genLoadConst(c->value.type, c->value.value);
+        }
 
         // type or type alias: static cast
         // only typeid(expr) is allowed for function-style typecasts
         else if (obj->isType() || isAlias)
         {
+            // TODO: type casts must be in parseDesignator()
             ShType* type = isAlias ? ((ShTypeAlias*)obj)->base : (ShType*)obj;
             if (parser.token == tokLParen)
             {
@@ -148,13 +150,13 @@ ShType* ShModule::parseAtom(VmCode& code)
     }
 
     else if (parser.skipIf(tokTrue))
-        code.genLoadConst(ShValue(queenBee->defaultBool, 1));
+        code.genLoadIntConst(queenBee->defaultBool, 1);
 
     else if (parser.skipIf(tokFalse))
-        code.genLoadConst(ShValue(queenBee->defaultBool, myFunnyZeroValue));
+        code.genLoadIntConst(queenBee->defaultBool, 0);
     
     else if (parser.skipIf(tokNull))
-        code.genLoadConst(ShValue(queenBee->defaultVoid, myFunnyZeroValue));
+        code.genLoadNull();
     
     else
         errorWithLoc("Expression syntax");
@@ -279,7 +281,7 @@ ShType* ShModule::parseAndLevel(VmCode& code)
     {
         if (parser.skipIf(tokAnd))
         {
-            int saveOffset = code.genForwardJump(opJumpAnd);
+            int saveOffset = code.genForwardBoolJump(opJumpAnd);
             ShType* right = parseAndLevel(code);
             if (!right->isBool())
                 error("Boolean expression expected after 'and'");
@@ -316,7 +318,7 @@ ShType* ShModule::parseOrLevel(VmCode& code)
     {
         if (parser.skipIf(tokOr))
         {
-            int saveOffset = code.genForwardJump(opJumpOr);
+            int saveOffset = code.genForwardBoolJump(opJumpOr);
             ShType* right = parseOrLevel(code);
             if (!right->isBool())
                 error("Boolean expression expected after 'or'");
@@ -372,14 +374,14 @@ ShType* ShModule::parseSubrange(VmCode& code)
 }
 
 
-ShValue ShModule::getConstExpr(ShType* typeHint)
+void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
     VmCode code(currentScope);
     if (typeHint != NULL && typeHint->isBool())
         parseBoolExpr(code);
     else
         parseExpr(code);
-    ShValue result = code.runConstExpr();
+    code.runConstExpr(result);
 
     if (typeHint == NULL)
         typeHint = result.type;
@@ -388,17 +390,16 @@ ShValue ShModule::getConstExpr(ShType* typeHint)
         error("Type mismatch in constant expression: " + typeVsType(typeHint, result.type));
 
     if (typeHint->isOrdinal() && result.type->isOrdinal()
-        && !POrdinal(typeHint)->contains(result.value.large_))
+        && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
 
     else if (typeHint->isString() && result.type->isChar())
-        result = ShValue(queenBee->defaultStr,
-            registerString(string(char(result.value.int_))));
+        result.assignStr(queenBee->defaultStr,
+            registerString(char(result.value.int_)).c_bytes());
 
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
 
-    return result;
 }
 
 
@@ -462,7 +463,8 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 
     try
     {
-        ShValue value = getConstExpr(NULL);
+        ShValue value;
+        getConstExpr(NULL, value);
         if (value.type->isTypeRef())
             return (ShType*)value.value.ptr_;
         else if (value.type->isRange())
@@ -501,7 +503,7 @@ ShEnum* ShModule::parseEnumType()
         int nextVal = type->nextValue();
         if (nextVal == INT_MAX)
             error("Enum constant has hit the ceilinig, man.");
-        ShConstant* value = new ShConstant(ident, ShValue(type, nextVal));
+        ShConstant* value = new ShConstant(ident, type, nextVal);
         addObject(value);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
@@ -553,7 +555,8 @@ void ShModule::parseVarConstDef(bool isVar)
     }
 
     parser.skip(tokAssign, "=");
-    ShValue value = getConstExpr(type);
+    ShValue value;
+    getConstExpr(type, value);
     if (type == NULL) // auto
         type = value.type;
     else
