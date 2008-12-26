@@ -82,7 +82,7 @@ protected:
             PodArray<T>::_alloc(old.bytesize());
             for (int i = 0; i < PodArray<T>::size(); i++)
                 ::new(&PodArray<T>::_at(i)) T(old._at(i));
-            PodArray<T>::_unref(old);
+            PodArray<T>::_unlock(old);
         }
     }
 

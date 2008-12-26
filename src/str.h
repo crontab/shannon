@@ -42,7 +42,6 @@ protected:
 
     void _alloc(int);
     void _realloc(int);
-    int  _unlock();
     void _empty()  { data = emptystr; }
     void _free();
 
@@ -54,7 +53,6 @@ protected:
     void initialize(const char*, int, const char*, int);
     void finalize();
     static void _freedata(char*);
-    static void _unref(string& s);
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
@@ -134,6 +132,16 @@ public:
     friend bool operator== (char, const string&);
     friend bool operator!= (const char*, const string&);
     friend bool operator!= (char, const string&);
+    
+    // internal stuff, use with care!
+//    void* _lock() const
+//            { pincrement(&STR_REFCOUNT(data)); return (void*)data; }
+    int  _unlock()
+            { return pdecrement(&STR_REFCOUNT(data)); }
+//    static void _finalize(void* p)
+//            { PTR_TO_PSTRING(p)->finalize(); }
+    static void _unlock(string& s) // this solves a visibility problem
+            { s._unlock(); }
 };
 
 
