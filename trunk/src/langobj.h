@@ -165,6 +165,7 @@ protected:
 
 public:
     ShScope(const string& name, ShTypeId iTypeId);
+    ~ShScope();
     virtual bool isScope() const
             { return true; }
     virtual string displayValue(const ShValue&) const
@@ -233,6 +234,8 @@ public:
             { return range.min == r.min && range.max == r.max; }
     bool rangeEquals(large n, large x) const
             { return range.min == n && range.max == x; }
+    bool rangeIsGreaterOrEqual(ShOrdinal* obj)
+            { return range.min <= obj->range.min && range.max >= obj->range.max; }
     bool rangeIsGreaterOrEqual(large n, large x)
             { return range.min <= n && range.max >= x; }
     ShRange* deriveRangeType(ShScope* scope);
@@ -532,11 +535,13 @@ class ShModule: public ShScope
     ShType* getTypeOrNewIdent(string* strToken);
     void parseAtom(VmCode&);
     void parseDesignator(VmCode&);
+    ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
     void parseFactor(VmCode&);
     void parseTerm(VmCode&);
     void parseSimpleExpr(VmCode&);
+    void parseRelExpr(VmCode&);
     void parseSubrange(VmCode&);
-    void parseExpr(VmCode&);
+    void parseExpr(VmCode& code)  { parseSubrange(code); }
     ShValue getConstExpr(ShType* typeHint);
 
     ShEnum* parseEnumType();

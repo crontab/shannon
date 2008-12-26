@@ -122,6 +122,15 @@ ShConstant::ShConstant(const string& name, const ShValue& iValue)
 ShScope::ShScope(const string& name, ShTypeId iTypeId)
         : ShType(name, iTypeId)  { }
 
+ShScope::~ShScope()
+{
+    // Order is important
+    typeAliases.clear();
+    consts.clear();
+    vars.clear();
+    types.clear();
+}
+
 ShBase* ShScope::own(ShBase* obj)
 {
     if (obj->owner != NULL)
@@ -290,7 +299,12 @@ string ShInteger::getFullDefinition(const string& objName) const
 }
 
 string ShInteger::displayValue(const ShValue& v) const
-    { return itostring(large(isLargeInt() ? v.value.large_ : v.value.int_)); }
+{
+    if (isLargeInt())
+        return itostring(v.value.large_) + 'L';
+    else
+        return itostring(v.value.int_);
+}
 
 ShOrdinal* ShInteger::cloneWithRange(large min, large max)
     { return new ShInteger(min, max); }

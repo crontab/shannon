@@ -21,13 +21,12 @@ enum OpCode
     opEnd,          // []
     opNop,          // []
     
-    // opLoadZero,     // []                   +1
-    // opLoadLargeZero,// []                   +1
-    // opLoadOne
-    // opLoadLargeOne
+    opLoadZero,     // []                   +1
+    opLoadLargeZero,// []                   +1
+    opLoadOne,      // []                   +1
+    opLoadLargeOne, // []                   +1
     opLoadInt,      // [int]                +1
     opLoadLarge,    // [large]            +2/1
-    opLoadChar,     // [int]                +1
     opLoadFalse,    // []                   +1
     opLoadTrue,     // []                   +1
     opLoadNull,     // []                   +1
@@ -63,24 +62,42 @@ enum OpCode
     // binary
     opMkSubrange,   // []               -2  +1
 
-    opAddInt,       // []               -2  +1
+    opAdd,          // []               -2  +1
     opAddLarge,     // []               -2  +1
-    opSubInt,       // []               -2  +1
+    opSub,          // []               -2  +1
     opSubLarge,     // []               -2  +1
-    opMulInt,       // []               -2  +1
+    opMul,          // []               -2  +1
     opMulLarge,     // []               -2  +1
-    opDivInt,       // []               -2  +1
+    opDiv,          // []               -2  +1
     opDivLarge,     // []               -2  +1
+    opMod,          // []               -2  +1
+    opModLarge,     // []               -2  +1
+    opBitAnd,       // []               -2  +1
+    opBitAndLarge,  // []               -2  +1
+    opBitOr,        // []               -2  +1
+    opBitOrLarge,   // []               -2  +1
+    opBitXor,       // []               -2  +1
+    opBitXorLarge,  // []               -2  +1
+    opBitShl,       // []               -2  +1
+    opBitShlLarge,  // []               -2  +1
+    opBitShr,       // []               -2  +1
+    opBitShrLarge,  // []               -2  +1
+
+    opVec1Cat,      // []               -2  +1   vec + vec
+    opVec1AddElem,  // []               -2  +1   vec + elem
+    opElemAddVec1,  // []               -2  +1   elem + vec
 
     // unary
-    opIntNeg,       // []               -1  +1
-    opLargeNeg,     // []               -1  +1
+    opNeg,          // []               -1  +1
+    opNegLarge,     // []               -1  +1
 
     // TODO: linenum, rangecheck opcodes
+
+    opMaxCode,
     
+    opCmpFirst = opEQ,
+
     opInv = -1,
-    
-    opCmpFirst = opEQ
 };
 
 
@@ -115,19 +132,19 @@ public:
     ptr   popPtr()            { return pop().ptr_; }
     int   topInt() const      { return stack.top().int_; }
     ptr   topPtr() const      { return stack.top().ptr_; }
-    int&  topIntRef()         { return stack.top().int_; }
+    int*  topIntRef()         { return &stack.top().int_; }
 
 #ifdef PTR64
     void   pushLarge(large v) { push().large_ = v; }
     large  popLarge()         { return pop().large_; }
-    large& topLarge()         { return stack.top().large_; }
-    large& topLargeRef()      { return stack.top().large_; }
+    large  topLarge() const   { return stack.top().large_; }
+    large* topLargeRef()      { return &stack.top().large_; }
 #else
     void  pushLarge(large v)
         { push().int_ = int(v); push().int_ = int(v >> 32); }
     large popLarge()
         { int hi = popInt(); return largerec(popInt(), hi); }
-    large topLarge()
+    large topLarge() const
         { return (large(stack.at(-1).int_) << 32) | unsigned(stack.at(-2).int_); }
 #endif
 };
@@ -178,8 +195,8 @@ public:
     void genMkSubrange();
     void genComparison(OpCode);
     void genStaticCast(ShType*);
-    void genInsCastToLarge(int at)      { genInsOp(at, opIntToLarge); }
-    void genCastToLarge()               { genOp(opIntToLarge); }
+    void genBinArithm(OpCode op, ShInteger*);
+    void genUnArithm(OpCode op, ShInteger*);
     void endGeneration();
     
     ShValue runConstExpr();

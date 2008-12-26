@@ -35,7 +35,19 @@ string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
 
 # Expressions
 
-atom ::= literal | qualified-name | subexpr | array-ctor
+expr ::= rel-expr [ '..' rel-expr ]
+
+rel-expr ::= simple-expr { ( '==' | '<' | '<=' | '>=' | '>' | '!=' ) simple-expr }
+
+simple-expr ::= term { ( '+' | '-' | 'or' | 'xor' ) term }
+
+term ::= factor { ( '*' | '/' | 'mod' | 'and' | 'shl' | 'shr' ) factor }
+
+factor ::= [ '-' | 'not' ] designator
+
+designator ::= atom { }
+
+atom ::= literal | qualified-name | subexpr | compound-ctor
     | fifo-ctor | type
 
 literal ::= number | string | "true" | "false" | "null"
@@ -43,7 +55,6 @@ literal ::= number | string | "true" | "false" | "null"
 qualified-name ::= { ident "." } ident
 
 subexpr ::= "(" expr ")"
-
 
 
 
@@ -67,7 +78,7 @@ fifo-pull ::= atom "::" expr
 
 fifo-filter ::= atom "||" expr
 
-subrange ::= simple-expr ".." simple-expr
+subrange ::= rel-expr ".." rel-expr
 
 
 # Module
