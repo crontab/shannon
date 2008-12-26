@@ -96,18 +96,24 @@ enum Token
     tokBegin, tokEnd, tokSep, // these will depend on C-style vs. Python-style modes in the future
     tokEof,
     tokIdent, tokIntValue, tokLargeValue, tokStrValue,
-    // keywords
+
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
-    tokEnum,
+    tokEnum, tokAnd,
     
     // the order in this group is important: it's in sync with OpComparison
     tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
+
+    // simple expr level
+    tokPlus, tokMinus, tokOr, tokXor,
+    
+    // term level
+    tokMul, tokDiv, tokMod, tokShl, tokShr,
     
     // special chars and sequences
     tokIn, tokIs,
-    tokComma, tokPeriod, tokRange, tokDiv, tokMul,
+    tokComma, tokPeriod, tokRange,
     tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
-    tokAssign,
+    tokAssign, tokExclam,
     
     // aliases; don't define new consts after this group
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,

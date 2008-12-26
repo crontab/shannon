@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "str.h"
@@ -24,7 +25,7 @@ string typeVsType(ShType* a, ShType* b)
     <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>, true, false, null
     <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
-    *, /, div, mod, and, shl, shr, as
+    *, /, mod, and, shl, shr, as
     +, –, or, xor
     ..
     ==, <>, != <, >, <=, >=, in, is
@@ -165,31 +166,129 @@ void ShModule::parseDesignator(VmCode& code)
 
 void ShModule::parseFactor(VmCode& code)
 {
+    // TODO: boolean NOT
+    bool isNeg = parser.token == tokMinus;
+    if (isNeg)
+        parser.next();
     parseDesignator(code);
+    if (isNeg)
+    {
+        ShType* type = code.topType();
+        if (!type->isInt())
+            error("Invalid operand for arithmetic negation");
+        code.genUnArithm(opNeg, PInteger(type));
+    }
+}
+
+
+ShInteger* ShModule::arithmResultType(ShInteger* left, ShInteger* right)
+{
+    if (PInteger(left)->isLargeInt() != PInteger(right)->isLargeInt())
+        error("Mixing int and large: typecast needed (or 'L' with numbers)");
+    ShInteger* resultType = PInteger(left);
+    if (PInteger(right)->rangeIsGreaterOrEqual(PInteger(left)))
+        resultType = PInteger(right);
+    return resultType;
 }
 
 
 void ShModule::parseTerm(VmCode& code)
 {
     parseFactor(code);
+    while (parser.token >= tokMul && parser.token <= tokShr)
+    {
+        Token tok = parser.token;
+        parser.next();
+        ShType* left = code.topType();
+        parseFactor(code);
+        ShType* right = code.topType();
+        if (left->isInt() && right->isInt())
+        {
+            if ((tok == tokShl || tok == tokShr) && PInteger(right)->isLargeInt())
+                error("Right operand of a bit shift can not be large");
+            OpCode op;
+            switch (tok)
+            {
+                case tokMul: op = opMul; break;
+                case tokDiv: op = opDiv; break;
+                case tokMod: op = opMod; break;
+                case tokAnd: op = opBitAnd; break;
+                case tokShl: op = opBitShl; break;
+                case tokShr: op = opBitShr; break;
+                default: op = opInv;
+            }
+            code.genBinArithm(op, arithmResultType(PInteger(left), PInteger(right)));
+        }
+        
+        // TODO: boolean ops: short evaluation (jumps)
+        
+        else
+            error("Invalid operands for arithmetic operator");
+    }
 }
 
 
 void ShModule::parseSimpleExpr(VmCode& code)
 {
     parseTerm(code);
+    while (parser.token >= tokPlus && parser.token <= tokXor)
+    {
+        Token tok = parser.token;
+        parser.next();
+        ShType* left = code.topType();
+        parseTerm(code);
+        ShType* right = code.topType();
+
+        // Arithmetic
+        if (left->isInt() && right->isInt())
+        {
+            OpCode op;
+            switch (tok)
+            {
+                case tokPlus: op = opAdd; break;
+                case tokMinus: op = opSub; break;
+                case tokOr: op = opBitOr; break;
+                case tokXor: op = opBitXor; break;
+                default: op = opInv;
+            }
+            code.genBinArithm(op, arithmResultType(PInteger(left), PInteger(right)));
+        }
+
+        // TODO: boolean ops: short evaluation (jumps)
+        
+        // TODO: string/vector ops
+        else
+            error("Invalid operands for arithmetic operator");
+    }
+}
+
+
+void ShModule::parseRelExpr(VmCode& code)
+{
+    parseSimpleExpr(code);
+    if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
+    {
+        OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
+        ShType* left = code.topType();
+        parser.next();
+        parseSimpleExpr(code);
+        ShType* right = code.topType();
+        if (!left->isCompatibleWith(right))
+            error("Type mismatch in comparison: " + typeVsType(left, right));
+        code.genComparison(op);
+    }
 }
 
 
 void ShModule::parseSubrange(VmCode& code)
 {
-    parseSimpleExpr(code);
+    parseRelExpr(code);
     if (parser.token == tokRange)
     {
         // Check bounds for left < right maybe? Or maybe not.
         ShType* left = code.topType();
         parser.next();
-        parseSimpleExpr(code);
+        parseRelExpr(code);
         ShType* right = code.topType();
         if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
@@ -198,23 +297,6 @@ void ShModule::parseSubrange(VmCode& code)
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
         code.genMkSubrange();
-    }
-}
-
-
-void ShModule::parseExpr(VmCode& code)
-{
-    parseSubrange(code);
-    while (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
-    {
-        OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
-        ShType* left = code.topType();
-        parser.next();
-        parseSubrange(code);
-        ShType* right = code.topType();
-        if (!left->isCompatibleWith(right))
-            error("Type mismatch in comparison: " + typeVsType(left, right));
-        code.genComparison(op);
     }
 }
 

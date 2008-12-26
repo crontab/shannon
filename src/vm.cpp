@@ -60,15 +60,16 @@ void VmCode::run(VmQuant* p)
         case opNop: break;
 
         // --- LOADERS ----------------------------------------------------- //
-        // case opLoadZero: vmStack.pushInt(0); break;
-        // case opLoadLargeZero: vmStack.pushLarge(0); break;
+        case opLoadZero: vmStack.pushInt(0); break;
+        case opLoadLargeZero: vmStack.pushLarge(0); break;
+        case opLoadOne: vmStack.pushInt(1); break;
+        case opLoadLargeOne: vmStack.pushLarge(1); break;
         case opLoadInt: vmStack.pushInt((p++)->int_); break;
 #ifdef PTR64
         case opLoadLarge: vmStack.pushLarge((p++)->large_); break;
 #else
         case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
 #endif
-        case opLoadChar: vmStack.pushInt((p++)->int_); break;
         case opLoadFalse: vmStack.pushInt(0); break;
         case opLoadTrue: vmStack.pushInt(1); break;
         case opLoadNull: vmStack.pushInt(0); break;
@@ -80,8 +81,8 @@ void VmCode::run(VmQuant* p)
         case opCmpInt:
             {
                 int r = vmStack.popInt();
-                int& t = vmStack.topIntRef();
-                t = compareInt(t, r);
+                int* t = vmStack.topIntRef();
+                *t = compareInt(*t, r);
             }
             break;
         case opCmpLarge:
@@ -108,16 +109,16 @@ void VmCode::run(VmQuant* p)
         case opCmpChrStr:
             {
                 ptr r = vmStack.popPtr();
-                int& t = vmStack.topIntRef();
-                t = compareChrStr(t, r);
+                int* t = vmStack.topIntRef();
+                *t = compareChrStr(*t, r);
             }
             break;
-        case opEQ: { int& t = vmStack.topIntRef(); t = t == 0; } break;
-        case opLT: { int& t = vmStack.topIntRef(); t = t < 0; } break;
-        case opLE: { int& t = vmStack.topIntRef(); t = t <= 0; } break;
-        case opGE: { int& t = vmStack.topIntRef(); t = t >= 0; } break;
-        case opGT: { int& t = vmStack.topIntRef(); t = t > 0; } break;
-        case opNE: { int& t = vmStack.topIntRef(); t = t != 0; } break;
+        case opEQ: { int* t = vmStack.topIntRef(); *t = *t == 0; } break;
+        case opLT: { int* t = vmStack.topIntRef(); *t = *t < 0; } break;
+        case opLE: { int* t = vmStack.topIntRef(); *t = *t <= 0; } break;
+        case opGE: { int* t = vmStack.topIntRef(); *t = *t >= 0; } break;
+        case opGT: { int* t = vmStack.topIntRef(); *t = *t > 0; } break;
+        case opNE: { int* t = vmStack.topIntRef(); *t = *t != 0; } break;
 
         // typecasts
         case opLargeToInt: vmStack.pushInt(vmStack.popLarge()); break;
@@ -135,6 +136,34 @@ void VmCode::run(VmQuant* p)
         case opMkSubrange: /* two ints become a subrange, haha! */ break;
 #endif
 
+        case opAdd: { int r = vmStack.popInt(); *vmStack.topIntRef() += r; } break;
+        case opAddLarge: { vmStack.pushLarge(vmStack.popLarge() + vmStack.popLarge()); } break;
+        case opSub: { int r = vmStack.popInt(); *vmStack.topIntRef() -= r; } break;
+        case opSubLarge: { vmStack.pushLarge(vmStack.popLarge() - vmStack.popLarge()); } break;
+        case opMul: { int r = vmStack.popInt(); *vmStack.topIntRef() *= r; } break;
+        case opMulLarge: { vmStack.pushLarge(vmStack.popLarge() * vmStack.popLarge()); } break;
+        case opDiv: { int r = vmStack.popInt(); *vmStack.topIntRef() /= r; } break;
+        case opDivLarge: { vmStack.pushLarge(vmStack.popLarge() / vmStack.popLarge()); } break;
+        case opMod: { int r = vmStack.popInt(); *vmStack.topIntRef() %= r; } break;
+        case opModLarge: { vmStack.pushLarge(vmStack.popLarge() % vmStack.popLarge()); } break;
+        case opBitAnd: { int r = vmStack.popInt(); *vmStack.topIntRef() &= r; } break;
+        case opBitAndLarge: { vmStack.pushLarge(vmStack.popLarge() & vmStack.popLarge()); } break;
+        case opBitOr: { int r = vmStack.popInt(); *vmStack.topIntRef() |= r; } break;
+        case opBitOrLarge: { vmStack.pushLarge(vmStack.popLarge() | vmStack.popLarge()); } break;
+        case opBitXor: { int r = vmStack.popInt(); *vmStack.topIntRef() ^= r; } break;
+        case opBitXorLarge: { vmStack.pushLarge(vmStack.popLarge() ^ vmStack.popLarge()); } break;
+        case opBitShl: { int r = vmStack.popInt(); *vmStack.topIntRef() <<= r; } break;
+        case opBitShlLarge: { vmStack.pushLarge(vmStack.popLarge() << vmStack.popInt()); } break;
+        case opBitShr: { int r = vmStack.popInt(); *vmStack.topIntRef() >>= r; } break;
+        case opBitShrLarge: { vmStack.pushLarge(vmStack.popLarge() >> vmStack.popInt()); } break;
+
+        case opNeg: { int* t = vmStack.topIntRef(); *t = -*t; } break;
+        case opNegLarge: { vmStack.pushLarge(-vmStack.popLarge()); } break;
+/*        
+    opVec1Cat,      // []               -2  +1   vec + vec
+    opVec1AddElem,  // []               -2  +1   vec + elem
+    opElemAddVec1,  // []               -2  +1   elem + vec
+*/
         default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
     }
@@ -203,21 +232,32 @@ void VmCode::genLoadConst(const ShValue& v)
     if (v.type->isOrdinal())
     {
         if (v.type->isBool())
-            genOp(v.value.int_ ? opLoadTrue : opLoadFalse);
-        else if (v.type->isChar())
         {
-            genOp(opLoadChar);
-            genInt(v.value.int_);
+            genOp(v.value.int_ ? opLoadTrue : opLoadFalse);
         }
         else if (POrdinal(v.type)->isLargeInt())
         {
-            genOp(opLoadLarge);
-            genLarge(v.value.large_);
+            if (v.value.large_ == 0)
+                genOp(opLoadLargeZero);
+            else if (v.value.large_ == 1)
+                genOp(opLoadLargeOne);
+            else
+            {
+                genOp(opLoadLarge);
+                genLarge(v.value.large_);
+            }
         }
         else
         {
-            genOp(opLoadInt);
-            genInt(v.value.int_);
+            if (v.value.int_ == 0)
+                genOp(opLoadZero);
+            else if (v.value.int_ == 1)
+                genOp(opLoadOne);
+            else
+            {
+                genOp(opLoadInt);
+                genInt(v.value.int_);
+            }
         }
     }
     else if (v.type->isString())
@@ -303,6 +343,23 @@ void VmCode::genStaticCast(ShType* type)
         genOp(opLargeToInt);
     else if (!isSrcLarge && isDstLarge)
         genOp(opIntToLarge);
+}
+
+
+void VmCode::genBinArithm(OpCode op, ShInteger* resultType)
+{
+    genPopType();
+    genPopType();
+    genPush(resultType);
+    genOp(OpCode(op + resultType->isLargeInt()));
+}
+
+
+void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
+{
+    genPopType();
+    genPush(resultType);
+    genOp(OpCode(op + resultType->isLargeInt()));
 }
 
 

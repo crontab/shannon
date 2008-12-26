@@ -228,17 +228,23 @@ public:
 Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list must be kept in sorted order
+        {"and", tokAnd},
         {"const", tokConst},
         {"def", tokDef},
         {"enum", tokEnum},
         {"false", tokFalse},
         {"in", tokIn},
         {"is", tokIs},
+        {"mod", tokMod},
         {"module", tokModule},
         {"null", tokNull},
+        {"or", tokOr},
+        {"shl", tokShl},
+        {"shr", tokShr},
         {"true", tokTrue},
         {"typeof", tokTypeOf},
         {"var", tokVar},
+        {"xor", tokXor},
         {NULL, tokUndefined}
     };
 
@@ -578,6 +584,8 @@ restart:
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
             return token = tokBegin;
+        case '+': return token = tokPlus;
+        case '-': return token = tokMinus;
         case '/': return token = tokDiv;
         case '*': return token = tokMul;
         case '[': return token = tokLSquare;
@@ -586,16 +594,10 @@ restart:
         case ')': return token = tokRParen;
         // case '{': return token = tokLCurly;
         // case '}': return token = tokRCurly;
-        case '<':
-            if (input->preview() == '=')
-                { input->get(); token = tokLessEq; }
-            else if (input->preview() == '>')
-                { input->get(); token = tokNotEq; }
-            else
-                token = tokLAngle;
-            return token;
+        case '<': return token = (input->getIf('=') ? tokLessEq : tokLAngle);
         case '>': return token = (input->getIf('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->getIf('=') ? tokEqual : tokAssign);
+        case '!': return token = (input->getIf('=') ? tokNotEq : tokExclam);
         }
     }
 
