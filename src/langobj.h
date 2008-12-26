@@ -64,7 +64,7 @@ enum ShTypeId
 
 class ShType: public ShBase
 {
-    int typeId;
+    ShTypeId typeId;
     ShVector* derivedVectorType;
     ShSet* derivedSetType;
 
@@ -533,15 +533,21 @@ class ShModule: public ShScope
     ShType* getDerivators(ShType*);
     ShType* getType();
     ShType* getTypeOrNewIdent(string* strToken);
-    void parseAtom(VmCode&);
-    void parseDesignator(VmCode&);
+    ShType* parseAtom(VmCode&);
+    ShType* parseDesignator(VmCode&);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
-    void parseFactor(VmCode&);
-    void parseTerm(VmCode&);
-    void parseSimpleExpr(VmCode&);
-    void parseRelExpr(VmCode&);
-    void parseSubrange(VmCode&);
-    void parseExpr(VmCode& code)  { parseSubrange(code); }
+    ShType* parseFactor(VmCode&);
+    ShType* parseTerm(VmCode&);
+    ShType* parseSimpleExpr(VmCode&);
+    ShType* parseRelExpr(VmCode&);
+    ShType* parseNotLevel(VmCode&);
+    ShType* parseAndLevel(VmCode&);
+    ShType* parseOrLevel(VmCode&);
+    ShType* parseSubrange(VmCode&);
+    ShType* parseBoolExpr(VmCode& code)
+            { return parseOrLevel(code); }
+    ShType* parseExpr(VmCode& code)
+            { return parseSubrange(code); }
     ShValue getConstExpr(ShType* typeHint);
 
     ShEnum* parseEnumType();

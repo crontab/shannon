@@ -89,7 +89,7 @@ void  operator delete[](void*) throw();
 // --- MISC --------------------------------------------------------------- //
 
 #define CRIT_FIRST 0x10000
-#define RUNTIME_FIRST 0x100
+#define RUNTIME_FIRST 200
 
 void fatal(int code, const char* msg);
 

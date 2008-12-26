@@ -21,9 +21,11 @@
 
 ident ::= ( letter | "_" ) ## { letter | digit | "_" }
 
-decimal ::= digit ## { digit }
+number ::= decimal | hexadecimal
 
-hexadecimal ::= '0x' ## hexdigit ## { hexdigit }
+decimal ::= digit ## { digit } [ ## 'L' ]
+
+hexadecimal ::= '0x' ## hexdigit ## { hexdigit } [ ## 'L' ]
 
 string-literal ::= "'" ## { string-element } ## "'"
 
@@ -35,13 +37,19 @@ string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
 
 # Expressions
 
-expr ::= rel-expr [ '..' rel-expr ]
+expr ::= or-expr [ '..' or-expr ]
+
+or-expr ::= and-expr { ( 'or' | 'xor' ) and-expr }
+
+and-expr ::= not-expr { ( 'and' | 'shl' | 'shr' ) not-expr }
+
+not-expr ::= [ 'not' ] rel-expr
 
 rel-expr ::= simple-expr { ( '==' | '<' | '<=' | '>=' | '>' | '!=' ) simple-expr }
 
-simple-expr ::= term { ( '+' | '-' | 'or' | 'xor' ) term }
+simple-expr ::= term { ( '+' | '-' ) term }
 
-term ::= factor { ( '*' | '/' | 'mod' | 'and' | 'shl' | 'shr' ) factor }
+term ::= factor { ( '*' | '/' | 'mod' ) factor }
 
 factor ::= [ '-' | 'not' ] designator
 

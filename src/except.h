@@ -23,15 +23,6 @@ public:
 };
 
 
-class EInternal: public EMessage
-{
-public:
-    EInternal(int code);
-    EInternal(int code, string const& hint);
-    virtual ~EInternal();
-};
-
-
 class EDuplicate: public Exception
 {
     string entry;
@@ -54,6 +45,9 @@ public:
     virtual ~ESysError();
     virtual string what() const;
 };
+
+
+void internal(int code);
 
 
 #endif

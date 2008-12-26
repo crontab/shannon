@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "str.h"
 #include "except.h"
@@ -27,6 +28,8 @@ string typeVsType(ShType* a, ShType* b)
     -, not
     *, /, mod, and, shl, shr, as
     +, –, or, xor
+    and
+    or, xor
     ..
     ==, <>, != <, >, <=, >=, in, is
 */
@@ -54,7 +57,7 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
-void ShModule::parseAtom(VmCode& code)
+ShType* ShModule::parseAtom(VmCode& code)
 {
     static int myFunnyZeroValue = 0; // are you happy now, GCC?
 
@@ -155,29 +158,29 @@ void ShModule::parseAtom(VmCode& code)
     
     else
         errorWithLoc("Expression syntax");
+
+    return code.topType();
 }
 
 
-void ShModule::parseDesignator(VmCode& code)
+ShType* ShModule::parseDesignator(VmCode& code)
 {
-    parseAtom(code);
+    return parseAtom(code);
 }
 
 
-void ShModule::parseFactor(VmCode& code)
+ShType* ShModule::parseFactor(VmCode& code)
 {
-    // TODO: boolean NOT
-    bool isNeg = parser.token == tokMinus;
-    if (isNeg)
-        parser.next();
-    parseDesignator(code);
+    bool isNeg = parser.skipIf(tokMinus);
+    ShType* resultType = parseDesignator(code);
     if (isNeg)
     {
-        ShType* type = code.topType();
-        if (!type->isInt())
+        resultType = code.topType();
+        if (!resultType->isInt())
             error("Invalid operand for arithmetic negation");
-        code.genUnArithm(opNeg, PInteger(type));
+        code.genUnArithm(opNeg, PInteger(resultType));
     }
+    return resultType;
 }
 
 
@@ -192,104 +195,170 @@ ShInteger* ShModule::arithmResultType(ShInteger* left, ShInteger* right)
 }
 
 
-void ShModule::parseTerm(VmCode& code)
+ShType* ShModule::parseTerm(VmCode& code)
 {
-    parseFactor(code);
-    while (parser.token >= tokMul && parser.token <= tokShr)
+    ShType* left = parseFactor(code);
+    while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
     {
         Token tok = parser.token;
         parser.next();
-        ShType* left = code.topType();
-        parseFactor(code);
-        ShType* right = code.topType();
+        ShType* right = parseFactor(code);
         if (left->isInt() && right->isInt())
         {
-            if ((tok == tokShl || tok == tokShr) && PInteger(right)->isLargeInt())
-                error("Right operand of a bit shift can not be large");
-            OpCode op;
-            switch (tok)
-            {
-                case tokMul: op = opMul; break;
-                case tokDiv: op = opDiv; break;
-                case tokMod: op = opMod; break;
-                case tokAnd: op = opBitAnd; break;
-                case tokShl: op = opBitShl; break;
-                case tokShr: op = opBitShr; break;
-                default: op = opInv;
-            }
-            code.genBinArithm(op, arithmResultType(PInteger(left), PInteger(right)));
+            left = arithmResultType(PInteger(left), PInteger(right));
+            code.genBinArithm(tok == tokMul ? opMul
+                : tok == tokDiv ? opDiv : opMod, PInteger(left));
         }
-        
-        // TODO: boolean ops: short evaluation (jumps)
-        
         else
             error("Invalid operands for arithmetic operator");
     }
+    return left;
 }
 
 
-void ShModule::parseSimpleExpr(VmCode& code)
+ShType* ShModule::parseSimpleExpr(VmCode& code)
 {
-    parseTerm(code);
-    while (parser.token >= tokPlus && parser.token <= tokXor)
+    ShType* left = parseTerm(code);
+    while (parser.token == tokPlus || parser.token == tokMinus)
     {
         Token tok = parser.token;
         parser.next();
-        ShType* left = code.topType();
-        parseTerm(code);
-        ShType* right = code.topType();
-
-        // Arithmetic
+        ShType* right = parseTerm(code);
         if (left->isInt() && right->isInt())
         {
-            OpCode op;
-            switch (tok)
-            {
-                case tokPlus: op = opAdd; break;
-                case tokMinus: op = opSub; break;
-                case tokOr: op = opBitOr; break;
-                case tokXor: op = opBitXor; break;
-                default: op = opInv;
-            }
-            code.genBinArithm(op, arithmResultType(PInteger(left), PInteger(right)));
+            left = arithmResultType(PInteger(left), PInteger(right));
+            code.genBinArithm(tok == tokPlus ? opAdd : opSub,
+                PInteger(left));
         }
-
-        // TODO: boolean ops: short evaluation (jumps)
-        
         // TODO: string/vector ops
         else
             error("Invalid operands for arithmetic operator");
     }
+    return left;
 }
 
 
-void ShModule::parseRelExpr(VmCode& code)
+ShType* ShModule::parseRelExpr(VmCode& code)
 {
-    parseSimpleExpr(code);
+    ShType* left = parseSimpleExpr(code);
     if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
     {
         OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
-        ShType* left = code.topType();
         parser.next();
-        parseSimpleExpr(code);
-        ShType* right = code.topType();
+        ShType* right = parseSimpleExpr(code);
         if (!left->isCompatibleWith(right))
             error("Type mismatch in comparison: " + typeVsType(left, right));
         code.genComparison(op);
+        left = code.topType();
     }
+    return left;
 }
 
 
-void ShModule::parseSubrange(VmCode& code)
+ShType* ShModule::parseNotLevel(VmCode& code)
 {
-    parseRelExpr(code);
+    bool isNot = parser.skipIf(tokNot);
+    ShType* type = parseRelExpr(code);
+    if (isNot)
+    {
+        if (type->isInt())
+            code.genBitNot(PInteger(type));
+        else if (type->isBool())
+            code.genBoolNot();
+        else
+            error("Boolean or integer expression expected after 'not'");
+    }
+    return type;
+}
+
+
+ShType* ShModule::parseAndLevel(VmCode& code)
+{
+    ShType* left = parseNotLevel(code);
+    if (left->isBool())
+    {
+        if (parser.skipIf(tokAnd))
+        {
+            int saveOffset = code.genForwardJump(opJumpAnd);
+            ShType* right = parseAndLevel(code);
+            if (!right->isBool())
+                error("Boolean expression expected after 'and'");
+            code.genResolveJump(saveOffset);
+        }
+    }
+    else if (left->isInt())
+    {
+        while (parser.token == tokShl || parser.token == tokShr || parser.token == tokAnd)
+        {
+            Token tok = parser.token;
+            parser.next();
+            ShType* right = parseNotLevel(code);
+            if (right->isInt())
+            {
+                if ((tok == tokShl || tok == tokShr) && PInteger(right)->isLargeInt())
+                    error("Right operand of a bit shift can not be large");
+                left = arithmResultType(PInteger(left), PInteger(right));
+                code.genBinArithm(tok == tokShl ? opBitShl
+                    : tok == tokShr ? opBitShr : opBitAnd, PInteger(left));
+            }
+            else
+                error("Invalid operands for bitwise operator");
+        }
+    }
+    return left;
+}
+
+
+ShType* ShModule::parseOrLevel(VmCode& code)
+{
+    ShType* left = parseAndLevel(code);
+    if (left->isBool())
+    {
+        if (parser.skipIf(tokOr))
+        {
+            int saveOffset = code.genForwardJump(opJumpOr);
+            ShType* right = parseOrLevel(code);
+            if (!right->isBool())
+                error("Boolean expression expected after 'or'");
+            code.genResolveJump(saveOffset);
+        }
+        else if (parser.skipIf(tokXor))
+        {
+            ShType* right = parseOrLevel(code);
+            if (!right->isBool())
+                error("Boolean expression expected after 'xor'");
+            code.genBoolXor();
+        }
+    }
+    else if (left->isInt())
+    {
+        while (parser.token == tokOr || parser.token == tokXor)
+        {
+            Token tok = parser.token;
+            parser.next();
+            ShType* right = parseAndLevel(code);
+            if (right->isInt())
+            {
+                left = arithmResultType(PInteger(left), PInteger(right));
+                code.genBinArithm(tok == tokOr ? opBitOr : opBitXor,
+                    PInteger(left));
+            }
+            else
+                error("Invalid operands for bitwise operator");
+        }
+    }
+    return left;
+}
+
+
+ShType* ShModule::parseSubrange(VmCode& code)
+{
+    ShType* left = parseOrLevel(code);
     if (parser.token == tokRange)
     {
         // Check bounds for left < right maybe? Or maybe not.
-        ShType* left = code.topType();
         parser.next();
-        parseRelExpr(code);
-        ShType* right = code.topType();
+        ShType* right = parseOrLevel(code);
         if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
         if (!left->isCompatibleWith(right))
@@ -297,14 +366,19 @@ void ShModule::parseSubrange(VmCode& code)
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
         code.genMkSubrange();
+        left = code.topType();
     }
+    return left;
 }
 
 
 ShValue ShModule::getConstExpr(ShType* typeHint)
 {
     VmCode code(currentScope);
-    parseExpr(code);
+    if (typeHint != NULL && typeHint->isBool())
+        parseBoolExpr(code);
+    else
+        parseExpr(code);
     ShValue result = code.runConstExpr();
 
     if (typeHint == NULL)
@@ -424,7 +498,10 @@ ShEnum* ShModule::parseEnumType()
     while (1)
     {
         string ident = parser.getIdent();
-        ShConstant* value = new ShConstant(ident, ShValue(type, type->nextValue()));
+        int nextVal = type->nextValue();
+        if (nextVal == INT_MAX)
+            error("Enum constant has hit the ceilinig, man.");
+        ShConstant* value = new ShConstant(ident, ShValue(type, nextVal));
         addObject(value);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))

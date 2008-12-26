@@ -10,7 +10,7 @@
 
 static void notImpl()
 {
-    throw EInternal(11, "feature not implemented");
+    throw EMessage("Feature not implemented");
 }
 
 
@@ -68,7 +68,7 @@ ShVector* ShType::deriveVectorType(ShScope* scope)
 ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
 {
     if (!indexType->canBeArrayIndex())
-        throw EInternal(10, indexType->getDefinition() + " can't be used as array index");
+        internal(10);
     if (isVoid())
         return indexType->deriveSetType((ShVoid*)this, scope);
     else
@@ -134,7 +134,7 @@ ShScope::~ShScope()
 ShBase* ShScope::own(ShBase* obj)
 {
     if (obj->owner != NULL)
-        throw EInternal(3, "obj->owner != NULL");
+        internal(3);
     obj->owner = this;
     return obj;
 }
@@ -143,7 +143,7 @@ void ShScope::addSymbol(ShBase* obj)
 {
     own(obj);
     if (obj->name.empty())
-        throw EInternal(4, "obj->name is empty");
+        internal(4);
     symbols.addUnique(obj);
 }
 
@@ -545,7 +545,7 @@ void ShModule::addObject(ShBase* obj)
         else if (obj->isConstant())
             currentScope->addConstant((ShConstant*)obj);
         else
-            throw EInternal(11, "unknown object type in addObject()");
+            internal(11);
     }
     catch (EDuplicate& e)
     {

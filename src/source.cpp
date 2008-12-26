@@ -237,6 +237,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"is", tokIs},
         {"mod", tokMod},
         {"module", tokModule},
+        {"not", tokNot},
         {"null", tokNull},
         {"or", tokOr},
         {"shl", tokShl},
