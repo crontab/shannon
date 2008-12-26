@@ -10,11 +10,11 @@ public:
 };
 
 
-VmCode::GenStackInfo::GenStackInfo(const ShValue& iValue, int iOpIndex)
-    : ShValue(iValue), opIndex(iOpIndex), isValue(true)  { }
+VmCode::GenStackInfo::GenStackInfo(const ShValue& iValue, int iOpOffset)
+    : ShValue(iValue), opOffset(iOpOffset), isValue(true)  { }
 
-VmCode::GenStackInfo::GenStackInfo(ShType* iType, int iOpIndex)
-    : ShValue(iType), opIndex(iOpIndex), isValue(false)  { }
+VmCode::GenStackInfo::GenStackInfo(ShType* iType, int iOpOffset)
+    : ShValue(iType), opOffset(iOpOffset), isValue(false)  { }
 
 
 VmCode::VmCode(ShScope* iCompilationScope)
@@ -159,11 +159,18 @@ void VmCode::run(VmQuant* p)
 
         case opNeg: { int* t = vmStack.topIntRef(); *t = -*t; } break;
         case opNegLarge: { vmStack.pushLarge(-vmStack.popLarge()); } break;
+        case opBitNot: { int* t = vmStack.topIntRef(); *t = ~*t; } break;
+        case opBitNotLarge: { vmStack.pushLarge(~vmStack.popLarge()); } break;
+        case opBoolNot: { int* t = vmStack.topIntRef(); *t = !*t; } break;
 /*        
     opVec1Cat,      // []               -2  +1   vec + vec
     opVec1AddElem,  // []               -2  +1   vec + elem
     opElemAddVec1,  // []               -2  +1   elem + vec
 */
+
+        case opJumpOr: if (vmStack.topInt()) p += p->int_; else vmStack.popInt(); break;
+        case opJumpAnd: if (vmStack.topInt()) vmStack.popInt(); else p += p->int_; break;
+
         default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
     }
@@ -216,13 +223,13 @@ void VmCode::genCmpOp(OpCode op, OpCode cmp)
 
 void VmCode::genPush(const ShValue& v)
 {
-    genStack.push(GenStackInfo(v, nextOpIndex()));
+    genStack.push(GenStackInfo(v, genOffset()));
 }
 
 
 void VmCode::genPush(ShType* t)
 {
-    genStack.push(GenStackInfo(t, nextOpIndex()));
+    genStack.push(GenStackInfo(t, genOffset()));
 }
 
 
@@ -274,7 +281,7 @@ void VmCode::genLoadConst(const ShValue& v)
     else if (v.type->isVoid())
         genOp(opLoadNull);
     else
-        throw EInternal(50, "Unknown type in VmCode::genLoadConst()");
+        internal(50);
 }
 
 
@@ -291,7 +298,7 @@ void VmCode::genMkSubrange()
     genPop();
     ShType* type = genPopType();
     if (!type->isOrdinal())
-        throw EInternal(51, "Ordinal type expected");
+        internal(51);
     genPush(POrdinal(type)->deriveRangeType(compilationScope));
     genOp(opMkSubrange);
 }
@@ -319,14 +326,14 @@ void VmCode::genComparison(OpCode cmp)
 
     else if (left->isOrdinal() && right->isOrdinal())
     {
-        // TODO: check if one of the operands is 0
+        // TODO: check if one of the operands is 0 and generate CmpZero*
         // If even one of the operands is 64-bit, we generate 64-bit ops
         // with the hope that the parser took care of the rest.
         op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
     }
 
     if (op == opInv)
-        throw EInternal(52, "Invalid operand types");
+        internal(52);
 
     genPush(queenBee->defaultBool);
     genCmpOp(op, cmp);
@@ -360,6 +367,16 @@ void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
     genPopType();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
+}
+
+
+void VmCode::genResolveJump(int jumpOffset)
+{
+    const VmQuant* p = &code[jumpOffset];
+    if (!isJump(p->op_))
+        internal(53);
+    p++;
+    ((VmQuant*)p)->int_ = genOffset() - (jumpOffset + 1);
 }
 
 

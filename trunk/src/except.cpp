@@ -10,13 +10,6 @@ string EMessage::what() const  { return message; }
 EMessage::~EMessage()  { }
 
 
-EInternal::EInternal(int code)
-    : EMessage("Internal error #" + itostring(code))  {}
-EInternal::EInternal(int code, const string& hint)
-    : EMessage("Internal error #" + itostring(code) + " (" + hint + ')')  {}
-EInternal::~EInternal()  { }
-
-
 EDuplicate::EDuplicate(const string& ientry)
     : Exception(), entry(ientry) { }
 EDuplicate::~EDuplicate()  { }
@@ -37,3 +30,22 @@ string ESysError::what() const
 }
 
 
+class EInternal: public EMessage
+{
+public:
+    EInternal(int code);
+    EInternal(int code, string const& hint);
+    virtual ~EInternal();
+};
+
+EInternal::EInternal(int code)
+    : EMessage("Internal error #" + itostring(code))  {}
+EInternal::EInternal(int code, const string& hint)
+    : EMessage("Internal error #" + itostring(code) + " (" + hint + ')')  {}
+EInternal::~EInternal()  { }
+
+
+void internal(int code)
+{
+    throw EInternal(code);
+}

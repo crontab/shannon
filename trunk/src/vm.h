@@ -83,6 +83,7 @@ enum OpCode
     opBitShr,       // []               -2  +1
     opBitShrLarge,  // []               -2  +1
 
+    // string/vector concatenation
     opVec1Cat,      // []               -2  +1   vec + vec
     opVec1AddElem,  // []               -2  +1   vec + elem
     opElemAddVec1,  // []               -2  +1   elem + vec
@@ -90,6 +91,14 @@ enum OpCode
     // unary
     opNeg,          // []               -1  +1
     opNegLarge,     // []               -1  +1
+    opBitNot,       // []               -1  +1
+    opBitNotLarge,  // []               -1  +1
+    opBoolNot,      // []               -1  +1
+    
+    // jumps
+    //   short bool evaluation: pop if jump, leave it otherwise
+    opJumpOr,       // [dst]            -1/0
+    opJumpAnd,      // [dst]            -1/0
 
     // TODO: linenum, rangecheck opcodes
 
@@ -99,6 +108,9 @@ enum OpCode
 
     opInv = -1,
 };
+
+
+inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJumpAnd; }
 
 
 union VmQuant
@@ -155,10 +167,10 @@ class VmCode: public noncopyable
 protected:
     struct GenStackInfo: ShValue
     {
-        int opIndex;
+        int opOffset;
         bool isValue;
-        GenStackInfo(const ShValue& iValue, int iOpIndex);
-        GenStackInfo(ShType* iType, int iOpIndex);
+        GenStackInfo(const ShValue& iValue, int iOpOffset);
+        GenStackInfo(ShType* iType, int iOpOffset);
     };
 
     PodArray<VmQuant> code;
@@ -172,7 +184,6 @@ protected:
     void genPop()                       { genStack.pop(); }
 
     void genOp(OpCode op)               { code.add().op_ = op; }
-    void genInsOp(int at, OpCode op)    { code.ins(at).op_ = op; } // TODO: handle jumps
     void genInt(int v)                  { code.add().int_ = v; }
     void genPtr(ptr v)                  { code.add().ptr_ = v; }
     void genCmpOp(OpCode op, OpCode cmp);
@@ -197,12 +208,23 @@ public:
     void genStaticCast(ShType*);
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
+    void genBoolXor()
+            { genOp(opBitXor); }
+    void genBoolNot()
+            { genOp(opBoolNot); }
+    void genBitNot(ShInteger* type)
+            { genOp(OpCode(opBitNot + type->isLargeInt())); }
+    int  genForwardJump(OpCode op)
+            { int t = genOffset(); genOp(op); genInt(0); return t; }
+    void genResolveJump(int jumpOffset);
+    int  genOffset() const
+            { return code.size(); }
     void endGeneration();
     
     ShValue runConstExpr();
     ShType* runTypeExpr();
-    ShType* topType() const  { return genStack.top().type; }
-    int nextOpIndex() const  { return code.size(); }
+    ShType* topType() const
+            { return genStack.top().type; }
 };
 
 

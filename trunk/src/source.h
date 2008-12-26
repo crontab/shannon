@@ -98,16 +98,21 @@ enum Token
     tokIdent, tokIntValue, tokLargeValue, tokStrValue,
 
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
-    tokEnum, tokAnd,
+    tokEnum,
     
     // the order in this group is important: it's in sync with OpComparison
     tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
 
     // simple expr level
-    tokPlus, tokMinus, tokOr, tokXor,
-    
+    tokPlus, tokMinus,
     // term level
-    tokMul, tokDiv, tokMod, tokShl, tokShr,
+    tokMul, tokDiv, tokMod,
+    // NOT level
+    tokNot,
+    // AND level
+    tokAnd, tokShl, tokShr,
+    // OR level
+    tokOr, tokXor,
     
     // special chars and sequences
     tokIn, tokIs,
