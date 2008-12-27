@@ -585,7 +585,7 @@ restart:
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
             return token = tokBegin;
-        case '+': return token = (input->getIf('+') ? tokCat : tokPlus);
+        case '+': return token = tokPlus;
         case '-': return token = tokMinus;
         case '/': return token = tokDiv;
         case '*': return token = tokMul;
@@ -599,6 +599,7 @@ restart:
         case '>': return token = (input->getIf('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->getIf('=') ? tokEqual : tokAssign);
         case '!': return token = (input->getIf('=') ? tokNotEq : tokExclam);
+        case '|': return token = tokCat; break;
         }
     }
 

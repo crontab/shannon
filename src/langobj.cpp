@@ -55,42 +55,39 @@ string ShType::getDefinitionQ() const
     return '\'' + getDefinition() + '\'';
 }
 
-ShVector* ShType::deriveVectorType(ShScope* scope)
+ShVector* ShType::deriveVectorType()
 {
     if (derivedVectorType == NULL)
     {
         derivedVectorType = new ShVector(this);
-        scope->addAnonType(derivedVectorType);
+        owner->addAnonType(derivedVectorType);
     }
     return derivedVectorType;
 }
 
-ShArray* ShType::deriveArrayType(ShType* indexType, ShScope* scope)
+ShArray* ShType::deriveArrayType(ShType* indexType)
 {
     if (!indexType->canBeArrayIndex())
         internal(10);
     if (isVoid())
-        return indexType->deriveSetType((ShVoid*)this, scope);
+        return indexType->deriveSetType((ShVoid*)this);
     else
     {
         ShArray* array = new ShArray(this, indexType);
-        scope->addAnonType(array);
+        owner->addAnonType(array);
         return array;
     }
 }
 
-ShSet* ShType::deriveSetType(ShVoid* elementType, ShScope* scope)
+ShSet* ShType::deriveSetType(ShVoid* elementType)
 {
     if (derivedSetType == NULL)
     {
         derivedSetType = new ShSet(elementType, this);
-        scope->addAnonType(derivedSetType);
+        owner->addAnonType(derivedSetType);
     }
     return derivedSetType;
 }
-
-// bool ShType::isLargeInt() const
-//         { return isInt() && PInteger(this)->isLargeInt(); }
 
 
 // --- TYPE ALIAS --- //
@@ -254,17 +251,17 @@ ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
     : ShType(name, iTypeId), derivedRangeType(NULL),
       range(min, max), size(range.physicalSize())  { }
 
-ShRange* ShOrdinal::deriveRangeType(ShScope* scope)
+ShRange* ShOrdinal::deriveRangeType()
 {
     if (derivedRangeType == NULL)
     {
         derivedRangeType = new ShRange(this);
-        scope->addAnonType(derivedRangeType);
+        owner->addAnonType(derivedRangeType);
     }
     return derivedRangeType;
 }
 
-ShOrdinal* ShOrdinal::deriveOrdinalFromRange(const ShValue& value, ShScope* scope)
+ShOrdinal* ShOrdinal::deriveOrdinalFromRange(const ShValue& value)
 {
     large min = value.rangeMin();
     large max = value.rangeMax();
@@ -273,7 +270,7 @@ ShOrdinal* ShOrdinal::deriveOrdinalFromRange(const ShValue& value, ShScope* scop
     if (min >= max || !rangeIsGreaterOrEqual(min, max))
         throw EInvalidSubrange(this);
     ShOrdinal* derived = cloneWithRange(min, max);
-    scope->addAnonType(derived);
+    owner->addAnonType(derived);
     return derived;
 }
 

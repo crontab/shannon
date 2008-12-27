@@ -11,14 +11,11 @@ public:
 
 
 
-VmCode::VmCode(ShScope* iCompilationScope)
-    : code(), compilationScope(iCompilationScope), stackMax(0)  { }
+VmCode::VmCode()
+    : code(), stackMax(0)  { }
 
 
 #ifdef SINGLE_THREADED
-
-// TODO: optimize the stack. Make sufficient room for every function
-// before it runs so that push operations don't check for overflow.
 
 VmStack stk;
 
@@ -166,11 +163,65 @@ void VmCode::run(VmQuant* p)
             }
             break;
 
-/*        
-    opVec1Cat,      // []               -2  +1   vec + vec
-    opVec1AddElem,  // []               -2  +1   vec + elem
-    opElemAddVec1,  // []               -2  +1   elem + vec
-*/
+        case opPodVecElemCat:
+            {
+                int size = (p++)->int_;
+                if (size > 4)
+                {
+                    large elem = stk.popLarge();
+                    *plarge(PTR_TO_STRING(*stk.topPtrRef()).appendn(8)) = elem;
+                }
+                else if (size > 1)
+                {
+                    int elem = stk.popInt();
+                    *pint(PTR_TO_STRING(*stk.topPtrRef()).appendn(4)) = elem;
+                }
+                else
+                {
+                    int elem = stk.popInt();
+                    PTR_TO_STRING(*stk.topPtrRef()).append(char(elem));
+                }
+            }
+            break;
+
+        case opPodElemVecCat:
+            {
+                int size = (p++)->int_;
+                ptr vec = stk.popPtr();
+                if (size > 4)
+                    *plarge(PTR_TO_STRING(vec).ins(0, 8)) = stk.popLarge();
+                else if (size > 1)
+                    *pint(PTR_TO_STRING(vec).ins(0, 4)) = stk.popInt();
+                else
+                    *PTR_TO_STRING(vec).ins(0, 1) = char(stk.popInt());
+                stk.pushPtr(vec);
+            }
+            break;
+
+        case opPodElemElemCat:
+            {
+                int size = (p++)->int_;
+                char* vec = pchar(string::_initializen(size * 2));
+                char* vec1 = vec + size;
+                if (size > 4)
+                {
+                    *plarge(vec1) = stk.popLarge();
+                    *plarge(vec) = stk.popLarge();
+                }
+                else if (size > 1)
+                {
+                    *pint(vec1) = stk.popInt();
+                    *pint(vec) = stk.popInt();
+                }
+                else
+                {
+                    *pchar(vec1) = char(stk.popInt());
+                    *pchar(vec) = char(stk.popInt());
+                }
+                stk.pushPtr(vec);
+            }
+            break;
+
         case opNeg: { int* t = stk.topIntRef(); *t = -*t; } break;
         case opNegLarge: { stk.pushLarge(-stk.popLarge()); } break;
         case opBitNot: { int* t = stk.topIntRef(); *t = ~*t; } break;
@@ -329,9 +380,11 @@ void VmCode::genMkSubrange()
 {
     genPop();
     ShType* type = genPopType();
+#ifdef DEBUG
     if (!type->isOrdinal())
         internal(51);
-    genPush(POrdinal(type)->deriveRangeType(compilationScope));
+#endif
+    genPush(POrdinal(type)->deriveRangeType());
     type = genTopType();
     genOp(opMkSubrange);
 }
@@ -403,13 +456,36 @@ void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
 }
 
 
-void VmCode::genPodVecCat(ShType* resultType)
+void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
 {
-    if (!genPopType()->equals(resultType))
-        internal(54);
-    if (!genTopType()->equals(resultType))
-        internal(54);
-    genOp(opPodVecCat);
+    genPop();
+    genPop();
+    genPush(result);
+    // TODO: non-POD vectors
+    if (left->isVector())
+    {
+        if (right->isVector())
+            genOp(opPodVecCat);
+        else
+        {
+            genOp(opPodVecElemCat);
+            genInt(right->staticSize());
+        }
+    }
+    else if (right->isVector())
+    {
+        genOp(opPodElemVecCat);
+        genInt(left->staticSize());
+    }
+    else
+    {
+#ifdef DEBUG
+        if (left->staticSize() != right->staticSize())
+            internal(54);
+#endif
+        genOp(opPodElemElemCat);
+        genInt(left->staticSize());
+    }
 }
 
 

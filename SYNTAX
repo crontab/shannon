@@ -47,7 +47,9 @@ not-expr ::= [ 'not' ] rel-expr
 
 rel-expr ::= simple-expr { ( '==' | '<' | '<=' | '>=' | '>' | '!=' ) simple-expr }
 
-simple-expr ::= term { ( '+' | '-' ) term }
+simple-expr ::= arithm-expr { '|' arithm-expr }
+
+arithm-expr ::= term { ( '+' | '-' ) term }
 
 term ::= factor { ( '*' | '/' | 'mod' ) factor }
 

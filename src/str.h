@@ -133,15 +133,17 @@ public:
     friend bool operator!= (char, const string&);
     
     // internal stuff, use with care!
-    void* _initialize() const
-            { pincrement(&STR_REFCOUNT(data)); return (void*)data; }
+    ptr _initialize() const
+            { pincrement(&STR_REFCOUNT(data)); return ptr(data); }
     int  _unlock()
             { return pdecrement(&STR_REFCOUNT(data)); }
     static void _unlock(string& s) // this solves a visibility problem
             { s._unlock(); }
-    static void* _initialize(void* p)
+    static ptr _initialize(ptr p)
             { PTR_TO_STRING(p)._initialize(); return p; }
-    static void _finalize(void* p)
+    static ptr _initializen(int size)
+            { ptr p; PTR_TO_STRING(p)._alloc(size); return p; }
+    static void _finalize(ptr p)
             { PTR_TO_PSTRING(p)->finalize(); }
 };
 

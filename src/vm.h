@@ -84,7 +84,11 @@ enum OpCode
     opBitShrLarge,  // []               -2  +1
 
     // string/vector concatenation
+    // [elem-size]: if < 4 int_ is taken from the stack, otherwise - large_
     opPodVecCat,    // []               -2  +1   vec + vec
+    opPodVecElemCat,// [elem-size]      -2  +1   vec + elem
+    opPodElemVecCat,// [elem-size]      -2  +1   elem + vec
+    opPodElemElemCat,// [elem-size]     -2  +1   elem + elem
 
     // unary
     opNeg,          // []               -1  +1
@@ -173,7 +177,6 @@ protected:
 
     PodArray<VmQuant> code;
     PodStack<GenStackInfo> genStack;
-    ShScope* compilationScope;
     int stackMax;
     
     void genPush(ShType* v);
@@ -197,7 +200,7 @@ protected:
     VM_STATIC void run(VmQuant* p);
 
 public:
-    VmCode(ShScope* iCompilationScope);
+    VmCode();
     
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);
@@ -210,7 +213,7 @@ public:
     void genStaticCast(ShType*);
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
-    void genPodVecCat(ShType*);
+    void genVecCat(ShType* left, ShType* right, ShType* result);
     void genBoolXor()
             { genPop(); genOp(opBitXor); }
     void genBoolNot()
