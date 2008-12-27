@@ -35,15 +35,7 @@ typedef ularge*             pularge;
 #  error Unknown architecure.
 #endif
 
-
-struct largerec
-{
-    unsigned lo;
-    unsigned hi;
-    largerec(large v): lo(v), hi(v >> 32)  { }
-    largerec(int iLo, int iHi): lo(iLo), hi(iHi)  { }
-    operator large() const { return (large(hi) << 32) | lo; }
-};
+#define DATA_MEM_ALIGN sizeof(int)
 
 
 // --- ATOMIC OPERATIONS -------------------------------------------------- //

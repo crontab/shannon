@@ -677,6 +677,9 @@ void ShModule::compile()
 {
     try
     {
+        VmCode main;
+        VmCode fin;
+
         currentScope = this;
         
         parser.next();
@@ -704,7 +707,7 @@ void ShModule::compile()
             parser.skipSep();
         }
 
-        compiled = true;
+        setupRuntime(main, fin);
 
 #ifdef DEBUG
         queenBee->dump("");

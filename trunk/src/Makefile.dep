@@ -11,7 +11,7 @@ obj/baseobj.o: str.h port.h baseobj.h contain.h except.h bsearch.h
 obj/source.o: source.h str.h port.h except.h charset.h contain.h baseobj.h
 obj/source.o: bsearch.h
 obj/langobj.o: langobj.h str.h port.h except.h baseobj.h contain.h source.h
-obj/langobj.o: charset.h
+obj/langobj.o: charset.h vm.h
 obj/vm.o: vm.h port.h except.h str.h contain.h baseobj.h langobj.h source.h
 obj/vm.o: charset.h
 obj/main.o: str.h port.h except.h langobj.h baseobj.h contain.h source.h

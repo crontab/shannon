@@ -26,7 +26,23 @@ class ShArray;
 class ShModule;
 class ShQueenBee;
 
+
 class VmCode;
+
+union VmQuant
+{
+    int op_;
+    int int_;
+    ptr ptr_;
+#ifdef PTR64
+    large large_;
+#endif
+};
+
+
+typedef PodArray<VmQuant> VmCodeSegment;
+
+
 
 enum ShBaseId
 {
@@ -95,6 +111,7 @@ public:
 
     virtual int staticSize() const = 0;
     int staticSizeRequired() const;
+    int staticSizeAligned() const;
     virtual bool isPod() const
             { return true; }
     virtual bool isString() const
@@ -135,7 +152,7 @@ class ShVariable: public ShBase
 {
 public:
     ShType* const type;
-    int scopeIndex;
+    int dataOffset;
 
     ShVariable(ShType* iType);
     ShVariable(const string& name, ShType* iType);
@@ -178,8 +195,7 @@ public:
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
-    void addAnonVar(ShVariable*);
-    void addVariable(ShVariable*);
+    virtual void addVariable(ShVariable*) = 0;
     void addTypeAlias(ShTypeAlias*);
     void addConstant(ShConstant*);
     ShBase* find(const string& name) const
@@ -539,6 +555,8 @@ public:
 
 class ShModule: public ShScope
 {
+    // --- Compiler ---
+
     string fileName;
     Parser parser;
     Array<string> vectorConsts;
@@ -549,8 +567,8 @@ class ShModule: public ShScope
             { vectorConsts.add(v); return v; }
     void addObject(ShBase*); // deletes the object in case of an exception
 
-    // --- Compiler ---
     ShScope* currentScope;
+
     void error(const string& msg)           { parser.error(msg); }
     void error(const char* msg)             { parser.error(msg); }
     void errorWithLoc(const string& msg)    { parser.errorWithLoc(msg); }
@@ -592,12 +610,24 @@ public:
     bool compiled;
 
     ShModule(const string& filename);
+    ~ShModule();
     void compile();
     void dump(string indent) const;
     virtual int staticSize() const
             { return 0; }
     virtual bool equals(ShType* type) const
             { return false; }
+    virtual void addVariable(ShVariable*);
+
+    // --- RUNTIME --- //
+protected:
+    void setupRuntime(VmCode& main, VmCode& fin);
+    
+public:
+    int dataSize;
+    char* dataSegment;
+    VmCodeSegment mainCode;
+    VmCodeSegment finCode;
 };
 
 

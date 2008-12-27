@@ -3,10 +3,8 @@
 #include <limits.h>
 
 #include "langobj.h"
+#include "vm.h"
 
-
-// inline int align(int size)
-//         { return ((size / memAlign) + 1) * memAlign; }
 
 static void notImpl()
 {
@@ -43,6 +41,11 @@ int ShType::staticSizeRequired() const
     if (size == 0)
         internal(9, "Size of type is zero");
     return size;
+}
+
+int ShType::staticSizeAligned() const
+{
+    return (((staticSize() - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
 }
 
 string ShType::getDefinition(const string& objName) const
@@ -109,10 +112,10 @@ ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-    : ShBase(baseVariable), type(iType), scopeIndex(0)  { }
+    : ShBase(baseVariable), type(iType), dataOffset(0)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name, baseVariable), type(iType), scopeIndex(0)  { }
+    : ShBase(name, baseVariable), type(iType), dataOffset(0)  { }
 
 ShArgument::ShArgument(const string& name, ShType* iType)
     : ShVariable(name, type)  { }
@@ -156,20 +159,6 @@ void ShScope::addType(ShType* obj)
 
 void ShScope::addAnonType(ShType* obj)
         { own(obj); types.add(obj); }
-
-void ShScope::addVariable(ShVariable* obj)
-{
-    obj->scopeIndex = vars.size();
-    vars.add(obj);
-    addSymbol(obj);
-}
-
-void ShScope::addAnonVar(ShVariable* obj)
-{
-    own(obj);
-    obj->scopeIndex = vars.size();
-    vars.add(obj);
-}
 
 void ShScope::addTypeAlias(ShTypeAlias* obj)
         { typeAliases.add(obj); addSymbol(obj); }
@@ -610,10 +599,17 @@ ShConstant::ShConstant(const string& name, ShEnum* type, int value)
 
 ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
-      parser(iFileName), currentScope(NULL), compiled(false)
+      parser(iFileName), currentScope(NULL), compiled(false),
+      // runtime
+      dataSize(0), dataSegment(NULL)
 {
     if (queenBee != NULL)
         addUses(queenBee);
+}
+
+ShModule::~ShModule()
+{
+    memfree(dataSegment);
 }
 
 void ShModule::addObject(ShBase* obj)
@@ -650,6 +646,25 @@ void ShModule::dump(string indent) const
 #endif
 
 
+void ShModule::addVariable(ShVariable* obj)
+{
+    obj->dataOffset = dataSize;
+    dataSize += obj->type->staticSizeAligned();
+    vars.add(obj);
+    addSymbol(obj);
+}
+
+
+void ShModule::setupRuntime(VmCode& main, VmCode& fin)
+{
+    compiled = true;
+    if (dataSize > 0)
+        dataSegment = pchar(memalloc(dataSize));
+    mainCode = main.getCode();
+    finCode = fin.getCode();
+}
+
+
 // --- SYSTEM MODULE --- //
 
 ShQueenBee::ShQueenBee()
@@ -672,6 +687,9 @@ ShQueenBee::ShQueenBee()
     addType(defaultVoid);
     addType(defaultTypeRef);
     addAnonType(defaultEmptyVec);
+
+    VmCode main, fin;
+    setupRuntime(main, fin);
 }
 
 
