@@ -134,7 +134,8 @@ public:
     int size() const          { return stack.size(); }
     bool empty() const        { return stack.empty(); }
     void clear()              { return stack.clear(); }
-    VmQuant& push()           { return stack.push(); }
+    void reserve(int size)    { stack.reserve(size); }
+    VmQuant& push()           { return stack.pushr(); }
     VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
@@ -173,6 +174,7 @@ protected:
     PodArray<VmQuant> code;
     PodStack<GenStackInfo> genStack;
     ShScope* compilationScope;
+    int stackMax;
     
     void genPush(ShType* v);
     ShType* genPopType()                { return genStack.pop().type; }

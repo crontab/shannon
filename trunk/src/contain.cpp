@@ -165,3 +165,11 @@ void stackimpl::grow()
     }
 }
 
+
+void stackimpl::reserve(int len)
+{
+    int oldsize = end - begin;
+    advance(len);
+    end = begin + oldsize;
+}
+

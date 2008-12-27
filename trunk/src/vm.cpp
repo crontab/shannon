@@ -12,10 +12,13 @@ public:
 
 
 VmCode::VmCode(ShScope* iCompilationScope)
-    : code(), compilationScope(iCompilationScope)  { }
+    : code(), compilationScope(iCompilationScope), stackMax(0)  { }
 
 
 #ifdef SINGLE_THREADED
+
+// TODO: optimize the stack. Make sufficient room for every function
+// before it runs so that push operations don't check for overflow.
 
 VmStack stk;
 
@@ -43,13 +46,6 @@ static int compareStrChr(ptr a, int b)
 static int compareChrStr(int a, ptr b)
     { return string(char(a)).compare(PTR_TO_STRING(b)); }
 
-static ptr podVecCat(ptr a, ptr b)
-{
-    ptr result = PTR_TO_STRING(a)._initialize();
-    PTR_TO_STRING(result).append(PTR_TO_STRING(b));
-    return result;
-}
-
 
 void VmCode::run(VmQuant* p)
 {
@@ -75,7 +71,7 @@ void VmCode::run(VmQuant* p)
         case opLoadTrue: stk.pushInt(1); break;
         case opLoadNull: stk.pushInt(0); break;
         case opLoadNullStr: stk.pushPtr(emptystr); break;
-        case opLoadStr: stk.pushPtr((p++)->ptr_); break;
+        case opLoadStr: stk.pushPtr(string::_initialize((p++)->ptr_)); break;
         case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
 
         // --- COMPARISONS ------------------------------------------------- //
@@ -98,6 +94,8 @@ void VmCode::run(VmQuant* p)
                 ptr r = stk.popPtr();
                 ptr l = stk.popPtr();
                 stk.pushInt(compareStr(l, r));
+                string::_finalize(r);
+                string::_finalize(l);
             }
             break;
         case opCmpStrChr:
@@ -105,6 +103,7 @@ void VmCode::run(VmQuant* p)
                 int r = stk.popInt();
                 ptr l = stk.popPtr();
                 stk.pushInt(compareStrChr(l, r));
+                string::_finalize(l);
             }
             break;
         case opCmpChrStr:
@@ -112,6 +111,7 @@ void VmCode::run(VmQuant* p)
                 ptr r = stk.popPtr();
                 int* t = stk.topIntRef();
                 *t = compareChrStr(*t, r);
+                string::_finalize(r);
             }
             break;
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
@@ -158,7 +158,13 @@ void VmCode::run(VmQuant* p)
         case opBitShr: { int r = stk.popInt(); *stk.topIntRef() >>= r; } break;
         case opBitShrLarge: { stk.pushLarge(stk.popLarge() >> stk.popInt()); } break;
 
-        case opPodVecCat: { ptr r = stk.popPtr(); ptr* l = stk.topPtrRef(); *l = podVecCat(*l, r); } break;
+        case opPodVecCat:
+            {
+                ptr r = stk.popPtr();
+                PTR_TO_STRING(*stk.topPtrRef()).append(PTR_TO_STRING(r));
+                string::_finalize(r);
+            }
+            break;
 
 /*        
     opVec1Cat,      // []               -2  +1   vec + vec
@@ -192,6 +198,7 @@ void VmCode::verifyClean()
 void VmCode::runConstExpr(ShValue& result)
 {
     endGeneration();
+    stk.reserve(stackMax);
     run(&code._at(0));
     ShType* type = genPopType();
     if (type->isLargePod())
@@ -200,6 +207,7 @@ void VmCode::runConstExpr(ShValue& result)
     {
         ptr p = stk.popPtr();
         result.assignString(type, PTR_TO_STRING(p));
+        string::_finalize(p);
     }
     else if (type->isPodPointer())
         result.assignPtr(type, stk.popPtr());
@@ -228,6 +236,7 @@ void VmCode::genCmpOp(OpCode op, OpCode cmp)
 void VmCode::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t));
+    stackMax = imax(stackMax, genStack.size());
 }
 
 

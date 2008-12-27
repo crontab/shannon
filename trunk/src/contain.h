@@ -230,6 +230,8 @@ public:
         return end;
     }
     
+    void reserve(int len);
+    
     void* _at(int i)        { return end + i; }
     void* _at(int i) const  { return end + i; }
     void* at(int i)         { idx(i); return _at(i); }
@@ -251,6 +253,7 @@ public:
     bool empty() const        { return stackimpl::empty(); }
     int size() const          { return stackimpl::size() / Tsize; }
     void clear()              { stackimpl::clear(); }
+    void reserve(int size)    { stackimpl::reserve(size + Tsize); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
     void push(const T& t)     { ::new(&push()) T(t); }
     T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }
@@ -260,6 +263,16 @@ public:
     const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
     const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
     const T& pop()            { return *Tptr(stackimpl::withdraw(Tsize)); }
+    T& pushr()
+    {
+        void* saveend = end;
+        end += Tsize;
+#ifdef DEBUG
+        if (end > capend)
+            invstackop();
+#endif
+        return *Tptr(saveend);
+    }
 };
 
 
