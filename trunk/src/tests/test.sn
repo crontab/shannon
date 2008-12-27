@@ -1,13 +1,15 @@
 module Z
 
-#{
+def int aa1[0..9]
+def 0..9 aa2
+
 def bool oy[char[]]
 def int myInt
 def bool mySet[myInt]
 def System.void blah
 def int [][] blaahhh
 def int blooh [char][bool]
-def void set[]
+def void set[0..9]
 # def [0..9] digit
 def bool yopt[str]
 def int intr[..]
@@ -33,6 +35,8 @@ const a3 = 1 != 2
 const a4 = 1L < 9223372036854775806L
 const a5 = glarge > 9223372036854775806L
 const a8 = 'ab' > 'abc'
+const a9 = s1 == 'b'
+const a10 = 'b' == s1
 
 const a6 = 'abc' == 'a'
 const a7 = 'b' != 'def'
@@ -76,12 +80,21 @@ const f3 = ((1 or 2 or 4) shl 1) == 14
 const f4 = not true and false
 const int f5 = not 1 and 2
 const f6 = (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
-}#
 
+def enum days(Mon, Tue, Wed)
 const int aa[] = 1
-const aa1 = aa | 2 | 3
+const aa3 = aa | 2 | 3
+const days aa4[] = Mon | Tue | Wed
 
 const u2 = 'abc' | 'def'
 const u3 = '@' | 'abc' | 'def' | 'g'
 const u4 = 'x' | 'y' | 'z!'
+const u5 = ''
 
+const int u6[] = []
+const u7 = u6 == []
+const u8 = 1 | 2 | 3 + 5
+const u9 = u8 == [1, 2, 3 + 5]
+
+# const j1 = null | null
+# const void j2[] = null

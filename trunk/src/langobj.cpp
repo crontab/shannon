@@ -473,16 +473,7 @@ string ShVector::displayValue(const ShValue& v) const
             if (!s.empty() > 0)
                 s += ", ";
             ShValue v;
-            if (elementType->isLargePod())
-                v.assignLarge(elementType, *plarge(p));
-            else if (elementType->isVector())
-                v.assignVec(elementType, PTR_TO_STRING(*pptr(p)));
-            else if (elementType->isPodPointer())
-                v.assignPtr(elementType, *pptr(p));
-            else if (elemSize == 1)
-                v.assignInt(elementType, int(*pchar(p)));
-            else
-                v.assignInt(elementType, *pint(p));
+            v.assignFromBuf(elementType, p);
             s += elementType->displayValue(v);
         }
         return '[' + s + ']';
@@ -570,6 +561,36 @@ void ShValue::assignLarge(ShType* iType, large l)
 void ShValue::assignVec(ShType* iType, const string& s)
         { _finalize(); type = iType; value.ptr_ = s._initialize(); }
 
+void ShValue::assignFromBuf(ShType* newType, const ptr p)
+{
+    int dataSize = newType->staticSize();
+    if (newType->isLargePod())
+        assignLarge(newType, *plarge(p));
+    else if (newType->isVector())
+        assignVec(newType, PTR_TO_STRING(*pptr(p)));
+    else if (newType->isPodPointer())
+        assignPtr(newType, *pptr(p));
+    else if (dataSize == 1)
+        assignInt(newType, int(*pchar(p)));
+    else
+        assignInt(newType, *pint(p));
+}
+
+int ShValue::assignToBuf(ptr p)
+{
+    int dataSize = type->staticSize();
+    if (type->isLargePod())
+        *plarge(p) = value.large_;
+    else if (type->isVector())
+        *pptr(p) = string::_initialize(value.ptr_);
+    else if (type->isPodPointer())
+        *pptr(p) = p;
+    else if (dataSize == 1)
+        *pchar(p) = value.int_;
+    else
+        *pint(p) = value.int_;
+    return dataSize;
+}
 
 
 // --- CONSTANT --- //

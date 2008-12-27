@@ -62,12 +62,35 @@ ShBase* ShModule::getQualifiedName()
 
 void ShModule::getConstCompound(ShType* typeHint, ShValue& result)
 {
+    if (typeHint != NULL && !typeHint->isVector())
+        typeHint = NULL; // let the assignment parser decide
     if (parser.skipIf(tokRSquare))
     {
         result.assignVec(queenBee->defaultEmptyVec, emptystr);
     }
     else
-        notImpl();
+    {
+        string vec;
+        ShType* elemType = typeHint != NULL && typeHint->isVector() ?
+            PVector(typeHint)->elementType : NULL;
+        int elemSize = -1;
+        while (1)
+        {
+            ShValue value;
+            getConstExpr(elemType, value);
+            if (elemType == NULL)
+                elemType = value.type;
+            if (!elemType->canAssign(value.type))
+                errorWithLoc("Type mismatch in vector constructor"); // never reached
+            if (elemSize == -1)
+                elemSize = elemType->staticSize();
+            value.assignToBuf(vec.appendn(elemSize));
+            if (parser.skipIf(tokRSquare))
+                break;
+            parser.skip(tokComma, "]");
+        }
+        result.assignVec(elemType->deriveVectorType(), registerVector(vec));
+    }
 }
 
 
@@ -151,6 +174,7 @@ ShType* ShModule::parseAtom(VmCode& code)
             notImpl();
     }
     
+    // typeof(...)
     else if (parser.skipIf(tokTypeOf))
     {
         parser.skip(tokLParen, "(");
@@ -164,15 +188,15 @@ ShType* ShModule::parseAtom(VmCode& code)
         code.genLoadTypeRef(type);
     }
 
+    // true/false/null
     else if (parser.skipIf(tokTrue))
         code.genLoadIntConst(queenBee->defaultBool, 1);
-
     else if (parser.skipIf(tokFalse))
         code.genLoadIntConst(queenBee->defaultBool, 0);
-    
     else if (parser.skipIf(tokNull))
         code.genLoadNull();
-    
+
+    // compound ctor (currently only vector)
     else if (parser.skipIf(tokLSquare))
     {
         ShValue comp;
@@ -583,7 +607,7 @@ ShEnum* ShModule::parseEnumType()
         string ident = parser.getIdent();
         int nextVal = type->nextValue();
         if (nextVal == INT_MAX)
-            error("Enum constant has hit the ceilinig, man.");
+            error("Enum constant has just hit the ceilinig, man.");
         ShConstant* value = new ShConstant(ident, type, nextVal);
         addObject(value);
         type->registerConst(value);
