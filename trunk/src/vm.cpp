@@ -67,8 +67,8 @@ void VmCode::run(VmQuant* p)
         case opLoadFalse: stk.pushInt(0); break;
         case opLoadTrue: stk.pushInt(1); break;
         case opLoadNull: stk.pushInt(0); break;
-        case opLoadNullStr: stk.pushPtr(emptystr); break;
-        case opLoadStr: stk.pushPtr(string::_initialize((p++)->ptr_)); break;
+        case opLoadNullVec: stk.pushPtr(emptystr); break;
+        case opLoadVec: stk.pushPtr(string::_initialize((p++)->ptr_)); break;
         case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
 
         // --- COMPARISONS ------------------------------------------------- //
@@ -254,10 +254,10 @@ void VmCode::runConstExpr(ShValue& result)
     ShType* type = genPopType();
     if (type->isLargePod())
         result.assignLarge(type, stk.popLarge());
-    else if (type->isStrBased())
+    else if (type->isVector())
     {
         ptr p = stk.popPtr();
-        result.assignString(type, PTR_TO_STRING(p));
+        result.assignVec(type, PTR_TO_STRING(p));
         string::_finalize(p);
     }
     else if (type->isPodPointer())
@@ -343,14 +343,14 @@ void VmCode::genLoadTypeRef(ShType* type)
 }
 
 
-void VmCode::genLoadStrConst(const char* s)
+void VmCode::genLoadVecConst(ShType* type, const char* s)
 {
-    genPush(queenBee->defaultStr);
-    if (*s == 0)
-        genOp(opLoadNullStr);
+    genPush(type);
+    if (PTR_TO_STRING(s).empty())
+        genOp(opLoadNullVec);
     else
     {
-        genOp(opLoadStr);
+        genOp(opLoadVec);
         genPtr(ptr(s));
     }
 }
@@ -365,8 +365,8 @@ void VmCode::genLoadConst(ShType* type, podvalue value)
         else
             genLoadIntConst(POrdinal(type), value.int_);
     }
-    else if (type->isStrBased())
-        genLoadStrConst(pconst(value.ptr_));
+    else if (type->isVector())
+        genLoadVecConst(type, pconst(value.ptr_));
     else if (type->isTypeRef())
         genLoadTypeRef((ShType*)value.ptr_);
     else if (type->isVoid())

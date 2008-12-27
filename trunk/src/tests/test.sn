@@ -1,5 +1,6 @@
 module Z
 
+#{
 def bool oy[char[]]
 def int myInt
 def bool mySet[myInt]
@@ -12,11 +13,9 @@ def bool yopt[str]
 def int intr[..]
 def typeref mytr
 
-# var bool b = 0
-# var int c[] = 0
+var int a = 0
 var int d[..] = 0..1
 var char f = 'a'
-
 const int g = 922337
 const glarge = 9223372036854775807L
 const h = 'h'
@@ -34,12 +33,12 @@ const a3 = 1 != 2
 const a4 = 1L < 9223372036854775806L
 const a5 = glarge > 9223372036854775806L
 const a8 = 'ab' > 'abc'
+
 const a6 = 'abc' == 'a'
 const a7 = 'b' != 'def'
-
 const typeof(h) h1 = 'a'
-const typeof(char) h2 = 'b'
-const typeof(typeref) h3 = typeof(char)
+const typeof(h1) h2 = 'b'
+const h3 = typeof(h2)
 const typeref h4 = int
 
 const t1 = int('A')
@@ -75,5 +74,14 @@ const f1 = true or true and false
 const f2 = true xor 0 < 1 xor true
 const f3 = ((1 or 2 or 4) shl 1) == 14
 const f4 = not true and false
-const f5 = not 1 and 2
+const int f5 = not 1 and 2
 const f6 = (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
+}#
+
+const int aa[] = 1
+const aa1 = aa | 2 | 3
+
+const u2 = 'abc' | 'def'
+const u3 = '@' | 'abc' | 'def' | 'g'
+const u4 = 'x' | 'y' | 'z!'
+
