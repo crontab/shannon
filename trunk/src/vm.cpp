@@ -34,16 +34,16 @@ static int compareInt(int a, int b)
 static int compareLarge(large a, large b)
     { if (a < b) return -1; else if (a == b) return 0; return 1; }
 
-static int compareStr(ptr a, ptr b)
-    { return PTR_TO_STRING(a).compare(PTR_TO_STRING(b)); }
-
 static int compareStrChr(ptr a, int b)
     { return PTR_TO_STRING(a).compare(string(char(b))); }
 
 static int compareChrStr(int a, ptr b)
     { return string(char(a)).compare(PTR_TO_STRING(b)); }
 
-
+// TODO: ref counts are incremented and decremented every time a value is
+// pushed/popped from the stack, which won't be efficient in the multithreaded
+// version. Need to do the same way as C++ does with overloaded operators with
+// const arguments (create temp vars).
 void VmCode::run(VmQuant* p)
 {
     while (1)
@@ -90,7 +90,7 @@ void VmCode::run(VmQuant* p)
             {
                 ptr r = stk.popPtr();
                 ptr l = stk.popPtr();
-                stk.pushInt(compareStr(l, r));
+                stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r)));
                 string::_finalize(r);
                 string::_finalize(l);
             }
@@ -111,6 +111,16 @@ void VmCode::run(VmQuant* p)
                 string::_finalize(r);
             }
             break;
+        case opCmpPodVec:
+            {
+                ptr r = stk.popPtr();
+                ptr l = stk.popPtr();
+                stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r)));
+                string::_finalize(r);
+                string::_finalize(l);
+            }
+            break;
+
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
         case opLT: { int* t = stk.topIntRef(); *t = *t < 0; } break;
         case opLE: { int* t = stk.topIntRef(); *t = *t <= 0; } break;
@@ -432,6 +442,10 @@ void VmCode::genComparison(OpCode cmp)
         // with the hope that the parser took care of the rest.
         op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
     }
+    
+    else if (left->isVector() && right->isVector()
+            && (cmp == opEQ || cmp == opNE))
+        op = opCmpPodVec;
 
     if (op == opInv)
         internal(52);
@@ -470,15 +484,14 @@ void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
     genOp(OpCode(op + resultType->isLargeInt()));
 }
 
-
-void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
+void VmCode::genVecCat()
 {
-    genPop();
-    genPop();
-    genPush(result);
+    ShType* right = genPopType();
+    ShType* left = genPopType();
     // TODO: non-POD vectors
     if (left->isVector())
     {
+        genPush(left);
         if (right->isVector())
             genOp(opPodVecCat);
         else
@@ -489,6 +502,7 @@ void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
     }
     else if (right->isVector())
     {
+        genPush(right);
         genOp(opPodElemVecCat);
         genInt(left->staticSizeRequired());
     }
@@ -498,6 +512,7 @@ void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
         if (left->staticSize() != right->staticSize())
             internal(54);
 #endif
+        genPush(left->deriveVectorType());
         genOp(opPodElemElemCat);
         genInt(left->staticSizeRequired());
     }

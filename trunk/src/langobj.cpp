@@ -65,6 +65,8 @@ string ShType::getDefinitionQ() const
 
 ShVector* ShType::deriveVectorType()
 {
+    if (isVoid())
+        internal(11);
     if (derivedVectorType == NULL)
     {
         derivedVectorType = new ShVector(this);
@@ -147,19 +149,19 @@ void ShScope::addSymbol(ShBase* obj)
 }
 
 void ShScope::addUses(ShModule* obj)
-        { addSymbol(obj); uses.add(obj); }
+        { uses.add(obj); addSymbol(obj); }
 
 void ShScope::addType(ShType* obj)
-        { addSymbol(obj); types.add(obj); }
+        { types.add(obj); addSymbol(obj); }
 
 void ShScope::addAnonType(ShType* obj)
         { own(obj); types.add(obj); }
 
 void ShScope::addVariable(ShVariable* obj)
 {
-    addSymbol(obj);
     obj->scopeIndex = vars.size();
     vars.add(obj);
+    addSymbol(obj);
 }
 
 void ShScope::addAnonVar(ShVariable* obj)
@@ -170,10 +172,10 @@ void ShScope::addAnonVar(ShVariable* obj)
 }
 
 void ShScope::addTypeAlias(ShTypeAlias* obj)
-        { addSymbol(obj); typeAliases.add(obj); }
+        { typeAliases.add(obj); addSymbol(obj); }
 
 void ShScope::addConstant(ShConstant* obj)
-        { addSymbol(obj); consts.add(obj); }
+        { consts.add(obj); addSymbol(obj); }
 
 ShBase* ShScope::deepFind(const string& name) const
 {
@@ -262,7 +264,7 @@ ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
 ShRange* ShOrdinal::deriveRangeType()
 {
     if (!isOrdinal())
-        internal(9);
+        internal(10);
     if (derivedRangeType == NULL)
     {
         derivedRangeType = new ShRange(this);
@@ -516,10 +518,10 @@ string ShSet::displayValue(const ShValue& v) const
 
 /*
 void ShState::addState(ShState* obj)
-        { addSymbol(obj);  states.add(obj); }
+        { states.add(obj); addSymbol(obj); }
 
 void ShState::addArgument(ShArgument* obj)
-        { addSymbol(obj);  args.add(obj); }
+        { args.add(obj); addSymbol(obj); }
 
 string ShState::getArgsDefinition() const
 {
@@ -611,13 +613,7 @@ void ShModule::addObject(ShBase* obj)
     }
     catch (EDuplicate& e)
     {
-        delete obj;
         error("'" + objName + "' already defined within this scope");
-    }
-    catch (Exception& e)
-    {
-        delete obj;
-        throw;
     }
 }
 
@@ -644,7 +640,7 @@ ShQueenBee::ShQueenBee()
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void")),
       defaultTypeRef(new ShTypeRef("typeref")),
-      defaultEmptyVec(new ShEmptyVec(defaultVoid))
+      defaultEmptyVec(new ShVector(defaultVoid))
 {
     addType(defaultInt);
     addType(defaultLarge);

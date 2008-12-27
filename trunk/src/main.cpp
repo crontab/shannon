@@ -60,10 +60,14 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
-void ShModule::getConstCompound(VmCode& code, ShValue& result)
+void ShModule::getConstCompound(ShType* typeHint, ShValue& result)
 {
-    if (parser.token == tokRSquare && code.resultTypeHint == NULL)
-        error("Can't determine vector/array type");
+    if (parser.skipIf(tokRSquare))
+    {
+        result.assignVec(queenBee->defaultEmptyVec, emptystr);
+    }
+    else
+        notImpl();
 }
 
 
@@ -172,7 +176,10 @@ ShType* ShModule::parseAtom(VmCode& code)
     else if (parser.skipIf(tokLSquare))
     {
         ShValue comp;
-        getConstCompound(code, comp);
+        getConstCompound(code.resultTypeHint, comp);
+        if (!comp.type->isVector())
+            internal(20);
+        code.genLoadVecConst(comp.type, pconst(comp.value.ptr_));
     }
     
     else
@@ -269,17 +276,17 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
             {
                 if (!left->equals(right))
                     error("Operands of vector concatenation are incompatible");
-                code.genVecCat(left, right, left);
+                code.genVecCat();
             }
             else if (PVector(left)->elementEquals(right))
-                code.genVecCat(left, right, left);
+                code.genVecCat();
             else
                 error("Operands of vector concatenation are incompatible");
         }
         else if (right->isVector())
         {
             if (PVector(right)->elementEquals(left))
-                code.genVecCat(left, right, right);
+                code.genVecCat();
             else
                 error("Operands of vector concatenation are incompatible");
             left = right;
@@ -290,7 +297,7 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
                 error("Invalid vector element type");
             ShVector* vec = left->deriveVectorType();
             if (vec->elementEquals(right))
-                code.genVecCat(left, right, vec);
+                code.genVecCat();
             else
                 error("Operands of vector concatenation are incompatible");
             left = vec;
@@ -308,10 +315,14 @@ ShType* ShModule::parseRelExpr(VmCode& code)
         OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
         parser.next();
         ShType* right = parseSimpleExpr(code);
-        if (!left->canCompareWith(right))
+        if (left->canCompareWith(right)
+                || ((op == opEQ || op == opNE) && left->canCheckEq(right)))
+        {
+            code.genComparison(op);
+            left = code.genTopType();
+        }
+        else
             error("Type mismatch in comparison: " + typeVsType(left, right));
-        code.genComparison(op);
-        left = code.genTopType();
     }
     return left;
 }
@@ -423,7 +434,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
         ShType* right = parseOrLevel(code);
         if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
-        if (!left->canCompareWith(right))
+        if (!left->equals(right))
             error("Left and right values of a subrange must be compatible");
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
@@ -451,11 +462,15 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         
     // see if this is an elem-to-vector assignment
     ShType* topType = code.genTopType();
-    if (typeHint != NULL && typeHint->isVector()
-        && typeHint->canAssign(topType) && PVector(typeHint)->elementEquals(topType))
-            code.genElemToVec(PVector(typeHint));
+    bool hintIsVec = typeHint != NULL && typeHint->isVector();
+    if (hintIsVec && typeHint->canAssign(topType) && PVector(typeHint)->elementEquals(topType))
+        code.genElemToVec(PVector(typeHint));
 
     code.runConstExpr(result);
+
+    if (hintIsVec && result.type->isEmptyVec())
+        // empty vectors are always of void type, so simple pass the hint type
+        result.type = typeHint;
 
     if (typeHint == NULL)
         typeHint = result.type;
