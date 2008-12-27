@@ -465,6 +465,8 @@ string ShVector::displayValue(const ShValue& v) const
                 v.assignVec(elementType, PTR_TO_STRING(*pptr(p)));
             else if (elementType->isPodPointer())
                 v.assignPtr(elementType, *pptr(p));
+            else if (elemSize == 1)
+                v.assignInt(elementType, int(*pchar(p)));
             else
                 v.assignInt(elementType, *pint(p));
             s += elementType->displayValue(v);
