@@ -272,7 +272,7 @@ void VmCode::verifyClean()
 
 void VmCode::runConstExpr(ShValue& result)
 {
-    endGeneration();
+    genEnd();
     stk.reserve(stackMax);
     run(&code._at(0));
     ShType* type = genPopType();
@@ -294,7 +294,7 @@ void VmCode::runConstExpr(ShValue& result)
 
 ShType* VmCode::runTypeExpr()
 {
-    endGeneration();
+    genEnd();
     ShType* type = genPopType();
     verifyClean();
     return type;
@@ -541,16 +541,10 @@ int VmCode::genForwardBoolJump(OpCode op)
 void VmCode::genResolveJump(int jumpOffset)
 {
     const VmQuant* p = &code[jumpOffset];
-    if (!isJump(p->op_))
+    if (!isJump(OpCode(p->op_)))
         internal(53);
     p++;
     ((VmQuant*)p)->int_ = genOffset() - (jumpOffset + 1);
-}
-
-
-void VmCode::endGeneration()
-{
-    genOp(opEnd);
 }
 
 

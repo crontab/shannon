@@ -115,17 +115,6 @@ enum OpCode
 inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJumpAnd; }
 
 
-union VmQuant
-{
-    OpCode op_;
-    int int_;
-    ptr ptr_;
-#ifdef PTR64
-    large large_;
-#endif
-};
-
-
 typedef twins<ShType*> ShTypePair;
 
 
@@ -159,7 +148,7 @@ public:
     void  pushLarge(large v)
         { push().int_ = int(v); push().int_ = int(v >> 32); }
     large popLarge()
-        { int hi = popInt(); return largerec(popInt(), hi); }
+        { int hi = popInt(); return (large(hi) << 32) | unsigned(popInt()); }
     large topLarge() const
         { return (large(stack.at(-1).int_) << 32) | unsigned(stack.at(-2).int_); }
 #endif
@@ -175,7 +164,7 @@ protected:
         GenStackInfo(ShType* iType): type(iType)  { }
     };
 
-    PodArray<VmQuant> code;
+    VmCodeSegment code;
     PodStack<GenStackInfo> genStack;
     int stackMax;
     
@@ -189,6 +178,7 @@ protected:
     void genPtr(ptr v)                  { code.add().ptr_ = v; }
     void genCmpOp(OpCode op, OpCode cmp);
     void verifyClean();
+    void genEnd()                       { genOp(opEnd); }
 
 #ifdef PTR64
     void genLarge(large v)  { code.add().large_ = v; }
@@ -200,7 +190,7 @@ protected:
     VM_STATIC void run(VmQuant* p);
 
 public:
-    VmCode(ShType* iResultTypeHint);
+    VmCode(ShType* iResultTypeHint = NULL);
     
     ShType* resultTypeHint;
     
@@ -227,12 +217,13 @@ public:
     void genResolveJump(int jumpOffset);
     int  genOffset() const
             { return code.size(); }
-    void endGeneration();
+    ShType* genTopType()
+            { return genTop().type; }
     
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr();
-    ShType* genTopType()
-            { return genTop().type; }
+    VmCodeSegment getCode()
+            { genEnd(); return code; }
 };
 
 
