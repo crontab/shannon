@@ -37,6 +37,14 @@ ShType::ShType(const string& name, ShTypeId iTypeId)
 
 ShType::~ShType()  { }
 
+int ShType::staticSizeRequired() const
+{
+    int size = staticSize();
+    if (size == 0)
+        internal(9, "Size of type is zero");
+    return size;
+}
+
 string ShType::getDefinition(const string& objName) const
 {
     if (!name.empty())
@@ -57,8 +65,6 @@ string ShType::getDefinitionQ() const
 
 ShVector* ShType::deriveVectorType()
 {
-    if (staticSize() == 0)
-        internal(8);
     if (derivedVectorType == NULL)
     {
         derivedVectorType = new ShVector(this);
@@ -457,6 +463,8 @@ string ShVector::displayValue(const ShValue& v) const
         string s;
         char* p = pchar(v.value.ptr_);
         int elemSize = elementType->staticSize();
+        if (elemSize == 0)
+            return "[]";
         int count = PTR_TO_STRING(p).size() / elemSize;
         for (; count > 0 ; count--, p += elemSize)
         {
@@ -478,12 +486,6 @@ string ShVector::displayValue(const ShValue& v) const
         return '[' + s + ']';
     }
 }
-
-
-// --- STRING TYPE --- //
-
-ShString::ShString(const string& name, ShChar* elementType)
-    : ShVector(name, elementType)  { }
 
 
 // --- ARRAY TYPE --- //
@@ -638,10 +640,11 @@ ShQueenBee::ShQueenBee()
       defaultInt(new ShInteger("int", INT_MIN, INT_MAX)),
       defaultLarge(new ShInteger("large", LLONG_MIN, LLONG_MAX)),
       defaultChar(new ShChar("char", 0, 255)),
-      defaultStr(new ShString("str", defaultChar)),
+      defaultStr(new ShVector("str", defaultChar)),
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void")),
-      defaultTypeRef(new ShTypeRef("typeref"))
+      defaultTypeRef(new ShTypeRef("typeref")),
+      defaultEmptyVec(new ShEmptyVec(defaultVoid))
 {
     addType(defaultInt);
     addType(defaultLarge);
@@ -651,6 +654,7 @@ ShQueenBee::ShQueenBee()
     addType(defaultBool);
     addType(defaultVoid);
     addType(defaultTypeRef);
+    addAnonType(defaultEmptyVec);
 }
 
 

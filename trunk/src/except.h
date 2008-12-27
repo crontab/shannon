@@ -48,6 +48,7 @@ public:
 
 
 void internal(int code);
+void internal(int code, const char*);
 
 
 #endif

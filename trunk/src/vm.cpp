@@ -222,6 +222,20 @@ void VmCode::run(VmQuant* p)
             }
             break;
 
+        case opPodElemToVec:
+            {
+                int size = (p++)->int_;
+                char* vec = pchar(string::_initializen(size));
+                if (size > 4)
+                    *plarge(vec) = stk.popLarge();
+                else if (size > 1)
+                    *pint(vec) = stk.popInt();
+                else
+                    *pchar(vec) = char(stk.popInt());
+                stk.pushPtr(vec);
+            }
+            break;
+
         case opNeg: { int* t = stk.topIntRef(); *t = -*t; } break;
         case opNegLarge: { stk.pushLarge(-stk.popLarge()); } break;
         case opBitNot: { int* t = stk.topIntRef(); *t = ~*t; } break;
@@ -470,13 +484,13 @@ void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
         else
         {
             genOp(opPodVecElemCat);
-            genInt(right->staticSize());
+            genInt(right->staticSizeRequired());
         }
     }
     else if (right->isVector())
     {
         genOp(opPodElemVecCat);
-        genInt(left->staticSize());
+        genInt(left->staticSizeRequired());
     }
     else
     {
@@ -485,8 +499,17 @@ void VmCode::genVecCat(ShType* left, ShType* right, ShType* result)
             internal(54);
 #endif
         genOp(opPodElemElemCat);
-        genInt(left->staticSize());
+        genInt(left->staticSizeRequired());
     }
+}
+
+
+void VmCode::genElemToVec(ShVector* vecType)
+{
+    genPop();
+    genPush(vecType);
+    genOp(opPodElemToVec);
+    genInt(vecType->elementType->staticSizeRequired());
 }
 
 

@@ -21,7 +21,6 @@ class ShBool;
 class ShScope;
 class ShState;
 class ShVector;
-class ShString;
 class ShSet;
 class ShArray;
 class ShModule;
@@ -94,6 +93,7 @@ public:
     bool isPodPointer() const { return typeId == typeTypeRef; }
 
     virtual int staticSize() const = 0;
+    int staticSizeRequired() const;
     virtual bool isPod() const
             { return true; }
     virtual bool isString() const
@@ -379,6 +379,8 @@ public:
 };
 
 
+typedef ShVector* PVector;
+
 class ShVector: public ShType
 {
 protected:
@@ -398,28 +400,30 @@ public:
     virtual bool canBeArrayIndex() const
             { return isString(); }
     virtual bool canCompareWith(ShType* type) const
-            { return equals(type) || (isString() && type->isChar()); }
+            { return isString() && (type->isString() || type->isChar()); }
     virtual bool canAssign(ShType* type) const
             { return equals(type) || elementEquals(type); }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     bool isPodVector() const
             { return elementType->isPod(); }
-    bool elementEquals(ShType* elemType) const
+    virtual bool elementEquals(ShType* elemType) const
             { return elementType->equals(elemType); }
+    virtual bool isEmptyVec() const
+            { return false; }
 };
 
-typedef ShVector* PVector;
 
-
-class ShString: public ShVector
+class ShEmptyVec: public ShVector
 {
 public:
-    // Note that any char[] is a string, too. This class is used only once
-    // for defining the built-in "str".
-    ShString(const string& name, ShChar* elementType);
-    virtual bool isString() const
+    ShEmptyVec(ShType* iElementType)
+            : ShVector(iElementType)  { }
+    virtual bool isEmptyVec() const
             { return true; }
+//    virtual bool elementEquals(ShType* elemType) const
+//            { return elementType->isVoid() || ShVector::elementEquals(elemType); }
+//            { return true; }
 };
 
 
@@ -606,10 +610,11 @@ public:
     ShInteger* const defaultInt;     // "int"
     ShInteger* const defaultLarge;   // "large"
     ShChar* const defaultChar;       // "char"
-    ShString* const defaultStr;      // "str"
+    ShVector* const defaultStr;      // "str"
     ShBool* const defaultBool;       // "bool"
     ShVoid* const defaultVoid;       // "void"
     ShTypeRef* const defaultTypeRef; // "typeref"
+    ShVector* const defaultEmptyVec;
     
     ShQueenBee();
 };
