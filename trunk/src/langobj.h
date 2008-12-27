@@ -103,6 +103,8 @@ public:
     virtual bool equals(ShType*) const = 0;
     virtual bool canBeArrayIndex() const
             { return false; }
+    bool canBeArrayElement() const
+            { return staticSize() > 0; }
     virtual bool canCompareWith(ShType* type) const
             { return equals(type); }
     virtual bool canAssign(ShType* type) const
@@ -554,8 +556,9 @@ class ShModule: public ShScope
     void notImpl()                          { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-    ShType* getType();
+    ShType* getType(bool require);
     ShType* getTypeOrNewIdent(string* strToken);
+    void    getConstCompound(VmCode&, ShValue&);
     ShType* parseAtom(VmCode&);
     ShType* parseDesignator(VmCode&);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);

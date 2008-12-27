@@ -23,7 +23,8 @@ string typeVsType(ShType* a, ShType* b)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>, true, false, null
+    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>,
+        true, false, null, compound-ctor
     <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
     *, /, mod, as
@@ -33,6 +34,7 @@ string typeVsType(ShType* a, ShType* b)
     and
     or, xor
     ..
+    ,
 */
 
 ShBase* ShModule::getQualifiedName()
@@ -55,6 +57,12 @@ ShBase* ShModule::getQualifiedName()
             errorNotFound(errIdent);
     }
     return obj;
+}
+
+
+void ShModule::getConstCompound(VmCode& code, ShValue& result)
+{
+    
 }
 
 
@@ -121,6 +129,7 @@ ShType* ShModule::parseAtom(VmCode& code)
             if (parser.token == tokLParen)
             {
                 parser.next();
+                code.resultTypeHint = type;
                 parseExpr(code);
                 parser.skip(tokRParen, ")");
                 ShType* fromType = code.genTopType();
@@ -142,7 +151,7 @@ ShType* ShModule::parseAtom(VmCode& code)
         parser.skip(tokLParen, "(");
         ShType* type;
         {
-            VmCode tcode;
+            VmCode tcode(NULL);
             parseExpr(tcode);
             type = tcode.runTypeExpr();
         }
@@ -158,6 +167,12 @@ ShType* ShModule::parseAtom(VmCode& code)
     
     else if (parser.skipIf(tokNull))
         code.genLoadNull();
+    
+    else if (parser.skipIf(tokLSquare))
+    {
+        ShValue comp;
+        getConstCompound(code, comp);
+    }
     
     else
         errorWithLoc("Expression syntax");
@@ -270,6 +285,8 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
         }
         else
         {
+            if (!left->canBeArrayElement())
+                error("Invalid vector element type");
             ShVector* vec = left->deriveVectorType();
             if (vec->elementEquals(right))
                 code.genVecCat(left, right, vec);
@@ -418,7 +435,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
 
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCode code;
+    VmCode code(typeHint);
     if (typeHint != NULL)
     {
         if (typeHint->isBool() || typeHint->isInt())
@@ -460,17 +477,16 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 
 ShType* ShModule::getDerivators(ShType* type)
 {
-    if (parser.token == tokLSquare)
+    if (parser.skipIf(tokLSquare))
     {
-        parser.next();
-        if (parser.token == tokRSquare)
+        if (parser.skipIf(tokRSquare))
         {
+            if (!type->canBeArrayElement())
+                error("Invalid vector element type");
             type = type->deriveVectorType();
-            parser.next();
         }
-        else if (parser.token == tokRange)
+        else if (parser.skipIf(tokRange))
         {
-            parser.next();
             parser.skip(tokRSquare, "]");
             if (!type->isOrdinal())
                 error("Ranges apply only to ordinal types");
@@ -478,7 +494,7 @@ ShType* ShModule::getDerivators(ShType* type)
         }
         else
         {
-            ShType* indexType = getType();
+            ShType* indexType = getType(true);
             parser.skip(tokRSquare, "]");
             if (!indexType->canBeArrayIndex())
                 error(indexType->getDefinition() + " can't be used as array index");
@@ -490,17 +506,17 @@ ShType* ShModule::getDerivators(ShType* type)
 }
 
 
-ShType* ShModule::getType()
+ShType* ShModule::getType(bool require)
 {
-    ShType* type = NULL;
-    ShBase* obj = getQualifiedName();
-    if (obj->isTypeAlias())
-        type = ((ShTypeAlias*)obj)->base;
-    else if (obj->isType())
-        type = (ShType*)obj;
-    if (type == NULL)
-        errorWithLoc("Expected type specifier");
-    return getDerivators(type);
+    ShValue value;
+    getConstExpr(NULL, value);
+    if (value.type->isTypeRef())
+        return (ShType*)value.value.ptr_;
+    else if (value.type->isRange())
+        return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
+    else if (require)
+        errorWithLoc("Type specification expected");
+    return NULL;
 }
 
 
@@ -515,12 +531,9 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 
     try
     {
-        ShValue value;
-        getConstExpr(NULL, value);
-        if (value.type->isTypeRef())
-            return (ShType*)value.value.ptr_;
-        else if (value.type->isRange())
-            return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
+        ShType* type = getType(false);
+        if (type != NULL)
+            return type;
         else
             // TODO: give a better error message in case ident was a known one.
             // How? What if it was an expression?
@@ -578,7 +591,7 @@ void ShModule::parseTypeDef()
     }
     else
     {
-        type = getType();
+        type = getType(true);
         ident = parser.getIdent();
         type = getDerivators(type);
     }

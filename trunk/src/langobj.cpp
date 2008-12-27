@@ -57,6 +57,8 @@ string ShType::getDefinitionQ() const
 
 ShVector* ShType::deriveVectorType()
 {
+    if (staticSize() == 0)
+        internal(8);
     if (derivedVectorType == NULL)
     {
         derivedVectorType = new ShVector(this);
@@ -68,7 +70,7 @@ ShVector* ShType::deriveVectorType()
 ShArray* ShType::deriveArrayType(ShType* indexType)
 {
     if (!indexType->canBeArrayIndex())
-        internal(10);
+        internal(7);
     if (isVoid())
         return indexType->deriveSetType((ShVoid*)this);
     else
@@ -253,6 +255,8 @@ ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
 
 ShRange* ShOrdinal::deriveRangeType()
 {
+    if (!isOrdinal())
+        internal(9);
     if (derivedRangeType == NULL)
     {
         derivedRangeType = new ShRange(this);
@@ -284,7 +288,7 @@ bool ShOrdinal::contains(const ShValue& v) const
             return v.value.int_ >= range.min && v.value.int_ <= range.max;
     }
     else
-        internal(40);
+        internal(5);
     return false;
 }
 
@@ -601,7 +605,7 @@ void ShModule::addObject(ShBase* obj)
         else if (obj->isConstant())
             currentScope->addConstant((ShConstant*)obj);
         else
-            internal(11);
+            internal(6);
     }
     catch (EDuplicate& e)
     {
