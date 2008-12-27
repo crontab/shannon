@@ -122,7 +122,7 @@ ShType* ShModule::parseAtom(VmCode& code)
                 parser.next();
                 parseExpr(code);
                 parser.skip(tokRParen, ")");
-                ShType* fromType = code.topType();
+                ShType* fromType = code.genTopType();
                 if (!fromType->canStaticCastTo(type))
                     error("Can't do static typecast from " + fromType->getDefinitionQ()
                         + " to " + type->getDefinitionQ());
@@ -161,7 +161,7 @@ ShType* ShModule::parseAtom(VmCode& code)
     else
         errorWithLoc("Expression syntax");
 
-    return code.topType();
+    return code.genTopType();
 }
 
 
@@ -177,7 +177,7 @@ ShType* ShModule::parseFactor(VmCode& code)
     ShType* resultType = parseDesignator(code);
     if (isNeg)
     {
-        resultType = code.topType();
+        resultType = code.genTopType();
         if (!resultType->isInt())
             error("Invalid operand for arithmetic negation");
         code.genUnArithm(opNeg, PInteger(resultType));
@@ -221,18 +221,34 @@ ShType* ShModule::parseTerm(VmCode& code)
 ShType* ShModule::parseSimpleExpr(VmCode& code)
 {
     ShType* left = parseTerm(code);
-    while (parser.token == tokPlus || parser.token == tokMinus)
+    if (parser.token == tokPlus || parser.token == tokMinus)
     {
         Token tok = parser.token;
         parser.next();
         ShType* right = parseTerm(code);
+
         if (left->isInt() && right->isInt())
         {
             left = arithmResultType(PInteger(left), PInteger(right));
             code.genBinArithm(tok == tokPlus ? opAdd : opSub,
                 PInteger(left));
         }
-        // TODO: string/vector ops
+
+        else if (left->isVector())
+        {
+            if (right->isVector())
+            {
+                if (!left->isCompatibleWith(right))
+                    error("Operands of vector concatenation are incompatible");
+                if (PVector(left)->isPodVector())
+                    code.genPodVecCat(left);
+                else
+                    notImpl();
+            }
+            else
+                notImpl();
+        }
+
         else
             error("Invalid operands for arithmetic operator");
     }
@@ -251,7 +267,7 @@ ShType* ShModule::parseRelExpr(VmCode& code)
         if (!left->isCompatibleWith(right))
             error("Type mismatch in comparison: " + typeVsType(left, right));
         code.genComparison(op);
-        left = code.topType();
+        left = code.genTopType();
     }
     return left;
 }
@@ -368,7 +384,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
         code.genMkSubrange();
-        left = code.topType();
+        left = code.genTopType();
     }
     return left;
 }
@@ -393,9 +409,10 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
 
+    // TODO: also typecast any element type to its vector
     else if (typeHint->isString() && result.type->isChar())
-        result.assignStr(queenBee->defaultStr,
-            registerString(char(result.value.int_)).c_bytes());
+        result.assignString(queenBee->defaultStr,
+            string(char(result.value.int_)));
 
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
@@ -631,7 +648,7 @@ public:
         if (FifoChunk::chunkCount != 0)
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
 #ifdef SINGLE_THREADED
-        vmStack.clear();
+        stk.clear();
 #endif
         if (stackimpl::stackAlloc != 0)
             fprintf(stderr, "Internal: stackAlloc = %d\n", stackimpl::stackAlloc);
@@ -648,7 +665,7 @@ int main()
         initLangObjs();
         
 #ifdef XCODE
-        ShModule module("../../src/z.sn");
+        ShModule module("/Users/hovik/Projects/Shannon/src/z.sn");
 #else
         ShModule module("z.sn");
 #endif

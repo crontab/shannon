@@ -126,7 +126,6 @@ public:
     bool operator!= (const string& s) const       { return !(*this == s); }
     
     int compare(const string& s) const;
-    bool operator < (const string& s) const       { return compare(s) < 0; }
 
     friend bool operator== (const char*, const string&);
     friend bool operator== (char, const string&);
@@ -134,14 +133,14 @@ public:
     friend bool operator!= (char, const string&);
     
     // internal stuff, use with care!
-//    void* _lock() const
-//            { pincrement(&STR_REFCOUNT(data)); return (void*)data; }
+    void* _initialize() const
+            { pincrement(&STR_REFCOUNT(data)); return (void*)data; }
     int  _unlock()
             { return pdecrement(&STR_REFCOUNT(data)); }
-//    static void _finalize(void* p)
-//            { PTR_TO_PSTRING(p)->finalize(); }
     static void _unlock(string& s) // this solves a visibility problem
             { s._unlock(); }
+    static void _finalize(void* p)
+            { PTR_TO_PSTRING(p)->finalize(); }
 };
 
 
