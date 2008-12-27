@@ -62,7 +62,8 @@ ShBase* ShModule::getQualifiedName()
 
 void ShModule::getConstCompound(VmCode& code, ShValue& result)
 {
-    
+    if (parser.token == tokRSquare && code.resultTypeHint == NULL)
+        error("Can't determine vector/array type");
 }
 
 
@@ -447,6 +448,13 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
     }
     else
         parseExpr(code);
+        
+    // see if this is an elem-to-vector assignment
+    ShType* topType = code.genTopType();
+    if (typeHint != NULL && typeHint->isVector()
+        && typeHint->canAssign(topType) && PVector(typeHint)->elementEquals(topType))
+            code.genElemToVec(PVector(typeHint));
+
     code.runConstExpr(result);
 
     if (typeHint == NULL)
@@ -458,13 +466,6 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
     if (typeHint->isOrdinal() && result.type->isOrdinal()
         && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
-
-    else if (typeHint->isVector() && PVector(typeHint)->elementEquals(result.type))
-    {
-        int size = result.type->staticSize();
-        string s(pchar(&result.value), size);
-        result.assignVec(typeHint, s);
-    }
 
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
@@ -624,8 +625,8 @@ void ShModule::parseVarConstDef(bool isVar)
     getConstExpr(type, value);
     if (type == NULL) // auto
         type = value.type;
-    else
-        value.type = type;
+//    else
+//        value.type = type;
     if (isVar)
         addObject(new ShVariable(ident, type)); // TODO: initializer
     else

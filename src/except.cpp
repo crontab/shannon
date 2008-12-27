@@ -49,3 +49,8 @@ void internal(int code)
 {
     throw EInternal(code);
 }
+
+void internal(int code, const char* msg)
+{
+    throw EInternal(code, msg);
+}

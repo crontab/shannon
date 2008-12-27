@@ -83,12 +83,13 @@ enum OpCode
     opBitShr,       // []               -2  +1
     opBitShrLarge,  // []               -2  +1
 
-    // string/vector concatenation
+    // string/vector operators
     // [elem-size]: if < 4 int_ is taken from the stack, otherwise - large_
     opPodVecCat,    // []               -2  +1   vec + vec
     opPodVecElemCat,// [elem-size]      -2  +1   vec + elem
     opPodElemVecCat,// [elem-size]      -2  +1   elem + vec
     opPodElemElemCat,// [elem-size]     -2  +1   elem + elem
+    opPodElemToVec, // [elem-size]      -1  +1
 
     // unary
     opNeg,          // []               -1  +1
@@ -216,6 +217,7 @@ public:
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
     void genVecCat(ShType* left, ShType* right, ShType* result);
+    void genElemToVec(ShVector*);
     void genBoolXor()
             { genPop(); genOp(opBitXor); }
     void genBoolNot()
