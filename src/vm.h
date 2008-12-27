@@ -200,7 +200,9 @@ protected:
     VM_STATIC void run(VmQuant* p);
 
 public:
-    VmCode();
+    VmCode(ShType* iResultTypeHint);
+    
+    ShType* resultTypeHint;
     
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);

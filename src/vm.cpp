@@ -11,8 +11,8 @@ public:
 
 
 
-VmCode::VmCode()
-    : code(), stackMax(0)  { }
+VmCode::VmCode(ShType* iResultTypeHint)
+    : code(), genStack(), stackMax(0), resultTypeHint(iResultTypeHint)  { }
 
 
 #ifdef SINGLE_THREADED
@@ -288,6 +288,7 @@ void VmCode::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t));
     stackMax = imax(stackMax, genStack.size());
+    resultTypeHint = NULL;
 }
 
 
