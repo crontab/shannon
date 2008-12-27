@@ -84,9 +84,7 @@ enum OpCode
     opBitShrLarge,  // []               -2  +1
 
     // string/vector concatenation
-    opVec1Cat,      // []               -2  +1   vec + vec
-    opVec1AddElem,  // []               -2  +1   vec + elem
-    opElemAddVec1,  // []               -2  +1   elem + vec
+    opPodVecCat,    // []               -2  +1   vec + vec
 
     // unary
     opNeg,          // []               -1  +1
@@ -145,6 +143,7 @@ public:
     int   topInt() const      { return stack.top().int_; }
     ptr   topPtr() const      { return stack.top().ptr_; }
     int*  topIntRef()         { return &stack.top().int_; }
+    ptr*  topPtrRef()         { return &stack.top().ptr_; }
 
 #ifdef PTR64
     void   pushLarge(large v) { push().large_ = v; }
@@ -167,20 +166,16 @@ class VmCode: public noncopyable
 protected:
     struct GenStackInfo
     {
-        ShValue value;
-        int opOffset;
-        bool isValue;
-        GenStackInfo(const ShValue&, int iOpOffset);
-        GenStackInfo(ShType* iType, int iOpOffset);
+        ShType* type;
+        GenStackInfo(ShType* iType): type(iType)  { }
     };
 
     PodArray<VmQuant> code;
     PodStack<GenStackInfo> genStack;
     ShScope* compilationScope;
-
-    void genPush(const ShValue& value);
+    
     void genPush(ShType* v);
-    ShType* genPopType()                { return genStack.pop().value.type; }
+    ShType* genPopType()                { return genStack.pop().type; }
     GenStackInfo& genTop()              { return genStack.top(); }
     void genPop()                       { genStack.pop(); }
 
@@ -213,6 +208,7 @@ public:
     void genStaticCast(ShType*);
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
+    void genPodVecCat(ShType*);
     void genBoolXor()
             { genPop(); genOp(opBitXor); }
     void genBoolNot()
@@ -227,14 +223,14 @@ public:
     
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr();
-    ShType* topType()
-            { return genTop().value.type; }
+    ShType* genTopType()
+            { return genTop().type; }
 };
 
 
 #ifdef SINGLE_THREADED
 
-extern VmStack vmStack;
+extern VmStack stk;
 
 #endif
 

@@ -518,15 +518,42 @@ string ShState::getFullDefinition(const string& objName) const
 */
 
 
+// --- LITERAL VALUE --- //
+
+ShValue::ShValue(const ShValue& v)
+    : type(v.type)
+{
+    if (type != NULL && type->isStrBased())
+        value.ptr_ = PTR_TO_STRING(v.value.ptr_)._initialize();
+    else
+        value = v.value;
+}
+
+void ShValue::_finalize()
+{
+    if (type != NULL && type->isVector())
+        // TODO: finalize non-POD vectors
+        string::_finalize(value.ptr_);
+}
+
+void ShValue::assignPtr(ShType* iType, ptr p)
+        { _finalize(); type = iType; value.ptr_ = p; }
+void ShValue::assignInt(ShType* iType, int i)
+        { _finalize(); type = iType; value.int_ = i; }
+void ShValue::assignLarge(ShType* iType, large l)
+        { _finalize(); type = iType; value.large_ = l; }
+void ShValue::assignString(ShType* iType, const string& s)
+        { _finalize(); type = iType; value.ptr_ = s._initialize(); }
+
+
+
 // --- CONSTANT --- //
 
 ShConstant::ShConstant(const string& name, const ShValue& iValue)
     : ShBase(name, baseConstant), value(iValue)  { }
 
-
 ShConstant::ShConstant(const string& name, ShEnum* type, int value)
     : ShBase(name, baseConstant), value(type, value)  { }
-
 
 
 // ------------------------------------------------------------------------ //

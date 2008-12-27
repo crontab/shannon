@@ -11,20 +11,13 @@ public:
 
 
 
-VmCode::GenStackInfo::GenStackInfo(const ShValue& iValue, int iOpOffset)
-    : value(iValue), opOffset(iOpOffset), isValue(true)  { }
-
-VmCode::GenStackInfo::GenStackInfo(ShType* iType, int iOpOffset)
-    : value(iType), opOffset(iOpOffset), isValue(false)  { }
-
-
 VmCode::VmCode(ShScope* iCompilationScope)
     : code(), compilationScope(iCompilationScope)  { }
 
 
 #ifdef SINGLE_THREADED
 
-VmStack vmStack;
+VmStack stk;
 
 #endif
 
@@ -50,6 +43,13 @@ static int compareStrChr(ptr a, int b)
 static int compareChrStr(int a, ptr b)
     { return string(char(a)).compare(PTR_TO_STRING(b)); }
 
+static ptr podVecCat(ptr a, ptr b)
+{
+    ptr result = PTR_TO_STRING(a)._initialize();
+    PTR_TO_STRING(result).append(PTR_TO_STRING(b));
+    return result;
+}
+
 
 void VmCode::run(VmQuant* p)
 {
@@ -61,116 +61,118 @@ void VmCode::run(VmQuant* p)
         case opNop: break;
 
         // --- LOADERS ----------------------------------------------------- //
-        case opLoadZero: vmStack.pushInt(0); break;
-        case opLoadLargeZero: vmStack.pushLarge(0); break;
-        case opLoadOne: vmStack.pushInt(1); break;
-        case opLoadLargeOne: vmStack.pushLarge(1); break;
-        case opLoadInt: vmStack.pushInt((p++)->int_); break;
+        case opLoadZero: stk.pushInt(0); break;
+        case opLoadLargeZero: stk.pushLarge(0); break;
+        case opLoadOne: stk.pushInt(1); break;
+        case opLoadLargeOne: stk.pushLarge(1); break;
+        case opLoadInt: stk.pushInt((p++)->int_); break;
 #ifdef PTR64
-        case opLoadLarge: vmStack.pushLarge((p++)->large_); break;
+        case opLoadLarge: stk.pushLarge((p++)->large_); break;
 #else
-        case opLoadLarge: vmStack.pushInt((p++)->int_); vmStack.pushInt((p++)->int_); break;
+        case opLoadLarge: stk.pushInt((p++)->int_); stk.pushInt((p++)->int_); break;
 #endif
-        case opLoadFalse: vmStack.pushInt(0); break;
-        case opLoadTrue: vmStack.pushInt(1); break;
-        case opLoadNull: vmStack.pushInt(0); break;
-        case opLoadNullStr: vmStack.pushPtr(emptystr); break;
-        case opLoadStr: vmStack.pushPtr((p++)->ptr_); break;
-        case opLoadTypeRef: vmStack.pushPtr((p++)->ptr_); break;
+        case opLoadFalse: stk.pushInt(0); break;
+        case opLoadTrue: stk.pushInt(1); break;
+        case opLoadNull: stk.pushInt(0); break;
+        case opLoadNullStr: stk.pushPtr(emptystr); break;
+        case opLoadStr: stk.pushPtr((p++)->ptr_); break;
+        case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
 
         // --- COMPARISONS ------------------------------------------------- //
         case opCmpInt:
             {
-                int r = vmStack.popInt();
-                int* t = vmStack.topIntRef();
+                int r = stk.popInt();
+                int* t = stk.topIntRef();
                 *t = compareInt(*t, r);
             }
             break;
         case opCmpLarge:
             {
-                large r = vmStack.popLarge();
-                large l = vmStack.popLarge();
-                vmStack.pushInt(compareLarge(l, r));
+                large r = stk.popLarge();
+                large l = stk.popLarge();
+                stk.pushInt(compareLarge(l, r));
             }
             break;
         case opCmpStr:
             {
-                ptr r = vmStack.popPtr();
-                ptr l = vmStack.popPtr();
-                vmStack.pushInt(compareStr(l, r));
+                ptr r = stk.popPtr();
+                ptr l = stk.popPtr();
+                stk.pushInt(compareStr(l, r));
             }
             break;
         case opCmpStrChr:
             {
-                int r = vmStack.popInt();
-                ptr l = vmStack.popPtr();
-                vmStack.pushInt(compareStrChr(l, r));
+                int r = stk.popInt();
+                ptr l = stk.popPtr();
+                stk.pushInt(compareStrChr(l, r));
             }
             break;
         case opCmpChrStr:
             {
-                ptr r = vmStack.popPtr();
-                int* t = vmStack.topIntRef();
+                ptr r = stk.popPtr();
+                int* t = stk.topIntRef();
                 *t = compareChrStr(*t, r);
             }
             break;
-        case opEQ: { int* t = vmStack.topIntRef(); *t = *t == 0; } break;
-        case opLT: { int* t = vmStack.topIntRef(); *t = *t < 0; } break;
-        case opLE: { int* t = vmStack.topIntRef(); *t = *t <= 0; } break;
-        case opGE: { int* t = vmStack.topIntRef(); *t = *t >= 0; } break;
-        case opGT: { int* t = vmStack.topIntRef(); *t = *t > 0; } break;
-        case opNE: { int* t = vmStack.topIntRef(); *t = *t != 0; } break;
+        case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
+        case opLT: { int* t = stk.topIntRef(); *t = *t < 0; } break;
+        case opLE: { int* t = stk.topIntRef(); *t = *t <= 0; } break;
+        case opGE: { int* t = stk.topIntRef(); *t = *t >= 0; } break;
+        case opGT: { int* t = stk.topIntRef(); *t = *t > 0; } break;
+        case opNE: { int* t = stk.topIntRef(); *t = *t != 0; } break;
 
         // typecasts
-        case opLargeToInt: vmStack.pushInt(vmStack.popLarge()); break;
-        case opIntToLarge: vmStack.pushLarge(vmStack.popInt()); break;
+        case opLargeToInt: stk.pushInt(stk.popLarge()); break;
+        case opIntToLarge: stk.pushLarge(stk.popInt()); break;
 
         // --- BINARY OPERATORS -------------------------------------------- //
 #ifdef PTR64
         case opMkSubrange:
             {
-                large hi = large(vmStack.popInt()) << 32;
-                vmStack.pushLarge(unsigned(vmStack.popInt()) | hi);
+                large hi = large(stk.popInt()) << 32;
+                stk.pushLarge(unsigned(stk.popInt()) | hi);
             }
             break;
 #else
         case opMkSubrange: /* two ints become a subrange, haha! */ break;
 #endif
 
-        case opAdd: { int r = vmStack.popInt(); *vmStack.topIntRef() += r; } break;
-        case opAddLarge: { vmStack.pushLarge(vmStack.popLarge() + vmStack.popLarge()); } break;
-        case opSub: { int r = vmStack.popInt(); *vmStack.topIntRef() -= r; } break;
-        case opSubLarge: { vmStack.pushLarge(vmStack.popLarge() - vmStack.popLarge()); } break;
-        case opMul: { int r = vmStack.popInt(); *vmStack.topIntRef() *= r; } break;
-        case opMulLarge: { vmStack.pushLarge(vmStack.popLarge() * vmStack.popLarge()); } break;
-        case opDiv: { int r = vmStack.popInt(); *vmStack.topIntRef() /= r; } break;
-        case opDivLarge: { vmStack.pushLarge(vmStack.popLarge() / vmStack.popLarge()); } break;
-        case opMod: { int r = vmStack.popInt(); *vmStack.topIntRef() %= r; } break;
-        case opModLarge: { vmStack.pushLarge(vmStack.popLarge() % vmStack.popLarge()); } break;
-        case opBitAnd: { int r = vmStack.popInt(); *vmStack.topIntRef() &= r; } break;
-        case opBitAndLarge: { vmStack.pushLarge(vmStack.popLarge() & vmStack.popLarge()); } break;
-        case opBitOr: { int r = vmStack.popInt(); *vmStack.topIntRef() |= r; } break;
-        case opBitOrLarge: { vmStack.pushLarge(vmStack.popLarge() | vmStack.popLarge()); } break;
-        case opBitXor: { int r = vmStack.popInt(); *vmStack.topIntRef() ^= r; } break;
-        case opBitXorLarge: { vmStack.pushLarge(vmStack.popLarge() ^ vmStack.popLarge()); } break;
-        case opBitShl: { int r = vmStack.popInt(); *vmStack.topIntRef() <<= r; } break;
-        case opBitShlLarge: { vmStack.pushLarge(vmStack.popLarge() << vmStack.popInt()); } break;
-        case opBitShr: { int r = vmStack.popInt(); *vmStack.topIntRef() >>= r; } break;
-        case opBitShrLarge: { vmStack.pushLarge(vmStack.popLarge() >> vmStack.popInt()); } break;
+        case opAdd: { int r = stk.popInt(); *stk.topIntRef() += r; } break;
+        case opAddLarge: { stk.pushLarge(stk.popLarge() + stk.popLarge()); } break;
+        case opSub: { int r = stk.popInt(); *stk.topIntRef() -= r; } break;
+        case opSubLarge: { stk.pushLarge(stk.popLarge() - stk.popLarge()); } break;
+        case opMul: { int r = stk.popInt(); *stk.topIntRef() *= r; } break;
+        case opMulLarge: { stk.pushLarge(stk.popLarge() * stk.popLarge()); } break;
+        case opDiv: { int r = stk.popInt(); *stk.topIntRef() /= r; } break;
+        case opDivLarge: { stk.pushLarge(stk.popLarge() / stk.popLarge()); } break;
+        case opMod: { int r = stk.popInt(); *stk.topIntRef() %= r; } break;
+        case opModLarge: { stk.pushLarge(stk.popLarge() % stk.popLarge()); } break;
+        case opBitAnd: { int r = stk.popInt(); *stk.topIntRef() &= r; } break;
+        case opBitAndLarge: { stk.pushLarge(stk.popLarge() & stk.popLarge()); } break;
+        case opBitOr: { int r = stk.popInt(); *stk.topIntRef() |= r; } break;
+        case opBitOrLarge: { stk.pushLarge(stk.popLarge() | stk.popLarge()); } break;
+        case opBitXor: { int r = stk.popInt(); *stk.topIntRef() ^= r; } break;
+        case opBitXorLarge: { stk.pushLarge(stk.popLarge() ^ stk.popLarge()); } break;
+        case opBitShl: { int r = stk.popInt(); *stk.topIntRef() <<= r; } break;
+        case opBitShlLarge: { stk.pushLarge(stk.popLarge() << stk.popInt()); } break;
+        case opBitShr: { int r = stk.popInt(); *stk.topIntRef() >>= r; } break;
+        case opBitShrLarge: { stk.pushLarge(stk.popLarge() >> stk.popInt()); } break;
 
-        case opNeg: { int* t = vmStack.topIntRef(); *t = -*t; } break;
-        case opNegLarge: { vmStack.pushLarge(-vmStack.popLarge()); } break;
-        case opBitNot: { int* t = vmStack.topIntRef(); *t = ~*t; } break;
-        case opBitNotLarge: { vmStack.pushLarge(~vmStack.popLarge()); } break;
-        case opBoolNot: { int* t = vmStack.topIntRef(); *t = !*t; } break;
+        case opPodVecCat: { ptr r = stk.popPtr(); ptr* l = stk.topPtrRef(); *l = podVecCat(*l, r); } break;
+
 /*        
     opVec1Cat,      // []               -2  +1   vec + vec
     opVec1AddElem,  // []               -2  +1   vec + elem
     opElemAddVec1,  // []               -2  +1   elem + vec
 */
+        case opNeg: { int* t = stk.topIntRef(); *t = -*t; } break;
+        case opNegLarge: { stk.pushLarge(-stk.popLarge()); } break;
+        case opBitNot: { int* t = stk.topIntRef(); *t = ~*t; } break;
+        case opBitNotLarge: { stk.pushLarge(~stk.popLarge()); } break;
+        case opBoolNot: { int* t = stk.topIntRef(); *t = !*t; } break;
 
-        case opJumpOr: if (vmStack.topInt()) p += p->int_; else vmStack.popInt(); break;
-        case opJumpAnd: if (vmStack.topInt()) vmStack.popInt(); else p += p->int_; break;
+        case opJumpOr: if (stk.topInt()) p += p->int_; else stk.popInt(); break;
+        case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->int_; break;
 
         default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
@@ -182,7 +184,7 @@ void VmCode::verifyClean()
 {
     if (!genStack.empty())
         fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
-    if (!vmStack.empty())
+    if (!stk.empty())
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
 }
 
@@ -193,13 +195,16 @@ void VmCode::runConstExpr(ShValue& result)
     run(&code._at(0));
     ShType* type = genPopType();
     if (type->isLargePod())
-        result.assignLarge(type, vmStack.popLarge());
+        result.assignLarge(type, stk.popLarge());
     else if (type->isStrBased())
-        result.assignStr(type, pconst(vmStack.popPtr()));
+    {
+        ptr p = stk.popPtr();
+        result.assignString(type, PTR_TO_STRING(p));
+    }
     else if (type->isPodPointer())
-        result.assignPtr(type, vmStack.popPtr());
+        result.assignPtr(type, stk.popPtr());
     else
-        result.assignInt(type, vmStack.popInt());
+        result.assignInt(type, stk.popInt());
     verifyClean();
 }
 
@@ -207,11 +212,7 @@ void VmCode::runConstExpr(ShValue& result)
 ShType* VmCode::runTypeExpr()
 {
     endGeneration();
-    GenStackInfo& e = genTop();
-    ShType* type = e.value.type;
-    if (e.value.type->isTypeRef() && e.isValue)
-        type = (ShType*)e.value.value.ptr_;
-    genPop();
+    ShType* type = genPopType();
     verifyClean();
     return type;
 }
@@ -224,21 +225,15 @@ void VmCode::genCmpOp(OpCode op, OpCode cmp)
 }
 
 
-void VmCode::genPush(const ShValue& value)
-{
-    genStack.push(GenStackInfo(value, genOffset()));
-}
-
-
 void VmCode::genPush(ShType* t)
 {
-    genStack.push(GenStackInfo(t, genOffset()));
+    genStack.push(GenStackInfo(t));
 }
 
 
 void VmCode::genLoadIntConst(ShOrdinal* type, int value)
 {
-    genPush(ShValue(type, value));
+    genPush(type);
     if (type->isBool())
     {
         genOp(value ? opLoadTrue : opLoadFalse);
@@ -260,7 +255,7 @@ void VmCode::genLoadIntConst(ShOrdinal* type, int value)
 
 void VmCode::genLoadLargeConst(ShOrdinal* type, large value)
 {
-    genPush(ShValue(type, value));
+    genPush(type);
     if (value == 0)
         genOp(opLoadLargeZero);
     else if (value == 1)
@@ -275,14 +270,14 @@ void VmCode::genLoadLargeConst(ShOrdinal* type, large value)
 
 void VmCode::genLoadNull()
 {
-    genPush(ShValue(queenBee->defaultVoid, 0));
+    genPush(queenBee->defaultVoid);
     genOp(opLoadNull);
 }
 
 
 void VmCode::genLoadTypeRef(ShType* type)
 {
-    genPush(ShValue(queenBee->defaultTypeRef, type));
+    genPush(queenBee->defaultTypeRef);
     genOp(opLoadTypeRef);
     genPtr(type);
 }
@@ -290,7 +285,7 @@ void VmCode::genLoadTypeRef(ShType* type)
 
 void VmCode::genLoadStrConst(const char* s)
 {
-    genPush(ShValue(queenBee->defaultStr, s));
+    genPush(queenBee->defaultStr);
     if (*s == 0)
         genOp(opLoadNullStr);
     else
@@ -328,7 +323,7 @@ void VmCode::genMkSubrange()
     if (!type->isOrdinal())
         internal(51);
     genPush(POrdinal(type)->deriveRangeType(compilationScope));
-    type = topType();
+    type = genTopType();
     genOp(opMkSubrange);
 }
 
@@ -396,6 +391,16 @@ void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
     genPop();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
+}
+
+
+void VmCode::genPodVecCat(ShType* resultType)
+{
+    if (!genPopType()->equals(resultType))
+        internal(54);
+    if (!genTopType()->equals(resultType))
+        internal(54);
+    genOp(opPodVecCat);
 }
 
 

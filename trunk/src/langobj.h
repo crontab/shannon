@@ -75,14 +75,11 @@ public:
     ShType(ShTypeId iTypeId);
     ShType(const string& name, ShTypeId iTypeId);
     virtual ~ShType();
+
     string getDefinition(const string& objName) const;
     string getDefinition() const;
     string getDefinitionQ() const; // quoted
     virtual string displayValue(const ShValue&) const = 0;
-    virtual bool isString() const
-            { return false; }
-    virtual bool isLargePod() const
-            { return false; }
 
     bool isVoid() const { return typeId == typeVoid; }
     bool isTypeRef() const { return typeId == typeTypeRef; }
@@ -97,6 +94,12 @@ public:
     bool isStrBased() const { return typeId == typeVector; }
     bool isPodPointer() const { return typeId == typeTypeRef; }
 
+    virtual bool isPod() const
+            { return true; }
+    virtual bool isString() const
+            { return false; }
+    virtual bool isLargePod() const
+            { return false; }
     virtual bool equals(ShType*) const = 0;
     virtual bool canBeArrayIndex() const
             { return false; }
@@ -166,6 +169,8 @@ protected:
 public:
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
+    virtual bool isPod() const
+            { return false; }
     virtual bool isScope() const
             { return true; }
     virtual string displayValue(const ShValue&) const
@@ -380,6 +385,8 @@ public:
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
     virtual string displayValue(const ShValue& v) const;
+    virtual bool isPod() const
+            { return false; }
     virtual bool isString() const
             { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
     virtual bool canBeArrayIndex() const
@@ -390,7 +397,11 @@ public:
             { return type->isCompatibleWith(type); }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementType->equals(((ShVector*)type)->elementType); }
+    bool isPodVector() const
+            { return elementType->isPod(); }
 };
+
+typedef ShVector* PVector;
 
 
 class ShString: public ShVector
@@ -466,34 +477,40 @@ union podvalue
 };
 
 
-struct ShValue
+struct ShValue: noncopyable
 {
     podvalue value;
     ShType* type;
 
     ShValue(): type(NULL)  { }
+    ShValue(const ShValue&);
     ShValue(ShType* iType)
             : type(iType) { }
     ShValue(ShType* iType, int iValue)
             : type(iType) { value.int_ = iValue; }
+/*
     ShValue(ShType* iType, large iValue)
             : type(iType) { value.large_ = iValue; }
     ShValue(ShType* iType, ptr iValue)
             : type(iType) { value.ptr_ = iValue; }
-    ShValue(ShType* iType, const char* iValue)
-            : type(iType) { value.ptr_ = ptr(iValue); }
-    void ShValue::assignPtr(ShType* iType, ptr p)
-            { type = iType; value.ptr_ = p; }
-    void ShValue::assignInt(ShType* iType, int i)
-            { type = iType; value.int_ = i; }
-    void ShValue::assignLarge(ShType* iType, large l)
-            { type = iType; value.large_ = l; }
-    void ShValue::assignStr(ShType* iType, const char* s)
-            { type = iType; value.ptr_ = ptr(s); }
+*/
+    ~ShValue()
+            { _finalize(); }
+
+    void operator= (const ShValue&);
+
+    void ShValue::assignPtr(ShType* iType, ptr p);
+    void ShValue::assignInt(ShType* iType, int i);
+    void ShValue::assignLarge(ShType* iType, large l);
+    void ShValue::assignString(ShType* iType, const string& s);
+
     int rangeMin() const
             { return int(value.large_); }
     int rangeMax() const
             { return int(value.large_ >> 32); }
+
+protected:
+    void _finalize();
 };
 
 
