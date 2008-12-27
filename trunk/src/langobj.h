@@ -94,6 +94,7 @@ public:
     bool isStrBased() const { return typeId == typeVector; }
     bool isPodPointer() const { return typeId == typeTypeRef; }
 
+    virtual int staticSize() const = 0;
     virtual bool isPod() const
             { return true; }
     virtual bool isString() const
@@ -103,21 +104,16 @@ public:
     virtual bool equals(ShType*) const = 0;
     virtual bool canBeArrayIndex() const
             { return false; }
-    // isCompatibleWith() is for binary operators and also typecasts, requires
-    // strict equality of types unless redefined in descendant classes.
-    // Actually redefined in ordinals.
-    virtual bool isCompatibleWith(ShType* type) const
+    virtual bool canCompareWith(ShType* type) const
             { return equals(type); }
-    // Assignments require strict equality of types except for ordinals, 
-    // and also for a special case str = char
     virtual bool canAssign(ShType* type) const
             { return equals(type); }
     virtual bool canStaticCastTo(ShType* type) const
-            { return isCompatibleWith(type); }
+            { return equals(type); }
 
-    ShVector* deriveVectorType(ShScope* scope);
-    ShArray* deriveArrayType(ShType* indexType, ShScope* scope);
-    ShSet* deriveSetType(ShVoid* elementType, ShScope* scope);
+    ShVector* deriveVectorType();
+    ShArray* deriveArrayType(ShType* indexType);
+    ShSet* deriveSetType(ShVoid* elementType);
     void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
             { derivedVectorType = v; }
 };
@@ -222,12 +218,12 @@ protected:
 public:
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
-    virtual bool canAssign(ShType* type) const
-            { return isCompatibleWith(type); }
+    virtual int staticSize() const
+            { return size; }
     virtual bool canBeArrayIndex() const
             { return true; }
     virtual bool canStaticCastTo(ShType* type) const
-            { return true; }
+            { return type->isOrdinal(); }
     bool isLargeInt() const;
     bool contains(large v) const
             { return v >= range.min && v <= range.max; }
@@ -240,8 +236,8 @@ public:
             { return range.min <= obj->range.min && range.max >= obj->range.max; }
     bool rangeIsGreaterOrEqual(large n, large x)
             { return range.min <= n && range.max >= x; }
-    ShRange* deriveRangeType(ShScope* scope);
-    ShOrdinal* deriveOrdinalFromRange(const ShValue& value, ShScope* scope);
+    ShRange* deriveRangeType();
+    ShOrdinal* deriveOrdinalFromRange(const ShValue& value);
 };
 
 typedef ShOrdinal* POrdinal;
@@ -258,12 +254,12 @@ public:
     virtual string displayValue(const ShValue& v) const;
     bool isLargeInt() const
             { return size > 4; }
-    virtual bool isCompatibleWith(ShType* type) const
+    virtual bool canAssign(ShType* type) const
             { return type->isInt() && (isLargeInt() == PInteger(type)->isLargeInt()); }
+    virtual bool canCompareWith(ShType* type) const
+            { return canAssign(type); }
     virtual bool isLargePod() const
             { return isLargeInt(); }
-    bool isUnsigned() const
-            { return range.min >= 0; }
     virtual bool equals(ShType* type) const
             { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };
@@ -281,10 +277,10 @@ public:
     ShChar(int min, int max);
     ShChar(const string& name, int min, int max);
     virtual string displayValue(const ShValue& v) const;
-    virtual bool isCompatibleWith(ShType* type) const
-            { return type->isChar() || type->isString(); }
     virtual bool canAssign(ShType* type) const
             { return type->isChar(); }
+    virtual bool canCompareWith(ShType* type) const
+            { return type->isChar() || type->isString(); }
     virtual bool equals(ShType* type) const
             { return type->isChar() && rangeEquals(((ShChar*)type)->range); }
     bool isFullRange() const
@@ -306,8 +302,10 @@ public:
     ShEnum();
     virtual bool equals(ShType* type) const
             { return type == this; }
-    virtual bool isCompatibleWith(ShType* type) const
+    virtual bool canAssign(ShType* type) const
             { return type->isEnum() && values._isClone(((ShEnum*)type)->values); }
+    virtual bool canCompareWith(ShType* type) const
+            { return canAssign(type); }
     virtual string displayValue(const ShValue& v) const;
     void registerConst(ShConstant* obj)
             { values.add(obj); }
@@ -325,7 +323,9 @@ protected:
 public:
     ShBool(const string& name);
     virtual string displayValue(const ShValue& v) const;
-    virtual bool isCompatibleWith(ShType* type) const
+    virtual bool canAssign(ShType* type) const
+            { return type->isBool(); }
+    virtual bool canCompareWith(ShType* type) const
             { return type->isBool(); }
     virtual bool equals(ShType* type) const
             { return type->isBool(); }
@@ -339,11 +339,11 @@ protected:
 
 public:
     ShVoid(const string& name);
+    virtual int staticSize() const
+            { return 0; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isVoid(); }
-    virtual bool canAssign(const ShValue& value) const
-            { return false; }
 };
 
 
@@ -352,6 +352,8 @@ class ShTypeRef: public ShType
     virtual string getFullDefinition(const string& objName) const;
 public:
     ShTypeRef(const string& name);
+    virtual int staticSize() const
+            { return sizeof(ptr); }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isTypeRef(); }
@@ -367,6 +369,8 @@ public:
     ShOrdinal* base;
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
+    virtual int staticSize() const
+            { return sizeof(large); }
     virtual string displayValue(const ShValue& v) const;
     virtual bool isLargePod() const
             { return true; }
@@ -385,20 +389,24 @@ public:
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
     virtual string displayValue(const ShValue& v) const;
+    virtual int staticSize() const
+            { return sizeof(ptr); }
     virtual bool isPod() const
             { return false; }
     virtual bool isString() const
             { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
     virtual bool canBeArrayIndex() const
             { return isString(); }
-    virtual bool isCompatibleWith(ShType* type) const
+    virtual bool canCompareWith(ShType* type) const
             { return equals(type) || (isString() && type->isChar()); }
     virtual bool canAssign(ShType* type) const
-            { return type->isCompatibleWith(type); }
+            { return canCompareWith(type); }
     virtual bool equals(ShType* type) const
-            { return type->isVector() && elementType->equals(((ShVector*)type)->elementType); }
+            { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     bool isPodVector() const
             { return elementType->isPod(); }
+    bool elementEquals(ShType* elemType) const
+            { return elementType->equals(elemType); }
 };
 
 typedef ShVector* PVector;
@@ -425,7 +433,7 @@ public:
     ShArray(ShType* iElementType, ShType* iIndexType);
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
-            { return type->isArray() && elementType->equals(((ShArray*)type)->elementType)
+            { return type->isArray() && elementEquals(((ShArray*)type)->elementType)
                 && indexType->equals(((ShArray*)type)->indexType); }
 };
 
@@ -582,6 +590,8 @@ public:
     ShModule(const string& filename);
     void compile();
     void dump(string indent) const;
+    virtual int staticSize() const
+            { return 0; }
     virtual bool equals(ShType* type) const
             { return false; }
 };

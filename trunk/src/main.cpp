@@ -142,7 +142,7 @@ ShType* ShModule::parseAtom(VmCode& code)
         parser.skip(tokLParen, "(");
         ShType* type;
         {
-            VmCode tcode(currentScope);
+            VmCode tcode;
             parseExpr(tcode);
             type = tcode.runTypeExpr();
         }
@@ -251,18 +251,32 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
         {
             if (right->isVector())
             {
-                if (!left->isCompatibleWith(right))
+                if (!left->equals(right))
                     error("Operands of vector concatenation are incompatible");
-                if (PVector(left)->isPodVector())
-                    code.genPodVecCat(left);
-                else
-                    notImpl();
+                code.genVecCat(left, right, left);
             }
+            else if (PVector(left)->elementEquals(right))
+                code.genVecCat(left, right, left);
             else
-                notImpl();
+                error("Operands of vector concatenation are incompatible");
+        }
+        else if (right->isVector())
+        {
+            if (PVector(right)->elementEquals(left))
+                code.genVecCat(left, right, right);
+            else
+                error("Operands of vector concatenation are incompatible");
+            left = right;
         }
         else
-            notImpl();
+        {
+            ShVector* vec = left->deriveVectorType();
+            if (vec->elementEquals(right))
+                code.genVecCat(left, right, vec);
+            else
+                error("Operands of vector concatenation are incompatible");
+            left = vec;
+        }
     }
     return left;
 }
@@ -276,7 +290,7 @@ ShType* ShModule::parseRelExpr(VmCode& code)
         OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
         parser.next();
         ShType* right = parseSimpleExpr(code);
-        if (!left->isCompatibleWith(right))
+        if (!left->canCompareWith(right))
             error("Type mismatch in comparison: " + typeVsType(left, right));
         code.genComparison(op);
         left = code.genTopType();
@@ -391,7 +405,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
         ShType* right = parseOrLevel(code);
         if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
-        if (!left->isCompatibleWith(right))
+        if (!left->canCompareWith(right))
             error("Left and right values of a subrange must be compatible");
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
@@ -404,7 +418,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
 
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCode code(currentScope);
+    VmCode code;
     if (typeHint != NULL)
     {
         if (typeHint->isBool() || typeHint->isInt())
@@ -449,7 +463,7 @@ ShType* ShModule::getDerivators(ShType* type)
         parser.next();
         if (parser.token == tokRSquare)
         {
-            type = type->deriveVectorType(currentScope);
+            type = type->deriveVectorType();
             parser.next();
         }
         else if (parser.token == tokRange)
@@ -458,7 +472,7 @@ ShType* ShModule::getDerivators(ShType* type)
             parser.skip(tokRSquare, "]");
             if (!type->isOrdinal())
                 error("Ranges apply only to ordinal types");
-            type = POrdinal(type)->deriveRangeType(currentScope);
+            type = POrdinal(type)->deriveRangeType();
         }
         else
         {
@@ -466,7 +480,7 @@ ShType* ShModule::getDerivators(ShType* type)
             parser.skip(tokRSquare, "]");
             if (!indexType->canBeArrayIndex())
                 error(indexType->getDefinition() + " can't be used as array index");
-            type = type->deriveArrayType(indexType, currentScope);
+            type = type->deriveArrayType(indexType);
         }
         type = getDerivators(type);
     }
@@ -504,7 +518,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
         if (value.type->isTypeRef())
             return (ShType*)value.value.ptr_;
         else if (value.type->isRange())
-            return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value, currentScope);
+            return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
         else
             // TODO: give a better error message in case ident was a known one.
             // How? What if it was an expression?
