@@ -100,13 +100,14 @@ enum Token
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
     tokEnum,
     
-    // the order in this group is important: it's in sync with OpComparison
-    tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
-
-    // simple expr level
-    tokPlus, tokMinus,
     // term level
     tokMul, tokDiv, tokMod,
+    // arithm level
+    tokPlus, tokMinus,
+    // cat level (simple expr)
+    tokCat,
+    // Rel level: the order in this group is important: it's in sync with OpComparison
+    tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
     // NOT level
     tokNot,
     // AND level

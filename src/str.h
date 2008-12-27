@@ -139,6 +139,8 @@ public:
             { return pdecrement(&STR_REFCOUNT(data)); }
     static void _unlock(string& s) // this solves a visibility problem
             { s._unlock(); }
+    static void* _initialize(void* p)
+            { PTR_TO_STRING(p)._initialize(); return p; }
     static void _finalize(void* p)
             { PTR_TO_PSTRING(p)->finalize(); }
 };

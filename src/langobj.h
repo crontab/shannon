@@ -555,6 +555,7 @@ class ShModule: public ShScope
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
     ShType* parseFactor(VmCode&);
     ShType* parseTerm(VmCode&);
+    ShType* parseArithmExpr(VmCode&);
     ShType* parseSimpleExpr(VmCode&);
     ShType* parseRelExpr(VmCode&);
     ShType* parseNotLevel(VmCode&);

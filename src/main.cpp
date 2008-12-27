@@ -26,12 +26,13 @@ string typeVsType(ShType* a, ShType* b)
     <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>, true, false, null
     <array-sel>, <fifo-sel>, <function-call>, <mute>
     -, not
-    *, /, mod, and, shl, shr, as
-    +, –, or, xor
+    *, /, mod, as
+    +, –
+    ++
+    ==, <>, != <, >, <=, >=, in, is
     and
     or, xor
     ..
-    ==, <>, != <, >, <=, >=, in, is
 */
 
 ShBase* ShModule::getQualifiedName()
@@ -218,23 +219,35 @@ ShType* ShModule::parseTerm(VmCode& code)
 }
 
 
-ShType* ShModule::parseSimpleExpr(VmCode& code)
+ShType* ShModule::parseArithmExpr(VmCode& code)
 {
     ShType* left = parseTerm(code);
-    if (parser.token == tokPlus || parser.token == tokMinus)
+    while (parser.token == tokPlus || parser.token == tokMinus)
     {
         Token tok = parser.token;
         parser.next();
         ShType* right = parseTerm(code);
-
         if (left->isInt() && right->isInt())
         {
             left = arithmResultType(PInteger(left), PInteger(right));
             code.genBinArithm(tok == tokPlus ? opAdd : opSub,
                 PInteger(left));
         }
+        else
+            error("Invalid operands for arithmetic operator");
+    }
+    return left;
+}
 
-        else if (left->isVector())
+
+ShType* ShModule::parseSimpleExpr(VmCode& code)
+{
+    ShType* left = parseArithmExpr(code);
+    while (parser.token == tokCat)
+    {
+        parser.next();
+        ShType* right = parseArithmExpr(code);
+        if (left->isVector())
         {
             if (right->isVector())
             {
@@ -248,9 +261,8 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
             else
                 notImpl();
         }
-
         else
-            error("Invalid operands for arithmetic operator");
+            notImpl();
     }
     return left;
 }
@@ -393,8 +405,15 @@ ShType* ShModule::parseSubrange(VmCode& code)
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
     VmCode code(currentScope);
-    if (typeHint != NULL && typeHint->isBool())
-        parseBoolExpr(code);
+    if (typeHint != NULL)
+    {
+        if (typeHint->isBool() || typeHint->isInt())
+            parseBoolExpr(code);
+        else if (!typeHint->isRange())
+            parseSimpleExpr(code);
+        else
+            parseExpr(code);
+    }
     else
         parseExpr(code);
     code.runConstExpr(result);

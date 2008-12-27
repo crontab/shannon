@@ -585,7 +585,7 @@ restart:
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
             return token = tokBegin;
-        case '+': return token = tokPlus;
+        case '+': return token = (input->getIf('+') ? tokCat : tokPlus);
         case '-': return token = tokMinus;
         case '/': return token = tokDiv;
         case '*': return token = tokMul;
