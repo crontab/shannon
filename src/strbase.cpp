@@ -382,7 +382,7 @@ bool string::operator== (const char* s) const
 }
 
 
-bool string::operator== (const string& s) const 
+bool string::equal(const string& s) const 
 {
     return (STR_LENGTH(data) == STR_LENGTH(s.data))
         && ((STR_LENGTH(data) == 0) || (memcmp(data, s.data, STR_LENGTH(data)) == 0));

@@ -35,15 +35,14 @@ enum OpCode
     opLoadTypeRef,  // [ShType*]            +1
     
     opCmpInt,       // []               -2  +1
-//    opCmpIntLarge,  // []               -2  +1
     opCmpLarge,     // []               -2  +1
-//    opCmpLargeInt,  // []               -2  +1
     opCmpStr,       // []               -2  +1
     opCmpStrChr,    // []               -2  +1
     opCmpChrStr,    // []               -2  +1
-    opCmpIntZero,   // []               -1  +1
+    opCmpPodVec,    // []               -2  +1 - only EQ or NE
+    // opCmpIntZero,   // []               -1  +1
     // opCmpLargeZero, // []               -1  +1
-    // opCmpStrNull,   // []               -1  +1
+    // opCmpVecNull,   // []               -1  +1
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
@@ -216,7 +215,7 @@ public:
     void genStaticCast(ShType*);
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
-    void genVecCat(ShType* left, ShType* right, ShType* result);
+    void genVecCat();
     void genElemToVec(ShVector*);
     void genBoolXor()
             { genPop(); genOp(opBitXor); }

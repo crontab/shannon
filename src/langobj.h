@@ -89,6 +89,7 @@ public:
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
     bool isVector() const { return typeId == typeVector; }
+    bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
     bool isPodPointer() const { return typeId == typeTypeRef; }
 
@@ -106,7 +107,9 @@ public:
     bool canBeArrayElement() const
             { return staticSize() > 0; }
     virtual bool canCompareWith(ShType* type) const
-            { return equals(type); }
+            { return false; }
+    virtual bool canCheckEq(ShType* type) const
+            { return canCompareWith(type); }
     virtual bool canAssign(ShType* type) const
             { return equals(type); }
     virtual bool canStaticCastTo(ShType* type) const
@@ -401,30 +404,22 @@ public:
             { return isString(); }
     virtual bool canCompareWith(ShType* type) const
             { return isString() && (type->isString() || type->isChar()); }
+    virtual bool canCheckEq(ShType* type) const
+            { return canCompareWith(type) || equals(type) || isEmptyVec() || type->isEmptyVec(); }
     virtual bool canAssign(ShType* type) const
-            { return equals(type) || elementEquals(type); }
+            { return equals(type) || elementEquals(type) || type->isEmptyVec(); }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     bool isPodVector() const
             { return elementType->isPod(); }
-    virtual bool elementEquals(ShType* elemType) const
+    bool elementEquals(ShType* elemType) const
             { return elementType->equals(elemType); }
-    virtual bool isEmptyVec() const
-            { return false; }
+    bool isEmptyVec() const
+            { return elementType->isVoid(); }
 };
 
-
-class ShEmptyVec: public ShVector
-{
-public:
-    ShEmptyVec(ShType* iElementType)
-            : ShVector(iElementType)  { }
-    virtual bool isEmptyVec() const
-            { return true; }
-//    virtual bool elementEquals(ShType* elemType) const
-//            { return elementType->isVoid() || ShVector::elementEquals(elemType); }
-//            { return true; }
-};
+inline bool ShType::isEmptyVec() const
+        { return isVector() && PVector(this)->isEmptyVec(); }
 
 
 class ShArray: public ShVector
@@ -562,7 +557,7 @@ class ShModule: public ShScope
     ShType* getDerivators(ShType*);
     ShType* getType(bool require);
     ShType* getTypeOrNewIdent(string* strToken);
-    void    getConstCompound(VmCode&, ShValue&);
+    void    getConstCompound(ShType*, ShValue&);
     ShType* parseAtom(VmCode&);
     ShType* parseDesignator(VmCode&);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);

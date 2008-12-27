@@ -120,12 +120,13 @@ public:
 
     bool operator== (const char* sc) const;
     bool operator== (char) const;
-    bool operator== (const string&) const;
+    bool operator== (const string& s) const       { return equal(s); }
     bool operator!= (const char* sc) const        { return !(*this == sc); }
     bool operator!= (char c) const                { return !(*this == c); }
     bool operator!= (const string& s) const       { return !(*this == s); }
     
     int compare(const string& s) const;
+    bool equal(const string& s) const;
 
     friend bool operator== (const char*, const string&);
     friend bool operator== (char, const string&);
