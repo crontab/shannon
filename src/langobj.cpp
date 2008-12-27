@@ -450,8 +450,26 @@ string ShVector::displayValue(const ShValue& v) const
         return "'" + mkPrintable(PTR_TO_STRING(v.value.ptr_)) + "'";
     else
     {
-        notImpl();
-        return "null";
+        string s;
+        char* p = pchar(v.value.ptr_);
+        int elemSize = elementType->staticSize();
+        int count = PTR_TO_STRING(p).size() / elemSize;
+        for (; count > 0 ; count--, p += elemSize)
+        {
+            if (!s.empty() > 0)
+                s += ", ";
+            ShValue v;
+            if (elementType->isLargePod())
+                v.assignLarge(elementType, *plarge(p));
+            else if (elementType->isVector())
+                v.assignVec(elementType, PTR_TO_STRING(*pptr(p)));
+            else if (elementType->isPodPointer())
+                v.assignPtr(elementType, *pptr(p));
+            else
+                v.assignInt(elementType, *pint(p));
+            s += elementType->displayValue(v);
+        }
+        return '[' + s + ']';
     }
 }
 
@@ -520,7 +538,7 @@ string ShState::getFullDefinition(const string& objName) const
 ShValue::ShValue(const ShValue& v)
     : type(v.type)
 {
-    if (type != NULL && type->isStrBased())
+    if (type != NULL && type->isVector())
         value.ptr_ = PTR_TO_STRING(v.value.ptr_)._initialize();
     else
         value = v.value;
@@ -539,7 +557,7 @@ void ShValue::assignInt(ShType* iType, int i)
         { _finalize(); type = iType; value.int_ = i; }
 void ShValue::assignLarge(ShType* iType, large l)
         { _finalize(); type = iType; value.large_ = l; }
-void ShValue::assignString(ShType* iType, const string& s)
+void ShValue::assignVec(ShType* iType, const string& s)
         { _finalize(); type = iType; value.ptr_ = s._initialize(); }
 
 

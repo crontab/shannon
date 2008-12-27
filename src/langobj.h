@@ -91,7 +91,6 @@ public:
     bool isBool() const  { return typeId == typeBool; }
     bool isVector() const { return typeId == typeVector; }
     bool isArray() const { return typeId == typeArray; }
-    bool isStrBased() const { return typeId == typeVector; }
     bool isPodPointer() const { return typeId == typeTypeRef; }
 
     virtual int staticSize() const = 0;
@@ -288,7 +287,6 @@ public:
 };
 
 
-// TODO: limit the max number of consts
 class ShEnum: public ShOrdinal
 {
 protected:
@@ -400,7 +398,7 @@ public:
     virtual bool canCompareWith(ShType* type) const
             { return equals(type) || (isString() && type->isChar()); }
     virtual bool canAssign(ShType* type) const
-            { return canCompareWith(type); }
+            { return equals(type) || elementEquals(type); }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     bool isPodVector() const
@@ -510,7 +508,7 @@ struct ShValue: noncopyable
     void ShValue::assignPtr(ShType* iType, ptr p);
     void ShValue::assignInt(ShType* iType, int i);
     void ShValue::assignLarge(ShType* iType, large l);
-    void ShValue::assignString(ShType* iType, const string& s);
+    void ShValue::assignVec(ShType* iType, const string& s);
 
     int rangeMin() const
             { return int(value.large_); }

@@ -13,6 +13,7 @@
 typedef unsigned char       uchar;
 typedef unsigned int        uint;
 typedef void*               ptr;
+typedef void**              pptr;
 typedef long long           large;
 typedef unsigned long long  ularge;
 

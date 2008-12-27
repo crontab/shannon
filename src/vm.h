@@ -30,8 +30,8 @@ enum OpCode
     opLoadFalse,    // []                   +1
     opLoadTrue,     // []                   +1
     opLoadNull,     // []                   +1
-    opLoadNullStr,  // []                   +1
-    opLoadStr,      // [str-data-ptr]       +1
+    opLoadNullVec,  // []                   +1
+    opLoadVec,      // [str-data-ptr]       +1
     opLoadTypeRef,  // [ShType*]            +1
     
     opCmpInt,       // []               -2  +1
@@ -205,7 +205,7 @@ public:
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);
     void genLoadNull();
-    void genLoadStrConst(const char*);
+    void genLoadVecConst(ShType*, const char*);
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);
     void genMkSubrange();

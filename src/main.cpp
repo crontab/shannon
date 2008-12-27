@@ -96,7 +96,7 @@ ShType* ShModule::parseAtom(VmCode& code)
         {
             string s = parser.strValue;
             parser.next();
-            code.genLoadStrConst(registerString(s).c_bytes());
+            code.genLoadVecConst(queenBee->defaultStr, registerString(s).c_bytes());
         }
     }
 
@@ -442,10 +442,12 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
 
-    // TODO: also typecast any element type to its vector
-    else if (typeHint->isString() && result.type->isChar())
-        result.assignString(queenBee->defaultStr,
-            string(char(result.value.int_)));
+    else if (typeHint->isVector() && PVector(typeHint)->elementEquals(result.type))
+    {
+        int size = result.type->staticSize();
+        string s(pchar(&result.value), size);
+        result.assignVec(typeHint, s);
+    }
 
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
