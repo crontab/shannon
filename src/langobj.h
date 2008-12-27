@@ -491,8 +491,8 @@ struct ShValue: noncopyable
 
     ShValue(): type(NULL)  { }
     ShValue(const ShValue&);
-    ShValue(ShType* iType)
-            : type(iType) { }
+//    ShValue(ShType* iType)
+//            : type(iType) { }
     ShValue(ShType* iType, int iValue)
             : type(iType) { value.int_ = iValue; }
 /*
@@ -506,10 +506,12 @@ struct ShValue: noncopyable
 
     void operator= (const ShValue&);
 
-    void ShValue::assignPtr(ShType* iType, ptr p);
-    void ShValue::assignInt(ShType* iType, int i);
-    void ShValue::assignLarge(ShType* iType, large l);
-    void ShValue::assignVec(ShType* iType, const string& s);
+    void assignPtr(ShType* iType, ptr p);
+    void assignInt(ShType* iType, int i);
+    void assignLarge(ShType* iType, large l);
+    void assignVec(ShType* iType, const string& s);
+    void assignFromBuf(ShType*, const ptr);
+    int  assignToBuf(ptr);
 
     int rangeMin() const
             { return int(value.large_); }
@@ -539,10 +541,12 @@ class ShModule: public ShScope
 {
     string fileName;
     Parser parser;
-    Array<string> stringLiterals;
+    Array<string> vectorConsts;
 
     string registerString(const string& v) // TODO: fund duplicates
-            { stringLiterals.add(v); return v; }
+            { vectorConsts.add(v); return v; }
+    string registerVector(const string& v)
+            { vectorConsts.add(v); return v; }
     void addObject(ShBase*); // deletes the object in case of an exception
 
     // --- Compiler ---
