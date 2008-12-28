@@ -219,26 +219,25 @@ int Range::physicalSize() const
 {
     if (min >= 0)
     {
+        // only ordinals within 0..255 can be unsigned
         if (max <= UCHAR_MAX)
             return 1;
-//        if (max <= USHRT_MAX)
-//            return 2;
-        if (max <= UINT_MAX)
+        if (max <= INT_MAX)
             return 4;
         return 8;
     }
-    if (min == LLONG_MIN)
+    else
+    {
+        // signed ordinals are always 4 or 8 bytes
+        if (min == LLONG_MIN)
+            return 8;
+        large t = ~min;
+        if (max > t)
+            t = max;
+        if (t <= INT_MAX)
+            return 4;
         return 8;
-    large t = ~min;
-    if (max > t)
-        t = max;
-    if (t <= CHAR_MAX)
-        return 1;
-//    if (t <= SHRT_MAX)
-//        return 2;
-    if (t <= INT_MAX)
-        return 4;
-    return 8;
+    }
 }
 
 
@@ -556,7 +555,7 @@ void ShValue::assignFromBuf(ShType* newType, const ptr p)
 {
     switch (newType->storageModel())
     {
-        case stoByte: assignInt(newType, int(*pchar(p))); break;
+        case stoByte: assignInt(newType, int(*puchar(p))); break;
         case stoInt: assignInt(newType, *pint(p)); break;
         case stoLarge: assignLarge(newType, *plarge(p)); break;
         case stoPtr: assignPtr(newType, *pptr(p)); break;
@@ -569,7 +568,7 @@ void ShValue::assignToBuf(ptr p)
 {
     switch (type->storageModel())
     {
-        case stoByte: *pchar(p) = value.int_; break;
+        case stoByte: *puchar(p) = value.int_; break;
         case stoInt: *pint(p) = value.int_; break;
         case stoLarge: *plarge(p) = value.large_; break;
         case stoPtr: *pptr(p) = p; break;
@@ -657,8 +656,8 @@ void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)
     compiled = true;
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
-    mainCode = main.getCode();
-    finCode = fin.getCode();
+    mainCode = main.getCode(0);
+    finCode = fin.getCode(0);
 }
 
 

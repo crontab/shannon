@@ -31,27 +31,23 @@ union VmQuant
     int op_;
     int int_;
     ptr ptr_;
+    uint offs_;     // offsets within datasegs or stack frames
 #ifdef PTR64
-    large large_;
+    large large_;   // since ptr's are 64-bit, we can fit 64-bit ints here, too
+                    // otherwise large ints are moved around in 2 ops
 #endif
-};
-
-
-struct VmReloc
-{
-    ShModule* module;
-    int codeOffset;
 };
 
 
 class VmCodeSegment
 {
-public:
+protected:
     PodArray<VmQuant> code;
-    PodArray<VmReloc> reloc;
-    
-    bool isResolved()
-            { return reloc.empty(); }
+public:
+    int size() const       { return code.size(); }
+    VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
+    VmQuant* add()         { return &code.add(); }
+    VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
 };
 
 
@@ -84,7 +80,8 @@ public:
 
 enum StorageModel
 {
-    // order is important, especially for the first 3
+    // Order is important, it's in sync with VM ops, also the order of first 3
+    // is used in some code generation routines
     stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
 };
 
@@ -593,9 +590,9 @@ class ShModule: public ShScope
     void notImpl()                          { error("Feature not implemented"); }
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
-    ShType* getType(bool require);
     ShType* getTypeOrNewIdent(string* strToken);
     void    getConstCompound(ShType*, ShValue&);
+    ShType* getTypeExpr(bool anyObj = true);
     ShType* parseAtom(VmCodeGen&);
     ShType* parseDesignator(VmCodeGen&);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);

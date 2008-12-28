@@ -27,23 +27,25 @@ enum OpCode
     opLoadLargeZero,// []                   +1
     opLoadOne,      // []                   +1
     opLoadLargeOne, // []                   +1
-    opLoadInt,      // [int]                +1
-    opLoadLarge,    // [large]            +2/1
+    opLoadIntConst, // [int]                +1
+    opLoadLargeConst, // [large]            +2 (+1 for 64-bit env.)
     opLoadFalse,    // []                   +1
     opLoadTrue,     // []                   +1
     opLoadNull,     // []                   +1
     opLoadNullVec,  // []                   +1
-    opLoadVec,      // [str-data-ptr]       +1
+    opLoadVecConst, // [str-data-ptr]       +1
     opLoadTypeRef,  // [ShType*]            +1
 
     // var loaders
-    opLoadRef,      // [this->offs]         +1
-    opLoadByte,     // [this->offs]         +1
-//    opLoadInt,      // [this->offs]         +1
-//    opLoadLarge,    // [this->offs]         +1
-    opLoadPtr,      // [this->offs]         +1
-//    opLoadVec,      // [this->offs]         +1
-    
+    opLoadThisRef,  // [offs]               +1
+    // these are in sync with the StorageModel enum
+    opLoadThisByte, // [offs]           -1  +1
+    opLoadThisInt,  // [offs]           -1  +1
+    opLoadThisLarge,// [offs]           -1  +1
+    opLoadThisPtr,  // [offs]           -1  +1
+    opLoadThisVec,  // [offs]           -1  +1
+    opLoadThisVoid, // [offs]           -1  +1
+
     // comparison
     opCmpInt,       // []               -2  +1
     opCmpLarge,     // []               -2  +1
@@ -54,7 +56,8 @@ enum OpCode
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
-    // compare the stack top with 0 and replace it with a bool value
+    // compare the stack top with 0 and replace it with a bool value;
+    // the order of these opcodes is in sync with tokEqual..tokNotEq
     opEQ,           // []               -1  +1
     opLT,           // []               -1  +1
     opLE,           // []               -1  +1
@@ -114,7 +117,8 @@ enum OpCode
 
     opMaxCode,
     
-    opCmpFirst = opEQ,
+    opCmpFirst = opEQ, opCmpLast = opNE,
+    opLoadThisFirst = opLoadThisByte, opLoadThisLast = opLoadThisVoid,
 
     opInv = -1,
 };
@@ -137,12 +141,16 @@ public:
     VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
+    void  pushOffs(uint o)    { push().offs_ = o; }
     int   popInt()            { return pop().int_; }
     ptr   popPtr()            { return pop().ptr_; }
+    uint  popOffs()           { return pop().offs_; }
     int   topInt() const      { return stack.top().int_; }
     ptr   topPtr() const      { return stack.top().ptr_; }
+    uint  topOffs() const     { return stack.top().offs_; }
     int*  topIntRef()         { return &stack.top().int_; }
     ptr*  topPtrRef()         { return &stack.top().ptr_; }
+    uint* topOffsRef()        { return &stack.top().offs_; }
 
 #ifdef PTR64
     void   pushLarge(large v) { push().large_ = v; }
@@ -152,6 +160,8 @@ public:
 #else
     void  pushLarge(large v)
         { push().int_ = int(v); push().int_ = int(v >> 32); }
+    void  pushLarge(int lo, int hi)
+        { push().int_ = lo; push().int_ = hi; }
     large popLarge()
         { int hi = popInt(); return (large(hi) << 32) | unsigned(popInt()); }
     large topLarge() const
@@ -171,35 +181,36 @@ protected:
             : type(iType), codeOffs(iCodeOffs)  { }
     };
 
-    VmCodeSegment seg;
+    VmCodeSegment codeseg;
     PodStack<GenStackInfo> genStack;
     int stackMax;
+    bool needsRuntimeContext;
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
     const GenStackInfo& genPop();
     ShType* genPopType()                { return genPop().type; }
 
-    void genOp(OpCode op)               { seg.code.add().op_ = op; }
-    void genInt(int v)                  { seg.code.add().int_ = v; }
-    void genPtr(ptr v)                  { seg.code.add().ptr_ = v; }
-    VmQuant* genCodeAt(int offs)        { return (VmQuant*)&seg.code[offs]; }
+    void genOp(OpCode op)               { codeseg.add()->op_ = op; }
+    void genInt(int v)                  { codeseg.add()->int_ = v; }
+    void genPtr(ptr v)                  { codeseg.add()->ptr_ = v; }
 
 #ifdef PTR64
-    void genLarge(large v)  { code.add().large_ = v; }
+    void genLarge(large v)  { codeseg.add()->large_ = v; }
 #else
     void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
 #endif
 
     void genCmpOp(OpCode op, OpCode cmp);
-    void genEnd();
+    void genNop()           { genOp(opNop); }
+    void genEnd(int reserveLocals);
     void verifyClean();
 
     VM_STATIC void runtimeError(int code, const char*);
-    VM_STATIC void run(VmQuant* p);
+    VM_STATIC void run(VmQuant* codeseg, char* dataseg);
 
 public:
-    VmCodeGen(ShType* iResultTypeHint = NULL);
+    VmCodeGen();
     
     ShType* resultTypeHint;
     
@@ -209,6 +220,7 @@ public:
     void genLoadVecConst(ShType*, const char*);
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);
+    void genLoadThisVar(ShVariable*);
     void genMkSubrange();
     void genComparison(OpCode);
     void genStaticCast(ShType*);
@@ -225,13 +237,13 @@ public:
     int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
     int  genOffset() const
-            { return seg.code.size(); }
+            { return codeseg.size(); }
     ShType* genTopType()
             { return genTop().type; }
     
     void runConstExpr(ShValue& result);
-    ShType* runTypeExpr();
-    VmCodeSegment getCode();
+    ShType* runTypeExpr(bool anyObj);
+    VmCodeSegment getCode(int reserveLocals);
 };
 
 

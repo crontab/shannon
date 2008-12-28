@@ -243,6 +243,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"or", tokOr},
         {"shl", tokShl},
         {"shr", tokShr},
+        {"sizeof", tokSizeOf},
         {"true", tokTrue},
         {"typeof", tokTypeOf},
         {"var", tokVar},
