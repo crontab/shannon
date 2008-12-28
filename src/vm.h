@@ -22,6 +22,7 @@ enum OpCode
     opNop,          // []
     opStkFrame,     // [size]
     
+    // const loaders
     opLoadZero,     // []                   +1
     opLoadLargeZero,// []                   +1
     opLoadOne,      // []                   +1
@@ -34,16 +35,22 @@ enum OpCode
     opLoadNullVec,  // []                   +1
     opLoadVec,      // [str-data-ptr]       +1
     opLoadTypeRef,  // [ShType*]            +1
+
+    // var loaders
+    opLoadRef,      // [this->offs]         +1
+    opLoadByte,     // [this->offs]         +1
+//    opLoadInt,      // [this->offs]         +1
+//    opLoadLarge,    // [this->offs]         +1
+    opLoadPtr,      // [this->offs]         +1
+//    opLoadVec,      // [this->offs]         +1
     
+    // comparison
     opCmpInt,       // []               -2  +1
     opCmpLarge,     // []               -2  +1
     opCmpStr,       // []               -2  +1
     opCmpStrChr,    // []               -2  +1
     opCmpChrStr,    // []               -2  +1
     opCmpPodVec,    // []               -2  +1 - only EQ or NE
-    // opCmpIntZero,   // []               -1  +1
-    // opCmpLargeZero, // []               -1  +1
-    // opCmpVecNull,   // []               -1  +1
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
@@ -159,7 +166,9 @@ protected:
     struct GenStackInfo
     {
         ShType* type;
-        GenStackInfo(ShType* iType): type(iType)  { }
+        int codeOffs;
+        GenStackInfo(ShType* iType, int iCodeOffs)
+            : type(iType), codeOffs(iCodeOffs)  { }
     };
 
     VmCodeSegment seg;
@@ -167,9 +176,9 @@ protected:
     int stackMax;
     
     void genPush(ShType* v);
-    ShType* genPopType()                { return genStack.pop().type; }
-    GenStackInfo& genTop()              { return genStack.top(); }
-    void genPop()                       { genStack.pop(); }
+    const GenStackInfo& genTop()        { return genStack.top(); }
+    const GenStackInfo& genPop();
+    ShType* genPopType()                { return genPop().type; }
 
     void genOp(OpCode op)               { seg.code.add().op_ = op; }
     void genInt(int v)                  { seg.code.add().int_ = v; }

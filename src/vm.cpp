@@ -274,18 +274,22 @@ void VmCodeGen::runConstExpr(ShValue& result)
         internal(57);
     run(&seg.code._at(0));
     ShType* type = genPopType();
-    if (type->isLargePod())
-        result.assignLarge(type, stk.popLarge());
-    else if (type->isVector())
+    switch (type->storageModel())
     {
-        ptr p = stk.popPtr();
-        result.assignVec(type, PTR_TO_STRING(p));
-        string::_finalize(p);
+        case stoByte:
+        case stoInt: result.assignInt(type, stk.popInt()); break;
+        case stoLarge: result.assignLarge(type, stk.popLarge()); break;
+        case stoPtr: result.assignPtr(type, stk.popPtr()); break;
+        case stoVec: 
+            {
+                ptr p = stk.popPtr();
+                result.assignVec(type, PTR_TO_STRING(p));
+                string::_finalize(p);
+            }
+            break;
+        case stoVoid: result.assignVoid(type); stk.popInt(); break;
+        default: internal(58);
     }
-    else if (type->isPodPointer())
-        result.assignPtr(type, stk.popPtr());
-    else
-        result.assignInt(type, stk.popInt());
     verifyClean();
 }
 
@@ -308,9 +312,17 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 
 void VmCodeGen::genPush(ShType* t)
 {
-    genStack.push(GenStackInfo(t));
+    genStack.push(GenStackInfo(t, genOffset()));
     stackMax = imax(stackMax, genStack.size());
     resultTypeHint = NULL;
+}
+
+
+const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
+{
+    const GenStackInfo& i = genStack.pop();
+    
+    return i;
 }
 
 
@@ -459,12 +471,20 @@ void VmCodeGen::genStaticCast(ShType* type)
     genPush(type);
     if (fromType == type)
         return;
-    bool isDstLarge = type->isLargePod();
-    bool isSrcLarge = fromType->isLargePod();
-    if (isSrcLarge && !isDstLarge)
+    StorageModel stoFrom = fromType->storageModel();
+    StorageModel stoTo = type->storageModel();
+    if (stoFrom == stoLarge && stoTo < stoLarge)
         genOp(opLargeToInt);
-    else if (!isSrcLarge && isDstLarge)
+    else if (stoFrom < stoLarge && stoTo == stoLarge)
         genOp(opIntToLarge);
+    else if (stoFrom < stoLarge && stoTo < stoLarge)
+        ;
+    else if (stoFrom == stoPtr && stoTo == stoPtr)
+        ;
+    else if (stoFrom == stoVec && stoTo == stoVec)
+        ;
+    else
+        internal(59);
 }
 
 

@@ -82,6 +82,13 @@ public:
 };
 
 
+enum StorageModel
+{
+    // order is important, especially for the first 3
+    stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
+};
+
+
 enum ShTypeId
 {
     typeVoid,
@@ -121,16 +128,14 @@ public:
     bool isVector() const { return typeId == typeVector; }
     bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
-    bool isPodPointer() const { return typeId == typeTypeRef; }
 
     virtual int staticSize() const = 0;
     int staticSizeRequired() const;
     int staticSizeAligned() const;
+    virtual StorageModel storageModel() const = 0;
     virtual bool isPod() const
             { return true; }
     virtual bool isString() const
-            { return false; }
-    virtual bool isLargePod() const
             { return false; }
     virtual bool equals(ShType*) const = 0;
     virtual bool canBeArrayIndex() const
@@ -254,6 +259,8 @@ public:
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual int staticSize() const
             { return size; }
+    virtual StorageModel storageModel() const
+            { return size > 4 ? stoLarge : size > 1 ? stoInt : stoByte; }
     virtual bool canBeArrayIndex() const
             { return true; }
     virtual bool canStaticCastTo(ShType* type) const
@@ -292,8 +299,6 @@ public:
             { return type->isInt() && (isLargeInt() == PInteger(type)->isLargeInt()); }
     virtual bool canCompareWith(ShType* type) const
             { return canAssign(type); }
-    virtual bool isLargePod() const
-            { return isLargeInt(); }
     virtual bool equals(ShType* type) const
             { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };
@@ -372,6 +377,8 @@ protected:
 
 public:
     ShVoid(const string& name);
+    virtual StorageModel storageModel() const
+            { return stoVoid; }
     virtual int staticSize() const
             { return 0; }
     virtual string displayValue(const ShValue& v) const;
@@ -387,6 +394,8 @@ public:
     ShTypeRef(const string& name);
     virtual int staticSize() const
             { return sizeof(ptr); }
+    virtual StorageModel storageModel() const
+            { return stoPtr; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isTypeRef(); }
@@ -404,9 +413,9 @@ public:
     ShRange(const string& name, ShOrdinal* iBase);
     virtual int staticSize() const
             { return sizeof(large); }
+    virtual StorageModel storageModel() const
+            { return stoLarge; }
     virtual string displayValue(const ShValue& v) const;
-    virtual bool isLargePod() const
-            { return true; }
     virtual bool equals(ShType* type) const
             { return type->isRange() && base->equals(((ShRange*)type)->base); }
 };
@@ -426,6 +435,8 @@ public:
     virtual string displayValue(const ShValue& v) const;
     virtual int staticSize() const
             { return sizeof(ptr); }
+    virtual StorageModel storageModel() const
+            { return stoVec; }
     virtual bool isPod() const
             { return false; }
     virtual bool isString() const
@@ -523,27 +534,16 @@ struct ShValue: noncopyable
 
     ShValue(): type(NULL)  { }
     ShValue(const ShValue&);
-//    ShValue(ShType* iType)
-//            : type(iType) { }
-    ShValue(ShType* iType, int iValue)
-            : type(iType) { value.int_ = iValue; }
-/*
-    ShValue(ShType* iType, large iValue)
-            : type(iType) { value.large_ = iValue; }
-    ShValue(ShType* iType, ptr iValue)
-            : type(iType) { value.ptr_ = iValue; }
-*/
-    ~ShValue()
-            { _finalize(); }
+    ShValue(ShType* iType, int iValue): type(iType) { value.int_ = iValue; }
+    ~ShValue()  { _finalize(); }
 
-    void operator= (const ShValue&);
-
-    void assignPtr(ShType* iType, ptr p);
     void assignInt(ShType* iType, int i);
     void assignLarge(ShType* iType, large l);
+    void assignPtr(ShType* iType, ptr p);
     void assignVec(ShType* iType, const string& s);
+    void assignVoid(ShType* iType);
     void assignFromBuf(ShType*, const ptr);
-    int  assignToBuf(ptr);
+    void assignToBuf(ptr);
 
     int rangeMin() const
             { return int(value.large_); }
@@ -630,7 +630,9 @@ public:
     void compile();
     void dump(string indent) const;
     virtual int staticSize() const
-            { return 0; }
+            { return sizeof(ptr); }
+    virtual StorageModel storageModel() const
+            { return stoPtr; }
     virtual bool equals(ShType* type) const
             { return false; }
     virtual void addVariable(ShVariable*);
