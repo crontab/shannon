@@ -1,2 +1,11 @@
 
-* code generation, auto finalization of vectors and other objects
+* assignments
+
+* echo and assert
+
+* don't increment refcounts when loading onto the stack: requires temp-var
+  implementation
+
+* init/finalization of non-POD vectors
+
+* a lot of TODO's in the sources

@@ -26,12 +26,14 @@ class ShModule;
 
 class VmCodeGen;
 
+typedef int offs;
+
 union VmQuant
 {
-    int op_;
-    int int_;
-    ptr ptr_;
-    uint offs_;     // offsets within datasegs or stack frames
+    int   op_;      // OpCode
+    int   int_;
+    ptr   ptr_;
+    offs  offs_;    // offsets within datasegs or stack frames, negative for args
 #ifdef PTR64
     large large_;   // since ptr's are 64-bit, we can fit 64-bit ints here, too
                     // otherwise large ints are moved around in 2 ops
@@ -43,11 +45,27 @@ class VmCodeSegment
 {
 protected:
     PodArray<VmQuant> code;
+
+#ifdef SINGLE_THREADED
+    static void runtimeError(int code, const char*);
+    static void run(VmQuant* codeseg, char* dataseg);
+#else
+    // the multithreaded version will also require the stack
+#endif
+
 public:
     int size() const       { return code.size(); }
     VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
     VmQuant* add()         { return &code.add(); }
     VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
+    void execute(char* dataseg)
+    {
+#ifdef DEBUG
+        if (code.size() == 0)
+            internal(62);
+#endif
+        VmCodeSegment::run(getCode(), dataseg);
+    }
 };
 
 
@@ -167,8 +185,8 @@ public:
 class ShVariable: public ShBase
 {
 public:
-    ShType* const type;
-    int dataOffset;
+    ShType* type;
+    offs dataOffset;
 
     ShVariable(ShType* iType);
     ShVariable(const string& name, ShType* iType);
@@ -212,6 +230,8 @@ public:
     void addAnonType(ShType*);
     void addType(ShType*);
     virtual void addVariable(ShVariable*) = 0;
+    virtual void resolveVarType(ShVariable*, ShType*) = 0;
+    virtual void generateFinalizations(VmCodeGen&) = 0;
     void addTypeAlias(ShTypeAlias*);
     void addConstant(ShConstant*);
     ShBase* find(const string& name) const
@@ -613,7 +633,7 @@ class ShModule: public ShScope
 
     ShEnum* parseEnumType();
     void parseTypeDef();
-    void parseVarConstDef(bool isVar);
+    void parseVarConstDef(bool isVar, VmCodeGen& code);
     void parseVarDef();
 
 protected:
@@ -624,7 +644,7 @@ public:
 
     ShModule(const string& filename);
     ~ShModule();
-    void compile();
+    bool compile();
     void dump(string indent) const;
     virtual int staticSize() const
             { return sizeof(ptr); }
@@ -633,19 +653,20 @@ public:
     virtual bool equals(ShType* type) const
             { return false; }
     virtual void addVariable(ShVariable*);
+    virtual void resolveVarType(ShVariable*, ShType*);
+    virtual void generateFinalizations(VmCodeGen&);
 
     // --- RUNTIME --- //
 protected:
     void setupRuntime(VmCodeGen& main, VmCodeGen& fin);
-    
-public:
-    int globalIndex; // VM refers to static objects through this index; all
-                     // static offsets are within dataSize in dataSegment.
-    int dataSize;
-    char* dataSegment;
-
     VmCodeSegment mainCode;
     VmCodeSegment finCode;
+    offs dataSize;
+    char* dataSegment;
+    
+public:
+    void executeMain();
+    void executeFin();
 };
 
 

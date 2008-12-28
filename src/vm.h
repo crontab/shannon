@@ -9,30 +9,23 @@
 #include "langobj.h"
 
 
-#ifdef SINGLE_THREADED
-#  define VM_STATIC static
-#else
-#  define VM_STATIC
-#endif
-
-
 enum OpCode
 {
-    opEnd,          // []
-    opNop,          // []
+    opEnd,          //   
+    opNop,          //   
     opStkFrame,     // [size]
     
     // const loaders
-    opLoadZero,     // []                   +1
-    opLoadLargeZero,// []                   +1
-    opLoadOne,      // []                   +1
-    opLoadLargeOne, // []                   +1
+    opLoadZero,     //                      +1
+    opLoadLargeZero,//                      +1
+    opLoadOne,      //                      +1
+    opLoadLargeOne, //                      +1
     opLoadIntConst, // [int]                +1
     opLoadLargeConst, // [large]            +2 (+1 for 64-bit env.)
-    opLoadFalse,    // []                   +1
-    opLoadTrue,     // []                   +1
-    opLoadNull,     // []                   +1
-    opLoadNullVec,  // []                   +1
+    opLoadFalse,    //                      +1
+    opLoadTrue,     //                      +1
+    opLoadNull,     //                      +1
+    opLoadNullVec,  //                      +1
     opLoadVecConst, // [str-data-ptr]       +1
     opLoadTypeRef,  // [ShType*]            +1
 
@@ -45,68 +38,79 @@ enum OpCode
     opLoadThisPtr,  // [offs]           -1  +1
     opLoadThisVec,  // [offs]           -1  +1
     opLoadThisVoid, // [offs]           -1  +1
+    
+    // var store
+    opStoreThisByte, //                 -2
+    opStoreThisInt, //                  -2
+    opStoreThisLarge, //                -2
+    opStoreThisPtr, //                  -2
+    opStoreThisVec, //                  -2
+    opStoreThisVoid, //                 -2
+
+    opInitThisVec,  //                  -2
+    opFinThisPodVec,   // [offs]
 
     // comparison
-    opCmpInt,       // []               -2  +1
-    opCmpLarge,     // []               -2  +1
-    opCmpStr,       // []               -2  +1
-    opCmpStrChr,    // []               -2  +1
-    opCmpChrStr,    // []               -2  +1
-    opCmpPodVec,    // []               -2  +1 - only EQ or NE
+    opCmpInt,       //                  -2  +1
+    opCmpLarge,     //                  -2  +1
+    opCmpStr,       //                  -2  +1
+    opCmpStrChr,    //                  -2  +1
+    opCmpChrStr,    //                  -2  +1
+    opCmpPodVec,    //                  -2  +1 - only EQ or NE
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
-    opEQ,           // []               -1  +1
-    opLT,           // []               -1  +1
-    opLE,           // []               -1  +1
-    opGE,           // []               -1  +1
-    opGT,           // []               -1  +1
-    opNE,           // []               -1  +1
+    opEQ,           //                  -1  +1
+    opLT,           //                  -1  +1
+    opLE,           //                  -1  +1
+    opGE,           //                  -1  +1
+    opGT,           //                  -1  +1
+    opNE,           //                  -1  +1
     
     // typecasts
-    opLargeToInt,   // []               -1  +1
-    opIntToLarge,   // []               -1  +1
+    opLargeToInt,   //                  -1  +1
+    opIntToLarge,   //                  -1  +1
 
     // binary
-    opMkSubrange,   // []               -2  +1
+    opMkSubrange,   //                  -2  +1
 
-    opAdd,          // []               -2  +1
-    opAddLarge,     // []               -2  +1
-    opSub,          // []               -2  +1
-    opSubLarge,     // []               -2  +1
-    opMul,          // []               -2  +1
-    opMulLarge,     // []               -2  +1
-    opDiv,          // []               -2  +1
-    opDivLarge,     // []               -2  +1
-    opMod,          // []               -2  +1
-    opModLarge,     // []               -2  +1
-    opBitAnd,       // []               -2  +1
-    opBitAndLarge,  // []               -2  +1
-    opBitOr,        // []               -2  +1
-    opBitOrLarge,   // []               -2  +1
-    opBitXor,       // []               -2  +1
-    opBitXorLarge,  // []               -2  +1
-    opBitShl,       // []               -2  +1
-    opBitShlLarge,  // []               -2  +1
-    opBitShr,       // []               -2  +1
-    opBitShrLarge,  // []               -2  +1
+    opAdd,          //                  -2  +1
+    opAddLarge,     //                  -2  +1
+    opSub,          //                  -2  +1
+    opSubLarge,     //                  -2  +1
+    opMul,          //                  -2  +1
+    opMulLarge,     //                  -2  +1
+    opDiv,          //                  -2  +1
+    opDivLarge,     //                  -2  +1
+    opMod,          //                  -2  +1
+    opModLarge,     //                  -2  +1
+    opBitAnd,       //                  -2  +1
+    opBitAndLarge,  //                  -2  +1
+    opBitOr,        //                  -2  +1
+    opBitOrLarge,   //                  -2  +1
+    opBitXor,       //                  -2  +1
+    opBitXorLarge,  //                  -2  +1
+    opBitShl,       //                  -2  +1
+    opBitShlLarge,  //                  -2  +1
+    opBitShr,       //                  -2  +1
+    opBitShrLarge,  //                  -2  +1
 
     // string/vector operators
     // [elem-size]: if < 4 int_ is taken from the stack, otherwise - large_
-    opPodVecCat,    // []               -2  +1   vec + vec
+    opPodVecCat,    //                  -2  +1   vec + vec
     opPodVecElemCat,// [elem-size]      -2  +1   vec + elem
     opPodElemVecCat,// [elem-size]      -2  +1   elem + vec
     opPodElemElemCat,// [elem-size]     -2  +1   elem + elem
     opPodElemToVec, // [elem-size]      -1  +1
 
     // unary
-    opNeg,          // []               -1  +1
-    opNegLarge,     // []               -1  +1
-    opBitNot,       // []               -1  +1
-    opBitNotLarge,  // []               -1  +1
-    opBoolNot,      // []               -1  +1
+    opNeg,          //                  -1  +1
+    opNegLarge,     //                  -1  +1
+    opBitNot,       //                  -1  +1
+    opBitNotLarge,  //                  -1  +1
+    opBoolNot,      //                  -1  +1
     
     // jumps
     //   short bool evaluation: pop if jump, leave it otherwise
@@ -119,6 +123,7 @@ enum OpCode
     
     opCmpFirst = opEQ, opCmpLast = opNE,
     opLoadThisFirst = opLoadThisByte, opLoadThisLast = opLoadThisVoid,
+    opStoreThisFirst = opStoreThisByte, opStoreThisLast = opStoreThisVoid,
 
     opInv = -1,
 };
@@ -141,16 +146,16 @@ public:
     VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
     void  pushPtr(ptr v)      { push().ptr_ = v; }
-    void  pushOffs(uint o)    { push().offs_ = o; }
+    void  pushOffs(offs o)    { push().offs_ = o; }
     int   popInt()            { return pop().int_; }
     ptr   popPtr()            { return pop().ptr_; }
-    uint  popOffs()           { return pop().offs_; }
+    offs  popOffs()           { return pop().offs_; }
     int   topInt() const      { return stack.top().int_; }
     ptr   topPtr() const      { return stack.top().ptr_; }
-    uint  topOffs() const     { return stack.top().offs_; }
+    offs  topOffs() const     { return stack.top().offs_; }
     int*  topIntRef()         { return &stack.top().int_; }
     ptr*  topPtrRef()         { return &stack.top().ptr_; }
-    uint* topOffsRef()        { return &stack.top().offs_; }
+    offs* topOffsRef()        { return &stack.top().offs_; }
 
 #ifdef PTR64
     void   pushLarge(large v) { push().large_ = v; }
@@ -184,15 +189,18 @@ protected:
     VmCodeSegment codeseg;
     PodStack<GenStackInfo> genStack;
     int stackMax;
+    int reserveLocals;
     bool needsRuntimeContext;
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
     const GenStackInfo& genPop();
     ShType* genPopType()                { return genPop().type; }
+    const GenStackInfo& genPopStore()   { return genStack.pop(); }
 
     void genOp(OpCode op)               { codeseg.add()->op_ = op; }
     void genInt(int v)                  { codeseg.add()->int_ = v; }
+    void genOffs(offs v)                { codeseg.add()->offs_ = v; }
     void genPtr(ptr v)                  { codeseg.add()->ptr_ = v; }
 
 #ifdef PTR64
@@ -203,16 +211,13 @@ protected:
 
     void genCmpOp(OpCode op, OpCode cmp);
     void genNop()           { genOp(opNop); }
-    void genEnd(int reserveLocals);
+    void genEnd();
     void verifyClean();
-
-    VM_STATIC void runtimeError(int code, const char*);
-    VM_STATIC void run(VmQuant* codeseg, char* dataseg);
 
 public:
     VmCodeGen();
     
-    ShType* resultTypeHint;
+    ShType* resultTypeHint; // used by the parser for vector/array constructors
     
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);
@@ -221,6 +226,8 @@ public:
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);
     void genLoadThisVar(ShVariable*);
+    void genInitThisVar(ShType*);
+    void genFinThisVar(ShVariable*);
     void genMkSubrange();
     void genComparison(OpCode);
     void genStaticCast(ShType*);
@@ -240,10 +247,13 @@ public:
             { return codeseg.size(); }
     ShType* genTopType()
             { return genTop().type; }
+    void genReserveLocals(int size)
+            { reserveLocals += size; }
     
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr(bool anyObj);
-    VmCodeSegment getCode(int reserveLocals);
+    VmCodeSegment getCode()
+            { genEnd(); return codeseg; }
 };
 
 

@@ -37,6 +37,8 @@ string typeVsType(ShType* a, ShType* b)
     ,
 */
 
+// TODO: execute constant code as much as possible (in VmCodeGen probably)
+
 ShBase* ShModule::getQualifiedName()
 {
     string ident = parser.getIdent();
@@ -653,7 +655,7 @@ void ShModule::parseTypeDef()
 }
 
 
-void ShModule::parseVarConstDef(bool isVar)
+void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 {
     string ident;
     ShType* type = NULL;
@@ -674,23 +676,43 @@ void ShModule::parseVarConstDef(bool isVar)
     }
 
     parser.skip(tokAssign, "=");
-    ShValue value;
-    getConstExpr(type, value);
-    if (type == NULL) // auto
-        type = value.type;
+
     if (isVar)
-        addObject(new ShVariable(ident, type)); // TODO: initializer
+    {
+        ShVariable* var = new ShVariable(ident,
+            type == NULL ? queenBee->defaultVoid : type);
+        addObject(var);
+        code.genLoadThisVar(var);  // TODO: local vars
+        ShType* exprType = parseExpr(code);
+        if (type == NULL)
+        {
+            type = exprType;
+            resolveVarType(var, type);
+        }
+        else if (!type->canAssign(exprType))
+            error("Type mismatch in variable initialization");
+        
+        code.genInitThisVar(type);
+        // TODO: generate finalization code if necessary
+    }
     else
+    {
+        ShValue value;
+        getConstExpr(type, value);
+        if (type == NULL) // auto
+            type = value.type;
         addObject(new ShConstant(ident, value));
+    }
 }
 
 
-void ShModule::compile()
+bool ShModule::compile()
 {
     try
     {
         VmCodeGen main;
         VmCodeGen fin;
+        VmCodeGen* curCodeGen = &main;
 
         currentScope = this;
         
@@ -711,14 +733,16 @@ void ShModule::compile()
             if (parser.skipIf(tokDef))
                 parseTypeDef();
             else if (parser.skipIf(tokConst))
-                parseVarConstDef(false);
+                parseVarConstDef(false, *curCodeGen);
             else if (parser.skipIf(tokVar))
-                parseVarConstDef(true);
-            // TODO: echo
+                parseVarConstDef(true, *curCodeGen);
+            // TODO: echo, assert
             else
                 errorWithLoc("Expected definition or statement");
             parser.skipSep();
         }
+
+        generateFinalizations(fin);
 
         setupRuntime(main, fin);
 
@@ -731,7 +755,9 @@ void ShModule::compile()
     catch(Exception& e)
     {
         fprintf(stderr, "%s\n", e.what().c_str());
+        return false;
     }
+    return true;
 }
 
 
@@ -774,7 +800,15 @@ int main()
         ShModule module("z.sn");
 #endif
         module.compile();
-        
+        if (!module.compiled)
+            return 1;
+
+        // TODO: exec mains for all used modules
+        module.executeMain();
+        module.executeFin();
+        if (!stk.empty())
+            fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
+
         doneLangObjs();
     }
     catch (Exception& e)

@@ -45,7 +45,11 @@ int ShType::staticSizeRequired() const
 
 int ShType::staticSizeAligned() const
 {
-    return (((staticSize() - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
+    int size = staticSize();
+    if (size == 0)
+        return 0;
+    else
+        return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
 }
 
 string ShType::getDefinition(const string& objName) const
@@ -651,13 +655,47 @@ void ShModule::addVariable(ShVariable* obj)
 }
 
 
+void ShModule::resolveVarType(ShVariable* obj, ShType* newType)
+{
+    // called from var declaration code for typeless decls. this is safe
+    // as long as this function is called soon after addVariable()
+    if (!obj->type->isVoid() || obj->dataOffset != dataSize)
+        internal(15);
+    obj->type = newType;
+    dataSize += obj->type->staticSizeAligned();
+}
+
+
+void ShModule::generateFinalizations(VmCodeGen& finCode)
+{
+    for (int i = vars.size() - 1; i >= 0; i--)
+        finCode.genFinThisVar(vars[i]);
+}
+
+
 void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)
 {
-    compiled = true;
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
-    mainCode = main.getCode(0);
-    finCode = fin.getCode(0);
+    mainCode = main.getCode();
+    finCode = fin.getCode();
+    compiled = true;
+}
+
+
+void ShModule::executeMain()
+{
+    if (!compiled)
+        internal(14);
+    mainCode.execute(dataSegment);
+}
+
+
+void ShModule::executeFin()
+{
+    if (!compiled)
+        internal(14);
+    finCode.execute(dataSegment);
 }
 
 
