@@ -541,44 +541,41 @@ void ShValue::_finalize()
         string::_finalize(value.ptr_);
 }
 
-void ShValue::assignPtr(ShType* iType, ptr p)
-        { _finalize(); type = iType; value.ptr_ = p; }
 void ShValue::assignInt(ShType* iType, int i)
         { _finalize(); type = iType; value.int_ = i; }
 void ShValue::assignLarge(ShType* iType, large l)
         { _finalize(); type = iType; value.large_ = l; }
+void ShValue::assignPtr(ShType* iType, ptr p)
+        { _finalize(); type = iType; value.ptr_ = p; }
 void ShValue::assignVec(ShType* iType, const string& s)
         { _finalize(); type = iType; value.ptr_ = s._initialize(); }
+void ShValue::assignVoid(ShType* iType)
+        { _finalize(); type = iType; value.ptr_ = 0; }
 
 void ShValue::assignFromBuf(ShType* newType, const ptr p)
 {
-    int dataSize = newType->staticSize();
-    if (newType->isLargePod())
-        assignLarge(newType, *plarge(p));
-    else if (newType->isVector())
-        assignVec(newType, PTR_TO_STRING(*pptr(p)));
-    else if (newType->isPodPointer())
-        assignPtr(newType, *pptr(p));
-    else if (dataSize == 1)
-        assignInt(newType, int(*pchar(p)));
-    else
-        assignInt(newType, *pint(p));
+    switch (newType->storageModel())
+    {
+        case stoByte: assignInt(newType, int(*pchar(p))); break;
+        case stoInt: assignInt(newType, *pint(p)); break;
+        case stoLarge: assignLarge(newType, *plarge(p)); break;
+        case stoPtr: assignPtr(newType, *pptr(p)); break;
+        case stoVec: assignVec(newType, PTR_TO_STRING(*pptr(p))); break;
+        default: internal(12);
+    };
 }
 
-int ShValue::assignToBuf(ptr p)
+void ShValue::assignToBuf(ptr p)
 {
-    int dataSize = type->staticSize();
-    if (type->isLargePod())
-        *plarge(p) = value.large_;
-    else if (type->isVector())
-        *pptr(p) = string::_initialize(value.ptr_);
-    else if (type->isPodPointer())
-        *pptr(p) = p;
-    else if (dataSize == 1)
-        *pchar(p) = value.int_;
-    else
-        *pint(p) = value.int_;
-    return dataSize;
+    switch (type->storageModel())
+    {
+        case stoByte: *pchar(p) = value.int_; break;
+        case stoInt: *pint(p) = value.int_; break;
+        case stoLarge: *plarge(p) = value.large_; break;
+        case stoPtr: *pptr(p) = p; break;
+        case stoVec: *pptr(p) = string::_initialize(value.ptr_); break;
+        default: internal(13);
+    }
 }
 
 
