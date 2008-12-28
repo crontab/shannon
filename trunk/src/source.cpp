@@ -229,6 +229,7 @@ Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list must be kept in sorted order
         {"and", tokAnd},
+        {"assert", tokAssert},
         {"const", tokConst},
         {"def", tokDef},
         {"echo", tokEcho},

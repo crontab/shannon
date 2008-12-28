@@ -10,12 +10,13 @@ VmStack stk;
 #endif
 
 
-void VmCodeGen::runtimeError(int code, const char* msg)
+void VmCodeSegment::runtimeError(int code, const char* msg)
 {
     fatal(RUNTIME_FIRST + code, msg);
 }
 
-
+// TODO: probably only <= is enough (i.e. return only 0 or < 0), the rest can 
+// be optimized by the code generator.
 static int compareInt(int a, int b)
     { if (a < b) return -1; else if (a == b) return 0; return 1; }
 
@@ -28,11 +29,13 @@ static int compareStrChr(ptr a, int b)
 static int compareChrStr(int a, ptr b)
     { return string(char(a)).compare(PTR_TO_STRING(b)); }
 
+
 // TODO: ref counts are incremented and decremented every time a value is
 // pushed/popped from the stack, which won't be efficient in the multithreaded
 // version. Need to do the same way as C++ does with overloaded operators with
-// const arguments (create temp vars).
-void VmCodeGen::run(VmQuant* p, char* dataseg)
+// const arguments (create temp vars). Also, it would be easier to implement
+// exceptions, as temp vars will be finalized like all others during unwind.
+void VmCodeSegment::run(VmQuant* p, char* dataseg)
 {
 //    int sktBase = stk.size();
     while (1)
@@ -70,10 +73,21 @@ void VmCodeGen::run(VmQuant* p, char* dataseg)
         case opLoadThisVec: stk.pushPtr(string::_initialize(*pptr(dataseg + (p++)->offs_))); break;
         case opLoadThisVoid: stk.pushPtr(NULL); break;
 
-/*
-    opLoadThisVec,  // [offs]           -1  +1
-    opLoadThisVoid, // [offs]           -1  +1
-*/
+        case opStoreThisByte: { uchar v = stk.popInt(); *puchar(dataseg + stk.popOffs()) = v; } break;
+        case opStoreThisInt: { int v = stk.popInt(); *pint(dataseg + stk.popOffs()) = v; } break;
+        case opStoreThisLarge: { large v = stk.popLarge(); *pint(dataseg + stk.popOffs()) = v; } break;
+        case opStoreThisPtr: { ptr v = stk.popPtr(); *pptr(dataseg + stk.popOffs()) = v; } break;
+        case opStoreThisVec:
+            {
+                ptr v = stk.popPtr();
+                pptr s = pptr(dataseg + stk.popOffs());
+                string::_finalize(*s);
+                *s = v;
+            }
+            break;
+        case opInitThisVec: { ptr v = stk.popPtr(); *pptr(dataseg + stk.popOffs()) = v; } break;
+        case opFinThisPodVec: { string::_finalize(*pptr(dataseg + (p++)->offs_)); } break;
+
         // --- COMPARISONS ------------------------------------------------- //
         case opCmpInt:
             {
@@ -265,7 +279,8 @@ void VmCodeGen::run(VmQuant* p, char* dataseg)
 
 
 VmCodeGen::VmCodeGen()
-    : codeseg(), genStack(), stackMax(0), needsRuntimeContext(false), resultTypeHint(NULL)
+    : codeseg(), genStack(), stackMax(0), reserveLocals(0),
+      needsRuntimeContext(false), resultTypeHint(NULL)
 {
     genOp(opStkFrame);
     genInt(0);
@@ -283,13 +298,13 @@ void VmCodeGen::verifyClean()
 
 void VmCodeGen::runConstExpr(ShValue& result)
 {
-    genEnd(0);
+    genEnd();
     if (needsRuntimeContext)
     {
         result.type = NULL;
         return;
     }
-    run(codeseg.getCode(), NULL);
+    codeseg.execute(NULL);
     ShType* type = genPopType();
     switch (type->storageModel())
     {
@@ -447,8 +462,36 @@ void VmCodeGen::genLoadConst(ShType* type, podvalue value)
 
 void VmCodeGen::genLoadThisVar(ShVariable* var)
 {
+    // NOTE: var->type at this point can be void if it's a typeless decl.
+    genPush(var->type);
     genOp(opLoadThisRef);
-    genInt(var->dataOffset);
+    genOffs(var->dataOffset);
+}
+
+
+void VmCodeGen::genInitThisVar(ShType* type)
+{
+    genPop();
+    genPopStore();
+    int s = genStack.size();
+    if (s != 0)
+        internal(99);
+    OpCode op = OpCode(opStoreThisFirst + int(type->storageModel()));
+    if (op == opStoreThisVec)
+        op = opInitThisVec;
+    genOp(op);
+}
+
+
+void VmCodeGen::genFinThisVar(ShVariable* var)
+{
+    StorageModel sto = var->type->storageModel();
+    if (sto == stoVec)
+    {
+        // TODO: non-POD vectors
+        genOp(opFinThisPodVec);
+        genOffs(var->dataOffset);
+    }
 }
 
 
@@ -461,7 +504,6 @@ void VmCodeGen::genMkSubrange()
         internal(51);
 #endif
     genPush(POrdinal(type)->deriveRangeType());
-    type = genTopType();
     genOp(opMkSubrange);
 }
 
@@ -610,7 +652,7 @@ void VmCodeGen::genResolveJump(int jumpOffset)
 }
 
 
-void VmCodeGen::genEnd(int reserveLocals)
+void VmCodeGen::genEnd()
 {
     genOp(opEnd);
 #ifdef DEBUG
@@ -620,10 +662,4 @@ void VmCodeGen::genEnd(int reserveLocals)
     codeseg.at(1)->int_ = stackMax + reserveLocals;
 }
 
-
-VmCodeSegment VmCodeGen::getCode(int reserveLocals)
-{
-    genEnd(reserveLocals);
-    return codeseg;
-}
 
