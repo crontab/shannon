@@ -66,11 +66,11 @@ qualified-name ::= { ident "." } ident
 
 subexpr ::= "(" expr ")"
 
-
-
 compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
 
 element-ctor ::= [ expr "=" ] expr
+
+
 
 fifo-ctor ::= "<" [ expr-list ] ">"
 
@@ -87,8 +87,6 @@ mute ::= "^"
 fifo-pull ::= atom "::" expr
 
 fifo-filter ::= atom "||" expr
-
-subrange ::= rel-expr ".." rel-expr
 
 
 # Module
@@ -134,4 +132,6 @@ var-def ::= "var" ( auto-object-spec | typed-object-spec ) "=" expr
 auto-object-spec ::= ident
 
 typed-object-spec ::= type ident { type-derivator }
+
+subrange ::= rel-expr ".." rel-expr
 

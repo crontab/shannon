@@ -48,6 +48,7 @@ const typeref h4 = int
 const t1 = int('A')
 const t2 = int(1000000000000000000L)
 const t3 = large(1)
+const t4 = 1000000000000000000L
 
 const b4 = false
 const b5 = int(true)
@@ -98,3 +99,18 @@ const u9 = u8 == [1, 2, 3 + 5]
 
 # const j1 = null | null
 # const void j2[] = null
+def int intv[]
+const int u10[] = [1, 2, 3] | intv([4, 5, 6])
+def 0..3 nums
+const nums num = 1
+const u11 = intv([])
+const u12 = u11
+const nums nv[] = [1, 2, 3]
+# const nums nv[] = [1, 2, 4]
+
+const ss0_2 = sizeof(0..2)
+const ssnums = sizeof(nums)
+const ssint = sizeof(int)
+const sslarge = sizeof(large)
+const sschar = sizeof(char)
+const ssptr = sizeof(str)
