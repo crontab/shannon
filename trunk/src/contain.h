@@ -253,7 +253,7 @@ public:
     bool empty() const        { return stackimpl::empty(); }
     int size() const          { return stackimpl::size() / Tsize; }
     void clear()              { stackimpl::clear(); }
-    void reserve(int size)    { stackimpl::reserve(size + Tsize); }
+    void reserve(int size)    { stackimpl::reserve(size * Tsize); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
     void push(const T& t)     { ::new(&push()) T(t); }
     T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }

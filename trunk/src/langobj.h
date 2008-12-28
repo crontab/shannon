@@ -7,9 +7,6 @@
 #include "source.h"
 
 
-// --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
-
-
 class ShType;
 class ShConstant;
 class ShValue;
@@ -17,17 +14,17 @@ class ShOrdinal;
 class ShInteger;
 class ShVoid;
 class ShRange;
-class ShBool;
 class ShScope;
-class ShState;
 class ShVector;
 class ShSet;
 class ShArray;
 class ShModule;
-class ShQueenBee;
 
 
-class VmCode;
+// --- VIRTUAL MACHINE (PARTIAL) ------------------------------------------- //
+
+
+class VmCodeGen;
 
 union VmQuant
 {
@@ -40,8 +37,25 @@ union VmQuant
 };
 
 
-typedef PodArray<VmQuant> VmCodeSegment;
+struct VmReloc
+{
+    ShModule* module;
+    int codeOffset;
+};
 
+
+class VmCodeSegment
+{
+public:
+    PodArray<VmQuant> code;
+    PodArray<VmReloc> reloc;
+    
+    bool isResolved()
+            { return reloc.empty(); }
+};
+
+
+// --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
 
 enum ShBaseId
@@ -582,21 +596,21 @@ class ShModule: public ShScope
     ShType* getType(bool require);
     ShType* getTypeOrNewIdent(string* strToken);
     void    getConstCompound(ShType*, ShValue&);
-    ShType* parseAtom(VmCode&);
-    ShType* parseDesignator(VmCode&);
+    ShType* parseAtom(VmCodeGen&);
+    ShType* parseDesignator(VmCodeGen&);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
-    ShType* parseFactor(VmCode&);
-    ShType* parseTerm(VmCode&);
-    ShType* parseArithmExpr(VmCode&);
-    ShType* parseSimpleExpr(VmCode&);
-    ShType* parseRelExpr(VmCode&);
-    ShType* parseNotLevel(VmCode&);
-    ShType* parseAndLevel(VmCode&);
-    ShType* parseOrLevel(VmCode&);
-    ShType* parseSubrange(VmCode&);
-    ShType* parseBoolExpr(VmCode& code)
+    ShType* parseFactor(VmCodeGen&);
+    ShType* parseTerm(VmCodeGen&);
+    ShType* parseArithmExpr(VmCodeGen&);
+    ShType* parseSimpleExpr(VmCodeGen&);
+    ShType* parseRelExpr(VmCodeGen&);
+    ShType* parseNotLevel(VmCodeGen&);
+    ShType* parseAndLevel(VmCodeGen&);
+    ShType* parseOrLevel(VmCodeGen&);
+    ShType* parseSubrange(VmCodeGen&);
+    ShType* parseBoolExpr(VmCodeGen& code)
             { return parseOrLevel(code); }
-    ShType* parseExpr(VmCode& code)
+    ShType* parseExpr(VmCodeGen& code)
             { return parseSubrange(code); }
     void getConstExpr(ShType* typeHint, ShValue& result);
 
@@ -623,11 +637,14 @@ public:
 
     // --- RUNTIME --- //
 protected:
-    void setupRuntime(VmCode& main, VmCode& fin);
+    void setupRuntime(VmCodeGen& main, VmCodeGen& fin);
     
 public:
+    int globalIndex; // VM refers to static objects through this index; all
+                     // static offsets are within dataSize in dataSegment.
     int dataSize;
     char* dataSegment;
+
     VmCodeSegment mainCode;
     VmCodeSegment finCode;
 };
