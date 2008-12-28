@@ -20,6 +20,7 @@ enum OpCode
 {
     opEnd,          // []
     opNop,          // []
+    opStkFrame,     // [size]
     
     opLoadZero,     // []                   +1
     opLoadLargeZero,// []                   +1
@@ -115,9 +116,6 @@ enum OpCode
 inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJumpAnd; }
 
 
-typedef twins<ShType*> ShTypePair;
-
-
 class VmStack: public noncopyable
 {
     PodStack<VmQuant> stack;
@@ -155,7 +153,7 @@ public:
 };
 
 
-class VmCode: public noncopyable
+class VmCodeGen: public noncopyable
 {
 protected:
     struct GenStackInfo
@@ -164,7 +162,7 @@ protected:
         GenStackInfo(ShType* iType): type(iType)  { }
     };
 
-    VmCodeSegment code;
+    VmCodeSegment seg;
     PodStack<GenStackInfo> genStack;
     int stackMax;
     
@@ -173,12 +171,10 @@ protected:
     GenStackInfo& genTop()              { return genStack.top(); }
     void genPop()                       { genStack.pop(); }
 
-    void genOp(OpCode op)               { code.add().op_ = op; }
-    void genInt(int v)                  { code.add().int_ = v; }
-    void genPtr(ptr v)                  { code.add().ptr_ = v; }
-    void genCmpOp(OpCode op, OpCode cmp);
-    void verifyClean();
-    void genEnd()                       { genOp(opEnd); }
+    void genOp(OpCode op)               { seg.code.add().op_ = op; }
+    void genInt(int v)                  { seg.code.add().int_ = v; }
+    void genPtr(ptr v)                  { seg.code.add().ptr_ = v; }
+    VmQuant* genCodeAt(int offs)        { return (VmQuant*)&seg.code[offs]; }
 
 #ifdef PTR64
     void genLarge(large v)  { code.add().large_ = v; }
@@ -186,11 +182,15 @@ protected:
     void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
 #endif
 
+    void genCmpOp(OpCode op, OpCode cmp);
+    void genEnd();
+    void verifyClean();
+
     VM_STATIC void runtimeError(int code, const char*);
     VM_STATIC void run(VmQuant* p);
 
 public:
-    VmCode(ShType* iResultTypeHint = NULL);
+    VmCodeGen(ShType* iResultTypeHint = NULL);
     
     ShType* resultTypeHint;
     
@@ -216,14 +216,13 @@ public:
     int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
     int  genOffset() const
-            { return code.size(); }
+            { return seg.code.size(); }
     ShType* genTopType()
             { return genTop().type; }
     
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr();
-    VmCodeSegment getCode()
-            { genEnd(); return code; }
+    VmCodeSegment getCode();
 };
 
 

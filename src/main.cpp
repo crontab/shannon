@@ -94,7 +94,7 @@ void ShModule::getConstCompound(ShType* typeHint, ShValue& result)
 }
 
 
-ShType* ShModule::parseAtom(VmCode& code)
+ShType* ShModule::parseAtom(VmCodeGen& code)
 {
     if (parser.skipIf(tokLParen))
     {
@@ -180,7 +180,7 @@ ShType* ShModule::parseAtom(VmCode& code)
         parser.skip(tokLParen, "(");
         ShType* type;
         {
-            VmCode tcode(NULL);
+            VmCodeGen tcode(NULL);
             parseExpr(tcode);
             type = tcode.runTypeExpr();
         }
@@ -213,13 +213,13 @@ ShType* ShModule::parseAtom(VmCode& code)
 }
 
 
-ShType* ShModule::parseDesignator(VmCode& code)
+ShType* ShModule::parseDesignator(VmCodeGen& code)
 {
     return parseAtom(code);
 }
 
 
-ShType* ShModule::parseFactor(VmCode& code)
+ShType* ShModule::parseFactor(VmCodeGen& code)
 {
     bool isNeg = parser.skipIf(tokMinus);
     ShType* resultType = parseDesignator(code);
@@ -245,7 +245,7 @@ ShInteger* ShModule::arithmResultType(ShInteger* left, ShInteger* right)
 }
 
 
-ShType* ShModule::parseTerm(VmCode& code)
+ShType* ShModule::parseTerm(VmCodeGen& code)
 {
     ShType* left = parseFactor(code);
     while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
@@ -266,7 +266,7 @@ ShType* ShModule::parseTerm(VmCode& code)
 }
 
 
-ShType* ShModule::parseArithmExpr(VmCode& code)
+ShType* ShModule::parseArithmExpr(VmCodeGen& code)
 {
     ShType* left = parseTerm(code);
     while (parser.token == tokPlus || parser.token == tokMinus)
@@ -287,7 +287,7 @@ ShType* ShModule::parseArithmExpr(VmCode& code)
 }
 
 
-ShType* ShModule::parseSimpleExpr(VmCode& code)
+ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
 {
     ShType* left = parseArithmExpr(code);
     while (parser.token == tokCat)
@@ -331,7 +331,7 @@ ShType* ShModule::parseSimpleExpr(VmCode& code)
 }
 
 
-ShType* ShModule::parseRelExpr(VmCode& code)
+ShType* ShModule::parseRelExpr(VmCodeGen& code)
 {
     ShType* left = parseSimpleExpr(code);
     if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
@@ -352,7 +352,7 @@ ShType* ShModule::parseRelExpr(VmCode& code)
 }
 
 
-ShType* ShModule::parseNotLevel(VmCode& code)
+ShType* ShModule::parseNotLevel(VmCodeGen& code)
 {
     bool isNot = parser.skipIf(tokNot);
     ShType* type = parseRelExpr(code);
@@ -369,7 +369,7 @@ ShType* ShModule::parseNotLevel(VmCode& code)
 }
 
 
-ShType* ShModule::parseAndLevel(VmCode& code)
+ShType* ShModule::parseAndLevel(VmCodeGen& code)
 {
     ShType* left = parseNotLevel(code);
     if (left->isBool())
@@ -406,7 +406,7 @@ ShType* ShModule::parseAndLevel(VmCode& code)
 }
 
 
-ShType* ShModule::parseOrLevel(VmCode& code)
+ShType* ShModule::parseOrLevel(VmCodeGen& code)
 {
     ShType* left = parseAndLevel(code);
     if (left->isBool())
@@ -448,7 +448,7 @@ ShType* ShModule::parseOrLevel(VmCode& code)
 }
 
 
-ShType* ShModule::parseSubrange(VmCode& code)
+ShType* ShModule::parseSubrange(VmCodeGen& code)
 {
     ShType* left = parseOrLevel(code);
     if (parser.token == tokRange)
@@ -471,7 +471,7 @@ ShType* ShModule::parseSubrange(VmCode& code)
 
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCode code(typeHint);
+    VmCodeGen code(typeHint);
     if (typeHint != NULL)
     {
         if (typeHint->isBool() || typeHint->isInt())
@@ -683,8 +683,8 @@ void ShModule::compile()
 {
     try
     {
-        VmCode main;
-        VmCode fin;
+        VmCodeGen main;
+        VmCodeGen fin;
 
         currentScope = this;
         

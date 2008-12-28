@@ -3,18 +3,6 @@
 #include "vm.h"
 
 
-class ENoContext: public Exception
-{
-public:
-    virtual string what() const { return "No execution context"; }
-};
-
-
-
-VmCode::VmCode(ShType* iResultTypeHint)
-    : code(), genStack(), stackMax(0), resultTypeHint(iResultTypeHint)  { }
-
-
 #ifdef SINGLE_THREADED
 
 VmStack stk;
@@ -22,7 +10,7 @@ VmStack stk;
 #endif
 
 
-void VmCode::runtimeError(int code, const char* msg)
+void VmCodeGen::runtimeError(int code, const char* msg)
 {
     fatal(RUNTIME_FIRST + code, msg);
 }
@@ -44,7 +32,7 @@ static int compareChrStr(int a, ptr b)
 // pushed/popped from the stack, which won't be efficient in the multithreaded
 // version. Need to do the same way as C++ does with overloaded operators with
 // const arguments (create temp vars).
-void VmCode::run(VmQuant* p)
+void VmCodeGen::run(VmQuant* p)
 {
     while (1)
     {
@@ -52,6 +40,7 @@ void VmCode::run(VmQuant* p)
         {
         case opEnd: return;
         case opNop: break;
+        case opStkFrame: stk.reserve((p++)->int_); break;
 
         // --- LOADERS ----------------------------------------------------- //
         case opLoadZero: stk.pushInt(0); break;
@@ -261,7 +250,15 @@ void VmCode::run(VmQuant* p)
 }
 
 
-void VmCode::verifyClean()
+VmCodeGen::VmCodeGen(ShType* iResultTypeHint)
+    : seg(), genStack(), stackMax(0), resultTypeHint(iResultTypeHint)
+{
+    genOp(opStkFrame);
+    genInt(0);
+}
+
+
+void VmCodeGen::verifyClean()
 {
     if (!genStack.empty())
         fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
@@ -270,11 +267,12 @@ void VmCode::verifyClean()
 }
 
 
-void VmCode::runConstExpr(ShValue& result)
+void VmCodeGen::runConstExpr(ShValue& result)
 {
     genEnd();
-    stk.reserve(stackMax);
-    run(&code._at(0));
+    if (!seg.isResolved())
+        internal(57);
+    run(&seg.code._at(0));
     ShType* type = genPopType();
     if (type->isLargePod())
         result.assignLarge(type, stk.popLarge());
@@ -292,7 +290,7 @@ void VmCode::runConstExpr(ShValue& result)
 }
 
 
-ShType* VmCode::runTypeExpr()
+ShType* VmCodeGen::runTypeExpr()
 {
     genEnd();
     ShType* type = genPopType();
@@ -301,14 +299,14 @@ ShType* VmCode::runTypeExpr()
 }
 
 
-void VmCode::genCmpOp(OpCode op, OpCode cmp)
+void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 {
     genOp(op);
     genOp(cmp);
 }
 
 
-void VmCode::genPush(ShType* t)
+void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t));
     stackMax = imax(stackMax, genStack.size());
@@ -316,7 +314,7 @@ void VmCode::genPush(ShType* t)
 }
 
 
-void VmCode::genLoadIntConst(ShOrdinal* type, int value)
+void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
 {
     genPush(type);
     if (type->isBool())
@@ -338,7 +336,7 @@ void VmCode::genLoadIntConst(ShOrdinal* type, int value)
 }
 
 
-void VmCode::genLoadLargeConst(ShOrdinal* type, large value)
+void VmCodeGen::genLoadLargeConst(ShOrdinal* type, large value)
 {
     genPush(type);
     if (value == 0)
@@ -353,14 +351,14 @@ void VmCode::genLoadLargeConst(ShOrdinal* type, large value)
 }
 
 
-void VmCode::genLoadNull()
+void VmCodeGen::genLoadNull()
 {
     genPush(queenBee->defaultVoid);
     genOp(opLoadNull);
 }
 
 
-void VmCode::genLoadTypeRef(ShType* type)
+void VmCodeGen::genLoadTypeRef(ShType* type)
 {
     genPush(queenBee->defaultTypeRef);
     genOp(opLoadTypeRef);
@@ -368,7 +366,7 @@ void VmCode::genLoadTypeRef(ShType* type)
 }
 
 
-void VmCode::genLoadVecConst(ShType* type, const char* s)
+void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
 {
     genPush(type);
     if (PTR_TO_STRING(s).empty())
@@ -381,7 +379,7 @@ void VmCode::genLoadVecConst(ShType* type, const char* s)
 }
 
 
-void VmCode::genLoadConst(ShType* type, podvalue value)
+void VmCodeGen::genLoadConst(ShType* type, podvalue value)
 {
     if (type->isOrdinal())
     {
@@ -401,7 +399,7 @@ void VmCode::genLoadConst(ShType* type, podvalue value)
 }
 
 
-void VmCode::genMkSubrange()
+void VmCodeGen::genMkSubrange()
 {
     genPop();
     ShType* type = genPopType();
@@ -415,7 +413,7 @@ void VmCode::genMkSubrange()
 }
 
 
-void VmCode::genComparison(OpCode cmp)
+void VmCodeGen::genComparison(OpCode cmp)
 {
     OpCode op = opInv;
     ShType* right = genPopType();
@@ -455,7 +453,7 @@ void VmCode::genComparison(OpCode cmp)
 }
 
 
-void VmCode::genStaticCast(ShType* type)
+void VmCodeGen::genStaticCast(ShType* type)
 {
     ShType* fromType = genPopType();
     genPush(type);
@@ -470,7 +468,7 @@ void VmCode::genStaticCast(ShType* type)
 }
 
 
-void VmCode::genBinArithm(OpCode op, ShInteger* resultType)
+void VmCodeGen::genBinArithm(OpCode op, ShInteger* resultType)
 {
     genPop();
     genPop();
@@ -479,14 +477,14 @@ void VmCode::genBinArithm(OpCode op, ShInteger* resultType)
 }
 
 
-void VmCode::genUnArithm(OpCode op, ShInteger* resultType)
+void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
 {
     genPop();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
 }
 
-void VmCode::genVecCat()
+void VmCodeGen::genVecCat()
 {
     ShType* right = genPopType();
     ShType* left = genPopType();
@@ -521,7 +519,7 @@ void VmCode::genVecCat()
 }
 
 
-void VmCode::genElemToVec(ShVector* vecType)
+void VmCodeGen::genElemToVec(ShVector* vecType)
 {
     genPop();
     genPush(vecType);
@@ -530,7 +528,7 @@ void VmCode::genElemToVec(ShVector* vecType)
 }
 
 
-int VmCode::genForwardBoolJump(OpCode op)
+int VmCodeGen::genForwardBoolJump(OpCode op)
 {
     genPop(); // because bool jump pops an item if it doesn't jump
     int t = genOffset();
@@ -540,13 +538,30 @@ int VmCode::genForwardBoolJump(OpCode op)
 }
 
 
-void VmCode::genResolveJump(int jumpOffset)
+void VmCodeGen::genResolveJump(int jumpOffset)
 {
-    const VmQuant* p = &code[jumpOffset];
-    if (!isJump(OpCode(p->op_)))
+    VmQuant* q = genCodeAt(jumpOffset);
+    if (!isJump(OpCode(q->op_)))
         internal(53);
-    p++;
-    ((VmQuant*)p)->int_ = genOffset() - (jumpOffset + 1);
+    q++;
+    q->int_ = genOffset() - (jumpOffset + 1);
 }
 
+
+void VmCodeGen::genEnd()
+{
+    genOp(opEnd);
+#ifdef DEBUG
+    if (genCodeAt(0)->op_ != opStkFrame)
+        internal(56);
+#endif
+    genCodeAt(1)->int_ = stackMax;
+}
+
+
+VmCodeSegment VmCodeGen::getCode()
+{
+    genEnd();
+    return seg;
+}
 

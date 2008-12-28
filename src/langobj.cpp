@@ -655,7 +655,7 @@ void ShModule::addVariable(ShVariable* obj)
 }
 
 
-void ShModule::setupRuntime(VmCode& main, VmCode& fin)
+void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)
 {
     compiled = true;
     if (dataSize > 0)
@@ -688,7 +688,7 @@ ShQueenBee::ShQueenBee()
     addType(defaultTypeRef);
     addAnonType(defaultEmptyVec);
 
-    VmCode main, fin;
+    VmCodeGen main, fin;
     setupRuntime(main, fin);
 }
 
