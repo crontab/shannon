@@ -94,6 +94,14 @@ void ShModule::getConstCompound(ShType* typeHint, ShValue& result)
 }
 
 
+ShType* ShModule::getTypeExpr(bool anyObj)
+{
+    VmCodeGen tcode;
+    parseExpr(tcode);
+    return tcode.runTypeExpr(anyObj);
+}
+
+
 ShType* ShModule::parseAtom(VmCodeGen& code)
 {
     if (parser.skipIf(tokLParen))
@@ -173,21 +181,25 @@ ShType* ShModule::parseAtom(VmCodeGen& code)
         else
             notImpl();
     }
-    
+
     // typeof(...)
     else if (parser.skipIf(tokTypeOf))
     {
         parser.skip(tokLParen, "(");
-        ShType* type;
-        {
-            VmCodeGen tcode(NULL);
-            parseExpr(tcode);
-            type = tcode.runTypeExpr();
-        }
+        code.genLoadTypeRef(getTypeExpr());
         parser.skip(tokRParen, ")");
-        code.genLoadTypeRef(type);
     }
 
+    // sizeof(...)
+    else if (parser.skipIf(tokSizeOf))
+    {
+        parser.skip(tokLParen, "(");
+        ShType* type = getTypeExpr();
+        parser.skip(tokRParen, ")");
+        // TODO: actual sizes for states (maybe also vectors/arrays? or len() is enough?)
+        code.genLoadIntConst(queenBee->defaultInt, type->staticSize());
+    }
+    
     // true/false/null
     else if (parser.skipIf(tokTrue))
         code.genLoadIntConst(queenBee->defaultBool, 1);
@@ -471,7 +483,8 @@ ShType* ShModule::parseSubrange(VmCodeGen& code)
 
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCodeGen code(typeHint);
+    VmCodeGen code;
+    code.resultTypeHint = typeHint;
     if (typeHint != NULL)
     {
         if (typeHint->isBool() || typeHint->isInt())
@@ -495,6 +508,9 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         code.genStaticCast(typeHint);
 
     code.runConstExpr(result);
+    
+    if (result.type == NULL)
+        error("Expression can't be evaluated at compile time");
 
     if (typeHint == NULL)
         typeHint = result.type;
@@ -542,7 +558,9 @@ ShType* ShModule::getDerivators(ShType* type)
         }
         else
         {
-            ShType* indexType = getType(true);
+            ShType* indexType = getTypeExpr(false);
+            if (indexType == NULL)
+                errorWithLoc("Type specification expected");
             parser.skip(tokRSquare, "]");
             if (!indexType->canBeArrayIndex())
                 error(indexType->getDefinition() + " can't be used as array index");
@@ -551,20 +569,6 @@ ShType* ShModule::getDerivators(ShType* type)
         type = getDerivators(type);
     }
     return type;
-}
-
-
-ShType* ShModule::getType(bool require)
-{
-    ShValue value;
-    getConstExpr(NULL, value);
-    if (value.type->isTypeRef())
-        return (ShType*)value.value.ptr_;
-    else if (value.type->isRange())
-        return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
-    else if (require)
-        errorWithLoc("Type specification expected");
-    return NULL;
 }
 
 
@@ -579,7 +583,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 
     try
     {
-        ShType* type = getType(false);
+        ShType* type = getTypeExpr(false);
         if (type != NULL)
             return type;
         else
@@ -639,7 +643,9 @@ void ShModule::parseTypeDef()
     }
     else
     {
-        type = getType(true);
+        type = getTypeExpr(false);
+        if (type == NULL)
+            errorWithLoc("Type specification expected");
         ident = parser.getIdent();
         type = getDerivators(type);
     }
@@ -708,6 +714,7 @@ void ShModule::compile()
                 parseVarConstDef(false);
             else if (parser.skipIf(tokVar))
                 parseVarConstDef(true);
+            // TODO: echo
             else
                 errorWithLoc("Expected definition or statement");
             parser.skipSep();
