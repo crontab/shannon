@@ -459,6 +459,8 @@ void VmCode::genStaticCast(ShType* type)
 {
     ShType* fromType = genPopType();
     genPush(type);
+    if (fromType == type)
+        return;
     bool isDstLarge = type->isLargePod();
     bool isSrcLarge = fromType->isLargePod();
     if (isSrcLarge && !isDstLarge)
