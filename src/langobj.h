@@ -426,6 +426,8 @@ public:
             { return equals(type) || elementEquals(type) || type->isEmptyVec(); }
     virtual bool equals(ShType* type) const
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
+    virtual bool canStaticCastTo(ShType* type) const
+            { return isEmptyVec() || equals(type); }
     bool isPodVector() const
             { return elementType->isPod(); }
     bool elementEquals(ShType* elemType) const

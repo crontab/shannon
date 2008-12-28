@@ -490,18 +490,26 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
     if (hintIsVec && typeHint->canAssign(topType) && PVector(typeHint)->elementEquals(topType))
         code.genElemToVec(PVector(typeHint));
 
-    code.runConstExpr(result);
+    // ordinal typecast, if necessary, so that a constant has a proper type
+    else if (typeHint != NULL && typeHint->isOrdinal() && !typeHint->equals(topType))
+        code.genStaticCast(typeHint);
 
-    if (hintIsVec && result.type->isEmptyVec())
-        // empty vectors are always of void type, so simple pass the hint type
-        result.type = typeHint;
+    code.runConstExpr(result);
 
     if (typeHint == NULL)
         typeHint = result.type;
+    else
+    {
+        if (hintIsVec && result.type->isEmptyVec())
+            // empty vectors are always of void type, so simply pass the hint type
+            result.type = typeHint;
+    }
 
     if (!typeHint->canAssign(result.type))
         error("Type mismatch in constant expression: " + typeVsType(typeHint, result.type));
 
+    // even without a hint a constant can be out of range of it's own type
+    // e.g. byte(257), so we check the range anyway:
     if (typeHint->isOrdinal() && result.type->isOrdinal()
         && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
@@ -664,8 +672,6 @@ void ShModule::parseVarConstDef(bool isVar)
     getConstExpr(type, value);
     if (type == NULL) // auto
         type = value.type;
-//    else
-//        value.type = type;
     if (isVar)
         addObject(new ShVariable(ident, type)); // TODO: initializer
     else
