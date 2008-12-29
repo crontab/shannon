@@ -3,7 +3,7 @@
 #include "str.h"
 
 
-static void stringoverflow()
+void string::stringoverflow()
 {
     fatal(CRIT_FIRST + 21, "String/array overflow");
 }
@@ -73,7 +73,7 @@ void string::_realloc(int newchars)
 }
 
 
-inline void string::_freedata(char* data)
+void string::_freedata(char* data)
 {
 #ifdef DEBUG
     stralloc -= memquantize(STR_CAPACITY(data) + strrecsize);
@@ -129,13 +129,6 @@ void string::initialize(char c)
 }
 
 
-void string::initialize(const string& s)
-{
-    data = s.data;
-    pincrement(&STR_REFCOUNT(data));
-}
-
-
 const char* string::c_str() const
 {
     int len = STR_LENGTH(data);
@@ -146,6 +139,15 @@ const char* string::c_str() const
         STR_LENGTH(data)--;
     }
     return data;
+}
+
+
+#ifdef SMALLER_SLOWER
+
+void string::initialize(const string& s)
+{
+    data = s.data;
+    pincrement(&STR_REFCOUNT(data));
 }
 
 
@@ -162,6 +164,8 @@ void string::finalize()
         data = emptystr;
     }
 }
+
+#endif
 
 
 void string::assign(const char* sc, int initlen) 

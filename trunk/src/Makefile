@@ -1,9 +1,10 @@
 
-CXXDEFS = -DSINGLE_THREADED
-CXXOPTIM = -Os
+CXXDEFS = -DSINGLE_THREADED 
+# -DSMALLER_SLOWER
+CXXOPTIM = -O2
 CXXOPTS = -Wall -Werror $(CXXDEFS)
-CXXDEBUG = -DDEBUG -g
-# CXXDEBUG = -NDEBUG
+# CXXDEBUG = -DDEBUG -g
+CXXDEBUG = -DNDEBUG
 # LDLIBS =
 
 OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \

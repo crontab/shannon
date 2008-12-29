@@ -39,6 +39,7 @@ protected:
     char* data;
 
     static void idxerror();
+    static void stringoverflow();
 
     void _alloc(int);
     void _realloc(int);
@@ -49,10 +50,19 @@ protected:
     void initialize(const char*, int);
     void initialize(const char*);
     void initialize(char);
-    void initialize(const string& s);
     void initialize(const char*, int, const char*, int);
-    void finalize();
+
     static void _freedata(char*);
+
+#ifdef SMALLER_SLOWER
+    void initialize(const string& s);
+    void finalize();
+#else
+    void initialize(const string& s)
+            { pincrement(&STR_REFCOUNT(data = s.data)); }
+    void finalize()
+            { if (STR_LENGTH(data) != 0) { if (_unlock() == 0) _freedata(data); data = emptystr; } }
+#endif
 
 #ifdef CHECK_BOUNDS
     void idx(int index) const  { if (unsigned(index) >= unsigned(STR_LENGTH(data))) idxerror(); }
@@ -137,7 +147,13 @@ public:
     ptr _initialize() const
             { pincrement(&STR_REFCOUNT(data)); return ptr(data); }
     int  _unlock()
-            { return pdecrement(&STR_REFCOUNT(data)); }
+        {
+#ifdef DEBUG
+            if (STR_REFCOUNT(data) <= 0)
+                stringoverflow();
+#endif
+            return pdecrement(&STR_REFCOUNT(data));
+        }
     static void _unlock(string& s) // this solves a visibility problem
             { s._unlock(); }
     static ptr _initialize(ptr p)

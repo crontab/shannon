@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 
 #include "except.h"
 
@@ -21,9 +22,12 @@ ESysError::~ESysError()  { }
 
 string ESysError::what() const
 {
-    char buf[1024];
-    strerror_r(code, buf, sizeof(buf));
-    string result = buf;
+    // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
+    // not the only strange thing about this computer and OS. Could be me, could be hardware
+    // or could be Linux. Or all.
+//    char buf[1024];
+//    strerror_r(code, buf, sizeof(buf));
+    string result = strerror(code);
     if (!arg.empty())
         result += " (" + arg + ")";
     return "Error: " + result;
