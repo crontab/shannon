@@ -142,7 +142,6 @@ protected:
     void parseStringLiteral();
     void skipMultilineComment();
     void skipSinglelineComment();
-    int getLineNum() { return linenum; }
 
 public:
     bool singleLineBlock; // if a: b = c
@@ -169,6 +168,8 @@ public:
             { if (token == tok) { next(); return true; } return false; }
     string getIdent();
     
+    string getFileName() const { return input->getFileName(); }
+    int getLineNum() const { return linenum; }
 //    int indentLevel()  { return indentStack.top(); }
 };
 

@@ -605,6 +605,7 @@ ShModule::ShModule(const string& iFileName)
 {
     if (queenBee != NULL)
         addUses(queenBee);
+    registerString(fileName); // can be used in 'assert' statements
 }
 
 ShModule::~ShModule()

@@ -1,6 +1,11 @@
 
+#include <stdlib.h>
+#include <stdio.h>
 
+#include "source.h"
 #include "vm.h"
+
+FILE* echostm = stdout;
 
 
 #ifdef SINGLE_THREADED
@@ -10,9 +15,10 @@ VmStack stk;
 #endif
 
 
-void VmCodeSegment::runtimeError(int code, const char* msg)
+static void runtimeError(int code, const char* msg)
 {
-    fatal(RUNTIME_FIRST + code, msg);
+    fprintf(stderr, "\nRuntime error [%d]: %s\n", code, msg);
+    throw code;
 }
 
 // TODO: probably only <= is enough (i.e. return only 0 or < 0), the rest can 
@@ -28,6 +34,50 @@ static int compareStrChr(ptr a, int b)
 
 static int compareChrStr(int a, ptr b)
     { return string(char(a)).compare(PTR_TO_STRING(b)); }
+
+
+static void popByType(ShType* type, ShValue& result)
+{
+    switch (type->storageModel())
+    {
+        case stoByte:
+        case stoInt: result.assignInt(type, stk.popInt()); break;
+        case stoLarge: result.assignLarge(type, stk.popLarge()); break;
+        case stoPtr: result.assignPtr(type, stk.popPtr()); break;
+        case stoVec: 
+            {
+                ptr p = stk.popPtr();
+                result.assignVec(type, PTR_TO_STRING(p));
+                string::_finalize(p);
+            }
+            break;
+        case stoVoid: result.assignVoid(type); stk.popInt(); break;
+        default: internal(58);
+    }
+}
+
+static void doEcho(ShType* type)
+{
+    ShValue value;
+    popByType(type, value);
+    string s;
+    if (type->isString())
+        s = PTR_TO_STRING(value.value.ptr_);
+    else
+        s = type->displayValue(value);
+    fwrite(s.c_bytes(), s.size(), 1, echostm);
+}
+
+
+static void doAssert(const char* fn, int linenum)
+{
+    if (!stk.popInt())
+    {
+        string s = string("Assertion failed: ") + fn + '(' 
+            + itostring(linenum) + ')';
+        runtimeError(1, s.c_str());
+    }
+}
 
 
 // TODO: ref counts are incremented and decremented every time a value is
@@ -137,6 +187,7 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
                 string::_finalize(l);
             }
             break;
+        case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
 
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
         case opLT: { int* t = stk.topIntRef(); *t = *t < 0; } break;
@@ -269,8 +320,13 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opBitNotLarge: { stk.pushLarge(~stk.popLarge()); } break;
         case opBoolNot: { int* t = stk.topIntRef(); *t = !*t; } break;
 
-        case opJumpOr: if (stk.topInt()) p += p->int_; else stk.popInt(); break;
-        case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->int_; break;
+        case opJumpOr: if (stk.topInt()) p += p->int_; else stk.popInt(); p++; break;
+        case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->int_; p++; break;
+
+        case opEcho: doEcho((ShType*)(p++)->ptr_); break;
+        case opEchoSp: putc(' ', echostm); break;
+        case opEchoLn: fputs("\n", echostm); break;
+        case opAssert: { pconst fn = pconst((p++)->ptr_); doAssert(fn, (p++)->int_); } break;
 
         default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
@@ -305,23 +361,7 @@ void VmCodeGen::runConstExpr(ShValue& result)
         return;
     }
     codeseg.execute(NULL);
-    ShType* type = genPopType();
-    switch (type->storageModel())
-    {
-        case stoByte:
-        case stoInt: result.assignInt(type, stk.popInt()); break;
-        case stoLarge: result.assignLarge(type, stk.popLarge()); break;
-        case stoPtr: result.assignPtr(type, stk.popPtr()); break;
-        case stoVec: 
-            {
-                ptr p = stk.popPtr();
-                result.assignVec(type, PTR_TO_STRING(p));
-                string::_finalize(p);
-            }
-            break;
-        case stoVoid: result.assignVoid(type); stk.popInt(); break;
-        default: internal(58);
-    }
+    popByType(genPopType(), result);
     verifyClean();
 }
 
@@ -540,6 +580,9 @@ void VmCodeGen::genComparison(OpCode cmp)
             && (cmp == opEQ || cmp == opNE))
         op = opCmpPodVec;
 
+    else if (left->isTypeRef() && right->isTypeRef())
+        op = opCmpPtr;
+
     if (op == opInv)
         internal(52);
 
@@ -648,7 +691,16 @@ void VmCodeGen::genResolveJump(int jumpOffset)
     if (!isJump(OpCode(q->op_)))
         internal(53);
     q++;
-    q->int_ = genOffset() - (jumpOffset + 1);
+    q->int_ = genOffset() - (jumpOffset + 2);
+}
+
+
+void VmCodeGen::genAssert(Parser& parser)
+{
+    genPop();
+    genOp(opAssert);
+    genPtr(ptr(parser.getFileName().c_str()));
+    genInt(parser.getLineNum());
 }
 
 

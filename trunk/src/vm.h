@@ -57,6 +57,7 @@ enum OpCode
     opCmpStrChr,    //                  -2  +1
     opCmpChrStr,    //                  -2  +1
     opCmpPodVec,    //                  -2  +1 - only EQ or NE
+    opCmpPtr,       //                  -2  +1 - only EQ or NE
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
@@ -116,6 +117,12 @@ enum OpCode
     //   short bool evaluation: pop if jump, leave it otherwise
     opJumpOr,       // [dst]            -1/0
     opJumpAnd,      // [dst]            -1/0
+
+    // helpers
+    opEcho,         // [ShType*]        -1
+    opEchoSp,       //
+    opEchoLn,       //
+    opAssert,       // [string* fn, linenum] -1
 
     // TODO: linenum, rangecheck opcodes
 
@@ -243,6 +250,12 @@ public:
             { genOp(OpCode(opBitNot + type->isLargeInt())); }
     int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
+    void genEcho()
+            { ShType* type = genPopType(); genOp(opEcho); genPtr(type); }
+    void genAssert(Parser& parser);
+    void genOther(OpCode op)
+            { genOp(op); }
+
     int  genOffset() const
             { return codeseg.size(); }
     ShType* genTopType()
