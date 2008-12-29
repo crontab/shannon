@@ -100,7 +100,15 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
     parseExpr(tcode);
-    return tcode.runTypeExpr(anyObj);
+    try
+    {
+        return tcode.runTypeExpr(anyObj);
+    }
+    catch(EInvalidSubrange& e)
+    {
+        error(e.what());
+        return NULL;
+    }
 }
 
 
@@ -179,6 +187,12 @@ ShType* ShModule::parseAtom(VmCodeGen& code)
             else
                 code.genLoadTypeRef(getDerivators(type));
         }
+        
+        else if (obj->isVariable())
+        {
+            code.genLoadThisVar((ShVariable*)obj);
+        }
+        
         // TODO: vars, funcs
         else
             notImpl();
@@ -600,10 +614,6 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
         if (e.getEntry() != *ident)
             throw;
     }
-    catch(EInvalidSubrange& e)
-    {
-        error(e.what());
-    }
     return NULL;
 }
 
@@ -691,9 +701,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
         }
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
-        
         code.genInitThisVar(type);
-        // TODO: generate finalization code if necessary
     }
     else
     {
@@ -706,12 +714,41 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 }
 
 
-bool ShModule::compile()
+void ShModule::parseEcho(VmCodeGen& code)
+{
+    // TODO: pass a dummy VmCodeGen if this echo is to be ignored
+    if (parser.token != tokSep)
+    {
+        while (1)
+        {
+            parseExpr(code);
+            code.genEcho();
+            if (parser.skipIf(tokComma))
+                code.genOther(opEchoSp);
+            else
+                break;
+        }
+    }
+    code.genOther(opEchoLn);
+}
+
+
+void ShModule::parseAssert(VmCodeGen& code)
+{
+    ShType* type = parseExpr(code);
+    if (!type->isBool())
+        error("Boolean expression expected for assertion");
+    code.genAssert(parser);
+}
+
+
+bool ShModule::compile(const CompilerOptions& options)
 {
     try
     {
         VmCodeGen main;
         VmCodeGen fin;
+        VmCodeGen null;
         VmCodeGen* curCodeGen = &main;
 
         currentScope = this;
@@ -736,7 +773,10 @@ bool ShModule::compile()
                 parseVarConstDef(false, *curCodeGen);
             else if (parser.skipIf(tokVar))
                 parseVarConstDef(true, *curCodeGen);
-            // TODO: echo, assert
+            else if (parser.skipIf(tokEcho))
+                parseEcho(options.enableEcho ? *curCodeGen : null);
+            else if (parser.skipIf(tokAssert))
+                parseAssert(options.enableAssert ? *curCodeGen : null);
             else
                 errorWithLoc("Expected definition or statement");
             parser.skipSep();
@@ -766,11 +806,14 @@ bool ShModule::compile()
 // ------------------------------------------------------------------------- //
 
 
+
 class _AtExit
 {
 public:
     ~_AtExit()
     {
+        doneLangObjs();
+
         if (Base::objCount != 0)
             fprintf(stderr, "Internal: objCount = %d\n", Base::objCount);
         if (stralloc != 0)
@@ -799,21 +842,25 @@ int main()
 #else
         ShModule module("z.sn");
 #endif
-        module.compile();
-        if (!module.compiled)
-            return 1;
+        CompilerOptions opts;
+        module.compile(opts);
 
-        // TODO: exec mains for all used modules
-        module.executeMain();
-        module.executeFin();
-        if (!stk.empty())
-            fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
-
-        doneLangObjs();
+        if (module.compiled)
+        {
+            // TODO: exec mains for all used modules
+            module.executeMain();
+            module.executeFin();
+            if (!stk.empty())
+                fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
+        }
     }
     catch (Exception& e)
     {
         fprintf(stderr, "\n*** Exception: %s\n", e.what().c_str());
+    }
+    catch (int)
+    {
+        // run-time error
     }
 
     return 0;

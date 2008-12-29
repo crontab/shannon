@@ -47,7 +47,6 @@ protected:
     PodArray<VmQuant> code;
 
 #ifdef SINGLE_THREADED
-    static void runtimeError(int code, const char*);
     static void run(VmQuant* codeseg, char* dataseg);
 #else
     // the multithreaded version will also require the stack
@@ -414,6 +413,8 @@ public:
     virtual StorageModel storageModel() const
             { return stoPtr; }
     virtual string displayValue(const ShValue& v) const;
+    virtual bool canCompareWith(ShType* type) const
+            { return type->isTypeRef(); }
     virtual bool equals(ShType* type) const
             { return type->isTypeRef(); }
 };
@@ -584,6 +585,16 @@ public:
 // ------------------------------------------------------------------------ //
 
 
+struct CompilerOptions
+{
+    bool enableEcho;
+    bool enableAssert;
+    
+    CompilerOptions()
+        : enableEcho(true), enableAssert(true)  { }
+};
+
+
 // --- MODULE --- //
 
 class ShModule: public ShScope
@@ -634,7 +645,8 @@ class ShModule: public ShScope
     ShEnum* parseEnumType();
     void parseTypeDef();
     void parseVarConstDef(bool isVar, VmCodeGen& code);
-    void parseVarDef();
+    void parseEcho(VmCodeGen& code);
+    void parseAssert(VmCodeGen& code);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -644,7 +656,7 @@ public:
 
     ShModule(const string& filename);
     ~ShModule();
-    bool compile();
+    bool compile(const CompilerOptions&);
     void dump(string indent) const;
     virtual int staticSize() const
             { return sizeof(ptr); }
