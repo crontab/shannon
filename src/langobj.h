@@ -602,6 +602,7 @@ struct CompilerOptions
 
 class ShModule: public ShScope
 {
+protected:
     // --- Compiler ---
 
     string fileName;

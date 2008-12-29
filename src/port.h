@@ -20,7 +20,7 @@ typedef unsigned long long  ularge;
 typedef const char*         pconst;
 typedef char*               pchar;
 typedef uchar*              puchar;
-typedef int*                pint;  // if (pint(Guinness)) return euro(5);
+typedef int*                pint;  // while (pint(guinness)) dump(euro(5));
 typedef uint*               puint;
 typedef ptr*                pptr;
 typedef large*              plarge;

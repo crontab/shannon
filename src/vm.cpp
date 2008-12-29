@@ -711,6 +711,7 @@ void VmCodeGen::genEnd()
     if (codeseg.at(0)->op_ != opStkFrame)
         internal(56);
 #endif
+    // TODO: don't generate opStackFrame if not needed
     codeseg.at(1)->int_ = stackMax + reserveLocals;
 }
 

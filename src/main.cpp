@@ -592,29 +592,23 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 {
     ident->clear();
     
-    // remember the ident in case we get ENotFound so that we can signal
-    // the caller this might be a declaration, not a type spec.
+    // Try to guess if this is a new ident or a type spec
     if (parser.token == tokIdent)
-        *ident = parser.strValue;   
-
-    try
     {
-        ShType* type = getTypeExpr(false);
-        if (type != NULL)
-            return type;
-        else
-            // TODO: give a better error message in case ident was a known one.
-            // How? What if it was an expression?
-            errorWithLoc("Type specification or new identifier expected");
+        *ident = parser.strValue;
+        ShBase* obj = deepFind(*ident);
+        // In one of the previous attempts to implement this guessing we were calling
+        // full expression parsing just to catch any exceptions and analyze them.
+        // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
+        // better do something rather heuristic here:
+        if (obj == NULL || (!obj->isType() && !obj->isTypeAlias() && !obj->isConstant()))
+        {
+            parser.next();
+            return NULL;
+        }
     }
-    catch (ENotFound& e)
-    {
-        // if this is a more complicated expression, just re-throw the exception
-        // othrwise return NULL and thus indicate this was a new ident
-        if (e.getEntry() != *ident)
-            throw;
-    }
-    return NULL;
+    
+    return getTypeExpr(false);
 }
 
 
@@ -716,7 +710,6 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 
 void ShModule::parseEcho(VmCodeGen& code)
 {
-    // TODO: pass a dummy VmCodeGen if this echo is to be ignored
     if (parser.token != tokSep)
     {
         while (1)
