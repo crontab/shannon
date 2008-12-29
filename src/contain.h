@@ -16,6 +16,7 @@ public:
     
     int size() const                { return string::size(); }
     int bytesize() const            { return string::bytesize(); }
+    int refcount() const            { return string::refcount(); }
     bool empty() const              { return string::empty(); }
     const char* c_bytes() const     { return string::c_bytes(); }
     void clear()                    { string::clear(); }
@@ -30,7 +31,7 @@ public:
 
 
 template <class T>
-class PodArray: protected arrayimpl
+class PodArray: public arrayimpl
 {
 protected:
     typedef T* Tptr;
@@ -50,14 +51,10 @@ public:
     PodArray(): arrayimpl()  { }
     PodArray(const PodArray<T>& a): arrayimpl(a)  { }
     ~PodArray() { }
-    void operator= (const PodArray<T>& a)  { arrayimpl::assign(a); }
+    void operator= (const PodArray<T>& a)   { arrayimpl::assign(a); }
+    void append(const PodArray<T>& a)       { arrayimpl::append(a); }
 
     int size() const                { return arrayimpl::size() / Tsize; }
-    int bytesize() const            { return arrayimpl::bytesize(); }
-    bool empty() const              { return arrayimpl::empty(); }
-    const char* c_bytes() const     { return arrayimpl::c_bytes(); }
-    int refcount() const            { return arrayimpl::refcount(); }
-    void clear()                    { arrayimpl::clear(); }
     T& add()                        { return *::new(Tptr(arrayimpl::add(Tsize))) T(); }
     void add(const T& t)            { ::new(Tptr(arrayimpl::add(Tsize))) T(t); }
     T& ins(int i)                   { return *::new(Tptr(arrayimpl::ins(idxa(i), Tsize))) T(); }
@@ -91,6 +88,7 @@ public:
     Array(const Array& a): PodArray<T>(a)  { }
     ~Array()                        { clear(); }
     void operator= (const Array& a) { PodArray<T>::operator= (a); }
+    void append(const Array<T>& a); // not implemented
     void del(int i)                 { unique(); PodArray<T>::operator[](i).~T(); PodArray<T>::del(i); }
     void pop()                      { del(PodArray<T>::size() - 1); }
     void clear()
@@ -273,6 +271,28 @@ public:
             invstackop();
 #endif
         return *Tptr(saveend);
+    }
+    char* pushrbytes(int len)
+    {
+        char* saveend = end;
+        end += len;
+#ifdef DEBUG
+        if (end > capend)
+            invstackop();
+#endif
+        return saveend;
+    }
+    void restoreendr(char* e)
+    {
+        end = e;
+#ifdef DEBUG
+        if (end < begin || end > capend)
+            invstackop();
+#endif
+    }
+    void pushbytes(int len)
+    {
+        advance(len);
     }
 };
 

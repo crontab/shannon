@@ -1,7 +1,7 @@
 
-CXXDEFS = -DSINGLE_THREADED 
+CXXDEFS = -DSINGLE_THREADED
 # -DSMALLER_SLOWER
-CXXOPTIM = -O2
+CXXOPTIM = -Os
 CXXOPTS = -Wall -Werror $(CXXDEFS)
 CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -DNDEBUG
@@ -46,7 +46,7 @@ obj/%.o: %.cpp Makefile
 	$(CXX) $(CXXDEBUG) $(CXXOPTIM) $(CXXOPTS) -c $< -o $@
 
 %.s: %.cpp
-	$(CXX) $(CXXOPTIM) $(CXXOPTS) -S $< -o $@
+	$(CXX) $(CXXOPTIM) $(CXXOPTS) -S -fverbose-asm $< -o $@
 
 clean:
 	@rm -f $(OBJS) obj/main.o obj/main-ut.o

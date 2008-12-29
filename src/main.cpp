@@ -102,7 +102,11 @@ ShType* ShModule::getTypeExpr(bool anyObj)
     parseExpr(tcode);
     try
     {
-        return tcode.runTypeExpr(anyObj);
+        ShValue value;
+        ShType* type = tcode.runTypeExpr(value, anyObj);
+        if (value.type == NULL)
+            error("Expression can't be evaluated at compile time");
+        return type;
     }
     catch(EInvalidSubrange& e)
     {
@@ -190,6 +194,8 @@ ShType* ShModule::parseAtom(VmCodeGen& code)
         
         else if (obj->isVariable())
         {
+            if (((ShVariable*)obj)->isLocal())
+                notImpl();
             code.genLoadThisVar((ShVariable*)obj);
         }
         
@@ -318,9 +324,9 @@ ShType* ShModule::parseArithmExpr(VmCodeGen& code)
 ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
 {
     ShType* left = parseArithmExpr(code);
+/*
     while (parser.token == tokCat)
     {
-        parser.next();
         ShType* right = parseArithmExpr(code);
         if (left->isVector())
         {
@@ -355,6 +361,7 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
             left = vec;
         }
     }
+*/
     return left;
 }
 
@@ -497,32 +504,29 @@ ShType* ShModule::parseSubrange(VmCodeGen& code)
 }
 
 
+ShType* ShModule::parseExpr(VmCodeGen& code, ShType* resultType)
+{
+    code.resultTypeHint = resultType;
+    ShType* topType = parseExpr(code);
+
+    // see if this is an elem-to-vector assignment
+    bool hintIsVec = resultType != NULL && resultType->isVector();
+    if (hintIsVec && resultType->canAssign(topType) && PVector(resultType)->elementEquals(topType))
+        code.genElemToVec(PVector(resultType));
+
+    // ordinal typecast, if necessary, so that a constant has a proper type
+    else if (resultType != NULL && resultType->isOrdinal() && !resultType->equals(topType))
+        code.genStaticCast(resultType);
+
+    return topType;
+}
+
+
 void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 {
     VmCodeGen code;
-    code.resultTypeHint = typeHint;
-    if (typeHint != NULL)
-    {
-        if (typeHint->isBool() || typeHint->isInt())
-            parseBoolExpr(code);
-        else if (!typeHint->isRange())
-            parseSimpleExpr(code);
-        else
-            parseExpr(code);
-    }
-    else
-        parseExpr(code);
-        
-    // see if this is an elem-to-vector assignment
-    ShType* topType = code.genTopType();
-    bool hintIsVec = typeHint != NULL && typeHint->isVector();
-    if (hintIsVec && typeHint->canAssign(topType) && PVector(typeHint)->elementEquals(topType))
-        code.genElemToVec(PVector(typeHint));
 
-    // ordinal typecast, if necessary, so that a constant has a proper type
-    else if (typeHint != NULL && typeHint->isOrdinal() && !typeHint->equals(topType))
-        code.genStaticCast(typeHint);
-
+    parseExpr(code, typeHint);
     code.runConstExpr(result);
     
     if (result.type == NULL)
@@ -532,7 +536,7 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         typeHint = result.type;
     else
     {
-        if (hintIsVec && result.type->isEmptyVec())
+        if (typeHint->isVector() && result.type->isEmptyVec())
             // empty vectors are always of void type, so simply pass the hint type
             result.type = typeHint;
     }
@@ -541,7 +545,7 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
         error("Type mismatch in constant expression: " + typeVsType(typeHint, result.type));
 
     // even without a hint a constant can be out of range of it's own type
-    // e.g. byte(257), so we check the range anyway:
+    // e.g. char(257), so we check the range anyway:
     if (typeHint->isOrdinal() && result.type->isOrdinal()
         && !POrdinal(typeHint)->contains(result))
             error("Value out of range");
@@ -683,7 +687,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 
     if (isVar)
     {
-        ShType* exprType = parseExpr(code);
+        ShType* exprType = parseExpr(code, type);
         if (type == NULL) // auto
             type = exprType;
         else if (!type->canAssign(exprType))
@@ -774,8 +778,8 @@ bool ShModule::compile(const CompilerOptions& options)
 
         genFinalizations(fin);
 
-        main.genReserveLocals(tempScope.dataSize);
-        fin.genReserveLocals(tempScope.dataSize); // dirty hack; just don't want to calc them separately
+        if (tempScope.dataSize > 0)
+            notImpl();
 
         setupRuntime(main, fin);
 

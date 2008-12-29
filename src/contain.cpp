@@ -159,7 +159,7 @@ void stackimpl::grow()
         capend = begin + newcap;
         end = begin + newsize;
 #ifdef DEBUG
-        if (end >= capend)
+        if (end > capend)
             invstackop();
 #endif
     }
