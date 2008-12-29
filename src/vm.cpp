@@ -48,7 +48,6 @@ static void popByType(ShType* type, ShValue& result)
             {
                 ptr p = stk.popPtr();
                 result.assignVec(type, PTR_TO_STRING(p));
-                string::_finalize(p);
             }
             break;
         case stoVoid: result.assignVoid(type); stk.popInt(); break;
@@ -85,10 +84,10 @@ static void doAssert(const char* fn, int linenum)
 // version. Need to do the same way as C++ does with overloaded operators with
 // const arguments (create temp vars). Also, it would be easier to implement
 // exceptions, as temp vars will be finalized like all others during unwind.
-// TODO: try to pass the stack pointer as an arg to this funcand see the difference.
+// TODO: try to pass the stack pointer as an arg to this func and see the difference in asm.
 void VmCodeSegment::run(VmQuant* p, char* dataseg)
 {
-    offs sktbase = stk.bytesize();
+    offs stkbase = stk.bytesize();
     while (1)
     {
         switch ((p++)->op_)
@@ -97,7 +96,8 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opNop: break;
         case opStkFrame: stk.reservebytes((p++)->int_); break;
 
-        // --- LOADERS ----------------------------------------------------- //
+        // --- LOAD/STORE -------------------------------------------------------------------------- //
+
         case opLoadZero: stk.pushInt(0); break;
         case opLoadLargeZero: stk.pushLarge(0); break;
         case opLoadOne: stk.pushInt(1); break;
@@ -113,30 +113,32 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opLoadTrue: stk.pushInt(1); break;
         case opLoadNull: stk.pushPtr(NULL); break;
         case opLoadNullVec: stk.pushPtr(emptystr); break;
-        case opLoadVecConst: stk.pushPtr(string::_initialize((p++)->ptr_)); break;
+        case opLoadVecConst: stk.pushPtr((p++)->ptr_); break;
         case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
 
-//        case opLoadThisRef: stk.pushOffs((p++)->offs_); break;
-        case opLoadThisByte: stk.pushInt(*puchar(dataseg + (p++)->offs_)); break;
-        case opLoadThisInt: stk.pushInt(*pint(dataseg + (p++)->offs_)); break;
-        case opLoadThisLarge: stk.pushLarge(*plarge(dataseg + (p++)->offs_)); break;
-        case opLoadThisPtr: stk.pushPtr(*pptr(dataseg + (p++)->offs_)); break;
-        case opLoadThisVec: stk.pushPtr(string::_initialize(*pptr(dataseg + (p++)->offs_))); break;
-        case opLoadThisVoid: stk.pushPtr(NULL); break;
+        // --- VAR LOAD/STORE ---------------------------------------------------------------------- //
 
-        case opStoreThisByte: *puchar(dataseg + (p++)->offs_) = stk.popInt(); break;
-        case opStoreThisInt: *pint(dataseg + (p++)->offs_) = stk.popInt(); break;
-        case opStoreThisLarge: *plarge(dataseg + (p++)->offs_) = stk.popLarge(); break;
-        case opStoreThisPtr: *pptr(dataseg + (p++)->offs_) = stk.popPtr(); break;
-        case opStoreThisVec:
-            {
-                pptr s = pptr(dataseg + (p++)->offs_);
-                string::_finalize(*s);
-                *s = stk.popPtr();
-            }
-            break;
-        case opInitThisVec: *pptr(dataseg + (p++)->offs_) = stk.popPtr(); break;
-        case opFinThisPodVec: string::_finalize(*pptr(dataseg + (p++)->offs_)); break;
+#define GEN_LOADSTORE(KIND,PTR) \
+    case opLoad##KIND##Byte: stk.pushInt(*puchar(PTR)); break; \
+    case opLoad##KIND##Int: stk.pushInt(*pint(PTR)); break; \
+    case opLoad##KIND##Large: stk.pushLarge(*plarge(PTR)); break; \
+    case opLoad##KIND##Ptr: stk.pushPtr(*pptr(PTR)); break; \
+    case opLoad##KIND##Vec: stk.pushPtr(*pptr(PTR)); break; \
+    case opLoad##KIND##Void: stk.pushPtr(NULL); break; \
+    case opStore##KIND##Byte: *puchar(PTR) = stk.popInt(); break; \
+    case opStore##KIND##Int: *pint(PTR) = stk.popInt(); break; \
+    case opStore##KIND##Large: *plarge(PTR) = stk.popLarge(); break; \
+    case opStore##KIND##Ptr: *pptr(PTR) = stk.popPtr(); break; \
+    case opStore##KIND##Vec: { pptr s = pptr(PTR); \
+            string::_finalize(*s); *s = string::_initialize(stk.popPtr()); } break; \
+    case opStore##KIND##Void: break; \
+    case opInit##KIND##Vec: *pptr(PTR) = string::_initialize(stk.popPtr()); break; \
+    case opFin##KIND##PodVec: string::_finalize(*pptr(PTR)); break;
+
+        GEN_LOADSTORE(This, dataseg + (p++)->offs_)
+
+        GEN_LOADSTORE(Loc, stkbase + (p++)->offs_)
+
 
         // --- COMPARISONS ------------------------------------------------- //
         case opCmpInt:
@@ -158,8 +160,6 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
                 ptr r = stk.popPtr();
                 ptr l = stk.popPtr();
                 stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r)));
-                string::_finalize(r);
-                string::_finalize(l);
             }
             break;
         case opCmpStrChr:
@@ -167,7 +167,6 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
                 int r = stk.popInt();
                 ptr l = stk.popPtr();
                 stk.pushInt(compareStrChr(l, r));
-                string::_finalize(l);
             }
             break;
         case opCmpChrStr:
@@ -175,7 +174,6 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
                 ptr r = stk.popPtr();
                 int* t = stk.topIntRef();
                 *t = compareChrStr(*t, r);
-                string::_finalize(r);
             }
             break;
         case opCmpPodVec:
@@ -183,8 +181,6 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
                 ptr r = stk.popPtr();
                 ptr l = stk.popPtr();
                 stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r)));
-                string::_finalize(r);
-                string::_finalize(l);
             }
             break;
         case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
@@ -237,7 +233,6 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
             {
                 ptr r = stk.popPtr();
                 PTR_TO_STRING(*stk.topPtrRef()).append(PTR_TO_STRING(r));
-                string::_finalize(r);
             }
             break;
 
@@ -279,7 +274,7 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opPodElemElemCat:
             {
                 int size = (p++)->int_;
-                char* vec = pchar(string::_initializen(size * 2));
+                char* vec = pchar(string::_initializen(size * 2)); // TODO:
                 char* vec1 = vec + size;
                 if (size > 4)
                 {
@@ -303,7 +298,7 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opPodElemToVec:
             {
                 int size = (p++)->int_;
-                char* vec = pchar(string::_initializen(size));
+                char* vec = pchar(string::_initializen(size)); // TODO:
                 if (size > 4)
                     *plarge(vec) = stk.popLarge();
                 else if (size > 1)
@@ -496,12 +491,11 @@ void VmCodeGen::genLoadThisVar(ShVariable* var)
 void VmCodeGen::genInitThisVar(ShVariable* var)
 {
     genPop();
-    int s = genStack.size();
-    if (s != 0)
-        internal(99);
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
     if (op == opStoreThisVec)
         op = opInitThisVec;
+    if (var->isLocal)
+        op = op + (opStoreLocFirst - opStoreThisFirst);
     genOp(op);
     genOffs(var->dataOffset);
 }
