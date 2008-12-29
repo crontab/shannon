@@ -116,19 +116,16 @@ ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-    : ShBase(baseVariable), type(iType), dataOffset(0)  { }
+    : ShBase(baseVariable), type(iType), dataOffset(0), isLocal(false)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name, baseVariable), type(iType), dataOffset(0)  { }
-
-ShArgument::ShArgument(const string& name, ShType* iType)
-    : ShVariable(name, type)  { }
+    : ShBase(name, baseVariable), type(iType), dataOffset(0), isLocal(false)  { }
 
 
 // --- SCOPE --- //
 
 ShScope::ShScope(const string& name, ShTypeId iTypeId)
-        : ShType(name, iTypeId)  { }
+        : ShType(name, iTypeId), dataSize(0)  { }
 
 ShScope::~ShScope()
 {
@@ -186,6 +183,30 @@ ShBase* ShScope::deepFind(const string& name) const
     return NULL;
 }
 
+void ShScope::addVariable(ShVariable* obj)
+{
+    obj->dataOffset = dataSize;
+    dataSize += obj->type->staticSizeAligned();
+    vars.add(obj);
+    if (!obj->name.empty())
+        addSymbol(obj);
+}
+
+void ShScope::resolveVarType(ShVariable* obj, ShType* newType)
+{
+    // called from var declaration code for typeless decls. this is safe
+    // as long as this function is called soon after addVariable()
+    if (!obj->type->isVoid() || obj->dataOffset != dataSize)
+        internal(15);
+    obj->type = newType;
+    dataSize += obj->type->staticSizeAligned();
+}
+
+void ShScope::generateFinalizations(VmCodeGen& finCode)
+{
+    for (int i = vars.size() - 1; i >= 0; i--)
+        finCode.genFinThisVar(vars[i]);
+}
 
 
 #ifdef DEBUG
@@ -594,6 +615,18 @@ ShConstant::ShConstant(const string& name, ShEnum* type, int value)
 // ------------------------------------------------------------------------ //
 
 
+// --- LOCAL SCOPE --- //
+
+ShLocalScope::ShLocalScope(const string& ownerName)
+    : ShScope(ownerName + "@local", typeLocalScope)  { }
+
+void ShLocalScope::addVariable(ShVariable* obj)
+{
+    ShScope::addVariable(obj);
+    obj->isLocal = true;
+}
+
+
 // --- MODULE --- //
 
 
@@ -601,7 +634,7 @@ ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
       parser(iFileName), currentScope(NULL), compiled(false),
       // runtime
-      dataSize(0), dataSegment(NULL)
+      dataSegment(NULL)
 {
     if (queenBee != NULL)
         addUses(queenBee);
@@ -645,33 +678,6 @@ void ShModule::dump(string indent) const
     ShScope::dump(indent);
 }
 #endif
-
-
-void ShModule::addVariable(ShVariable* obj)
-{
-    obj->dataOffset = dataSize;
-    dataSize += obj->type->staticSizeAligned();
-    vars.add(obj);
-    addSymbol(obj);
-}
-
-
-void ShModule::resolveVarType(ShVariable* obj, ShType* newType)
-{
-    // called from var declaration code for typeless decls. this is safe
-    // as long as this function is called soon after addVariable()
-    if (!obj->type->isVoid() || obj->dataOffset != dataSize)
-        internal(15);
-    obj->type = newType;
-    dataSize += obj->type->staticSizeAligned();
-}
-
-
-void ShModule::generateFinalizations(VmCodeGen& finCode)
-{
-    for (int i = vars.size() - 1; i >= 0; i--)
-        finCode.genFinThisVar(vars[i]);
-}
 
 
 void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)

@@ -48,7 +48,7 @@ enum OpCode
     opStoreThisVoid, //                 -2
 
     opInitThisVec,  //                  -2
-    opFinThisPodVec,   // [offs]
+    opFinThisPodVec, // [offs]
 
     // comparison
     opCmpInt,       //                  -2  +1

@@ -1,7 +1,8 @@
 
-* assignments
+* ShLocalScope: add tempvar facility. Modules have a local scope additionally,
+  for holding tempvars. (How?)
 
-* echo and assert
+* assignments
 
 * don't increment refcounts when loading onto the stack: requires temp-var
   implementation
