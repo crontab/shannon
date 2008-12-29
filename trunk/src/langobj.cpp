@@ -35,7 +35,7 @@ ShType::ShType(const string& name, ShTypeId iTypeId)
 
 ShType::~ShType()  { }
 
-int ShType::staticSizeRequired() const
+offs ShType::staticSizeRequired() const
 {
     int size = staticSize();
     if (size == 0)
@@ -117,10 +117,10 @@ ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
-    : ShBase(baseVariable), type(iType), dataOffset(0), isLocal(false)  { }
+    : ShBase(baseVariable), type(iType), dataOffset(0), local(false)  { }
 
 ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name, baseVariable), type(iType), dataOffset(0), isLocal(false)  { }
+    : ShBase(name, baseVariable), type(iType), dataOffset(0), local(false)  { }
 
 
 // --- SCOPE --- //
@@ -196,7 +196,7 @@ void ShScope::addVariable(ShVariable* obj)
 void ShScope::genFinalizations(VmCodeGen& finCode)
 {
     for (int i = vars.size() - 1; i >= 0; i--)
-        finCode.genFinThisVar(vars[i]);
+        finCode.genFinVar(vars[i]);
 }
 
 
@@ -609,7 +609,7 @@ ShConstant::ShConstant(const string& name, ShEnum* type, int value)
 // --- LOCAL SCOPE --- //
 
 ShLocalScope::ShLocalScope()
-    : ShScope("", typeLocalScope), tempVars()  { }
+    : ShScope("", typeLocalScope)  { }
 
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
@@ -617,15 +617,7 @@ string ShLocalScope::getFullDefinition(const string& objName) const
 void ShLocalScope::addVariable(ShVariable* obj)
 {
     ShScope::addVariable(obj);
-    obj->isLocal = true;
-}
-
-offs ShLocalScope::addTempVar(ShType* type)
-{
-    tempVars.add(type);
-    offs result = dataSize;
-    dataSize += type->staticSizeAligned();
-    return result;
+    obj->local = true;
 }
 
 
@@ -686,8 +678,8 @@ void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)
 {
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
-    mainCode = main.getCode();
-    finCode = fin.getCode();
+    mainCode = main.getCodeSeg();
+    finCode = fin.getCodeSeg();
     compiled = true;
 }
 
@@ -696,7 +688,7 @@ void ShModule::executeMain()
 {
     if (!compiled)
         internal(14);
-    mainCode.execute(dataSegment);
+    mainCode.execute(dataSegment, NULL);
 }
 
 
@@ -704,7 +696,7 @@ void ShModule::executeFin()
 {
     if (!compiled)
         internal(14);
-    finCode.execute(dataSegment);
+    finCode.execute(dataSegment, NULL);
 }
 
 

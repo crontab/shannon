@@ -10,7 +10,7 @@ def System.void blah
 def int [][] blaahhh
 def int blooh [char][bool]
 def void set[0..9]
-# def [0..9] digit
+def 0..9 digit
 def bool yopt[str]
 def int intr[..]
 def typeref mytr
@@ -24,7 +24,7 @@ const dc = 'a'..j
 const dd = 0..2
 const ref = int[char]
 const 0..2 new1 = 1
-const str s = 'a'
+# const str s = 'a'
 const s1 = 'b'
 const s2 = 'abc'
 const a3 = 1 != 2
@@ -79,24 +79,24 @@ const int f5 = not 1 and 2
 const f6 = (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
 
 def enum days(Mon, Tue, Wed)
-const int aa[] = 1
-const aa3 = aa | 2 | 3
-const days aa4[] = Mon | Tue | Wed
+# const int aa[] = 1
+# const aa3 = aa | 2 | 3
+# const days aa4[] = Mon | Tue | Wed
 
-const u2 = 'abc' | 'def'
-const u3 = '@' | 'abc' | 'def' | 'g'
-const u4 = 'x' | 'y' | 'z!'
+# const u2 = 'abc' | 'def'
+# const u3 = '@' | 'abc' | 'def' | 'g'
+# const u4 = 'x' | 'y' | 'z!'
 const u5 = ''
 
 const int u6[] = []
 const u7 = u6 == []
-const u8 = 1 | 2 | 3 + 5
-const u9 = u8 == [1, 2, 3 + 5]
+# const u8 = 1 | 2 | 3 + 5
+# const u9 = u8 == [1, 2, 3 + 5]
 
 # const j1 = null | null
 # const void j2[] = null
 def int intv[]
-const int u10[] = [1, 2, 3] | intv([4, 5, 6])
+# const int u10[] = [1, 2, 3] | intv([4, 5, 6])
 def 0..3 nums
 const nums num = 1
 const u11 = intv([])
@@ -115,18 +115,26 @@ const ssptr = sizeof(str)
 var va = 0
 # var int vd[..] = 0..1
 var vf = 'a'
-var vs = 'ab' | u3
+# var vs = 'ab' | u3
+# const tt = typeof(va)
 
 echo
 echo 'Yay!'
 echo
 
-echo 'vs:', vs
-echo vs | '+more'
-echo
+# echo 'vs:', vs
+# echo vs | '+more'
+# echo
 
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
-assert 'a' | 'bc' | 'd' | ['e', 'f'] == 'abcdef'
+# assert 'a' | 'bc' | 'd' | ['e', 'f'] == 'abcdef'
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
-const int int = 1
+# const int int = 1
+
+
+const str k1 = 'a'
+var str k2 = 'a'
+echo 'abc'
+
+

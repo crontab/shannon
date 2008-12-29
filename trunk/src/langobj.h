@@ -46,26 +46,22 @@ class VmCodeSegment
 protected:
     PodArray<VmQuant> code;
 
-#ifdef SINGLE_THREADED
-    static void run(VmQuant* codeseg, char* dataseg);
-#else
-    // the multithreaded version will also require the stack
-#endif
+    static void run(VmQuant* codeseg, pchar dataseg, pchar stkbase, ptr retval);
 
 public:
+    offs reserveStack;
+    offs reserveLocals;
+
+    VmCodeSegment();
     int size() const       { return code.size(); }
+    bool empty() const     { return code.empty(); }
+    void clear()           { code.clear(); }
     VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
     VmQuant* add()         { return &code.add(); }
     VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
-    VmQuant* ins(int i)    { return &code.ins(i); }
-    void execute(char* dataseg)
-    {
-#ifdef DEBUG
-        if (code.size() == 0)
-            internal(62);
-#endif
-        VmCodeSegment::run(getCode(), dataseg);
-    }
+    void append(const VmCodeSegment& seg);
+    
+    void execute(pchar dataseg, ptr retval);
 };
 
 
@@ -147,11 +143,11 @@ public:
     bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
 
-    virtual int staticSize() const = 0;
-    int staticSizeRequired() const;
-    int staticSizeAligned() const
-            { return memAlign(staticSize()); }
     virtual StorageModel storageModel() const = 0;
+    virtual offs staticSize() const = 0; // must be in sync with storageModel()
+    offs staticSizeRequired() const;
+    offs staticSizeAligned() const
+            { return memAlign(staticSize()); }
     virtual bool isPod() const
             { return true; }
     virtual bool isString() const
@@ -191,10 +187,11 @@ class ShVariable: public ShBase
 public:
     ShType* type;
     offs dataOffset;
-    bool isLocal;
+    bool local;
 
     ShVariable(ShType* iType);
     ShVariable(const string& name, ShType* iType);
+    bool isLocal() const { return local; }
 };
 
 
@@ -224,7 +221,7 @@ public:
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoPtr; }
@@ -277,7 +274,7 @@ protected:
 public:
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return size; }
     virtual StorageModel storageModel() const
             { return size > 4 ? stoLarge : size > 1 ? stoInt : stoByte; }
@@ -399,7 +396,7 @@ public:
     ShVoid(const string& name);
     virtual StorageModel storageModel() const
             { return stoVoid; }
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return 0; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
@@ -412,7 +409,7 @@ class ShTypeRef: public ShType
     virtual string getFullDefinition(const string& objName) const;
 public:
     ShTypeRef(const string& name);
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoPtr; }
@@ -433,7 +430,7 @@ public:
     ShOrdinal* base;
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return sizeof(large); }
     virtual StorageModel storageModel() const
             { return stoLarge; }
@@ -455,7 +452,7 @@ public:
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
     virtual string displayValue(const ShValue& v) const;
-    virtual int staticSize() const
+    virtual offs staticSize() const
             { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoVec; }
@@ -592,15 +589,12 @@ public:
 class ShLocalScope: public ShScope
 {
 protected:
-    BaseTable<ShType> tempVars;
-    
     virtual string getFullDefinition(const string& objName) const;
 
 public:
     ShLocalScope(); // anonymous
 
     virtual void addVariable(ShVariable*);
-    offs addTempVar(ShType*);
 };
 
 
@@ -660,6 +654,7 @@ class ShModule: public ShScope
             { return parseOrLevel(code); }
     ShType* parseExpr(VmCodeGen& code)
             { return parseSubrange(code); }
+    ShType* parseExpr(VmCodeGen& code, ShType* resultType);
     void getConstExpr(ShType* typeHint, ShValue& result);
 
     ShEnum* parseEnumType();
