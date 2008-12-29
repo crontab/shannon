@@ -108,7 +108,7 @@ enum ShTypeId
     typeVoid,
     typeInt, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
-    typeModule
+    typeLocalScope, typeModule
 };
 
 
@@ -186,18 +186,10 @@ class ShVariable: public ShBase
 public:
     ShType* type;
     offs dataOffset;
+    bool isLocal;
 
     ShVariable(ShType* iType);
     ShVariable(const string& name, ShType* iType);
-    virtual bool isArgument()  { return false; }
-};
-
-
-class ShArgument: public ShVariable
-{
-public:
-    ShArgument(const string& name, ShType* iType);
-    virtual bool isArgument()  { return true; }
 };
 
 
@@ -216,6 +208,8 @@ protected:
     ShBase* own(ShBase* obj);
     void addSymbol(ShBase* obj);
 
+    offs dataSize;
+
 public:
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
@@ -228,9 +222,9 @@ public:
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
-    virtual void addVariable(ShVariable*) = 0;
-    virtual void resolveVarType(ShVariable*, ShType*) = 0;
-    virtual void generateFinalizations(VmCodeGen&) = 0;
+    virtual void addVariable(ShVariable*);
+    void resolveVarType(ShVariable*, ShType*);
+    void generateFinalizations(VmCodeGen&);
     void addTypeAlias(ShTypeAlias*);
     void addConstant(ShConstant*);
     ShBase* find(const string& name) const
@@ -585,6 +579,15 @@ public:
 // ------------------------------------------------------------------------ //
 
 
+class ShLocalScope: public ShScope
+{
+public:
+    ShLocalScope(const string& ownerName); // anonymous
+
+    virtual void addVariable(ShVariable*);
+};
+
+
 struct CompilerOptions
 {
     bool enableEcho;
@@ -664,16 +667,12 @@ public:
             { return stoPtr; }
     virtual bool equals(ShType* type) const
             { return false; }
-    virtual void addVariable(ShVariable*);
-    virtual void resolveVarType(ShVariable*, ShType*);
-    virtual void generateFinalizations(VmCodeGen&);
 
     // --- RUNTIME --- //
 protected:
     void setupRuntime(VmCodeGen& main, VmCodeGen& fin);
     VmCodeSegment mainCode;
     VmCodeSegment finCode;
-    offs dataSize;
     char* dataSegment;
     
 public:
