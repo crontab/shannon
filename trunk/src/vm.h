@@ -29,10 +29,9 @@ enum OpCode
     opLoadVecConst,     // [str-data-ptr]       +1
     opLoadTypeRef,      // [ShType*]            +1
 
-    // --- var loaders ------------------------------------------------------------------------- //
-    // --- through dataseg
-    //    opLoadThisRef,      // [offs]               +1
+    // --- VAR LOAD/STORE ---------------------------------------------------------------------- //
 
+    // --- through dataseg
     // these are in sync with the StorageModel enum
     opLoadThisByte,     // [offs]               +1
     opLoadThisInt,      // [offs]               +1
