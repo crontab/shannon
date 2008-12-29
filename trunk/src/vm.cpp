@@ -85,16 +85,17 @@ static void doAssert(const char* fn, int linenum)
 // version. Need to do the same way as C++ does with overloaded operators with
 // const arguments (create temp vars). Also, it would be easier to implement
 // exceptions, as temp vars will be finalized like all others during unwind.
+// TODO: try to pass the stack pointer as an arg to this funcand see the difference.
 void VmCodeSegment::run(VmQuant* p, char* dataseg)
 {
-//    int sktBase = stk.size();
+    offs sktbase = stk.bytesize();
     while (1)
     {
         switch ((p++)->op_)
         {
         case opEnd: return;
         case opNop: break;
-        case opStkFrame: stk.reserve((p++)->int_); break;
+        case opStkFrame: stk.reservebytes((p++)->int_); break;
 
         // --- LOADERS ----------------------------------------------------- //
         case opLoadZero: stk.pushInt(0); break;
@@ -115,7 +116,7 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opLoadVecConst: stk.pushPtr(string::_initialize((p++)->ptr_)); break;
         case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
 
-        case opLoadThisRef: stk.pushOffs((p++)->offs_); break;
+//        case opLoadThisRef: stk.pushOffs((p++)->offs_); break;
         case opLoadThisByte: stk.pushInt(*puchar(dataseg + (p++)->offs_)); break;
         case opLoadThisInt: stk.pushInt(*pint(dataseg + (p++)->offs_)); break;
         case opLoadThisLarge: stk.pushLarge(*plarge(dataseg + (p++)->offs_)); break;
@@ -123,20 +124,19 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
         case opLoadThisVec: stk.pushPtr(string::_initialize(*pptr(dataseg + (p++)->offs_))); break;
         case opLoadThisVoid: stk.pushPtr(NULL); break;
 
-        case opStoreThisByte: { uchar v = stk.popInt(); *puchar(dataseg + stk.popOffs()) = v; } break;
-        case opStoreThisInt: { int v = stk.popInt(); *pint(dataseg + stk.popOffs()) = v; } break;
-        case opStoreThisLarge: { large v = stk.popLarge(); *pint(dataseg + stk.popOffs()) = v; } break;
-        case opStoreThisPtr: { ptr v = stk.popPtr(); *pptr(dataseg + stk.popOffs()) = v; } break;
+        case opStoreThisByte: *puchar(dataseg + (p++)->offs_) = stk.popInt(); break;
+        case opStoreThisInt: *pint(dataseg + (p++)->offs_) = stk.popInt(); break;
+        case opStoreThisLarge: *plarge(dataseg + (p++)->offs_) = stk.popLarge(); break;
+        case opStoreThisPtr: *pptr(dataseg + (p++)->offs_) = stk.popPtr(); break;
         case opStoreThisVec:
             {
-                ptr v = stk.popPtr();
-                pptr s = pptr(dataseg + stk.popOffs());
+                pptr s = pptr(dataseg + (p++)->offs_);
                 string::_finalize(*s);
-                *s = v;
+                *s = stk.popPtr();
             }
             break;
-        case opInitThisVec: { ptr v = stk.popPtr(); *pptr(dataseg + stk.popOffs()) = v; } break;
-        case opFinThisPodVec: { string::_finalize(*pptr(dataseg + (p++)->offs_)); } break;
+        case opInitThisVec: *pptr(dataseg + (p++)->offs_) = stk.popPtr(); break;
+        case opFinThisPodVec: string::_finalize(*pptr(dataseg + (p++)->offs_)); break;
 
         // --- COMPARISONS ------------------------------------------------- //
         case opCmpInt:
@@ -336,11 +336,7 @@ void VmCodeSegment::run(VmQuant* p, char* dataseg)
 
 VmCodeGen::VmCodeGen()
     : codeseg(), genStack(), stackMax(0), reserveLocals(0),
-      needsRuntimeContext(false), resultTypeHint(NULL)
-{
-    genOp(opStkFrame);
-    genInt(0);
-}
+      needsRuntimeContext(false), resultTypeHint(NULL)  { }
 
 
 void VmCodeGen::verifyClean()
@@ -362,7 +358,9 @@ void VmCodeGen::runConstExpr(ShValue& result)
     }
     codeseg.execute(NULL);
     popByType(genPopType(), result);
+#ifdef DEBUG
     verifyClean();
+#endif
 }
 
 
@@ -392,26 +390,8 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t, genOffset()));
-    stackMax = imax(stackMax, genStack.size());
+    stackMax = imax(stackMax, genStack.bytesize());
     resultTypeHint = NULL;
-}
-
-
-const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
-{
-    const GenStackInfo& i = genStack.pop();
-    VmQuant* q = codeseg.at(i.codeOffs);
-    if (q->op_ == opLoadThisRef)
-    {
-        OpCode op = OpCode(opLoadThisFirst + int(i.type->storageModel()));
-#ifdef DEBUG
-        if (op < opLoadThisFirst || op > opLoadThisLast)
-            internal(61);
-#endif
-        q->op_ = op;
-        needsRuntimeContext = true;
-    }
-    return i;
 }
 
 
@@ -502,24 +482,28 @@ void VmCodeGen::genLoadConst(ShType* type, podvalue value)
 
 void VmCodeGen::genLoadThisVar(ShVariable* var)
 {
-    // NOTE: var->type at this point can be void if it's a typeless decl.
     genPush(var->type);
-    genOp(opLoadThisRef);
+    OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel()));
+#ifdef DEBUG
+    if (op < opLoadThisFirst || op > opLoadThisLast)
+        internal(61);
+#endif
+    genOp(op);
     genOffs(var->dataOffset);
 }
 
 
-void VmCodeGen::genInitThisVar(ShType* type)
+void VmCodeGen::genInitThisVar(ShVariable* var)
 {
     genPop();
-    genPopStore();
     int s = genStack.size();
     if (s != 0)
         internal(99);
-    OpCode op = OpCode(opStoreThisFirst + int(type->storageModel()));
+    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
     if (op == opStoreThisVec)
         op = opInitThisVec;
     genOp(op);
+    genOffs(var->dataOffset);
 }
 
 
@@ -631,6 +615,7 @@ void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
     genOp(OpCode(op + resultType->isLargeInt()));
 }
 
+
 void VmCodeGen::genVecCat()
 {
     ShType* right = genPopType();
@@ -706,13 +691,15 @@ void VmCodeGen::genAssert(Parser& parser)
 
 void VmCodeGen::genEnd()
 {
+    // TODO: don't generate anything if codeseg is empty, check in VmCodeSeg::execute()
     genOp(opEnd);
-#ifdef DEBUG
-    if (codeseg.at(0)->op_ != opStkFrame)
-        internal(56);
-#endif
-    // TODO: don't generate opStackFrame if not needed
-    codeseg.at(1)->int_ = stackMax + reserveLocals;
+    offs stkFrame = stackMax + reserveLocals;
+printf("*** RESERVED: %d\n", stkFrame);
+    if (stkFrame > 0)
+    {
+        codeseg.ins(0)->op_ = opStkFrame;
+        codeseg.ins(1)->offs_ = stkFrame;
+    }
 }
 
 

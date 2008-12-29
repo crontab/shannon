@@ -252,8 +252,9 @@ public:
     ~PodStack()               { }
     bool empty() const        { return stackimpl::empty(); }
     int size() const          { return stackimpl::size() / Tsize; }
+    int bytesize() const      { return stackimpl::size(); }
     void clear()              { stackimpl::clear(); }
-    void reserve(int size)    { stackimpl::reserve(size * Tsize); }
+    void reservebytes(int size)  { stackimpl::reserve(size); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
     void push(const T& t)     { ::new(&push()) T(t); }
     T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }

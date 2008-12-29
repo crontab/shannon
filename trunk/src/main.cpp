@@ -683,19 +683,14 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 
     if (isVar)
     {
-        ShVariable* var = new ShVariable(ident,
-            type == NULL ? queenBee->defaultVoid : type);
-        addObject(var);
-        code.genLoadThisVar(var);  // TODO: local vars
         ShType* exprType = parseExpr(code);
-        if (type == NULL)
-        {
+        if (type == NULL) // auto
             type = exprType;
-            resolveVarType(var, type);
-        }
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
-        code.genInitThisVar(type);
+        ShVariable* var = new ShVariable(ident, type);
+        addObject(var);
+        code.genInitThisVar(var);
     }
     else
     {
@@ -745,6 +740,8 @@ bool ShModule::compile(const CompilerOptions& options)
         VmCodeGen* curCodeGen = &main;
 
         currentScope = this;
+        ShLocalScope tempScope;
+        localScope = &tempScope;
         
         parser.next();
         
@@ -775,7 +772,10 @@ bool ShModule::compile(const CompilerOptions& options)
             parser.skipSep();
         }
 
-        generateFinalizations(fin);
+        genFinalizations(fin);
+
+        main.genReserveLocals(tempScope.dataSize);
+        fin.genReserveLocals(tempScope.dataSize); // dirty hack; just don't want to calc them separately
 
         setupRuntime(main, fin);
 

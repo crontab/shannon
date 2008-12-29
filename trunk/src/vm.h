@@ -11,118 +11,139 @@
 
 enum OpCode
 {
-    opEnd,          //   
-    opNop,          //   
-    opStkFrame,     // [size]
+    opEnd,              //   
+    opNop,              //   
+    opStkFrame,         // [size]
     
     // const loaders
-    opLoadZero,     //                      +1
-    opLoadLargeZero,//                      +1
-    opLoadOne,      //                      +1
-    opLoadLargeOne, //                      +1
-    opLoadIntConst, // [int]                +1
-    opLoadLargeConst, // [large]            +2 (+1 for 64-bit env.)
-    opLoadFalse,    //                      +1
-    opLoadTrue,     //                      +1
-    opLoadNull,     //                      +1
-    opLoadNullVec,  //                      +1
-    opLoadVecConst, // [str-data-ptr]       +1
-    opLoadTypeRef,  // [ShType*]            +1
+    opLoadZero,         //                      +1
+    opLoadLargeZero,    //                      +1
+    opLoadOne,          //                      +1
+    opLoadLargeOne,     //                      +1
+    opLoadIntConst,     // [int]                +1
+    opLoadLargeConst,   // [large]              +2 (+1 for 64-bit env.)
+    opLoadFalse,        //                      +1
+    opLoadTrue,         //                      +1
+    opLoadNull,         //                      +1
+    opLoadNullVec,      //                      +1
+    opLoadVecConst,     // [str-data-ptr]       +1
+    opLoadTypeRef,      // [ShType*]            +1
 
-    // var loaders
-    opLoadThisRef,  // [offs]               +1
+    // --- var loaders ------------------------------------------------------------------------- //
+    // --- through dataseg
+    //    opLoadThisRef,      // [offs]               +1
+
     // these are in sync with the StorageModel enum
-    opLoadThisByte, // [offs]           -1  +1
-    opLoadThisInt,  // [offs]           -1  +1
-    opLoadThisLarge,// [offs]           -1  +1
-    opLoadThisPtr,  // [offs]           -1  +1
-    opLoadThisVec,  // [offs]           -1  +1
-    opLoadThisVoid, // [offs]           -1  +1
+    opLoadThisByte,     // [offs]               +1
+    opLoadThisInt,      // [offs]               +1
+    opLoadThisLarge,    // [offs]               +1
+    opLoadThisPtr,      // [offs]               +1
+    opLoadThisVec,      // [offs]               +1
+    opLoadThisVoid,     // [offs]               +1
     
-    // var store
-    opStoreThisByte, //                 -2
-    opStoreThisInt, //                  -2
-    opStoreThisLarge, //                -2
-    opStoreThisPtr, //                  -2
-    opStoreThisVec, //                  -2
-    opStoreThisVoid, //                 -2
+    opStoreThisByte,    // [offs]           -1
+    opStoreThisInt,     // [offs]           -1
+    opStoreThisLarge,   // [offs]           -1
+    opStoreThisPtr,     // [offs]           -1
+    opStoreThisVec,     // [offs]           -1
+    opStoreThisVoid,    // [offs]           -1
 
-    opInitThisVec,  //                  -2
-    opFinThisPodVec, // [offs]
+    opInitThisVec,      // [offs]           -1
+    opFinThisPodVec,    // [offs]
+
+    // --- through stkbase
+    opLoadLocByte,      // [offs]               +1
+    opLoadLocInt,       // [offs]               +1
+    opLoadLocLarge,     // [offs]               +1
+    opLoadLocPtr,       // [offs]               +1
+    opLoadLocVec,       // [offs]               +1
+    opLoadLocVoid,      // [offs]               +1
+    
+    opStoreLocByte,     // [offs]           -1
+    opStoreLocInt,      // [offs]           -1
+    opStoreLocLarge,    // [offs]           -1
+    opStoreLocPtr,      // [offs]           -1
+    opStoreLocVec,      // [offs]           -1
+    opStoreLocVoid,     // [offs]           -1
+
+    opInitLocVec,       // [offs]           -1
+    opFinLocPodVec,     // [offs]
+
+    // ----------------------------------------------------------------------------------------- //
 
     // comparison
-    opCmpInt,       //                  -2  +1
-    opCmpLarge,     //                  -2  +1
-    opCmpStr,       //                  -2  +1
-    opCmpStrChr,    //                  -2  +1
-    opCmpChrStr,    //                  -2  +1
-    opCmpPodVec,    //                  -2  +1 - only EQ or NE
-    opCmpPtr,       //                  -2  +1 - only EQ or NE
+    opCmpInt,           //                  -2  +1
+    opCmpLarge,         //                  -2  +1
+    opCmpStr,           //                  -2  +1
+    opCmpStrChr,        //                  -2  +1
+    opCmpChrStr,        //                  -2  +1
+    opCmpPodVec,        //                  -2  +1 - only EQ or NE
+    opCmpPtr,           //                  -2  +1 - only EQ or NE
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
 
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
-    opEQ,           //                  -1  +1
-    opLT,           //                  -1  +1
-    opLE,           //                  -1  +1
-    opGE,           //                  -1  +1
-    opGT,           //                  -1  +1
-    opNE,           //                  -1  +1
+    opEQ,               //                  -1  +1
+    opLT,               //                  -1  +1
+    opLE,               //                  -1  +1
+    opGE,               //                  -1  +1
+    opGT,               //                  -1  +1
+    opNE,               //                  -1  +1
     
     // typecasts
-    opLargeToInt,   //                  -1  +1
-    opIntToLarge,   //                  -1  +1
+    opLargeToInt,       //                  -1  +1
+    opIntToLarge,       //                  -1  +1
 
     // binary
-    opMkSubrange,   //                  -2  +1
+    opMkSubrange,       //                  -2  +1
 
-    opAdd,          //                  -2  +1
-    opAddLarge,     //                  -2  +1
-    opSub,          //                  -2  +1
-    opSubLarge,     //                  -2  +1
-    opMul,          //                  -2  +1
-    opMulLarge,     //                  -2  +1
-    opDiv,          //                  -2  +1
-    opDivLarge,     //                  -2  +1
-    opMod,          //                  -2  +1
-    opModLarge,     //                  -2  +1
-    opBitAnd,       //                  -2  +1
-    opBitAndLarge,  //                  -2  +1
-    opBitOr,        //                  -2  +1
-    opBitOrLarge,   //                  -2  +1
-    opBitXor,       //                  -2  +1
-    opBitXorLarge,  //                  -2  +1
-    opBitShl,       //                  -2  +1
-    opBitShlLarge,  //                  -2  +1
-    opBitShr,       //                  -2  +1
-    opBitShrLarge,  //                  -2  +1
+    opAdd,              //                  -2  +1
+    opAddLarge,         //                  -2  +1
+    opSub,              //                  -2  +1
+    opSubLarge,         //                  -2  +1
+    opMul,              //                  -2  +1
+    opMulLarge,         //                  -2  +1
+    opDiv,              //                  -2  +1
+    opDivLarge,         //                  -2  +1
+    opMod,              //                  -2  +1
+    opModLarge,         //                  -2  +1
+    opBitAnd,           //                  -2  +1
+    opBitAndLarge,      //                  -2  +1
+    opBitOr,            //                  -2  +1
+    opBitOrLarge,       //                  -2  +1
+    opBitXor,           //                  -2  +1
+    opBitXorLarge,      //                  -2  +1
+    opBitShl,           //                  -2  +1
+    opBitShlLarge,      //                  -2  +1
+    opBitShr,           //                  -2  +1
+    opBitShrLarge,      //                  -2  +1
 
     // string/vector operators
     // [elem-size]: if < 4 int_ is taken from the stack, otherwise - large_
-    opPodVecCat,    //                  -2  +1   vec + vec
-    opPodVecElemCat,// [elem-size]      -2  +1   vec + elem
-    opPodElemVecCat,// [elem-size]      -2  +1   elem + vec
-    opPodElemElemCat,// [elem-size]     -2  +1   elem + elem
-    opPodElemToVec, // [elem-size]      -1  +1
+    opPodVecCat,        //                  -2  +1   vec + vec
+    opPodVecElemCat,    // [elem-size]      -2  +1   vec + elem
+    opPodElemVecCat,    // [elem-size]      -2  +1   elem + vec
+    opPodElemElemCat,   // [elem-size]      -2  +1   elem + elem
+    opPodElemToVec,     // [elem-size]      -1  +1
 
     // unary
-    opNeg,          //                  -1  +1
-    opNegLarge,     //                  -1  +1
-    opBitNot,       //                  -1  +1
-    opBitNotLarge,  //                  -1  +1
-    opBoolNot,      //                  -1  +1
+    opNeg,              //                  -1  +1
+    opNegLarge,         //                  -1  +1
+    opBitNot,           //                  -1  +1
+    opBitNotLarge,      //                  -1  +1
+    opBoolNot,          //                  -1  +1
     
     // jumps
     //   short bool evaluation: pop if jump, leave it otherwise
-    opJumpOr,       // [dst]            -1/0
-    opJumpAnd,      // [dst]            -1/0
+    opJumpOr,           // [dst]            -1/0
+    opJumpAnd,          // [dst]            -1/0
 
     // helpers
-    opEcho,         // [ShType*]        -1
-    opEchoSp,       //
-    opEchoLn,       //
-    opAssert,       // [string* fn, linenum] -1
+    opEcho,             // [ShType*]        -1
+    opEchoSp,           //
+    opEchoLn,           //
+    opAssert,           // [string* fn, linenum] -1
 
     // TODO: linenum, rangecheck opcodes
 
@@ -131,6 +152,8 @@ enum OpCode
     opCmpFirst = opEQ, opCmpLast = opNE,
     opLoadThisFirst = opLoadThisByte, opLoadThisLast = opLoadThisVoid,
     opStoreThisFirst = opStoreThisByte, opStoreThisLast = opStoreThisVoid,
+    opLoadLocFirst = opLoadLocByte, opLoadLocLast = opLoadLocVoid,
+    opStoreLocFirst = opStoreLocByte, opStoreLocLast = opStoreLocVoid,
 
     opInv = -1,
 };
@@ -146,9 +169,10 @@ class VmStack: public noncopyable
 public:
     VmStack(): stack()        { }
     int size() const          { return stack.size(); }
+    offs bytesize() const     { return stack.bytesize(); }
     bool empty() const        { return stack.empty(); }
     void clear()              { return stack.clear(); }
-    void reserve(int size)    { stack.reserve(size); }
+    void reservebytes(offs size)  { stack.reservebytes(size); }
     VmQuant& push()           { return stack.pushr(); }
     VmQuant  pop()            { return stack.pop(); }
     void  pushInt(int v)      { push().int_ = v; }
@@ -195,15 +219,14 @@ protected:
 
     VmCodeSegment codeseg;
     PodStack<GenStackInfo> genStack;
-    int stackMax;
-    int reserveLocals;
+    offs stackMax;
+    offs reserveLocals;
     bool needsRuntimeContext;
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
-    const GenStackInfo& genPop();
+    const GenStackInfo& genPop()        { return genStack.pop(); }
     ShType* genPopType()                { return genPop().type; }
-    const GenStackInfo& genPopStore()   { return genStack.pop(); }
 
     void genOp(OpCode op)               { codeseg.add()->op_ = op; }
     void genInt(int v)                  { codeseg.add()->int_ = v; }
@@ -233,7 +256,7 @@ public:
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);
     void genLoadThisVar(ShVariable*);
-    void genInitThisVar(ShType*);
+    void genInitThisVar(ShVariable*);
     void genFinThisVar(ShVariable*);
     void genMkSubrange();
     void genComparison(OpCode);
@@ -260,7 +283,7 @@ public:
             { return codeseg.size(); }
     ShType* genTopType()
             { return genTop().type; }
-    void genReserveLocals(int size)
+    void genReserveLocals(offs size)
             { reserveLocals += size; }
     
     void runConstExpr(ShValue& result);
