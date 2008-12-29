@@ -57,6 +57,7 @@ public:
     VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
     VmQuant* add()         { return &code.add(); }
     VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
+    VmQuant* ins(int i)    { return &code.ins(i); }
     void execute(char* dataseg)
     {
 #ifdef DEBUG
@@ -66,6 +67,9 @@ public:
         VmCodeSegment::run(getCode(), dataseg);
     }
 };
+
+
+offs memAlign(int offs);
 
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
@@ -145,7 +149,8 @@ public:
 
     virtual int staticSize() const = 0;
     int staticSizeRequired() const;
-    int staticSizeAligned() const;
+    int staticSizeAligned() const
+            { return memAlign(staticSize()); }
     virtual StorageModel storageModel() const = 0;
     virtual bool isPod() const
             { return true; }
@@ -208,9 +213,9 @@ protected:
     ShBase* own(ShBase* obj);
     void addSymbol(ShBase* obj);
 
+public:
     offs dataSize;
 
-public:
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
     virtual bool isPod() const
@@ -219,12 +224,17 @@ public:
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
+    virtual int staticSize() const
+            { return sizeof(ptr); }
+    virtual StorageModel storageModel() const
+            { return stoPtr; }
+    virtual bool equals(ShType* type) const
+            { return false; }
     void addUses(ShModule*);
     void addAnonType(ShType*);
     void addType(ShType*);
     virtual void addVariable(ShVariable*);
-    void resolveVarType(ShVariable*, ShType*);
-    void generateFinalizations(VmCodeGen&);
+    void genFinalizations(VmCodeGen&);
     void addTypeAlias(ShTypeAlias*);
     void addConstant(ShConstant*);
     ShBase* find(const string& name) const
@@ -581,10 +591,16 @@ public:
 
 class ShLocalScope: public ShScope
 {
+protected:
+    BaseTable<ShType> tempVars;
+    
+    virtual string getFullDefinition(const string& objName) const;
+
 public:
-    ShLocalScope(const string& ownerName); // anonymous
+    ShLocalScope(); // anonymous
 
     virtual void addVariable(ShVariable*);
+    offs addTempVar(ShType*);
 };
 
 
@@ -602,20 +618,20 @@ struct CompilerOptions
 
 class ShModule: public ShScope
 {
-protected:
     // --- Compiler ---
 
     string fileName;
     Parser parser;
     Array<string> vectorConsts;
 
+    ShScope* currentScope;     // can be static or local; in functions is same as localScope
+    ShLocalScope* localScope;  // local-only, for temp vars
+
     string registerString(const string& v) // TODO: fund duplicates
             { vectorConsts.add(v); return v; }
     string registerVector(const string& v)
             { vectorConsts.add(v); return v; }
-    void addObject(ShBase*); // deletes the object in case of an exception
-
-    ShScope* currentScope;
+    void addObject(ShBase*);
 
     void error(const string& msg)           { parser.error(msg); }
     void error(const char* msg)             { parser.error(msg); }
@@ -662,12 +678,6 @@ public:
     ~ShModule();
     bool compile(const CompilerOptions&);
     void dump(string indent) const;
-    virtual int staticSize() const
-            { return sizeof(ptr); }
-    virtual StorageModel storageModel() const
-            { return stoPtr; }
-    virtual bool equals(ShType* type) const
-            { return false; }
 
     // --- RUNTIME --- //
 protected:

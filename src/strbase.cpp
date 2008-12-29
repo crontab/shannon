@@ -36,6 +36,13 @@ void string::_alloc(int newchars)
     STR_REFCOUNT(data) = 1;
     STR_LENGTH(data) = newchars;
     STR_CAPACITY(data) = allocate - strrecsize;
+    // Put NULL char after actual data so that c_str() can return the string
+    // without modifying the object most of the time. The exception is when
+    // the string occupies exactly "capacity" bytes, in which case c_str()
+    // allocates additional data to make room for the NULL char. The reason
+    // we don't always reserve the NULL char is that this class is used as a
+    // basis for many container classes as well, where the extra NULL char
+    // and c_str() are not needed.
     if (newchars < STR_CAPACITY(data))
         data[newchars] = 0;
 }
@@ -61,13 +68,6 @@ void string::_realloc(int newchars)
         }
     }
     STR_LENGTH(data) = newchars;
-    // Put NULL char after actual data so that c_str() can return the string
-    // without modifying the object most of the time. The exception is when
-    // the string occupies exactly "capacity" bytes, in which case c_str()
-    // allocates additional data to make room for the NULL char. The reason
-    // we don't always reserve the NULL char is that this class is used as a
-    // basis for many containers classes as well, where the extra NULL char
-    // and c_str() are not needed.
     if (newchars < cap)
         data[newchars] = 0;
 }

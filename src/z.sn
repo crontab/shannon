@@ -22,7 +22,6 @@ const i = '\x00'
 const j = h
 const dc = 'a'..j
 const dd = 0..2
-# const int int = 1
 const ref = int[char]
 const 0..2 new1 = 1
 const str s = 'a'
@@ -113,9 +112,8 @@ const sslarge = sizeof(large)
 const sschar = sizeof(char)
 const ssptr = sizeof(str)
 
-
 var va = 0
-var int vd[..] = 0..1
+# var int vd[..] = 0..1
 var vf = 'a'
 var vs = 'ab' | u3
 
@@ -131,4 +129,4 @@ assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert 'a' | 'bc' | 'd' | ['e', 'f'] == 'abcdef'
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
-
+const int int = 1

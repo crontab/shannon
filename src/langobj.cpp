@@ -43,14 +43,15 @@ int ShType::staticSizeRequired() const
     return size;
 }
 
-int ShType::staticSizeAligned() const
+
+offs memAlign(offs size)
 {
-    int size = staticSize();
     if (size == 0)
         return 0;
     else
         return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
 }
+
 
 string ShType::getDefinition(const string& objName) const
 {
@@ -192,17 +193,7 @@ void ShScope::addVariable(ShVariable* obj)
         addSymbol(obj);
 }
 
-void ShScope::resolveVarType(ShVariable* obj, ShType* newType)
-{
-    // called from var declaration code for typeless decls. this is safe
-    // as long as this function is called soon after addVariable()
-    if (!obj->type->isVoid() || obj->dataOffset != dataSize)
-        internal(15);
-    obj->type = newType;
-    dataSize += obj->type->staticSizeAligned();
-}
-
-void ShScope::generateFinalizations(VmCodeGen& finCode)
+void ShScope::genFinalizations(VmCodeGen& finCode)
 {
     for (int i = vars.size() - 1; i >= 0; i--)
         finCode.genFinThisVar(vars[i]);
@@ -617,13 +608,24 @@ ShConstant::ShConstant(const string& name, ShEnum* type, int value)
 
 // --- LOCAL SCOPE --- //
 
-ShLocalScope::ShLocalScope(const string& ownerName)
-    : ShScope(ownerName + "@local", typeLocalScope)  { }
+ShLocalScope::ShLocalScope()
+    : ShScope("", typeLocalScope), tempVars()  { }
+
+string ShLocalScope::getFullDefinition(const string& objName) const
+    { return "@localscope"; }
 
 void ShLocalScope::addVariable(ShVariable* obj)
 {
     ShScope::addVariable(obj);
     obj->isLocal = true;
+}
+
+offs ShLocalScope::addTempVar(ShType* type)
+{
+    tempVars.add(type);
+    offs result = dataSize;
+    dataSize += type->staticSizeAligned();
+    return result;
 }
 
 
@@ -632,13 +634,13 @@ void ShLocalScope::addVariable(ShVariable* obj)
 
 ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
-      parser(iFileName), currentScope(NULL), compiled(false),
+      parser(iFileName), currentScope(NULL), localScope(NULL), compiled(false),
       // runtime
       dataSegment(NULL)
 {
     if (queenBee != NULL)
         addUses(queenBee);
-    registerString(fileName); // can be used in 'assert' statements
+    registerString(fileName); // file name can be used in 'assert' statements
 }
 
 ShModule::~ShModule()
