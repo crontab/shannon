@@ -1,5 +1,8 @@
 module Z
 
+assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
+assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
+
 # const int int = 1
 
 def int aa1[0..9]
@@ -131,8 +134,14 @@ echo
 
 var v1 = 'g'
 var v2 = 'hi'
+var v3 = 12345
+var v4 = 1000000000000L
+var v5 = int[]
+assert v1 == 'g' and v2 == 'hi' and v3 == 12345 and v4 == 1000000000000L and v5 == int[]
 
-assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
+var v6 = 'g' | 'h'
+var v7 = 1 | 2 | 3
+var v8 = 1L | 2L | 3L
+assert v6 == 'gh' and v6 == ['g', 'h'] and v7 == [1, 2, 3] and v8 == [1L, 2L, 3L]
 assert 'a' | 'bc' | 'd' | ['e', 'f'] | v1 | v2 == 'abcdefghi'
-assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 

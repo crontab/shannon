@@ -97,7 +97,9 @@ static void doAssert(const char* fn, int linenum)
     case opInit##KIND##Vec: *pptr(PTR) = string::_initialize(stk.popPtr()); break; \
     case opFin##KIND##Vec: string::_finalize(*pptr(PTR)); break;
 
+
 // TODO: try to pass the stack pointer as an arg to this func and see the difference in asm.
+
 void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 {
     while (1)
@@ -146,7 +148,9 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         
         // --- SOME VECTOR MAGIC ------------------------------------------- //
 
-        case opCopyToTmpVec: *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr()); break;
+        case opCopyToTmpVec:
+            *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr());
+            break;
         case opElemToVec:
             {
                 int size = (p++)->int_;
@@ -308,12 +312,12 @@ void VmCodeSegment::execute(pchar dataseg, ptr retval)
 
 
 VmCodeGen::VmCodeGen()
-    : codeseg(), genStack(), needsRuntimeContext(false), resultTypeHint(NULL)  { }
+    : codeseg(), genStack(), genStackSize(0), needsRuntimeContext(false), resultTypeHint(NULL)  { }
 
 
 void VmCodeGen::verifyClean()
 {
-    if (!genStack.empty())
+    if (!genStack.empty() || genStackSize != 0)
         fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
     if (stk.bytesize() != 0)
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
@@ -322,13 +326,9 @@ void VmCodeGen::verifyClean()
 
 void VmCodeGen::runConstExpr(ShValue& result)
 {
+    result.type = NULL;
     if (needsRuntimeContext)
-    {
-        result.type = NULL;
         return;
-    }
-
-    // build the function result temp var
     result.type = genTopType();
     genReturn();
     genFinalizeTemps();
@@ -368,8 +368,18 @@ void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t, genOffset()));
     // TODO: this is not accurate, takes more than needed:
-    codeseg.reserveStack = imax(codeseg.reserveStack, genStack.size() * 8);
+    genStackSize += t->staticSizeAligned();
+    codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
     resultTypeHint = NULL;
+}
+
+
+const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
+{
+    const GenStackInfo& t = genTop();
+    genStackSize -= t.type->staticSizeAligned();
+    genStack.pop();
+    return t;
 }
 
 

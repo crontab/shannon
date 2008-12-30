@@ -356,43 +356,6 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
         }
         while (parser.skipIf(tokCat));
     }
-/*
-    while (parser.token == tokCat)
-    {
-        if (left->isVector())
-        {
-            if (right->isVector())
-            {
-                if (!left->equals(right))
-                    error("Operands of vector concatenation are incompatible");
-                code.genVecCat();
-            }
-            else if (PVector(left)->elementEquals(right))
-                code.genVecCat();
-            else
-                error("Operands of vector concatenation are incompatible");
-        }
-        else if (right->isVector())
-        {
-            if (PVector(right)->elementEquals(left))
-                code.genVecCat();
-            else
-                error("Operands of vector concatenation are incompatible");
-            left = right;
-        }
-        else
-        {
-            if (!left->canBeArrayElement())
-                error("Invalid vector element type");
-            ShVector* vec = left->deriveVectorType();
-            if (vec->elementEquals(right))
-                code.genVecCat();
-            else
-                error("Operands of vector concatenation are incompatible");
-            left = vec;
-        }
-    }
-*/
     return left;
 }
 
@@ -804,7 +767,10 @@ bool ShModule::compile(const CompilerOptions& options)
                 parseAssert(options.enableAssert ? *curCodeGen : null);
             else
                 errorWithLoc("Expected definition or statement");
+
             parser.skipSep();
+
+            curCodeGen->genFinalizeTemps();
         }
 
         genFinalizations(fin);

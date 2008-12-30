@@ -77,8 +77,8 @@ enum OpCode
     
     opCopyToTmpVec,     // [temp-offs]
     opElemToVec,        // [elem-size] [temp-offs]  -1  +1
-    opVecCat,           // [temp-offs]       -2  +1
-    opVecElemCat,       // ptemp-offs]       -2  +1
+    opVecCat,           // [temp-offs]              -2  +1
+    opVecElemCat,       // [elem-size] [temp-offs]  -2  +1
 
 //    opInitLocVecE,      // [offs]          -1 <- element
 
@@ -225,11 +225,12 @@ protected:
     VmCodeSegment codeseg;
     VmCodeSegment finseg;
     PodStack<GenStackInfo> genStack;
+    int genStackSize;
     bool needsRuntimeContext;
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
-    const GenStackInfo& genPop()        { return genStack.pop(); }
+    const GenStackInfo& genPop();
     ShType* genPopType()                { return genPop().type; }
 
     void genOp(OpCode op)               { codeseg.add()->op_ = op; }
