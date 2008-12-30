@@ -248,9 +248,6 @@ void ShScope::dump(string indent) const
     for (int i = 0; i < typeAliases.size(); i++)
         printf("%sdef %s\n", indent.c_str(),
             typeAliases[i]->base->getDefinition(typeAliases[i]->name).c_str());
-    for (int i = 0; i < vars.size(); i++)
-        printf("%svar %s\n", indent.c_str(),
-            vars[i]->type->getDefinition(vars[i]->name).c_str());
     for (int i = 0; i < consts.size(); i++)
     {
         ShConstant* c = consts[i];
@@ -259,6 +256,9 @@ void ShScope::dump(string indent) const
             t->getDefinition(c->name).c_str(),
             t->displayValue(c->value).c_str());
     }
+    for (int i = 0; i < vars.size(); i++)
+        printf("%svar %s\n", indent.c_str(),
+            vars[i]->type->getDefinition(vars[i]->name).c_str());
 }
 #endif
 

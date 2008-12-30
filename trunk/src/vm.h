@@ -109,6 +109,8 @@ enum OpCode
     // typecasts
     opLargeToInt,       //                  -1  +1
     opIntToLarge,       //                  -1  +1
+    opIntToStr,         // [temp-offs]      -1  +1
+    opLargeToStr,       // [temp-offs]      -1  +1
 
     // binary
     opMkSubrange,       //                  -2  +1
@@ -289,6 +291,7 @@ public:
     offs genCopyToTempVec();
     void genVecCat(offs tempVar);
     void genVecElemCat(offs tempVar);
+    void genIntToStr();
     void genEcho()
             { ShType* type = genPopType(); genOp(opEcho); genPtr(type); }
     void genAssert(Parser& parser);

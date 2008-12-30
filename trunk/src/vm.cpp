@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "str.h"
 #include "source.h"
 #include "vm.h"
 
@@ -77,6 +78,12 @@ static void doAssert(const char* fn, int linenum)
         string s = string("Assertion failed: ") + fn + '(' + itostring(linenum) + ')';
         runtimeError(1, s.c_str());
     }
+}
+
+
+static ptr itostr10(large v)
+{
+    return itostring(v)._initialize();
 }
 
 
@@ -163,8 +170,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
                     *pint(vec) = stk.popInt();
                 else
                     *puchar(vec) = uchar(stk.popInt());
-                stk.pushPtr(vec);
-                *pptr(stkbase + (p++)->offs_) = vec;
+                stk.pushPtr(*pptr(stkbase + (p++)->offs_) = vec);
             }
             break;
         case opVecCat:
@@ -219,6 +225,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         // typecasts
         case opLargeToInt: stk.pushInt(stk.popLarge()); break;
         case opIntToLarge: stk.pushLarge(stk.popInt()); break;
+        case opIntToStr: stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popInt())); break;
+        case opLargeToStr: stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popLarge())); break;
 
         // --- BINARY OPERATORS -------------------------------------------- //
 #ifdef PTR64
@@ -722,6 +730,18 @@ void VmCodeGen::genVecElemCat(offs tempVar)
     genOp(opVecElemCat);
     genInt(PVector(vecType)->elementType->staticSize());
     genOffs(tempVar);
+}
+
+
+void VmCodeGen::genIntToStr()
+{
+    ShType* type = genPopType();
+    if (!type->isOrdinal())
+        internal(68);
+    genPush(queenBee->defaultStr);
+    offs tmpOffset = genReserveTempVar(queenBee->defaultStr);
+    genOp(POrdinal(type)->isLargeInt() ? opLargeToStr : opIntToStr);
+    genOffs(tmpOffset);
 }
 
 
