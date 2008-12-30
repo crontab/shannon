@@ -75,7 +75,12 @@ enum OpCode
     opInitLocVec,       // [local-offs]     -1
     opFinLocVec,        // [local-offs]
     
-//    opInitLocVecE,      // [offs]           -1 <- element
+    opCopyToTmpVec,     // [temp-offs]
+    opElemToVec,        // [elem-size] [temp-offs]  -1  +1
+    opVecCat,           // [temp-offs]       -2  +1
+    opVecElemCat,       // ptemp-offs]       -2  +1
+
+//    opInitLocVecE,      // [offs]          -1 <- element
 
     // --------------------------------------------------------------------- //
 
@@ -135,8 +140,6 @@ enum OpCode
     opPodElemVecCat,    // [elem-size]      -2  +1   elem + vec
     opPodElemElemCat,   // [elem-size]      -2  +1   elem + elem
 */
-    opElemToVec,        // [elem-size] [temp-offs]  -1  +1
-
     // unary
     opNeg,              //                  -1  +1
     opNegLarge,         //                  -1  +1
@@ -268,14 +271,15 @@ public:
             { genOp(opBoolNot); }
     void genBitNot(ShInteger* type)
             { genOp(OpCode(opBitNot + type->isLargeInt())); }
-//    void genVecCat();
-    void genElemToVec(ShVector*);
+    offs genElemToVec(ShVector*);
     int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
     void genLoadThisVar(ShVariable*);
-    void genInitThisVar(ShVariable*);
+    void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
-    void genInitTempVar(offs localOffset);
+    offs genCopyToTempVec();
+    void genVecCat(offs tempVar);
+    void genVecElemCat(offs tempVar);
     void genEcho()
             { ShType* type = genPopType(); genOp(opEcho); genPtr(type); }
     void genAssert(Parser& parser);
@@ -287,7 +291,7 @@ public:
             { return codeseg.size(); }
     ShType* genTopType()
             { return genTop().type; }
-    offs genReserveLocal(ShType*);
+    offs genReserveTempVar(ShType*);
 
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr(ShValue& value, bool anyObj);

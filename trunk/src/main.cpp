@@ -324,10 +324,41 @@ ShType* ShModule::parseArithmExpr(VmCodeGen& code)
 ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
 {
     ShType* left = parseArithmExpr(code);
+    if (parser.token == tokCat)
+    {
+        parser.next();
+
+        offs tmpOffset = 0;
+        if (left->isVector())
+            tmpOffset = code.genCopyToTempVec();
+        else if (left->canBeArrayElement())
+        {
+            left = left->deriveVectorType();
+            tmpOffset = code.genElemToVec(PVector(left));
+        }
+        else
+            error("Invalid vector element type");
+
+        do
+        {
+            ShType* right = parseArithmExpr(code);
+            if (right->isVector())
+            {
+                if (left->equals(right))
+                    code.genVecCat(tmpOffset);
+                else
+                    error("Operands of vector concatenation are incompatible");
+            }
+            else if (PVector(left)->elementEquals(right))
+                code.genVecElemCat(tmpOffset);
+            else
+                error("Operands of vector concatenation are incompatible");
+        }
+        while (parser.skipIf(tokCat));
+    }
 /*
     while (parser.token == tokCat)
     {
-        ShType* right = parseArithmExpr(code);
         if (left->isVector())
         {
             if (right->isVector())
@@ -694,7 +725,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
             error("Type mismatch in variable initialization");
         ShVariable* var = new ShVariable(ident, type);
         addObject(var);
-        code.genInitThisVar(var);
+        code.genInitVar(var);
     }
     else
     {

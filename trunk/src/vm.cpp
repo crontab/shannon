@@ -107,6 +107,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opEnd: return;
         case opNop: break;
 
+        // --- FUNCTION RETURN VALUE---------------------------------------- //
+
         case opRetByte:
         case opRetInt: *pint(retval) = stk.popInt(); break;
         case opRetLarge: *plarge(retval) = stk.popLarge(); break;
@@ -141,8 +143,58 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 
         GEN_LOADERS(Loc, stkbase + (p++)->offs_)
         GEN_STORERS(Loc, stkbase + (p++)->offs_)
+        
+        // --- SOME VECTOR MAGIC ------------------------------------------- //
+
+        case opCopyToTmpVec: *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr()); break;
+        case opElemToVec:
+            {
+                int size = (p++)->int_;
+                char* vec = pchar(string::_initializen(size));
+                if (size > 4)
+                    *plarge(vec) = stk.popLarge();
+                else if (size > 1)
+                    *pint(vec) = stk.popInt();
+                else
+                    *puchar(vec) = uchar(stk.popInt());
+                stk.pushPtr(vec);
+                *pptr(stkbase + (p++)->offs_) = vec;
+            }
+            break;
+        case opVecCat:
+            {
+                ptr r = stk.popPtr();
+                ptr* l = stk.topPtrRef();
+                PTR_TO_STRING(*l).append(PTR_TO_STRING(r));
+                *pptr(stkbase + (p++)->offs_) = *l;
+            }
+            break;
+        case opVecElemCat:
+            {
+                int size = (p++)->int_;
+                ptr* l;
+                if (size > 4)
+                {
+                    large elem = stk.popLarge();
+                    l = stk.topPtrRef();
+                    *plarge(PTR_TO_STRING(*l).appendn(8)) = elem;
+                }
+                else
+                {
+                    int elem = stk.popInt();
+                    l = stk.topPtrRef();
+                    if (size > 1)
+                        *pint(PTR_TO_STRING(*l).appendn(4)) = elem;
+                    else
+                        PTR_TO_STRING(*l).append(char(elem));
+                }
+                *pptr(stkbase + (p++)->offs_) = *l;
+            }
+            break;
+
 
         // --- COMPARISONS ------------------------------------------------- //
+
         case opCmpInt: { int r = stk.popInt(); int* t = stk.topIntRef(); *t = compareInt(*t, r); } break;
         case opCmpLarge: { large r = stk.popLarge(); stk.pushInt(compareLarge(stk.popLarge(), r)); } break;
         case opCmpStr: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r))); } break;
@@ -195,88 +247,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opBitShr: { int r = stk.popInt(); *stk.topIntRef() >>= r; } break;
         case opBitShrLarge: { stk.pushLarge(stk.popLarge() >> stk.popInt()); } break;
 
-/*
-        case opPodVecCat:
-            {
-                ptr r = stk.popPtr();
-                PTR_TO_STRING(*stk.topPtrRef()).append(PTR_TO_STRING(r));
-            }
-            break;
-
-        case opPodVecElemCat:
-            {
-                int size = (p++)->int_;
-                if (size > 4)
-                {
-                    large elem = stk.popLarge();
-                    *plarge(PTR_TO_STRING(*stk.topPtrRef()).appendn(8)) = elem;
-                }
-                else if (size > 1)
-                {
-                    int elem = stk.popInt();
-                    *pint(PTR_TO_STRING(*stk.topPtrRef()).appendn(4)) = elem;
-                }
-                else
-                {
-                    int elem = stk.popInt();
-                    PTR_TO_STRING(*stk.topPtrRef()).append(char(elem));
-                }
-            }
-            break;
-
-        case opPodElemVecCat:
-            {
-                int size = (p++)->int_;
-                ptr vec = stk.popPtr();
-                if (size > 4)
-                    *plarge(PTR_TO_STRING(vec).ins(0, 8)) = stk.popLarge();
-                else if (size > 1)
-                    *pint(PTR_TO_STRING(vec).ins(0, 4)) = stk.popInt();
-                else
-                    *PTR_TO_STRING(vec).ins(0, 1) = char(stk.popInt());
-                stk.pushPtr(vec);
-            }
-            break;
-
-        case opPodElemElemCat:
-            {
-                int size = (p++)->int_;
-                char* vec = pchar(string::_initializen(size * 2)); // TODO:
-                char* vec1 = vec + size;
-                if (size > 4)
-                {
-                    *plarge(vec1) = stk.popLarge();
-                    *plarge(vec) = stk.popLarge();
-                }
-                else if (size > 1)
-                {
-                    *pint(vec1) = stk.popInt();
-                    *pint(vec) = stk.popInt();
-                }
-                else
-                {
-                    *pchar(vec1) = char(stk.popInt());
-                    *pchar(vec) = char(stk.popInt());
-                }
-                stk.pushPtr(vec);
-            }
-            break;
-
-*/
-        case opElemToVec:
-            {
-                int size = (p++)->int_;
-                char* vec = pchar(string::_initializen(size));
-                if (size > 4)
-                    *plarge(vec) = stk.popLarge();
-                else if (size > 1)
-                    *pint(vec) = stk.popInt();
-                else
-                    *puchar(vec) = uchar(stk.popInt());
-                stk.pushPtr(vec);
-                *pptr(stkbase + (p++)->offs_) = vec;
-            }
-            break;
+        // --- UNARY OPERATORS --------------------------------------------- //
 
         case opNeg: { int* t = stk.topIntRef(); *t = -*t; } break;
         case opNegLarge: { stk.pushLarge(-stk.popLarge()); } break;
@@ -284,8 +255,12 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opBitNotLarge: { stk.pushLarge(~stk.popLarge()); } break;
         case opBoolNot: { int* t = stk.topIntRef(); *t = !*t; } break;
 
+        // --- JUMPS ------------------------------------------------------- //
+
         case opJumpOr: if (stk.topInt()) p += p->int_; else stk.popInt(); p++; break;
         case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->int_; p++; break;
+
+        // --- MISC. ------------------------------------------------------- //
 
         case opEcho: doEcho((ShType*)(p++)->ptr_); break;
         case opEchoSp: putc(' ', echostm); break;
@@ -579,50 +554,17 @@ void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
     genOp(OpCode(op + resultType->isLargeInt()));
 }
 
-/*
-void VmCodeGen::genVecCat()
-{
-    ShType* right = genPopType();
-    ShType* left = genPopType();
-    // TODO: non-POD vectors
-    if (left->isVector())
-    {
-        genPush(left);
-        if (right->isVector())
-            genOp(opPodVecCat);
-        else
-        {
-            genOp(opPodVecElemCat);
-            genInt(right->staticSizeRequired());
-        }
-    }
-    else if (right->isVector())
-    {
-        genPush(right);
-        genOp(opPodElemVecCat);
-        genInt(left->staticSizeRequired());
-    }
-    else
-    {
-#ifdef DEBUG
-        if (left->staticSize() != right->staticSize())
-            internal(54);
-#endif
-        genPush(left->deriveVectorType());
-        genOp(opPodElemElemCat);
-        genInt(left->staticSizeRequired());
-    }
-}
-*/
 
-void VmCodeGen::genElemToVec(ShVector* vecType)
+offs VmCodeGen::genElemToVec(ShVector* vecType)
 {
     genPop();
     genPush(vecType);
+    offs tmpOffset = genReserveTempVar(vecType);
     genOp(opElemToVec);
-    genInt(vecType->elementType->staticSizeRequired());
+    genInt(vecType->elementType->staticSize());
     // stores a copy of the pointer to be finalized later
-    genOffs(genReserveLocal(vecType));
+    genOffs(tmpOffset);
+    return tmpOffset;
 }
 
 
@@ -660,27 +602,53 @@ void VmCodeGen::genLoadThisVar(ShVariable* var)
 }
 
 
-void VmCodeGen::genInitThisVar(ShVariable* var)
+void VmCodeGen::genInitVar(ShVariable* var)
 {
     needsRuntimeContext = true;
     genPop();
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
     if (op == opStoreThisVec)
         op = opInitThisVec;
+    if (var->isLocal())
+        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
     genOp(op);
     genOffs(var->dataOffset);
 }
 
 
-void VmCodeGen::genInitTempVar(offs localOffset)
+offs VmCodeGen::genCopyToTempVec()
 {
-//    needsRuntimeContext = true;
     ShType* type = genTopType();
-    OpCode op = OpCode(opStoreLocFirst + int(type->storageModel()));
-    if (op == opStoreLocVec)
-        op = opInitLocVec;
-    genOp(op);
-    genOffs(localOffset);
+#ifdef DEBUG
+    if (!type->isVector())
+        internal(63);
+#endif
+    offs tmpOffset = genReserveTempVar(type);
+    genOp(opCopyToTmpVec);
+    genOffs(tmpOffset);
+    return tmpOffset;
+}
+
+
+void VmCodeGen::genVecCat(offs tempVar)
+{
+    genPop();
+    genOp(opVecCat);
+    genOffs(tempVar);
+}
+
+
+void VmCodeGen::genVecElemCat(offs tempVar)
+{
+    genPop();
+    ShType* vecType = genTopType();
+#ifdef DEBUG
+    if (!vecType->isVector())
+        internal(64);
+#endif
+    genOp(opVecElemCat);
+    genInt(PVector(vecType)->elementType->staticSize());
+    genOffs(tempVar);
 }
 
 
@@ -695,7 +663,7 @@ void VmCodeGen::genFinVar(ShVariable* var)
 }
 
 
-offs VmCodeGen::genReserveLocal(ShType* type)
+offs VmCodeGen::genReserveTempVar(ShType* type)
 {
     offs offset = codeseg.reserveLocals;
     codeseg.reserveLocals += type->staticSizeAligned();
