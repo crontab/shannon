@@ -665,6 +665,7 @@ class ShModule: public ShScope
     ShType* getTypeOrNewIdent(string* strToken);
     void    getConstCompound(ShType*, ShValue&);
     ShType* getTypeExpr(bool anyObj);
+    ShType* parseIfFunc(VmCodeGen& code);
     ShType* parseAtom(VmCodeGen&, bool isLValue);
     ShType* parseDesignator(VmCodeGen&, bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);

@@ -65,6 +65,20 @@ void* memalloc(uint a)
 }
 
 
+void* memcalloc(uint a) 
+{
+    if (a == 0)
+        return NULL;
+    else
+    {
+        void* p = calloc(1, a);
+        if (p == NULL) 
+            memerror();
+        return p;
+    }
+}
+
+
 void* memrealloc(void* p, uint a) 
 {
     if (a == 0)

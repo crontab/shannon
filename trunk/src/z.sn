@@ -1,5 +1,6 @@
 module Z
 
+
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -65,7 +66,7 @@ const C1..C2 e4 = e3
 const enum e5(C5, C6, C7) = C6
 
 const hex1 = 0x7A00000000000000L
-const v = null
+# const v = null
 
 const b1 = 0L < 2L
 const b2 = bool(1)
@@ -159,8 +160,17 @@ begin:
     var g h = []
     echo 'Hello, nested block!', str(w1), v1
     begin:
-        const w1 = 1L
-        assert w1 == 1L
+        const w1 = 2L
+        assert w1 == 2L
         echo 'Hello, nested nestd block!', typeof(w1), str(w1)
 
-# echo w1
+assert w1 == 0
+
+var int v9 = if(true, 1, 2)
+assert v9 == 1
+v9 = if(v9 == 1, 3, 4)
+assert v9 == 3
+
+
+assert if(true, 'cd' | 'e', 'fg' | 'h') == 'cde'
+var bool bb = 'a' | 'b' == 'ab' or 'c' | 'd' == 'cd'

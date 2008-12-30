@@ -116,6 +116,32 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 }
 
 
+ShType* ShModule::parseIfFunc(VmCodeGen& code)
+{
+    parser.skip(tokLParen, "(");
+    if (!parseExpr(code, queenBee->defaultBool)->isBool())
+        error("Boolean expression expected as first argument to if()");
+    parser.skip(tokComma, ",");
+    offs jumpFalseOffs = code.genForwardBoolJump(opJumpFalse);
+
+    ShType* trueType = parseExpr(code);
+    if (trueType->storageModel() == stoVoid)
+        error("Invalid argument type for the 'true' branch of if()");
+    parser.skip(tokComma, ",");
+    code.genPop();
+    offs jumpOutOffs = code.genForwardJump();
+
+    code.genResolveJump(jumpFalseOffs);
+    ShType* falseType = parseExpr(code, trueType);
+    if (!trueType->equals(falseType))
+        error("Types of 'true' and 'false' branches for if() don't match");
+
+    code.genResolveJump(jumpOutOffs);
+    parser.skip(tokRParen, ")");
+    return code.genTopType();
+}
+
+
 ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
 {
     if (parser.skipIf(tokLParen))
@@ -235,8 +261,8 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         code.genLoadIntConst(queenBee->defaultBool, 1);
     else if (parser.skipIf(tokFalse))
         code.genLoadIntConst(queenBee->defaultBool, 0);
-    else if (parser.skipIf(tokNull))
-        code.genLoadNull();
+//    else if (parser.skipIf(tokNull))
+//        code.genLoadNull();
 
     // compound ctor (currently only vector)
     else if (parser.skipIf(tokLSquare))
@@ -248,6 +274,9 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         code.genLoadVecConst(comp.type, pconst(comp.value.ptr_));
     }
     
+    else if (!isLValue && parser.skipIf(tokIf))
+        parseIfFunc(code);
+
     else
         errorWithLoc("Expression syntax");
 
@@ -413,7 +442,7 @@ ShType* ShModule::parseAndLevel(VmCodeGen& code)
     {
         if (parser.skipIf(tokAnd))
         {
-            int saveOffset = code.genForwardBoolJump(opJumpAnd);
+            offs saveOffset = code.genForwardBoolJump(opJumpAnd);
             ShType* right = parseAndLevel(code);
             if (!right->isBool())
                 error("Boolean expression expected after 'and'");
@@ -450,7 +479,7 @@ ShType* ShModule::parseOrLevel(VmCodeGen& code)
     {
         if (parser.skipIf(tokOr))
         {
-            int saveOffset = code.genForwardBoolJump(opJumpOr);
+            offs saveOffset = code.genForwardBoolJump(opJumpOr);
             ShType* right = parseOrLevel(code);
             if (!right->isBool())
                 error("Boolean expression expected after 'or'");
@@ -759,7 +788,6 @@ void ShModule::parseBlock(VmCodeGen& code)
 {
     while (!parser.skipIf(tokBlockEnd))
     {
-        code.genFinalizeTemps();
         if (parser.skipIf(tokDef))
             parseTypeDef();
         else if (parser.skipIf(tokConst))
@@ -779,6 +807,7 @@ void ShModule::parseBlock(VmCodeGen& code)
         else
             parseOtherStatement(code);
         parser.skipSep();
+        code.genFinalizeTemps();
     }
 }
 
@@ -807,7 +836,7 @@ bool ShModule::compile()
             string modName = parser.getIdent();
             if (strcasecmp(modName.c_str(), name.c_str()) != 0)
                 error("Module name mismatch");
-            setNamePleaseThisIsBadIKnow(modName);
+            setNamePleaseThisIsWrongIKnow(modName);
             parser.skipSep();
         }
 
