@@ -188,7 +188,7 @@ void ShSymScope::addUses(ShModule* obj)
 // --- SCOPE --- //
 
 ShScope::ShScope(const string& name, ShTypeId iTypeId)
-        : ShSymScope(name, iTypeId), dataSize(0)  { }
+        : ShSymScope(name, iTypeId)  { }
 
 ShScope::~ShScope()
 {
@@ -226,17 +226,8 @@ void ShScope::addConstant(ShConstant* obj, ShSymScope* symScope)
 
 void ShScope::addVariable(ShVariable* obj, ShSymScope* symScope)
 {
-    obj->dataOffset = dataSize;
-    dataSize += obj->type->staticSizeAligned();
     vars.add(obj);
-    if (!obj->name.empty())
-        symScope->addSymbol(obj);
-}
-
-void ShScope::genFinalizations(VmCodeGen& finCode)
-{
-    for (int i = vars.size() - 1; i >= 0; i--)
-        finCode.genFinVar(vars[i]);
+    symScope->addSymbol(obj);
 }
 
 
@@ -668,12 +659,6 @@ ShLocalScope::ShLocalScope()
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
-void ShLocalScope::addVariable(ShVariable* obj, ShScope* symbolScope)
-{
-    ShScope::addVariable(obj, symbolScope);
-    obj->local = true;
-}
-
 
 // --- MODULE --- //
 
@@ -682,7 +667,7 @@ ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
       parser(iFileName), symbolScope(this), varScope(this), compiled(false),
       // runtime
-      dataSegment(NULL)
+      dataSize(0), dataSegment(NULL)
 {
     if (queenBee != NULL)
         addUses(queenBee);
@@ -694,26 +679,16 @@ ShModule::~ShModule()
     memfree(dataSegment);
 }
 
-void ShModule::addObject(ShBase* obj)
+void ShModule::error(EDuplicate& e)
 {
-    string objName = obj->name;
-    try
-    {
-        if (obj->isType())
-            varScope->addType((ShType*)obj, symbolScope);
-        else if (obj->isTypeAlias())
-            varScope->addTypeAlias((ShTypeAlias*)obj, symbolScope);
-        else if (obj->isVariable())
-            varScope->addVariable((ShVariable*)obj, symbolScope);
-        else if (obj->isConstant())
-            varScope->addConstant((ShConstant*)obj, symbolScope);
-        else
-            internal(6);
-    }
-    catch (EDuplicate& e)
-    {
-        error("'" + objName + "' already defined within this scope");
-    }
+    parser.error("'" + e.getEntry() + "' is already defined within this scope");
+}
+
+void ShModule::addVariable(ShVariable* obj, ShSymScope* symScope)
+{
+    obj->dataOffset = dataSize;
+    dataSize += obj->type->staticSizeAligned();
+    ShScope::addVariable(obj, symScope);
 }
 
 string ShModule::getFullDefinition(const string& objName) const
@@ -728,12 +703,11 @@ void ShModule::dump(string indent) const
 #endif
 
 
-void ShModule::setupRuntime(VmCodeGen& main, VmCodeGen& fin)
+void ShModule::setupRuntime(VmCodeGen& main)
 {
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
     mainCode = main.getCodeSeg();
-    finCode = fin.getCodeSeg();
     compiled = true;
 }
 
@@ -743,14 +717,6 @@ void ShModule::executeMain()
     if (!compiled)
         internal(14);
     mainCode.execute(dataSegment, NULL);
-}
-
-
-void ShModule::executeFin()
-{
-    if (!compiled)
-        internal(14);
-    finCode.execute(dataSegment, NULL);
 }
 
 
@@ -777,8 +743,8 @@ ShQueenBee::ShQueenBee()
     addType(defaultTypeRef, this);
     addAnonType(defaultEmptyVec);
 
-    VmCodeGen main, fin;
-    setupRuntime(main, fin);
+    VmCodeGen main;
+    setupRuntime(main);
 }
 
 

@@ -100,19 +100,11 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
     parseExpr(tcode);
-    try
-    {
-        ShValue value;
-        ShType* type = tcode.runTypeExpr(value, anyObj);
-        if (value.type == NULL)
-            error("Expression can't be evaluated at compile time");
-        return type;
-    }
-    catch(EInvalidSubrange& e)
-    {
-        error(e.what());
-        return NULL;
-    }
+    ShValue value;
+    ShType* type = tcode.runTypeExpr(value, anyObj);
+    if (value.type == NULL)
+        error("Expression can't be evaluated at compile time");
+    return type;
 }
 
 
@@ -662,7 +654,7 @@ ShEnum* ShModule::parseEnumType()
         if (nextVal == INT_MAX)
             error("Enum constant has just hit the ceilinig, man.");
         ShConstant* value = new ShConstant(ident, type, nextVal);
-        addObject(value);
+        varScope->addConstant(value, symbolScope);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -690,7 +682,7 @@ void ShModule::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    addObject(new ShTypeAlias(ident, type));
+    varScope->addTypeAlias(new ShTypeAlias(ident, type), symbolScope);
 }
 
 
@@ -725,7 +717,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
         ShVariable* var = new ShVariable(ident, type);
-        addObject(var);
+        varScope->addVariable(var, symbolScope);
         code.genInitVar(var);
     }
     else
@@ -734,7 +726,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
         getConstExpr(type, value);
         if (type == NULL) // auto
             type = value.type;
-        addObject(new ShConstant(ident, value));
+        varScope->addConstant(new ShConstant(ident, value), symbolScope);
     }
 }
 
@@ -826,26 +818,34 @@ bool ShModule::compile()
     try
     {
         VmCodeGen main;
-        VmCodeGen fin;
 
-        parser.next();
-        
-        if (parser.token == tokModule)
+        try
         {
             parser.next();
-            string modName = parser.getIdent();
-            if (strcasecmp(modName.c_str(), name.c_str()) != 0)
-                error("Module name mismatch");
-            setNamePleaseThisIsWrongIKnow(modName);
-            parser.skipSep();
+            
+            if (parser.token == tokModule)
+            {
+                parser.next();
+                string modName = parser.getIdent();
+                if (strcasecmp(modName.c_str(), name.c_str()) != 0)
+                    error("Module name mismatch");
+                setNamePleaseThisIsWrongIKnow(modName);
+                parser.skipSep();
+            }
+
+            parseBlock(main);
+            parser.skip(tokEof, "<EOF>");
+        }
+        catch (EDuplicate& e)
+        {
+            error(e);
+        }
+        catch(EInvalidSubrange& e)
+        {
+            error(e.what());
         }
 
-        parseBlock(main);
-        parser.skip(tokEof, "<EOF>");
-
-        genFinalizations(fin);
-
-        setupRuntime(main, fin);
+        setupRuntime(main);
 
 #ifdef DEBUG
         queenBee->dump("");
@@ -912,7 +912,6 @@ int main()
         {
             // TODO: exec mains for all used modules
             module.executeMain();
-            module.executeFin();
             if (!stk.empty())
                 fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }

@@ -249,16 +249,13 @@ protected:
     BaseList<ShConstant> consts;
     
 public:
-    offs dataSize;
-
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
     void addAnonType(ShType*);
     void addType(ShType*, ShSymScope*);
-    virtual void addVariable(ShVariable*, ShSymScope*);
     void addTypeAlias(ShTypeAlias*, ShSymScope*);
     void addConstant(ShConstant*, ShSymScope*);
-    void genFinalizations(VmCodeGen&);
+    virtual void addVariable(ShVariable*, ShSymScope*);
     void dump(string indent) const;
 };
 
@@ -621,7 +618,7 @@ protected:
 public:
     ShLocalScope(); // anonymous
 
-    virtual void addVariable(ShVariable*, ShScope* symbolScope);
+    virtual void addVariable(ShVariable*, ShScope* symbolScope) = 0;
 };
 
 
@@ -651,9 +648,10 @@ class ShModule: public ShScope
             { vectorConsts.add(v); return v; }
     string registerVector(const string& v)
             { vectorConsts.add(v); return v; }
-    void addObject(ShBase*);
+    virtual void addVariable(ShVariable*, ShSymScope*);
 
     void error(const string& msg)           { parser.error(msg); }
+    void error(EDuplicate& e);
     void error(const char* msg)             { parser.error(msg); }
     void errorWithLoc(const string& msg)    { parser.errorWithLoc(msg); }
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
@@ -707,14 +705,13 @@ public:
 
     // --- RUNTIME --- //
 protected:
-    void setupRuntime(VmCodeGen& main, VmCodeGen& fin);
+    void setupRuntime(VmCodeGen& main);
     VmCodeSegment mainCode;
-    VmCodeSegment finCode;
+    offs dataSize;
     char* dataSegment;
     
 public:
     void executeMain();
-    void executeFin();
 };
 
 
