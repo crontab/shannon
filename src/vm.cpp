@@ -379,8 +379,6 @@ void VmCodeGen::genPush(ShType* t)
 
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
-    if (deferredVar != NULL)
-        internal(65);
     const GenStackInfo& t = genTop();
     genStackSize -= t.type->staticSizeAligned();
     genStack.pop();

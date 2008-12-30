@@ -146,4 +146,7 @@ assert v6 == 'gh' and v6 == ['g', 'h'] and v7 == [1, 2, 3] and v8 == [1L, 2L, 3L
 assert 'a' | 'bc' | 'd' | ['e', 'f'] | v1 | v2 == 'abcdefghi'
 
 v1 = 'h'
-echo v1
+v6 = 'klm'
+v7 = 2
+assert v1 == 'h' and v6 == 'klm' and v7 == [2]
+
