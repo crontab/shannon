@@ -87,14 +87,14 @@ static void doAssert(const char* fn, int linenum)
     case opLoad##KIND##Void: stk.pushPtr(NULL); break;
 
 #define GEN_STORERS(KIND,PTR) \
-    case opStore##KIND##Byte: *puchar(PTR) = stk.popInt(); break; \
-    case opStore##KIND##Int: *pint(PTR) = stk.popInt(); break; \
-    case opStore##KIND##Large: *plarge(PTR) = stk.popLarge(); break; \
-    case opStore##KIND##Ptr: *pptr(PTR) = stk.popPtr(); break; \
-    case opStore##KIND##Vec: { pptr s = pptr(PTR); \
-            string::_finalize(*s); *s = string::_initialize(stk.popPtr()); } break; \
+    case opStore##KIND##Byte: { int t = stk.popInt(); *puchar(PTR) = t; } break; \
+    case opStore##KIND##Int: { int t = stk.popInt(); *pint(PTR) = t; } break; \
+    case opStore##KIND##Large: { large t = stk.popLarge(); *plarge(PTR) = t; } break; \
+    case opStore##KIND##Ptr: { ptr t  = stk.popPtr(); *pptr(PTR) = t; } break; \
+    case opStore##KIND##Vec: { ptr t = stk.popPtr(); pptr s = pptr(PTR); \
+            string::_finalize(*s); *s = string::_initialize(t); } break; \
     case opStore##KIND##Void: break; \
-    case opInit##KIND##Vec: *pptr(PTR) = string::_initialize(stk.popPtr()); break; \
+    case opInit##KIND##Vec: { ptr t = stk.popPtr(); *pptr(PTR) = string::_initialize(t); } break; \
     case opFin##KIND##Vec: string::_finalize(*pptr(PTR)); break;
 
 
@@ -643,6 +643,12 @@ offs VmCodeGen::genCopyToTempVec()
 void VmCodeGen::genVecCat(offs tempVar)
 {
     genPop();
+    ShType* vecType = genPopType();
+#ifdef DEBUG
+    if (!vecType->isVector())
+        internal(64);
+#endif
+    genPush(vecType);
     genOp(opVecCat);
     genOffs(tempVar);
 }
@@ -651,11 +657,12 @@ void VmCodeGen::genVecCat(offs tempVar)
 void VmCodeGen::genVecElemCat(offs tempVar)
 {
     genPop();
-    ShType* vecType = genTopType();
+    ShType* vecType = genPopType();
 #ifdef DEBUG
     if (!vecType->isVector())
         internal(64);
 #endif
+    genPush(vecType);
     genOp(opVecElemCat);
     genInt(PVector(vecType)->elementType->staticSize());
     genOffs(tempVar);
