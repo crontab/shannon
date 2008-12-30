@@ -16,10 +16,10 @@ static void notImpl()
 
 
 ShBase::ShBase(ShBaseId iBaseId)
-    : BaseNamed(), baseId(iBaseId), owner(NULL)  { }
+    : BaseNamed(), baseId(iBaseId)  { }
 
 ShBase::ShBase(const string& name, ShBaseId iBaseId)
-    : BaseNamed(name), baseId(iBaseId), owner(NULL)  { }
+    : BaseNamed(name), baseId(iBaseId)  { }
 
 
 // --- TYPE --- //
@@ -27,13 +27,23 @@ ShBase::ShBase(const string& name, ShBaseId iBaseId)
 
 ShType::ShType(ShTypeId iTypeId)
     : ShBase(baseType), typeId(iTypeId),
-      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)  { }
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
+      owner(NULL)  { }
 
 ShType::ShType(const string& name, ShTypeId iTypeId)
     : ShBase(name, baseType), typeId(iTypeId), 
-      derivedVectorType(NULL), derivedSetType(NULL)  { }
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
+      owner(NULL)  { }
 
 ShType::~ShType()  { }
+
+
+void ShType::setOwner(ShScope* newOwner)
+{
+    if (owner != NULL)
+        internal(3);
+    owner = newOwner;
+}
 
 
 offs ShType::staticSize() const
@@ -143,52 +153,16 @@ ShVariable::ShVariable(const string& name, ShType* iType)
     : ShBase(name, baseVariable), type(iType), dataOffset(0), local(false)  { }
 
 
-// --- SCOPE --- //
+// --- SYMBOLS-ONLY SCOPE --- //
 
-ShScope::ShScope(const string& name, ShTypeId iTypeId)
-        : ShType(name, iTypeId), dataSize(0)  { }
-
-ShScope::~ShScope()
+void ShSymScope::addSymbol(ShBase* obj)
 {
-    // Order is important
-    typeAliases.clear();
-    consts.clear();
-    vars.clear();
-    types.clear();
-}
-
-ShBase* ShScope::own(ShBase* obj)
-{
-    if (obj->owner != NULL)
-        internal(3);
-    obj->owner = this;
-    return obj;
-}
-
-void ShScope::addSymbol(ShBase* obj)
-{
-    own(obj);
     if (obj->name.empty())
         internal(4);
     symbols.addUnique(obj);
 }
 
-void ShScope::addUses(ShModule* obj)
-        { uses.add(obj); addSymbol(obj); }
-
-void ShScope::addType(ShType* obj)
-        { types.add(obj); addSymbol(obj); }
-
-void ShScope::addAnonType(ShType* obj)
-        { own(obj); types.add(obj); }
-
-void ShScope::addTypeAlias(ShTypeAlias* obj)
-        { typeAliases.add(obj); addSymbol(obj); }
-
-void ShScope::addConstant(ShConstant* obj)
-        { consts.add(obj); addSymbol(obj); }
-
-ShBase* ShScope::deepFind(const string& name) const
+ShBase* ShSymScope::deepFind(const string& name) const
 {
     ShBase* obj = find(name);
     if (obj != NULL)
@@ -199,18 +173,61 @@ ShBase* ShScope::deepFind(const string& name) const
         if (obj != NULL)
             return obj;
     }
-    if (owner != NULL)
-        return owner->deepFind(name);
+    if (parent != NULL)
+        return parent->deepFind(name);
     return NULL;
 }
 
-void ShScope::addVariable(ShVariable* obj)
+void ShSymScope::addUses(ShModule* obj)
+        { uses.add(obj); addSymbol(obj); }
+
+
+// --- SCOPE --- //
+
+ShScope::ShScope(const string& name, ShTypeId iTypeId)
+        : ShSymScope(name, iTypeId), dataSize(0)  { }
+
+ShScope::~ShScope()
+{
+    // Order is important
+    typeAliases.clear();
+    consts.clear();
+    vars.clear();
+    types.clear();
+}
+
+void ShScope::addType(ShType* obj, ShSymScope* symScope)
+{
+    types.add(obj);
+    obj->setOwner(this);
+    symScope->addSymbol(obj);
+}
+
+void ShScope::addAnonType(ShType* obj)
+{
+    types.add(obj);
+    obj->setOwner(this);
+}
+
+void ShScope::addTypeAlias(ShTypeAlias* obj, ShSymScope* symScope)
+{
+    typeAliases.add(obj);
+    symScope->addSymbol(obj);
+}
+
+void ShScope::addConstant(ShConstant* obj, ShSymScope* symScope)
+{
+    consts.add(obj);
+    symScope->addSymbol(obj);
+}
+
+void ShScope::addVariable(ShVariable* obj, ShSymScope* symScope)
 {
     obj->dataOffset = dataSize;
     dataSize += obj->type->staticSizeAligned();
     vars.add(obj);
     if (!obj->name.empty())
-        addSymbol(obj);
+        symScope->addSymbol(obj);
 }
 
 void ShScope::genFinalizations(VmCodeGen& finCode)
@@ -648,9 +665,9 @@ ShLocalScope::ShLocalScope()
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
-void ShLocalScope::addVariable(ShVariable* obj)
+void ShLocalScope::addVariable(ShVariable* obj, ShScope* symbolScope)
 {
-    ShScope::addVariable(obj);
+    ShScope::addVariable(obj, symbolScope);
     obj->local = true;
 }
 
@@ -660,7 +677,7 @@ void ShLocalScope::addVariable(ShVariable* obj)
 
 ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
-      parser(iFileName), currentScope(NULL), localScope(NULL), compiled(false),
+      parser(iFileName), symbolScope(this), varScope(this), compiled(false),
       // runtime
       dataSegment(NULL)
 {
@@ -680,13 +697,13 @@ void ShModule::addObject(ShBase* obj)
     try
     {
         if (obj->isType())
-            currentScope->addType((ShType*)obj);
+            varScope->addType((ShType*)obj, symbolScope);
         else if (obj->isTypeAlias())
-            currentScope->addTypeAlias((ShTypeAlias*)obj);
+            varScope->addTypeAlias((ShTypeAlias*)obj, symbolScope);
         else if (obj->isVariable())
-            currentScope->addVariable((ShVariable*)obj);
+            varScope->addVariable((ShVariable*)obj, symbolScope);
         else if (obj->isConstant())
-            currentScope->addConstant((ShConstant*)obj);
+            varScope->addConstant((ShConstant*)obj, symbolScope);
         else
             internal(6);
     }
@@ -747,14 +764,14 @@ ShQueenBee::ShQueenBee()
       defaultTypeRef(new ShTypeRef("typeref")),
       defaultEmptyVec(new ShVector(defaultVoid))
 {
-    addType(defaultInt);
-    addType(defaultLarge);
-    addType(defaultChar);
-    addType(defaultStr);
+    addType(defaultInt, this);
+    addType(defaultLarge, this);
+    addType(defaultChar, this);
+    addType(defaultStr, this);
     defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultStr);
-    addType(defaultBool);
-    addType(defaultVoid);
-    addType(defaultTypeRef);
+    addType(defaultBool, this);
+    addType(defaultVoid, this);
+    addType(defaultTypeRef, this);
     addAnonType(defaultEmptyVec);
 
     VmCodeGen main, fin;

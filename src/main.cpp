@@ -42,7 +42,7 @@ string typeVsType(ShType* a, ShType* b)
 ShBase* ShModule::getQualifiedName()
 {
     string ident = parser.getIdent();
-    ShBase* obj = currentScope->deepFind(ident);
+    ShBase* obj = symbolScope->deepFind(ident);
     if (obj == NULL)
         errorNotFound(ident);
     string errIdent = ident;
@@ -621,7 +621,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 ShEnum* ShModule::parseEnumType()
 {
     ShEnum* type = new ShEnum();
-    currentScope->addAnonType(type);
+    varScope->addAnonType(type);
     parser.skip(tokLParen, "(");
     while (1)
     {
@@ -768,8 +768,7 @@ void ShModule::parseBlock(VmCodeGen& code)
         else if (parser.skipIf(tokBegin))
         {
             parser.skipBlockBegin();
-            // TODO: local scope
-            parseBlock(code);
+            enterBlock(code);
             continue;
         }
         else
@@ -780,18 +779,21 @@ void ShModule::parseBlock(VmCodeGen& code)
 }
 
 
+void ShModule::enterBlock(VmCodeGen& code)
+{
+    ShSymScope* saveSymScope = symbolScope;
+    parseBlock(code);
+    symbolScope = saveSymScope;
+}
+
+
 bool ShModule::compile()
 {
     try
     {
         VmCodeGen main;
         VmCodeGen fin;
-        VmCodeGen* curCodeGen = &main;
 
-        currentScope = this;
-        ShLocalScope tempScope;
-        localScope = &tempScope;
-        
         parser.next();
         
         if (parser.token == tokModule)
@@ -804,13 +806,10 @@ bool ShModule::compile()
             parser.skipSep();
         }
 
-        parseBlock(*curCodeGen);
+        parseBlock(main);
         parser.skip(tokEof, "<EOF>");
 
         genFinalizations(fin);
-
-        if (tempScope.dataSize > 0)
-            notImpl();
 
         setupRuntime(main, fin);
 
