@@ -152,3 +152,10 @@ begin:
     assert v1 == 'h' and v6 == 'klm' and v7 == [2]
 
 var w1 = 0
+begin:
+    var w1 = 1
+    assert w1 == 1
+    def int g[]
+    var g h = []
+
+# echo w1

@@ -110,7 +110,7 @@ enum ShTypeId
     typeInt, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
     typeReference,
-    typeLocalScope, typeModule
+    typeLocalSymScope, typeLocalScope, typeModule
 };
 
 
@@ -211,9 +211,13 @@ protected:
     BaseTable<ShModule> uses; // not owned
     BaseTable<ShBase> symbols;
 
-public:
-    ShSymScope* parent;
+    virtual string getFullDefinition(const string& objName) const
+            { return "*undefined*"; }
 
+public:
+    ShSymScope* const parent;
+
+    ShSymScope(ShSymScope* iParent);
     ShSymScope(const string& iName, ShTypeId iTypeId)
             : ShType(iName, iTypeId), parent(NULL)  { }
 

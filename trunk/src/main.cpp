@@ -682,7 +682,8 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
         }
     }
 
-    parser.skip(tokAssign, "=");
+    if (!parser.skipIf(tokAssign))
+        errorWithLoc((isVar ? "Variable" : "Constant") + string(" initialization expected"));
 
     if (isVar)
     {
@@ -781,9 +782,10 @@ void ShModule::parseBlock(VmCodeGen& code)
 
 void ShModule::enterBlock(VmCodeGen& code)
 {
-    ShSymScope* saveSymScope = symbolScope;
+    ShSymScope tempSymScope(symbolScope);
+    symbolScope = &tempSymScope;
     parseBlock(code);
-    symbolScope = saveSymScope;
+    symbolScope = tempSymScope.parent;
 }
 
 
