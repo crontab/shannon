@@ -148,5 +148,7 @@ assert 'a' | 'bc' | 'd' | ['e', 'f'] | v1 | v2 == 'abcdefghi'
 v1 = 'h'
 v6 = 'klm'
 v7 = 2
-assert v1 == 'h' and v6 == 'klm' and v7 == [2]
+begin:
+    assert v1 == 'h' and v6 == 'klm' and v7 == [2]
 
+var w1 = 0

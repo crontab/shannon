@@ -153,8 +153,8 @@ public:
     offs staticSizeRequired() const;
     offs staticSizeAligned() const
             { return memAlign(staticSize()); }
-    virtual bool isPod() const
-            { return true; }
+    bool isPod() const
+            { return storageModel() != stoVec; }
     virtual bool isString() const
             { return false; }
     virtual bool equals(ShType*) const = 0;
@@ -221,8 +221,6 @@ public:
 
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
-    virtual bool isPod() const
-            { return false; }
     virtual bool isScope() const
             { return true; }
     virtual string displayValue(const ShValue&) const
@@ -450,8 +448,6 @@ public:
     virtual string displayValue(const ShValue& v) const;
     virtual StorageModel storageModel() const
             { return stoVec; }
-    virtual bool isPod() const
-            { return false; }
     virtual bool isString() const
             { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
     virtual bool canBeArrayIndex() const
@@ -609,25 +605,25 @@ public:
 };
 
 
-struct CompilerOptions
-{
-    bool enableEcho;
-    bool enableAssert;
-    
-    CompilerOptions()
-        : enableEcho(true), enableAssert(true)  { }
-};
-
-
 // --- MODULE --- //
 
 class ShModule: public ShScope
 {
     // --- Compiler ---
 
+    struct CompilerOptions
+    {
+        bool enableEcho;
+        bool enableAssert;
+        CompilerOptions()
+            : enableEcho(true), enableAssert(true)  { }
+    };
+
+
     string fileName;
     Parser parser;
     Array<string> vectorConsts;
+    CompilerOptions options;
 
     ShScope* currentScope;     // can be static or local; in functions is same as localScope
     ShLocalScope* localScope;  // local-only, for temp vars
@@ -649,7 +645,7 @@ class ShModule: public ShScope
     ShType* getDerivators(ShType*);
     ShType* getTypeOrNewIdent(string* strToken);
     void    getConstCompound(ShType*, ShValue&);
-    ShType* getTypeExpr(bool anyObj = true);
+    ShType* getTypeExpr(bool anyObj);
     ShType* parseAtom(VmCodeGen&, bool isLValue);
     ShType* parseDesignator(VmCodeGen&, bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
@@ -671,10 +667,11 @@ class ShModule: public ShScope
 
     ShEnum* parseEnumType();
     void parseTypeDef();
-    void parseVarConstDef(bool isVar, VmCodeGen& code);
-    void parseEcho(VmCodeGen& code);
-    void parseAssert(VmCodeGen& code);
-    void parseOtherStatement(VmCodeGen& code);
+    void parseVarConstDef(bool isVar, VmCodeGen&);
+    void parseEcho(VmCodeGen&);
+    void parseAssert(VmCodeGen&);
+    void parseOtherStatement(VmCodeGen&);
+    void parseBlock(VmCodeGen& code);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -684,7 +681,7 @@ public:
 
     ShModule(const string& filename);
     ~ShModule();
-    bool compile(const CompilerOptions&);
+    bool compile();
     void dump(string indent) const;
 
     // --- RUNTIME --- //

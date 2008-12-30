@@ -318,6 +318,13 @@ VmCodeGen::VmCodeGen()
       deferredVar(NULL), resultTypeHint(NULL)  { }
 
 
+void VmCodeGen::clear()
+{
+    codeseg.clear();
+    genStack.clear();
+}
+
+
 void VmCodeGen::verifyClean()
 {
     if (!genStack.empty() || genStackSize != 0)
@@ -549,8 +556,7 @@ void VmCodeGen::genStaticCast(ShType* type)
     else if (stoFrom < stoLarge && stoTo == stoLarge)
         genOp(opIntToLarge);
     // We generate opNop because genPush() stores the position of the next
-    // opcode, and it should be something. NOPs will be removed in the future
-    // during the optimization phase.
+    // opcode. It is currenlty not used, but may be in the future.
     else if (stoFrom < stoLarge && stoTo < stoLarge)
         genNop();
     else if (stoFrom == stoPtr && stoTo == stoPtr)

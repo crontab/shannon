@@ -93,12 +93,12 @@ public:
 enum Token
 {
     tokUndefined = -1,
-    tokBegin, tokEnd, tokSep, // these will depend on C-style vs. Python-style modes in the future
+    tokBlockBegin, tokBlockEnd, tokSep, tokIndent, // these will depend on C-style vs. Python-style modes in the future
     tokEof,
     tokIdent, tokIntValue, tokLargeValue, tokStrValue,
 
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
-    tokEnum, tokEcho, tokAssert, tokSizeOf,
+    tokEnum, tokEcho, tokAssert, tokSizeOf, tokBegin,
     
     // term level
     tokMul, tokDiv, tokMod,
@@ -115,8 +115,9 @@ enum Token
     // OR level
     tokOr, tokXor,
     
+    tokIn, tokIs, tokAs,
+
     // special chars and sequences
-    tokIn, tokIs,
     tokComma, tokPeriod, tokRange,
     tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
     tokAssign, tokExclam,
@@ -154,8 +155,6 @@ public:
     ~Parser();
     
     Token next();
-    Token nextBegin();
-    Token nextEnd();
 
     void error(const string& msg);
     void errorWithLoc(const string& msg);
@@ -166,11 +165,11 @@ public:
     void skip(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
+    void skipBlockBegin();
     string getIdent();
     
     string getFileName() const { return input->getFileName(); }
     int getLineNum() const { return linenum; }
-//    int indentLevel()  { return indentStack.top(); }
 };
 
 

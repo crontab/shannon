@@ -15,3 +15,11 @@ Thunder,
 	    Feel the magic, hear the roar!
 }#   
             Finalcats
+
+magic: thunder
+
+magic:
+
+    cats
+    thundercats
+
