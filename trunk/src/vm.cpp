@@ -62,6 +62,8 @@ static void doEcho(ShType* type)
     string s;
     if (type->isString())
         s = PTR_TO_STRING(value.value.ptr_);
+    else if (type->isChar())
+        s = char(value.value.int_);
     else
         s = type->displayValue(value);
     fwrite(s.c_bytes(), s.size(), 1, echostm);
@@ -312,7 +314,8 @@ void VmCodeSegment::execute(pchar dataseg, ptr retval)
 
 
 VmCodeGen::VmCodeGen()
-    : codeseg(), genStack(), genStackSize(0), needsRuntimeContext(false), resultTypeHint(NULL)  { }
+    : codeseg(), genStack(), genStackSize(0), needsRuntimeContext(false), 
+      deferredVar(NULL), resultTypeHint(NULL)  { }
 
 
 void VmCodeGen::verifyClean()
@@ -376,10 +379,23 @@ void VmCodeGen::genPush(ShType* t)
 
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
+    if (deferredVar != NULL)
+        internal(65);
     const GenStackInfo& t = genTop();
     genStackSize -= t.type->staticSizeAligned();
     genStack.pop();
     return t;
+}
+
+
+ShVariable* VmCodeGen::genPopDeferred()
+{
+    ShVariable* var = deferredVar;
+    if (var == NULL)
+        internal(67);
+    deferredVar = NULL;
+    genPop();
+    return var;
 }
 
 
@@ -598,7 +614,7 @@ void VmCodeGen::genResolveJump(int jumpOffset)
 }
 
 
-void VmCodeGen::genLoadThisVar(ShVariable* var)
+void VmCodeGen::genLoadVar(ShVariable* var)
 {
     needsRuntimeContext = true;
     genPush(var->type);
@@ -607,6 +623,30 @@ void VmCodeGen::genLoadThisVar(ShVariable* var)
     if (op < opLoadThisFirst || op > opLoadThisLast)
         internal(61);
 #endif
+    if (var->isLocal())
+        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
+    genOp(op);
+    genOffs(var->dataOffset);
+}
+
+
+void VmCodeGen::genLoadVarRef(ShVariable* var)
+{
+    needsRuntimeContext = true;
+    if (deferredVar != NULL)
+        internal(66);
+    deferredVar = var;
+    genPush(var->type->deriveRefType());
+}
+
+
+void VmCodeGen::genStore()
+{
+    needsRuntimeContext = true;
+    ShVariable* var = genPopDeferred();
+    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
+    if (var->isLocal())
+        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
     genOp(op);
     genOffs(var->dataOffset);
 }
@@ -616,13 +656,25 @@ void VmCodeGen::genInitVar(ShVariable* var)
 {
     needsRuntimeContext = true;
     genPop();
-    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
-    if (op == opStoreThisVec)
+    StorageModel sto = var->type->storageModel();
+    OpCode op = OpCode(opStoreThisFirst + sto);
+    if (sto == stoVec)
         op = opInitThisVec;
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
     genOp(op);
     genOffs(var->dataOffset);
+}
+
+
+void VmCodeGen::genFinVar(ShVariable* var)
+{
+    needsRuntimeContext = true;
+    if (var->type->storageModel() == stoVec)
+    {
+        genOp(var->isLocal() ? opFinLocVec : opFinThisVec);
+        genOffs(var->dataOffset);
+    }
 }
 
 
@@ -666,17 +718,6 @@ void VmCodeGen::genVecElemCat(offs tempVar)
     genOp(opVecElemCat);
     genInt(PVector(vecType)->elementType->staticSize());
     genOffs(tempVar);
-}
-
-
-void VmCodeGen::genFinVar(ShVariable* var)
-{
-    needsRuntimeContext = true;
-    if (var->type->storageModel() == stoVec)
-    {
-        genOp(var->isLocal() ? opFinLocVec : opFinThisVec);
-        genOffs(var->dataOffset);
-    }
 }
 
 
