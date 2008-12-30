@@ -27,13 +27,22 @@ ShBase::ShBase(const string& name, ShBaseId iBaseId)
 
 ShType::ShType(ShTypeId iTypeId)
     : ShBase(baseType), typeId(iTypeId),
-      derivedVectorType(NULL), derivedSetType(NULL)  { }
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)  { }
 
 ShType::ShType(const string& name, ShTypeId iTypeId)
     : ShBase(name, baseType), typeId(iTypeId), 
       derivedVectorType(NULL), derivedSetType(NULL)  { }
 
 ShType::~ShType()  { }
+
+
+offs ShType::staticSize() const
+{
+    // stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
+    static offs stoToSize[6] = { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
+    return stoToSize[storageModel()];
+}
+
 
 offs ShType::staticSizeRequired() const
 {

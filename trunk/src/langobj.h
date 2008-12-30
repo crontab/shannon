@@ -99,7 +99,8 @@ public:
 enum StorageModel
 {
     // Order is important, it's in sync with VM ops, also the order of first 3
-    // is used in some code generation routines
+    // is used in some code generation routines. If you change this, also take
+    // a look at ShType::staticSize()
     stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
 };
 
@@ -148,7 +149,7 @@ public:
     bool isReference() const { return typeId == typeReference; }
 
     virtual StorageModel storageModel() const = 0;
-    virtual offs staticSize() const = 0; // TODO: define through storageModel()
+    offs staticSize() const;
     offs staticSizeRequired() const;
     offs staticSizeAligned() const
             { return memAlign(staticSize()); }
@@ -226,8 +227,6 @@ public:
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
-    virtual offs staticSize() const
-            { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoPtr; }
     virtual bool equals(ShType* type) const
@@ -279,8 +278,6 @@ protected:
 public:
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
-    virtual offs staticSize() const
-            { return size; }
     virtual StorageModel storageModel() const
             { return size > 4 ? stoLarge : size > 1 ? stoInt : stoByte; }
     virtual bool canBeArrayIndex() const
@@ -401,8 +398,6 @@ public:
     ShVoid(const string& name);
     virtual StorageModel storageModel() const
             { return stoVoid; }
-    virtual offs staticSize() const
-            { return 0; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isVoid(); }
@@ -414,8 +409,6 @@ class ShTypeRef: public ShType
     virtual string getFullDefinition(const string& objName) const;
 public:
     ShTypeRef(const string& name);
-    virtual offs staticSize() const
-            { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoPtr; }
     virtual string displayValue(const ShValue& v) const;
@@ -435,8 +428,6 @@ public:
     ShOrdinal* base;
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
-    virtual offs staticSize() const
-            { return sizeof(large); }
     virtual StorageModel storageModel() const
             { return stoLarge; }
     virtual string displayValue(const ShValue& v) const;
@@ -457,8 +448,6 @@ public:
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
     virtual string displayValue(const ShValue& v) const;
-    virtual offs staticSize() const
-            { return sizeof(ptr); }
     virtual StorageModel storageModel() const
             { return stoVec; }
     virtual bool isPod() const
@@ -523,8 +512,6 @@ public:
 
     virtual StorageModel storageModel() const
             { return stoPtr; }
-    virtual offs staticSize() const
-            { return sizeof(ptr); }
     virtual bool equals(ShType* type) const
             { return type->isReference() && base->equals(PReference(type)->base); }
     virtual string displayValue(const ShValue& v) const;
