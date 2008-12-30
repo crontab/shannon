@@ -155,6 +155,9 @@ ShVariable::ShVariable(const string& name, ShType* iType)
 
 // --- SYMBOLS-ONLY SCOPE --- //
 
+ShSymScope::ShSymScope(ShSymScope* iParent)
+    : ShType("", typeLocalSymScope), parent(iParent)  { }
+
 void ShSymScope::addSymbol(ShBase* obj)
 {
     if (obj->name.empty())
