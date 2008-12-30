@@ -175,21 +175,24 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         else if (obj->isType() || isAlias)
         {
             // TODO: type casts must be in parseDesignator()
-            ShType* type = isAlias ? ((ShTypeAlias*)obj)->base : (ShType*)obj;
+            ShType* toType = isAlias ? ((ShTypeAlias*)obj)->base : (ShType*)obj;
             if (parser.token == tokLParen)
             {
                 parser.next();
-                code.resultTypeHint = type;
+                code.resultTypeHint = toType;
                 parseExpr(code);
                 parser.skip(tokRParen, ")");
                 ShType* fromType = code.genTopType();
-                if (!fromType->canStaticCastTo(type))
+                if (fromType->isOrdinal() && toType->isString())
+                    code.genIntToStr();
+                else if (fromType->canStaticCastTo(toType))
+                    code.genStaticCast(toType);
+                else
                     error("Can't do static typecast from " + fromType->getDefinitionQ()
-                        + " to " + type->getDefinitionQ());
-                code.genStaticCast(type);
+                        + " to " + toType->getDefinitionQ());
             }
             else
-                code.genLoadTypeRef(getDerivators(type));
+                code.genLoadTypeRef(getDerivators(toType));
         }
         
         else if (obj->isVariable())
@@ -756,6 +759,7 @@ void ShModule::parseBlock(VmCodeGen& code)
 {
     while (!parser.skipIf(tokBlockEnd))
     {
+        code.genFinalizeTemps();
         if (parser.skipIf(tokDef))
             parseTypeDef();
         else if (parser.skipIf(tokConst))
@@ -774,7 +778,6 @@ void ShModule::parseBlock(VmCodeGen& code)
         }
         else
             parseOtherStatement(code);
-        code.genFinalizeTemps();
         parser.skipSep();
     }
 }

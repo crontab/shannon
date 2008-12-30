@@ -157,5 +157,10 @@ begin:
     assert w1 == 1
     def int g[]
     var g h = []
+    echo 'Hello, nested block!', str(w1), v1
+    begin:
+        const w1 = 1L
+        assert w1 == 1L
+        echo 'Hello, nested nestd block!', typeof(w1), str(w1)
 
 # echo w1
