@@ -14,11 +14,12 @@ class ShOrdinal;
 class ShInteger;
 class ShVoid;
 class ShRange;
-class ShScope;
 class ShVector;
 class ShSet;
 class ShArray;
 class ShReference;
+class ShSymScope;
+class ShScope;
 class ShModule;
 
 
@@ -83,8 +84,6 @@ class ShBase: public BaseNamed
     ShBaseId baseId;
 
 public:
-    ShScope* owner;
-    
     ShBase(ShBaseId iBaseId);
     ShBase(const string& name, ShBaseId iBaseId);
     
@@ -123,12 +122,15 @@ class ShType: public ShBase
     ShReference* derivedRefType;
 
 protected:
+    ShScope* owner;
     virtual string getFullDefinition(const string& objName) const = 0;
 
 public:
     ShType(ShTypeId iTypeId);
     ShType(const string& name, ShTypeId iTypeId);
     virtual ~ShType();
+    
+    void setOwner(ShScope*);
 
     string getDefinition(const string& objName) const;
     string getDefinition() const;
@@ -201,44 +203,58 @@ public:
 };
 
 
-// --- SCOPE --- //
+// --- SYMBOLS-ONLY SCOPE --- //
 
-class ShScope: public ShType
+class ShSymScope: public ShType
 {
 protected:
-    BaseTable<ShBase> symbols;
     BaseTable<ShModule> uses; // not owned
-    BaseList<ShType> types;
-    BaseList<ShVariable> vars;
-    BaseList<ShTypeAlias> typeAliases;
-    BaseList<ShConstant> consts;
-    
-    ShBase* own(ShBase* obj);
-    void addSymbol(ShBase* obj);
+    BaseTable<ShBase> symbols;
 
 public:
-    offs dataSize;
+    ShSymScope* parent;
 
-    ShScope(const string& name, ShTypeId iTypeId);
-    ~ShScope();
+    ShSymScope(const string& iName, ShTypeId iTypeId)
+            : ShType(iName, iTypeId), parent(NULL)  { }
+
     virtual bool isScope() const
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
     virtual StorageModel storageModel() const
-            { return stoPtr; }
+            { return stoVoid; }
     virtual bool equals(ShType* type) const
             { return false; }
+
     void addUses(ShModule*);
-    void addAnonType(ShType*);
-    void addType(ShType*);
-    virtual void addVariable(ShVariable*);
-    void genFinalizations(VmCodeGen&);
-    void addTypeAlias(ShTypeAlias*);
-    void addConstant(ShConstant*);
+    void addSymbol(ShBase* obj);
     ShBase* find(const string& name) const
             { return symbols.find(name); }
     ShBase* deepFind(const string&) const;
+};
+
+
+// --- SCOPE --- //
+
+class ShScope: public ShSymScope
+{
+protected:
+    BaseList<ShType> types;
+    BaseList<ShVariable> vars;
+    BaseList<ShTypeAlias> typeAliases;
+    BaseList<ShConstant> consts;
+    
+public:
+    offs dataSize;
+
+    ShScope(const string& name, ShTypeId iTypeId);
+    ~ShScope();
+    void addAnonType(ShType*);
+    void addType(ShType*, ShSymScope*);
+    virtual void addVariable(ShVariable*, ShSymScope*);
+    void addTypeAlias(ShTypeAlias*, ShSymScope*);
+    void addConstant(ShConstant*, ShSymScope*);
+    void genFinalizations(VmCodeGen&);
     void dump(string indent) const;
 };
 
@@ -601,7 +617,7 @@ protected:
 public:
     ShLocalScope(); // anonymous
 
-    virtual void addVariable(ShVariable*);
+    virtual void addVariable(ShVariable*, ShScope* symbolScope);
 };
 
 
@@ -619,14 +635,13 @@ class ShModule: public ShScope
             : enableEcho(true), enableAssert(true)  { }
     };
 
-
     string fileName;
     Parser parser;
     Array<string> vectorConsts;
     CompilerOptions options;
 
-    ShScope* currentScope;     // can be static or local; in functions is same as localScope
-    ShLocalScope* localScope;  // local-only, for temp vars
+    ShSymScope* symbolScope; // for symbols only
+    ShScope* varScope;    // static or stack-local scope
 
     string registerString(const string& v) // TODO: fund duplicates
             { vectorConsts.add(v); return v; }
@@ -672,6 +687,7 @@ class ShModule: public ShScope
     void parseAssert(VmCodeGen&);
     void parseOtherStatement(VmCodeGen&);
     void parseBlock(VmCodeGen& code);
+    void enterBlock(VmCodeGen& code);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
