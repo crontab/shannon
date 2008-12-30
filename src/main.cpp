@@ -208,8 +208,12 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
     // typeof(...)
     else if (parser.skipIf(tokTypeOf))
     {
+        // TODO: currently only works with const expressions, however,
+        // it should be possible to get a type of a variable or an array item,
+        // and finally a dynamic type of a state. The question is how. The 
+        // problem of 'is' and 'as' is related.
         parser.skip(tokLParen, "(");
-        code.genLoadTypeRef(getTypeExpr());
+        code.genLoadTypeRef(getTypeExpr(true));
         parser.skip(tokRParen, ")");
     }
 
@@ -217,7 +221,7 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
     else if (parser.skipIf(tokSizeOf))
     {
         parser.skip(tokLParen, "(");
-        ShType* type = getTypeExpr();
+        ShType* type = getTypeExpr(true);
         parser.skip(tokRParen, ")");
         // TODO: actual sizes for states (maybe also vectors/arrays? or len() is enough?)
         code.genLoadIntConst(queenBee->defaultInt, type->staticSize());
@@ -744,13 +748,44 @@ void ShModule::parseOtherStatement(VmCodeGen& code)
 }
 
 
-bool ShModule::compile(const CompilerOptions& options)
+VmCodeGen nullGen;
+
+
+void ShModule::parseBlock(VmCodeGen& code)
+{
+    while (!parser.skipIf(tokBlockEnd))
+    {
+        if (parser.skipIf(tokDef))
+            parseTypeDef();
+        else if (parser.skipIf(tokConst))
+            parseVarConstDef(false, code);
+        else if (parser.skipIf(tokVar))
+            parseVarConstDef(true, code);
+        else if (parser.skipIf(tokEcho))
+            parseEcho(options.enableEcho ? code : nullGen);
+        else if (parser.skipIf(tokAssert))
+            parseAssert(options.enableAssert ? code : nullGen);
+        else if (parser.skipIf(tokBegin))
+        {
+            parser.skipBlockBegin();
+            // TODO: local scope
+            parseBlock(code);
+            continue;
+        }
+        else
+            parseOtherStatement(code);
+        code.genFinalizeTemps();
+        parser.skipSep();
+    }
+}
+
+
+bool ShModule::compile()
 {
     try
     {
         VmCodeGen main;
         VmCodeGen fin;
-        VmCodeGen null;
         VmCodeGen* curCodeGen = &main;
 
         currentScope = this;
@@ -769,25 +804,8 @@ bool ShModule::compile(const CompilerOptions& options)
             parser.skipSep();
         }
 
-        while (parser.token != tokEof)
-        {
-            if (parser.skipIf(tokDef))
-                parseTypeDef();
-            else if (parser.skipIf(tokConst))
-                parseVarConstDef(false, *curCodeGen);
-            else if (parser.skipIf(tokVar))
-                parseVarConstDef(true, *curCodeGen);
-            else if (parser.skipIf(tokEcho))
-                parseEcho(options.enableEcho ? *curCodeGen : null);
-            else if (parser.skipIf(tokAssert))
-                parseAssert(options.enableAssert ? *curCodeGen : null);
-            else
-                parseOtherStatement(*curCodeGen);
-
-            parser.skipSep();
-
-            curCodeGen->genFinalizeTemps();
-        }
+        parseBlock(*curCodeGen);
+        parser.skip(tokEof, "<EOF>");
 
         genFinalizations(fin);
 
@@ -805,8 +823,11 @@ bool ShModule::compile(const CompilerOptions& options)
     catch(Exception& e)
     {
         fprintf(stderr, "%s\n", e.what().c_str());
+        nullGen.clear();
         return false;
     }
+
+    nullGen.clear();
     return true;
 }
 
@@ -852,8 +873,7 @@ int main()
 #else
         ShModule module("z.sn");
 #endif
-        CompilerOptions opts;
-        module.compile(opts);
+        module.compile();
 
         if (module.compiled)
         {

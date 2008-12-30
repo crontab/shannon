@@ -229,7 +229,9 @@ Keywords::kwinfo Keywords::keywords[] =
     {
         // NOTE: this list must be kept in sorted order
         {"and", tokAnd},
+        {"as", tokAs},
         {"assert", tokAssert},
+        {"begin", tokBegin},
         {"const", tokConst},
         {"def", tokDef},
         {"echo", tokEcho},
@@ -452,11 +454,11 @@ restart:
     if (input->getEof())
     {
         // finalize all indents at end of file
-        if (indentStack.size() > 1)
+        if (indentStack.size() > 0)
         {
             strValue = "<END>";
             indentStack.pop();
-            return token = tokEnd;
+            return token = tokBlockEnd;
         }
         strValue = "<EOF>";
         return token = tokEof;
@@ -472,7 +474,7 @@ restart:
         {
             strValue = "<END>";
             singleLineBlock = false;
-            return token = tokEnd;
+            return token = tokBlockEnd;
         }
         else
         {
@@ -503,10 +505,10 @@ restart:
         int oldIndent = indentStack.top();
         if (newIndent > oldIndent)
         {
-            strValue = "<BEGIN>";
+            strValue = "<INDENT>";
             indentStack.push(newIndent);
             blankLine = false; // don't return to this branch again
-            return token = tokBegin;
+            return token = tokIndent;
         }
         else if (newIndent < oldIndent) // unindent
         {
@@ -518,12 +520,12 @@ restart:
             else if (newIndent == oldIndent)
             {
                 blankLine = false; // don't return to this branch again
-                return token = tokEnd;
+                return token = tokBlockEnd;
             }
             else
                 // by keeping blankLine = true we force to return to this branch
                 // next time so that proper number of <END>s are generated
-                return token = tokEnd;
+                return token = tokBlockEnd;
         }
         // else: same indent level, so pass through to token analysis
     }
@@ -587,7 +589,14 @@ restart:
         case ':':
             input->skip(wsChars);
             singleLineBlock = !input->getEol();
-            return token = tokBegin;
+            if (singleLineBlock)
+                return token = tokBlockBegin;
+            else
+            {
+                if (next() != tokSep || next() != tokIndent)
+                    error("Indented block expected after the colon");
+                return token = tokBlockBegin;
+            }
         case '+': return token = tokPlus;
         case '-': return token = tokMinus;
         case '/': return token = tokDiv;
@@ -612,20 +621,6 @@ restart:
 }
 
 
-Token Parser::nextBegin()
-{
-    // In the future, this will convert '{' to tokBegin
-    return next();
-}
-
-
-Token Parser::nextEnd()
-{
-    // In the future, this will convert '}' to tokEnd
-    return next();
-}
-
-
 string Parser::getIdent()
 {
     if (token != tokIdent)
@@ -641,8 +636,11 @@ string Parser::errorLocation() const
     string msg;
     if (!strValue.empty())
     {
+        string s = strValue;
+        if (s.size() > 30)
+            s = s.copy(0, 30) + "...";
         // TODO: cut long string literals maybe
-        msg += " near '" + strValue + "'";
+        msg += " near '" + s + "'";
     }
     return msg;
 }
@@ -662,6 +660,10 @@ void Parser::skip(Token tok, const char* errName)
         errorWithLoc("'" + string(errName) + "' expected");
     next();
 }
+
+
+void Parser::skipBlockBegin()
+    { skip(tokBlockBegin, "<BEGIN>"); }
 
 
 string extractFileName(string filepath)

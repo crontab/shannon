@@ -1,6 +1,13 @@
 
-* assignments
+* block parsing
+
+* stoQuad storage model
+
+* vector item selection, only R-value to start with
 
 * init/finalization of non-POD vectors
 
+* is, as (sometimes can be evaluated at compile time)
+
 * a lot of TODO's in the sources
+

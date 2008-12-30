@@ -257,6 +257,8 @@ protected:
 public:
     VmCodeGen();
     
+    void clear();
+    
     ShType* resultTypeHint; // used by the parser for vector/array constructors
 
     void genLoadIntConst(ShOrdinal*, int);

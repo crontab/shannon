@@ -330,15 +330,20 @@ void testParser()
     {
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
-            tokBegin, tokModule, tokSep,
-            tokBegin, tokIdent, tokIdent, tokIdent, tokSep,
+            tokIndent, tokModule, tokSep,
+            tokIndent, tokIdent, tokIdent, tokIdent, tokSep,
             tokIdent, tokIdent, tokConst, tokPeriod, tokSep,
-            tokEnd,
+            tokBlockEnd,
             tokIntValue, tokSep,
-            tokBegin, tokStrValue, tokSep,
+            tokIndent, tokStrValue, tokSep,
             tokIdent, tokComma, tokSep,
             tokIdent, tokSep,
-            tokEnd, tokEnd, tokEof
+            tokBlockEnd, tokBlockEnd,
+            tokIdent, tokBlockBegin, tokIdent, tokBlockEnd,
+            tokIdent, tokBlockBegin, tokIdent, tokSep, 
+            tokIdent, tokSep, tokBlockEnd,
+            tokBlockEnd,
+            tokEof
         };
         int i = 0;
         while (parser.next() != tokEof && expect[i] != tokEof)
