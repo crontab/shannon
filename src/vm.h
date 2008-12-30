@@ -151,10 +151,13 @@ enum OpCode
     opBitNotLarge,      //                  -1  +1
     opBoolNot,          //                  -1  +1
     
-    // jumps
+    // jumps; [dst] is a relative offset
     //   short bool evaluation: pop if jump, leave it otherwise
     opJumpOr,           // [dst]            -1/0
     opJumpAnd,          // [dst]            -1/0
+    opJumpTrue,         // [dst]            -1
+    opJumpFalse,        // [dst]            -1
+    opJump,             // [dst]
 
     // helpers
     opEcho,             // [ShType*]        -1
@@ -177,7 +180,7 @@ enum OpCode
 };
 
 
-inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJumpAnd; }
+inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJump; }
 
 
 class VmStack: public PodStack<VmQuant>
@@ -228,6 +231,7 @@ protected:
 
     VmCodeSegment codeseg;
     VmCodeSegment finseg;
+    VmCodeSegment initseg;
     PodStack<GenStackInfo> genStack;
     int genStackSize;
     bool needsRuntimeContext;
@@ -235,7 +239,6 @@ protected:
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
-    const GenStackInfo& genPop();
     ShVariable* genPopDeferred();
     ShType* genPopType()                { return genPop().type; }
 
@@ -281,8 +284,9 @@ public:
     void genBitNot(ShInteger* type)
             { genOp(OpCode(opBitNot + type->isLargeInt())); }
     offs genElemToVec(ShVector*);
-    int  genForwardBoolJump(OpCode op);
-    void genResolveJump(int jumpOffset);
+    offs genForwardBoolJump(OpCode op);
+    offs genForwardJump(OpCode op = opJump);
+    void genResolveJump(offs jumpOffset);
     void genLoadVar(ShVariable*);
     void genLoadVarRef(ShVariable*);
     void genStore();
@@ -299,8 +303,9 @@ public:
             { genOp(op); }
     void genReturn();
 
-    int  genOffset() const
+    offs genOffset() const
             { return codeseg.size(); }
+    const GenStackInfo& genPop();
     ShType* genTopType()
             { return genTop().type; }
     offs genReserveTempVar(ShType*);
@@ -308,6 +313,7 @@ public:
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr(ShValue& value, bool anyObj);
     void genFinalizeTemps();
+
     VmCodeSegment getCodeSeg();
 };
 

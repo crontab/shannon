@@ -161,7 +161,7 @@ public:
     static ptr _initializen(int size)
             { ptr p; PTR_TO_STRING(p)._alloc(size); return p; }
     static void _finalize(ptr p)
-            { PTR_TO_PSTRING(p)->finalize(); }
+            { if (p != NULL) PTR_TO_PSTRING(p)->finalize(); }
 };
 
 

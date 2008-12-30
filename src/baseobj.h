@@ -29,7 +29,7 @@ public:
             : Base(), name()  { }
     BaseNamed(const string& iName)
             : Base(), name(iName)  { }
-    void setNamePleaseThisIsBadIKnow(const string& iName)
+    void setNamePleaseThisIsWrongIKnow(const string& iName)
             { *(string*)&name = iName; }
 };
 

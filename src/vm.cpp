@@ -51,7 +51,7 @@ static void popByType(ShType* type, ShValue& result)
                 result.assignVec(type, PTR_TO_STRING(p));
             }
             break;
-        case stoVoid: result.assignVoid(type); stk.popInt(); break;
+        case stoVoid: result.assignVoid(type); break;
         default: internal(58);
     }
 }
@@ -93,7 +93,7 @@ static ptr itostr10(large v)
     case opLoad##KIND##Large: stk.pushLarge(*plarge(PTR)); break; \
     case opLoad##KIND##Ptr: \
     case opLoad##KIND##Vec: stk.pushPtr(*pptr(PTR)); break; \
-    case opLoad##KIND##Void: stk.pushPtr(NULL); break;
+    case opLoad##KIND##Void: break;
 
 #define GEN_STORERS(KIND,PTR) \
     case opStore##KIND##Byte: { int t = stk.popInt(); *puchar(PTR) = t; } break; \
@@ -271,8 +271,11 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 
         // --- JUMPS ------------------------------------------------------- //
 
-        case opJumpOr: if (stk.topInt()) p += p->int_; else stk.popInt(); p++; break;
-        case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->int_; p++; break;
+        case opJumpOr: if (stk.topInt()) p += p->offs_; else stk.popInt(); p++; break;
+        case opJumpAnd: if (stk.topInt()) stk.popInt(); else p += p->offs_; p++; break;
+        case opJumpTrue: if (stk.popInt()) p += p->offs_; p++; break;
+        case opJumpFalse: if (!stk.popInt()) p += p->offs_; p++; break;
+        case opJump: p += p->offs_; p++; break;
 
         // --- MISC. ------------------------------------------------------- //
 
@@ -290,7 +293,6 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 
 VmCodeSegment::VmCodeSegment()
         : code(), reserveStack(0), reserveLocals(0)  { }
-
 
 void VmCodeSegment::append(const VmCodeSegment& seg)
 {
@@ -310,8 +312,12 @@ void VmCodeSegment::execute(pchar dataseg, ptr retval)
     // make room on the stack for this function so that no reallocations are needed
     stk.reservebytes(reserveStack + reserveLocals);
 
-    // reserve space for locals and temps; to be restored to this point later
+    // reserve space for locals and temps; to be restored to this point later.
+    // we also reset the local storage to zero so that any unused tempvars can 
+    // be finalized properly, and in the future this will help to unwind the 
+    // stack after an exception.
     char* savebase = stk.pushrbytes(reserveLocals);
+    memset(savebase, 0, reserveLocals);
 
     // run, rabbit, run!
     run(getCode(), dataseg, savebase, retval);
@@ -325,13 +331,11 @@ VmCodeGen::VmCodeGen()
     : codeseg(), genStack(), genStackSize(0), needsRuntimeContext(false), 
       deferredVar(NULL), resultTypeHint(NULL)  { }
 
-
 void VmCodeGen::clear()
 {
     codeseg.clear();
     genStack.clear();
 }
-
 
 void VmCodeGen::verifyClean()
 {
@@ -340,7 +344,6 @@ void VmCodeGen::verifyClean()
     if (stk.bytesize() != 0)
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
 }
-
 
 void VmCodeGen::runConstExpr(ShValue& result)
 {
@@ -357,7 +360,6 @@ void VmCodeGen::runConstExpr(ShValue& result)
 #endif
 }
 
-
 ShType* VmCodeGen::runTypeExpr(ShValue& value, bool anyObj)
 {
     runConstExpr(value);
@@ -370,7 +372,6 @@ ShType* VmCodeGen::runTypeExpr(ShValue& value, bool anyObj)
     return anyObj ? value.type : NULL;
 }
 
-
 void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 {
     genOp(op);
@@ -381,7 +382,6 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
     genOp(cmp);
 }
 
-
 void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t, genOffset()));
@@ -391,7 +391,6 @@ void VmCodeGen::genPush(ShType* t)
     resultTypeHint = NULL;
 }
 
-
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
     const GenStackInfo& t = genTop();
@@ -399,7 +398,6 @@ const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
     genStack.pop();
     return t;
 }
-
 
 ShVariable* VmCodeGen::genPopDeferred()
 {
@@ -410,7 +408,6 @@ ShVariable* VmCodeGen::genPopDeferred()
     genPop();
     return var;
 }
-
 
 void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
 {
@@ -433,7 +430,6 @@ void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
     }
 }
 
-
 void VmCodeGen::genLoadLargeConst(ShOrdinal* type, large value)
 {
     genPush(type);
@@ -448,13 +444,13 @@ void VmCodeGen::genLoadLargeConst(ShOrdinal* type, large value)
     }
 }
 
-
+/*
 void VmCodeGen::genLoadNull()
 {
     genPush(queenBee->defaultVoid);
     genOp(opLoadNull);
 }
-
+*/
 
 void VmCodeGen::genLoadTypeRef(ShType* type)
 {
@@ -462,7 +458,6 @@ void VmCodeGen::genLoadTypeRef(ShType* type)
     genOp(opLoadTypeRef);
     genPtr(type);
 }
-
 
 void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
 {
@@ -475,7 +470,6 @@ void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
         genPtr(ptr(s));
     }
 }
-
 
 void VmCodeGen::genLoadConst(ShType* type, podvalue value)
 {
@@ -490,12 +484,11 @@ void VmCodeGen::genLoadConst(ShType* type, podvalue value)
         genLoadVecConst(type, pconst(value.ptr_));
     else if (type->isTypeRef())
         genLoadTypeRef((ShType*)value.ptr_);
-    else if (type->isVoid())
-        genLoadNull();
+//    else if (type->isVoid())
+//        genLoadNull();
     else
         internal(50);
 }
-
 
 void VmCodeGen::genMkSubrange()
 {
@@ -575,7 +568,6 @@ void VmCodeGen::genStaticCast(ShType* type)
         internal(59);
 }
 
-
 void VmCodeGen::genBinArithm(OpCode op, ShInteger* resultType)
 {
     genPop();
@@ -584,14 +576,12 @@ void VmCodeGen::genBinArithm(OpCode op, ShInteger* resultType)
     genOp(OpCode(op + resultType->isLargeInt()));
 }
 
-
 void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
 {
     genPop();
     genPush(resultType);
     genOp(OpCode(op + resultType->isLargeInt()));
 }
-
 
 offs VmCodeGen::genElemToVec(ShVector* vecType)
 {
@@ -605,26 +595,29 @@ offs VmCodeGen::genElemToVec(ShVector* vecType)
     return tmpOffset;
 }
 
-
-int VmCodeGen::genForwardBoolJump(OpCode op)
+offs VmCodeGen::genForwardBoolJump(OpCode op)
 {
-    genPop(); // because bool jump pops an item if it doesn't jump
+    if (!genPopType()->isBool())
+        internal(69);
+    return genForwardJump(op);
+}
+
+offs VmCodeGen::genForwardJump(OpCode op)
+{
     int t = genOffset();
     genOp(op);
     genInt(0);
     return t;
 }
 
-
-void VmCodeGen::genResolveJump(int jumpOffset)
+void VmCodeGen::genResolveJump(offs jumpOffset)
 {
     VmQuant* q = codeseg.at(jumpOffset);
     if (!isJump(OpCode(q->op_)))
         internal(53);
     q++;
-    q->int_ = genOffset() - (jumpOffset + 2);
+    q->offs_ = genOffset() - (jumpOffset + 2);
 }
-
 
 void VmCodeGen::genLoadVar(ShVariable* var)
 {
@@ -641,7 +634,6 @@ void VmCodeGen::genLoadVar(ShVariable* var)
     genOffs(var->dataOffset);
 }
 
-
 void VmCodeGen::genLoadVarRef(ShVariable* var)
 {
     needsRuntimeContext = true;
@@ -650,7 +642,6 @@ void VmCodeGen::genLoadVarRef(ShVariable* var)
     deferredVar = var;
     genPush(var->type->deriveRefType());
 }
-
 
 void VmCodeGen::genStore()
 {
@@ -662,7 +653,6 @@ void VmCodeGen::genStore()
     genOp(op);
     genOffs(var->dataOffset);
 }
-
 
 void VmCodeGen::genInitVar(ShVariable* var)
 {
@@ -678,7 +668,6 @@ void VmCodeGen::genInitVar(ShVariable* var)
     genOffs(var->dataOffset);
 }
 
-
 void VmCodeGen::genFinVar(ShVariable* var)
 {
     needsRuntimeContext = true;
@@ -688,7 +677,6 @@ void VmCodeGen::genFinVar(ShVariable* var)
         genOffs(var->dataOffset);
     }
 }
-
 
 offs VmCodeGen::genCopyToTempVec()
 {
@@ -703,7 +691,6 @@ offs VmCodeGen::genCopyToTempVec()
     return tmpOffset;
 }
 
-
 void VmCodeGen::genVecCat(offs tempVar)
 {
     genPop();
@@ -716,7 +703,6 @@ void VmCodeGen::genVecCat(offs tempVar)
     genOp(opVecCat);
     genOffs(tempVar);
 }
-
 
 void VmCodeGen::genVecElemCat(offs tempVar)
 {
@@ -732,7 +718,6 @@ void VmCodeGen::genVecElemCat(offs tempVar)
     genOffs(tempVar);
 }
 
-
 void VmCodeGen::genIntToStr()
 {
     ShType* type = genPopType();
@@ -743,7 +728,6 @@ void VmCodeGen::genIntToStr()
     genOp(POrdinal(type)->isLargeInt() ? opLargeToStr : opIntToStr);
     genOffs(tmpOffset);
 }
-
 
 offs VmCodeGen::genReserveTempVar(ShType* type)
 {
@@ -757,7 +741,6 @@ offs VmCodeGen::genReserveTempVar(ShType* type)
     return offset;
 }
 
-
 void VmCodeGen::genAssert(Parser& parser)
 {
     genPop();
@@ -765,7 +748,6 @@ void VmCodeGen::genAssert(Parser& parser)
     genPtr(ptr(parser.getFileName().c_str()));
     genInt(parser.getLineNum());
 }
-
 
 void VmCodeGen::genReturn()
 {
@@ -778,13 +760,11 @@ void VmCodeGen::genReturn()
     genOp(op);
 }
 
-
 void VmCodeGen::genEnd()
 {
     if (!codeseg.empty())
         genOp(opEnd);
 }
-
 
 void VmCodeGen::genFinalizeTemps()
 {
@@ -794,7 +774,6 @@ void VmCodeGen::genFinalizeTemps()
         finseg.clear();
     }
 }
-
 
 VmCodeSegment VmCodeGen::getCodeSeg()
 {

@@ -58,7 +58,7 @@ factor ::= [ '-' | 'not' ] designator
 designator ::= atom { }
 
 atom ::= literal | qualified-name | subexpr | compound-ctor
-    | fifo-ctor | type
+    | fifo-ctor | type | if-expr
 
 literal ::= number | string | "true" | "false" | "null"
 
@@ -70,6 +70,7 @@ compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
 
 element-ctor ::= [ expr "=" ] expr
 
+if-expr ::= "if" "(" expr, expr, expr ")"
 
 
 fifo-ctor ::= "<" [ expr-list ] ">"

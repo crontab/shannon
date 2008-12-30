@@ -56,6 +56,7 @@ int pdecrement(int* target);
 // --- MEMORY ALLOCATION -------------------------------------------------- //
 
 void* memalloc(uint a);
+void* memcalloc(uint a);
 void* memrealloc(void* p, uint a);
 void  memfree(void* p);
 int   memquantize(int);
