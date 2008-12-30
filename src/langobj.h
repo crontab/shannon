@@ -18,6 +18,7 @@ class ShScope;
 class ShVector;
 class ShSet;
 class ShArray;
+class ShReference;
 class ShModule;
 
 
@@ -108,6 +109,7 @@ enum ShTypeId
     typeVoid,
     typeInt, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
+    typeReference,
     typeLocalScope, typeModule
 };
 
@@ -117,6 +119,7 @@ class ShType: public ShBase
     ShTypeId typeId;
     ShVector* derivedVectorType;
     ShSet* derivedSetType;
+    ShReference* derivedRefType;
 
 protected:
     virtual string getFullDefinition(const string& objName) const = 0;
@@ -142,9 +145,10 @@ public:
     bool isVector() const { return typeId == typeVector; }
     bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
+    bool isReference() const { return typeId == typeReference; }
 
     virtual StorageModel storageModel() const = 0;
-    virtual offs staticSize() const = 0; // must be in sync with storageModel()
+    virtual offs staticSize() const = 0; // TODO: define through storageModel()
     offs staticSizeRequired() const;
     offs staticSizeAligned() const
             { return memAlign(staticSize()); }
@@ -169,6 +173,7 @@ public:
     ShVector* deriveVectorType();
     ShArray* deriveArrayType(ShType* indexType);
     ShSet* deriveSetType(ShVoid* elementType);
+    ShReference* deriveRefType();
     void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
             { derivedVectorType = v; }
 };
@@ -472,8 +477,6 @@ public:
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     virtual bool canStaticCastTo(ShType* type) const
             { return isEmptyVec() || equals(type); }
-    bool isPodVector() const
-            { return elementType->isPod(); }
     bool elementEquals(ShType* elemType) const
             { return elementType->equals(elemType); }
     bool isEmptyVec() const
@@ -503,6 +506,27 @@ class ShSet: public ShArray
 {
 public:
     ShSet(ShVoid* iElementType, ShType* iIndexType);
+    virtual string displayValue(const ShValue& v) const;
+};
+
+
+typedef ShReference* PReference;
+
+class ShReference: public ShType
+{
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+
+public:
+    ShType* const base;
+    ShReference(ShType* iBase);
+
+    virtual StorageModel storageModel() const
+            { return stoPtr; }
+    virtual offs staticSize() const
+            { return sizeof(ptr); }
+    virtual bool equals(ShType* type) const
+            { return type->isReference() && base->equals(PReference(type)->base); }
     virtual string displayValue(const ShValue& v) const;
 };
 
@@ -633,13 +657,14 @@ class ShModule: public ShScope
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
     void errorNotFound(const string& msg)   { parser.errorNotFound(msg); }
     void notImpl()                          { error("Feature not implemented"); }
+
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
     ShType* getTypeOrNewIdent(string* strToken);
     void    getConstCompound(ShType*, ShValue&);
     ShType* getTypeExpr(bool anyObj = true);
-    ShType* parseAtom(VmCodeGen&);
-    ShType* parseDesignator(VmCodeGen&);
+    ShType* parseAtom(VmCodeGen&, bool isLValue);
+    ShType* parseDesignator(VmCodeGen&, bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
     ShType* parseFactor(VmCodeGen&);
     ShType* parseTerm(VmCodeGen&);
@@ -662,6 +687,7 @@ class ShModule: public ShScope
     void parseVarConstDef(bool isVar, VmCodeGen& code);
     void parseEcho(VmCodeGen& code);
     void parseAssert(VmCodeGen& code);
+    void parseOtherStatement(VmCodeGen& code);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
@@ -718,3 +744,4 @@ void registerModule(ShModule* module);
 
 
 #endif
+

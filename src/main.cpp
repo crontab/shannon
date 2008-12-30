@@ -116,7 +116,7 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 }
 
 
-ShType* ShModule::parseAtom(VmCodeGen& code)
+ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
 {
     if (parser.skipIf(tokLParen))
     {
@@ -194,9 +194,10 @@ ShType* ShModule::parseAtom(VmCodeGen& code)
         
         else if (obj->isVariable())
         {
-            if (((ShVariable*)obj)->isLocal())
-                notImpl();
-            code.genLoadThisVar((ShVariable*)obj);
+            if (isLValue)
+                code.genLoadVarRef((ShVariable*)obj);
+            else
+                code.genLoadVar((ShVariable*)obj);
         }
         
         // TODO: vars, funcs
@@ -247,16 +248,16 @@ ShType* ShModule::parseAtom(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseDesignator(VmCodeGen& code)
+ShType* ShModule::parseDesignator(VmCodeGen& code, bool isLValue)
 {
-    return parseAtom(code);
+    return parseAtom(code, isLValue);
 }
 
 
 ShType* ShModule::parseFactor(VmCodeGen& code)
 {
     bool isNeg = parser.skipIf(tokMinus);
-    ShType* resultType = parseDesignator(code);
+    ShType* resultType = parseDesignator(code, false);
     if (isNeg)
     {
         resultType = code.genTopType();
@@ -728,6 +729,21 @@ void ShModule::parseAssert(VmCodeGen& code)
 }
 
 
+void ShModule::parseOtherStatement(VmCodeGen& code)
+{
+    ShType* type = parseDesignator(code, true);
+    if (parser.skipIf(tokAssign))
+    {
+        if (!type->isReference())
+            error("L-value expected in assignment");
+        parseExpr(code, PReference(type)->base);
+        code.genStore();
+    }
+    else
+        error("Definition or statement expected");
+}
+
+
 bool ShModule::compile(const CompilerOptions& options)
 {
     try
@@ -766,7 +782,7 @@ bool ShModule::compile(const CompilerOptions& options)
             else if (parser.skipIf(tokAssert))
                 parseAssert(options.enableAssert ? *curCodeGen : null);
             else
-                errorWithLoc("Expected definition or statement");
+                parseOtherStatement(*curCodeGen);
 
             parser.skipSep();
 

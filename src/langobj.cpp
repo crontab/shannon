@@ -108,6 +108,17 @@ ShSet* ShType::deriveSetType(ShVoid* elementType)
 }
 
 
+ShReference* ShType::deriveRefType()
+{
+    if (derivedRefType == NULL)
+    {
+        derivedRefType = new ShReference(this);
+        owner->addAnonType(derivedRefType);
+    }
+    return derivedRefType;
+}
+
+
 // --- TYPE ALIAS --- //
 
 ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
@@ -507,6 +518,20 @@ ShSet::ShSet(ShVoid* iElementType, ShType* iIndexType)
 
 string ShSet::displayValue(const ShValue& v) const
     { notImpl(); return "null"; }
+
+
+// --- REFERENCE TYPE --- //
+
+ShReference::ShReference(ShType* iBase)
+    : ShType(typeReference), base(iBase)  { }
+
+
+string ShReference::getFullDefinition(const string& objName) const
+    { return base->getDefinition(objName) + '^'; }
+
+
+string ShReference::displayValue(const ShValue& v) const
+    { return base->displayValue(v); }
 
 
 // --- STATE --- //

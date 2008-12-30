@@ -75,14 +75,16 @@ enum OpCode
     opInitLocVec,       // [local-offs]     -1
     opFinLocVec,        // [local-offs]
     
+    opLoadThisRef,      // [offs]               +1
+    opLoadLocRef,       // [offs]               +1
+
+    // --------------------------------------------------------------------- //
+
+    // vector concatenation
     opCopyToTmpVec,     // [temp-offs]
     opElemToVec,        // [elem-size] [temp-offs]  -1  +1
     opVecCat,           // [temp-offs]              -2  +1
     opVecElemCat,       // [elem-size] [temp-offs]  -2  +1
-
-//    opInitLocVecE,      // [offs]          -1 <- element
-
-    // --------------------------------------------------------------------- //
 
     // comparison
     opCmpInt,           //                  -2  +1
@@ -227,10 +229,12 @@ protected:
     PodStack<GenStackInfo> genStack;
     int genStackSize;
     bool needsRuntimeContext;
+    ShVariable* deferredVar;
     
     void genPush(ShType* v);
     const GenStackInfo& genTop()        { return genStack.top(); }
     const GenStackInfo& genPop();
+    ShVariable* genPopDeferred();
     ShType* genPopType()                { return genPop().type; }
 
     void genOp(OpCode op)               { codeseg.add()->op_ = op; }
@@ -244,8 +248,8 @@ protected:
     void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
 #endif
 
-    void genCmpOp(OpCode op, OpCode cmp);
     void genNop()           { genOp(opNop); }
+    void genCmpOp(OpCode op, OpCode cmp);
     void genEnd();
     void runFinCode();
     void verifyClean();
@@ -254,7 +258,7 @@ public:
     VmCodeGen();
     
     ShType* resultTypeHint; // used by the parser for vector/array constructors
-    
+
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);
     void genLoadNull();
@@ -275,7 +279,9 @@ public:
     offs genElemToVec(ShVector*);
     int  genForwardBoolJump(OpCode op);
     void genResolveJump(int jumpOffset);
-    void genLoadThisVar(ShVariable*);
+    void genLoadVar(ShVariable*);
+    void genLoadVarRef(ShVariable*);
+    void genStore();
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
     offs genCopyToTempVec();
