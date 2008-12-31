@@ -11,10 +11,12 @@ obj/baseobj.o: str.h port.h baseobj.h contain.h except.h bsearch.h
 obj/source.o: source.h str.h port.h except.h charset.h contain.h baseobj.h
 obj/source.o: bsearch.h
 obj/langobj.o: langobj.h str.h port.h except.h baseobj.h contain.h source.h
-obj/langobj.o: charset.h vm.h
-obj/vm.o: str.h port.h source.h except.h charset.h contain.h baseobj.h vm.h
-obj/vm.o: langobj.h
+obj/langobj.o: charset.h vm.h codegen.h
+obj/vm.o: vm.h contain.h str.h port.h langobj.h except.h baseobj.h source.h
+obj/vm.o: charset.h
+obj/codegen.o: codegen.h baseobj.h port.h str.h contain.h except.h vm.h
+obj/codegen.o: langobj.h source.h charset.h
 obj/main.o: str.h port.h except.h langobj.h baseobj.h contain.h source.h
-obj/main.o: charset.h vm.h
+obj/main.o: charset.h vm.h codegen.h
 obj/main-ut.o: charset.h port.h str.h contain.h baseobj.h except.h source.h
-obj/main-ut.o: langobj.h
+obj/main-ut.o: langobj.h vm.h

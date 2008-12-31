@@ -3,7 +3,7 @@
 #include <limits.h>
 
 #include "langobj.h"
-#include "vm.h"
+#include "codegen.h"
 
 
 static void notImpl()
@@ -26,14 +26,20 @@ ShBase::ShBase(const string& name, ShBaseId iBaseId)
 
 
 ShType::ShType(ShTypeId iTypeId)
-    : ShBase(baseType), typeId(iTypeId),
+    : ShBase(baseType),
       derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
-      owner(NULL)  { }
+      owner(NULL)
+{
+    setTypeId(iTypeId);
+}
 
 ShType::ShType(const string& name, ShTypeId iTypeId)
-    : ShBase(name, baseType), typeId(iTypeId), 
+    : ShBase(name, baseType), 
       derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
-      owner(NULL)  { }
+      owner(NULL)
+{
+    setTypeId(iTypeId);
+}
 
 ShType::~ShType()  { }
 
@@ -45,24 +51,6 @@ void ShType::setOwner(ShScope* newOwner)
     owner = newOwner;
 }
 
-
-offs ShType::staticSize() const
-{
-    // stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
-    static offs stoToSize[6] = { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
-    return stoToSize[storageModel()];
-}
-
-
-offs ShType::staticSizeRequired() const
-{
-    int size = staticSize();
-    if (size == 0)
-        internal(9, "Size of type is zero");
-    return size;
-}
-
-
 offs memAlign(offs size)
 {
     if (size == 0)
@@ -71,6 +59,29 @@ offs memAlign(offs size)
         return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
 }
 
+void ShType::setTypeId(ShTypeId iTypeId)
+{
+    typeId = iTypeId;
+    // stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
+    static offs stoToSize[_stoMax] = 
+        { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
+    static StorageModel typeToSto[_typeMax] =
+    {
+        stoByte, stoInt, stoLarge, stoByte, stoByte, stoByte,
+        stoVec, stoVec, stoPtr, stoLarge,
+        stoPtr,
+        stoVoid, stoVoid, stoVoid,
+        stoVoid
+    };
+    stoModel = typeToSto[iTypeId];
+    size = stoToSize[stoModel];
+    alignedSize = memAlign(size);
+}
+
+bool ShType::isString() const
+{
+    return typeId == typeVector && PVector(this)->elementType->typeId == typeChar;
+}
 
 string ShType::getDefinition(const string& objName) const
 {
@@ -300,11 +311,11 @@ int Range::physicalSize() const
 
 ShOrdinal::ShOrdinal(ShTypeId iTypeId, large min, large max)
     : ShType(iTypeId), derivedRangeType(NULL),
-      range(min, max), size(range.physicalSize())  { }
+      range(min, max)  { }
 
 ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
     : ShType(name, iTypeId), derivedRangeType(NULL),
-      range(min, max), size(range.physicalSize())  { }
+      range(min, max)  { }
 
 ShRange* ShOrdinal::deriveRangeType()
 {
@@ -348,11 +359,16 @@ bool ShOrdinal::contains(const ShValue& v) const
 
 // --- INTEGER TYPE --- //
 
-ShInteger::ShInteger(large min, large max)
-    : ShOrdinal(typeInt, min, max)  { }
-
 ShInteger::ShInteger(const string& name, large min, large max)
-    : ShOrdinal(name, typeInt, min, max)  { }
+    : ShOrdinal(name, typeInt32, min, max)
+{
+    int size = range.physicalSize();
+    if (size == 1)
+        setTypeId(typeInt8);
+    else if (size == 8)
+        setTypeId(typeInt64);
+}
+
 
 string ShInteger::getFullDefinition(const string& objName) const
 {
@@ -369,13 +385,10 @@ string ShInteger::displayValue(const ShValue& v) const
 }
 
 ShOrdinal* ShInteger::cloneWithRange(large min, large max)
-    { return new ShInteger(min, max); }
+    { return new ShInteger(emptystr, min, max); }
 
 
 // --- CHAR TYPE --- //
-
-ShChar::ShChar(int min, int max)
-    : ShOrdinal(typeChar, min, max)  { }
 
 ShChar::ShChar(const string& name, int min, int max)
     : ShOrdinal(name, typeChar, min, max)  { }
@@ -390,7 +403,7 @@ string ShChar::displayValue(const ShValue& v) const
     { return "'" + mkPrintable(v.value.int_) + "'"; }
 
 ShOrdinal* ShChar::cloneWithRange(large min, large max)
-    { return new ShChar(min, max); }
+    { return new ShChar(emptystr, min, max); }
 
 
 // --- ENUM TYPE --- //
@@ -403,8 +416,10 @@ ShEnum::ShEnum(const BaseTable<ShConstant>& t, int min, int max)
 
 void ShEnum::finish()
 {
-    range.max = values.size() - 1;
-    recalcSize();
+    int max = values.size() - 1;
+    if (max >= 256)
+        internal(15);
+    reassignMax(max);
 }
 
 // TODO: better printing maybe
@@ -731,6 +746,7 @@ void ShModule::dump(string indent) const
 {
     printf("\n%smodule %s\n", indent.c_str(), name.c_str());
     ShScope::dump(indent);
+    modLocalScope.dump("");
 }
 #endif
 

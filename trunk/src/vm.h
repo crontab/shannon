@@ -2,11 +2,7 @@
 #define __VM_H
 
 
-#include "port.h"
-#include "except.h"
 #include "contain.h"
-#include "baseobj.h"
-#include "langobj.h"
 
 
 enum OpCode
@@ -75,7 +71,7 @@ enum OpCode
 
     opInitLocVec,       // [local-offs]     -1
     opFinLocPodVec,     // [local-offs]
-    opFinLocVec,        // [ShType*, local-offs]  -1
+    opFinLocVec,        // [vec-type, local-offs]  -1
     
     opLoadThisRef,      // [offs]               +1
     opLoadLocRef,       // [offs]               +1
@@ -84,9 +80,9 @@ enum OpCode
 
     // vector concatenation
     opCopyToTmpVec,     // [temp-offs]
-    opElemToVec,        // [elem-size] [temp-offs]  -1  +1
+    opElemToVec,        // [elem-type] [temp-offs]  -1  +1
     opVecCat,           // [temp-offs]              -2  +1
-    opVecElemCat,       // [elem-size] [temp-offs]  -2  +1
+    opVecElemCat,       // [elem-type] [temp-offs]  -2  +1
 
     // comparison
     opCmpInt,           //                  -2  +1
@@ -138,14 +134,6 @@ enum OpCode
     opBitShr,           //                  -2  +1
     opBitShrLarge,      //                  -2  +1
 
-/*
-    // string/vector operators
-    // [elem-size]: if < 4 int_ is taken from the stack, otherwise - large_
-    opPodVecCat,        //                  -2  +1   vec + vec
-    opPodVecElemCat,    // [elem-size]      -2  +1   vec + elem
-    opPodElemVecCat,    // [elem-size]      -2  +1   elem + vec
-    opPodElemElemCat,   // [elem-size]      -2  +1   elem + elem
-*/
     // unary
     opNeg,              //                  -1  +1
     opNegLarge,         //                  -1  +1
@@ -185,6 +173,21 @@ enum OpCode
 inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJump; }
 
 
+typedef int offs;
+
+union VmQuant
+{
+    OpCode op_;
+    int   int_;
+    ptr   ptr_;
+    offs  offs_;    // offsets within datasegs or stack frames, negative for args
+#ifdef PTR64
+    large large_;   // since ptr's are 64-bit, we can fit 64-bit ints here, too
+                    // otherwise large ints are moved around in 2 ops
+#endif
+};
+
+
 class VmStack: public PodStack<VmQuant>
 {
 public:
@@ -220,106 +223,6 @@ public:
 };
 
 
-class VmCodeGen: public Base
-{
-protected:
-    struct GenStackInfo
-    {
-        ShType* type;
-        int codeOffs;
-        GenStackInfo(ShType* iType, int iCodeOffs)
-            : type(iType), codeOffs(iCodeOffs)  { }
-    };
-
-    VmCodeSegment codeseg;
-    VmCodeSegment finseg;
-    PodStack<GenStackInfo> genStack;
-    int genStackSize;
-    bool needsRuntimeContext;
-    ShVariable* deferredVar;
-    
-    void genPush(ShType* v);
-    const GenStackInfo& genTop()        { return genStack.top(); }
-    ShVariable* genPopDeferred();
-    ShType* genPopType()                { return genPop().type; }
-
-    void genOp(OpCode op)               { codeseg.add()->op_ = op; }
-    void genInt(int v)                  { codeseg.add()->int_ = v; }
-    void genOffs(offs v)                { codeseg.add()->offs_ = v; }
-    void genPtr(ptr v)                  { codeseg.add()->ptr_ = v; }
-
-#ifdef PTR64
-    void genLarge(large v)  { codeseg.add()->large_ = v; }
-#else
-    void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
-#endif
-
-    void genNop()           { genOp(opNop); }
-    void genCmpOp(OpCode op, OpCode cmp);
-    void genEnd();
-    void runFinCode();
-    void verifyClean();
-
-public:
-    VmCodeGen();
-    
-    void clear();
-    
-    ShType* resultTypeHint; // used by the parser for vector/array constructors
-
-    void genLoadIntConst(ShOrdinal*, int);
-    void genLoadLargeConst(ShOrdinal*, large);
-    void genLoadNull();
-    void genLoadVecConst(ShType*, const char*);
-    void genLoadTypeRef(ShType*);
-    void genLoadConst(ShType*, podvalue);
-    void genMkSubrange();
-    void genComparison(OpCode);
-    void genStaticCast(ShType*);
-    void genBinArithm(OpCode op, ShInteger*);
-    void genUnArithm(OpCode op, ShInteger*);
-    void genBoolXor()
-            { genPop(); genOp(opBitXor); }
-    void genBoolNot()
-            { genOp(opBoolNot); }
-    void genBitNot(ShInteger* type)
-            { genOp(OpCode(opBitNot + type->isLargeInt())); }
-    offs genElemToVec(ShVector*);
-    offs genForwardBoolJump(OpCode op);
-    offs genForwardJump(OpCode op = opJump);
-    void genResolveJump(offs jumpOffset);
-    void genLoadVar(ShVariable*);
-    void genLoadVarRef(ShVariable*);
-    void genStore();
-    void genInitVar(ShVariable*);
-    void genFinVar(ShVariable*);
-    offs genCopyToTempVec();
-    void genVecCat(offs tempVar);
-    void genVecElemCat(offs tempVar);
-    void genIntToStr();
-    void genEcho()
-            { ShType* type = genPopType(); genOp(opEcho); genPtr(type); }
-    void genAssert(Parser& parser);
-    void genOther(OpCode op)
-            { genOp(op); }
-    void genReturn();
-
-    offs genOffset() const
-            { return codeseg.size(); }
-    const GenStackInfo& genPop();
-    ShType* genTopType()
-            { return genTop().type; }
-    offs genReserveLocalVar(ShType*);
-    offs genReserveTempVar(ShType*);
-
-    void runConstExpr(ShValue& result);
-    ShType* runTypeExpr(ShValue& value, bool anyObj);
-    void genFinalizeTemps();
-
-    VmCodeSegment getCodeSeg();
-};
-
-
 #ifdef SINGLE_THREADED
 
 extern VmStack stk;
@@ -327,4 +230,32 @@ extern VmStack stk;
 #endif
 
 
+class VmCodeSegment
+{
+protected:
+    PodArray<VmQuant> code;
+
+    static void run(VmQuant* codeseg, pchar dataseg, pchar stkbase, ptr retval);
+
+public:
+    offs reserveStack;
+    offs reserveLocals;
+
+    VmCodeSegment();
+    int size() const       { return code.size(); }
+    bool empty() const     { return code.empty(); }
+    int  refcount() const  { return code.refcount(); }
+    void clear()           { code.clear(); }
+    VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
+    VmQuant* add()         { return &code.add(); }
+    VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
+    offs reserveLocalVar(offs size)
+        { offs t = reserveLocals; reserveLocals += size; return t; }
+    void append(const VmCodeSegment& seg);
+    
+    void execute(pchar dataseg, ptr retval);
+};
+
+
 #endif
+

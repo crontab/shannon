@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "str.h"
-#include "source.h"
 #include "vm.h"
+#include "langobj.h"
+
 
 FILE* echostm = stdout;
 
@@ -33,8 +33,10 @@ static int compareLarge(large a, large b)
 static int compareStrChr(ptr a, int b)
     { return PTR_TO_STRING(a).compare(string(char(b))); }
 
-static int compareChrStr(int a, ptr b)
-    { return string(char(a)).compare(PTR_TO_STRING(b)); }
+static int compareStr(ptr a, ptr b)
+    { return PTR_TO_STRING(a).compare(PTR_TO_STRING(b)); }
+
+
 
 
 static void popByType(ShType* type, ShValue& result)
@@ -163,7 +165,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
             break;
         case opElemToVec:
             {
-                int size = (p++)->int_;
+                ShType* type = PType((p++)->ptr_);
+                int size = type->staticSize();
                 char* vec = pchar(string::_initializen(size));
                 if (size > 4)
                     *plarge(vec) = stk.popLarge();
@@ -184,7 +187,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
             break;
         case opVecElemCat:
             {
-                int size = (p++)->int_;
+                ShType* type = PType((p++)->ptr_);
+                int size = type->staticSize();
                 ptr* l;
                 if (size > 4)
                 {
@@ -210,9 +214,9 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 
         case opCmpInt: { int r = stk.popInt(); int* t = stk.topIntRef(); *t = compareInt(*t, r); } break;
         case opCmpLarge: { large r = stk.popLarge(); stk.pushInt(compareLarge(stk.popLarge(), r)); } break;
-        case opCmpStr: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r))); } break;
+        case opCmpStr: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(compareStr(l, r)); } break;
         case opCmpStrChr: { int r = stk.popInt(); ptr l = stk.popPtr(); stk.pushInt(compareStrChr(l, r)); } break;
-        case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = compareChrStr(*t, r); } break;
+        case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = -compareStrChr(r, *t); } break;
         case opCmpPodVec: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r))); } break;
         case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
 
@@ -328,473 +332,4 @@ void VmCodeSegment::execute(pchar dataseg, ptr retval)
 }
 
 
-VmCodeGen::VmCodeGen()
-    : codeseg(), genStack(), genStackSize(0), needsRuntimeContext(false), 
-      deferredVar(NULL), resultTypeHint(NULL)  { }
-
-void VmCodeGen::clear()
-{
-    codeseg.clear();
-    genStack.clear();
-}
-
-void VmCodeGen::verifyClean()
-{
-    if (!genStack.empty() || genStackSize != 0)
-        fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
-    if (stk.bytesize() != 0)
-        fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
-}
-
-void VmCodeGen::runConstExpr(ShValue& result)
-{
-    result.type = NULL;
-    if (needsRuntimeContext)
-        return;
-    result.type = genTopType();
-    genReturn();
-    genFinalizeTemps();
-    genEnd();
-    codeseg.execute(NULL, &result.value);
-#ifdef DEBUG
-    verifyClean();
-#endif
-}
-
-ShType* VmCodeGen::runTypeExpr(ShValue& value, bool anyObj)
-{
-    runConstExpr(value);
-    if (value.type == NULL)
-        return NULL;
-    if (value.type->isTypeRef())
-        return (ShType*)value.value.ptr_;
-    else if (value.type->isRange())
-        return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
-    return anyObj ? value.type : NULL;
-}
-
-void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
-{
-    genOp(op);
-#ifdef DEBUG
-    if (cmp < opCmpFirst || cmp > opCmpLast)
-        internal(60);
-#endif
-    genOp(cmp);
-}
-
-void VmCodeGen::genPush(ShType* t)
-{
-    genStack.push(GenStackInfo(t, genOffset()));
-    genStackSize += t->staticSizeAligned();
-    codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
-    resultTypeHint = NULL;
-}
-
-const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
-{
-    const GenStackInfo& t = genTop();
-    genStackSize -= t.type->staticSizeAligned();
-    genStack.pop();
-    return t;
-}
-
-ShVariable* VmCodeGen::genPopDeferred()
-{
-    ShVariable* var = deferredVar;
-    if (var == NULL)
-        internal(67);
-    deferredVar = NULL;
-    genPop();
-    return var;
-}
-
-void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
-{
-    genPush(type);
-    if (type->isBool())
-    {
-        genOp(value ? opLoadTrue : opLoadFalse);
-    }
-    else
-    {
-        if (value == 0)
-            genOp(opLoadZero);
-        else if (value == 1)
-            genOp(opLoadOne);
-        else
-        {
-            genOp(opLoadIntConst);
-            genInt(value);
-        }
-    }
-}
-
-void VmCodeGen::genLoadLargeConst(ShOrdinal* type, large value)
-{
-    genPush(type);
-    if (value == 0)
-        genOp(opLoadLargeZero);
-    else if (value == 1)
-        genOp(opLoadLargeOne);
-    else
-    {
-        genOp(opLoadLargeConst);
-        genLarge(value);
-    }
-}
-
-/*
-void VmCodeGen::genLoadNull()
-{
-    genPush(queenBee->defaultVoid);
-    genOp(opLoadNull);
-}
-*/
-
-void VmCodeGen::genLoadTypeRef(ShType* type)
-{
-    genPush(queenBee->defaultTypeRef);
-    genOp(opLoadTypeRef);
-    genPtr(type);
-}
-
-void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
-{
-    genPush(type);
-    if (PTR_TO_STRING(s).empty())
-        genOp(opLoadNullVec);
-    else
-    {
-        genOp(opLoadVecConst);
-        genPtr(ptr(s));
-    }
-}
-
-void VmCodeGen::genLoadConst(ShType* type, podvalue value)
-{
-    if (type->isOrdinal())
-    {
-        if (POrdinal(type)->isLargeInt())
-            genLoadLargeConst(POrdinal(type), value.large_);
-        else
-            genLoadIntConst(POrdinal(type), value.int_);
-    }
-    else if (type->isVector())
-        genLoadVecConst(type, pconst(value.ptr_));
-    else if (type->isTypeRef())
-        genLoadTypeRef((ShType*)value.ptr_);
-//    else if (type->isVoid())
-//        genLoadNull();
-    else
-        internal(50);
-}
-
-void VmCodeGen::genMkSubrange()
-{
-    genPop();
-    ShType* type = genPopType();
-#ifdef DEBUG
-    if (!type->isOrdinal())
-        internal(51);
-#endif
-    genPush(POrdinal(type)->deriveRangeType());
-    genOp(opMkSubrange);
-}
-
-
-void VmCodeGen::genComparison(OpCode cmp)
-{
-    OpCode op = opInv;
-    ShType* right = genPopType();
-    ShType* left = genPopType();
-
-    bool leftStr = left->isString();
-    bool rightStr = right->isString();
-    if (leftStr)
-    {
-        if (right->isChar())
-            op = opCmpStrChr;
-        else if (rightStr)
-            op = opCmpStr;
-    }
-    else if (rightStr && left->isChar())
-    {
-        op = opCmpChrStr;
-    }
-
-    else if (left->isOrdinal() && right->isOrdinal())
-    {
-        // TODO: check if one of the operands is 0 and generate CmpZero*
-        // If even one of the operands is 64-bit, we generate 64-bit ops
-        // with the hope that the parser took care of the rest.
-        op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
-    }
-    
-    else if (left->isVector() && right->isVector()
-            && (cmp == opEQ || cmp == opNE))
-        op = opCmpPodVec;
-
-    else if (left->isTypeRef() && right->isTypeRef())
-        op = opCmpPtr;
-
-    if (op == opInv)
-        internal(52);
-
-    genPush(queenBee->defaultBool);
-    genCmpOp(op, cmp);
-}
-
-
-void VmCodeGen::genStaticCast(ShType* type)
-{
-    ShType* fromType = genPopType();
-    genPush(type);
-    StorageModel stoFrom = fromType->storageModel();
-    StorageModel stoTo = type->storageModel();
-    if (stoFrom == stoLarge && stoTo < stoLarge)
-        genOp(opLargeToInt);
-    else if (stoFrom < stoLarge && stoTo == stoLarge)
-        genOp(opIntToLarge);
-    // We generate opNop because genPush() stores the position of the next
-    // opcode. It is currenlty not used, but may be in the future.
-    else if (stoFrom < stoLarge && stoTo < stoLarge)
-        genNop();
-    else if (stoFrom == stoPtr && stoTo == stoPtr)
-        genNop();
-    else if (stoFrom == stoVec && stoTo == stoVec)
-        genNop();
-    else
-        internal(59);
-}
-
-void VmCodeGen::genBinArithm(OpCode op, ShInteger* resultType)
-{
-    genPop();
-    genPop();
-    genPush(resultType);
-    genOp(OpCode(op + resultType->isLargeInt()));
-}
-
-void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
-{
-    genPop();
-    genPush(resultType);
-    genOp(OpCode(op + resultType->isLargeInt()));
-}
-
-offs VmCodeGen::genElemToVec(ShVector* vecType)
-{
-    genPop();
-    genPush(vecType);
-    offs tmpOffset = genReserveTempVar(vecType);
-    genOp(opElemToVec);
-    genInt(vecType->elementType->staticSize());
-    // stores a copy of the pointer to be finalized later
-    genOffs(tmpOffset);
-    return tmpOffset;
-}
-
-offs VmCodeGen::genForwardBoolJump(OpCode op)
-{
-    if (!genPopType()->isBool())
-        internal(69);
-    return genForwardJump(op);
-}
-
-offs VmCodeGen::genForwardJump(OpCode op)
-{
-    int t = genOffset();
-    genOp(op);
-    genInt(0);
-    return t;
-}
-
-void VmCodeGen::genResolveJump(offs jumpOffset)
-{
-    VmQuant* q = codeseg.at(jumpOffset);
-    if (!isJump(OpCode(q->op_)))
-        internal(53);
-    q++;
-    q->offs_ = genOffset() - (jumpOffset + 2);
-}
-
-void VmCodeGen::genLoadVar(ShVariable* var)
-{
-    needsRuntimeContext = true;
-    genPush(var->type);
-    OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel()));
-#ifdef DEBUG
-    if (op < opLoadThisFirst || op > opLoadThisLast)
-        internal(61);
-#endif
-    if (var->isLocal())
-        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    genOp(op);
-    genOffs(var->dataOffset);
-}
-
-void VmCodeGen::genLoadVarRef(ShVariable* var)
-{
-    needsRuntimeContext = true;
-    if (deferredVar != NULL)
-        internal(66);
-    deferredVar = var;
-    genPush(var->type->deriveRefType());
-}
-
-void VmCodeGen::genStore()
-{
-    needsRuntimeContext = true;
-    ShVariable* var = genPopDeferred();
-    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
-    if (var->isLocal())
-        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    genOp(op);
-    genOffs(var->dataOffset);
-}
-
-void VmCodeGen::genInitVar(ShVariable* var)
-{
-    needsRuntimeContext = true;
-    genPop();
-    StorageModel sto = var->type->storageModel();
-    OpCode op = OpCode(opStoreThisFirst + sto);
-    if (sto == stoVec)
-        op = opInitThisVec;
-    if (var->isLocal())
-        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    genOp(op);
-    genOffs(var->dataOffset);
-}
-
-void VmCodeGen::genFinVar(ShVariable* var)
-{
-    needsRuntimeContext = true;
-    if (var->type->isVector())
-    {
-        if (PVector(var->type)->isPodVector())
-            genOp(var->isLocal() ? opFinLocPodVec : opFinThisPodVec);
-        else
-        {
-            genOp(var->isLocal() ? opFinLocVec : opFinThisVec);
-            genPtr(var->type);
-        }
-        genOffs(var->dataOffset);
-    }
-}
-
-offs VmCodeGen::genCopyToTempVec()
-{
-    ShType* type = genTopType();
-#ifdef DEBUG
-    if (!type->isVector())
-        internal(63);
-#endif
-    offs tmpOffset = genReserveTempVar(type);
-    genOp(opCopyToTmpVec);
-    genOffs(tmpOffset);
-    return tmpOffset;
-}
-
-void VmCodeGen::genVecCat(offs tempVar)
-{
-    genPop();
-    ShType* vecType = genPopType();
-#ifdef DEBUG
-    if (!vecType->isVector())
-        internal(64);
-#endif
-    genPush(vecType);
-    genOp(opVecCat);
-    genOffs(tempVar);
-}
-
-void VmCodeGen::genVecElemCat(offs tempVar)
-{
-    genPop();
-    ShType* vecType = genPopType();
-#ifdef DEBUG
-    if (!vecType->isVector())
-        internal(64);
-#endif
-    genPush(vecType);
-    genOp(opVecElemCat);
-    genInt(PVector(vecType)->elementType->staticSize());
-    genOffs(tempVar);
-}
-
-void VmCodeGen::genIntToStr()
-{
-    ShType* type = genPopType();
-    if (!type->isOrdinal())
-        internal(68);
-    genPush(queenBee->defaultStr);
-    offs tmpOffset = genReserveTempVar(queenBee->defaultStr);
-    genOp(POrdinal(type)->isLargeInt() ? opLargeToStr : opIntToStr);
-    genOffs(tmpOffset);
-}
-
-offs VmCodeGen::genReserveLocalVar(ShType* type)
-{
-    return codeseg.reserveLocalVar(type->staticSizeAligned());
-}
-
-offs VmCodeGen::genReserveTempVar(ShType* type)
-{
-    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
-    if (type->isVector())
-    {
-        if (PVector(type)->isPodVector())
-            finseg.add()->op_ = opFinLocPodVec;
-        else
-        {
-            finseg.add()->op_ = opFinLocVec;
-            finseg.add()->ptr_ = type;
-        }
-        finseg.add()->offs_ = offset;
-    }
-    return offset;
-}
-
-void VmCodeGen::genAssert(Parser& parser)
-{
-    genPop();
-    genOp(opAssert);
-    genPtr(ptr(parser.getFileName().c_str()));
-    genInt(parser.getLineNum());
-}
-
-void VmCodeGen::genReturn()
-{
-    ShType* returnType = genPopType();
-    OpCode op = OpCode(opRetFirst + int(returnType->storageModel()));
-#ifdef DEBUG
-    if (op < opRetFirst || op > opRetLast)
-        internal(62);
-#endif
-    genOp(op);
-}
-
-void VmCodeGen::genEnd()
-{
-    if (!codeseg.empty())
-        genOp(opEnd);
-}
-
-void VmCodeGen::genFinalizeTemps()
-{
-    if (!finseg.empty())
-    {
-        codeseg.append(finseg);
-        finseg.clear();
-    }
-}
-
-VmCodeSegment VmCodeGen::getCodeSeg()
-{
-    genFinalizeTemps();
-    genEnd();
-    return codeseg;
-}
 
