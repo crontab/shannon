@@ -15,8 +15,8 @@ public:
     virtual ~Base();
 
     static int objCount;
-    void* operator new(size_t size);
-    void operator delete(void* p);
+    static void* operator new(size_t size);
+    static void operator delete(void* p);
 };
 
 

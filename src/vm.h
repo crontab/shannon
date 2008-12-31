@@ -218,7 +218,7 @@ public:
 };
 
 
-class VmCodeGen: public noncopyable
+class VmCodeGen: public Base
 {
 protected:
     struct GenStackInfo
@@ -231,7 +231,6 @@ protected:
 
     VmCodeSegment codeseg;
     VmCodeSegment finseg;
-    VmCodeSegment initseg;
     PodStack<GenStackInfo> genStack;
     int genStackSize;
     bool needsRuntimeContext;
@@ -308,6 +307,7 @@ public:
     const GenStackInfo& genPop();
     ShType* genTopType()
             { return genTop().type; }
+    offs genReserveLocalVar(ShType*);
     offs genReserveTempVar(ShType*);
 
     void runConstExpr(ShValue& result);
