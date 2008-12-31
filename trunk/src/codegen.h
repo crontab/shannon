@@ -30,18 +30,6 @@ protected:
     ShVariable* genPopDeferred();
     ShType* genPopType()                { return genPop().type; }
 
-    void genOp(OpCode op)               { codeseg.add()->op_ = op; }
-    void genInt(int v)                  { codeseg.add()->int_ = v; }
-    void genOffs(offs v)                { codeseg.add()->offs_ = v; }
-    void genPtr(ptr v)                  { codeseg.add()->ptr_ = v; }
-
-#ifdef PTR64
-    void genLarge(large v)  { codeseg.add()->large_ = v; }
-#else
-    void genLarge(large v)  { genInt(int(v)); genInt(int(v >> 32)); }
-#endif
-
-    void genNop()           { genOp(opNop); }
     void genCmpOp(OpCode op, OpCode cmp);
     void genEnd();
     void runFinCode();
@@ -66,11 +54,11 @@ public:
     void genBinArithm(OpCode op, ShInteger*);
     void genUnArithm(OpCode op, ShInteger*);
     void genBoolXor()
-            { genPop(); genOp(opBitXor); }
+            { genPop(); codeseg.addOp(opBitXor); }
     void genBoolNot()
-            { genOp(opBoolNot); }
+            { codeseg.addOp(opBoolNot); }
     void genBitNot(ShInteger* type)
-            { genOp(OpCode(opBitNot + type->isLargeInt())); }
+            { codeseg.addOp(OpCode(opBitNot + type->isLargeInt())); }
     offs genElemToVec(ShVector*);
     offs genForwardBoolJump(OpCode op);
     offs genForwardJump(OpCode op = opJump);
@@ -85,10 +73,10 @@ public:
     void genVecElemCat(offs tempVar);
     void genIntToStr();
     void genEcho()
-            { ShType* type = genPopType(); genOp(opEcho); genPtr(type); }
+            { codeseg.addOp(opEcho); codeseg.addPtr(genPopType()); }
     void genAssert(Parser& parser);
     void genOther(OpCode op)
-            { genOp(op); }
+            { codeseg.addOp(op); }
     void genReturn();
 
     offs genOffset() const
