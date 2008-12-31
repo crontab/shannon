@@ -544,13 +544,20 @@ void ShVector::rtFinalize(ptr dataseg) const
 {
     if (!elementType->isPod())
     {
-        pchar p = pchar(*pptr(dataseg));
-        int itemSize = elementType->staticSize();
-        int count = PTR_TO_STRING(p).size() / itemSize - 1;
-        for (; count >= 0; count--, p += itemSize)
-            elementType->rtFinalize(p);
+        if (PTR_TO_STRING(*pptr(dataseg))._unlock() == 0)
+        {
+            pchar p = pchar(*pptr(dataseg));
+            int itemSize = elementType->staticSize();
+            int count = PTR_TO_STRING(p).size() / itemSize - 1;
+            for (; count >= 0; count--, p += itemSize)
+                elementType->rtFinalize(p);
+            PTR_TO_STRING(*pptr(dataseg))._free();
+        }
+        else
+            PTR_TO_STRING(*pptr(dataseg))._empty();
     }
-    string::_finalize(*pptr(dataseg));
+    else
+        string::_finalize(*pptr(dataseg));
 }
 
 

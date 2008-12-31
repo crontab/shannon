@@ -776,6 +776,8 @@ void ShModule::parseBlock(VmCodeGen& code)
 {
     while (!parser.skipIf(tokBlockEnd))
     {
+        if (options.linenumInfo)
+            code.genLinenum(parser);
         if (parser.skipIf(tokDef))
             parseTypeDef();
         else if (parser.skipIf(tokConst))
@@ -794,8 +796,8 @@ void ShModule::parseBlock(VmCodeGen& code)
         }
         else
             parseOtherStatement(code);
-        parser.skipSep();
         code.genFinalizeTemps();
+        parser.skipSep();
     }
 }
 

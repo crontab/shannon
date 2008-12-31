@@ -372,6 +372,7 @@ void VmCodeGen::genVecCat(offs tempVar)
 #endif
     genPush(vecType);
     codeseg.addOp(opVecCat);
+    codeseg.addPtr(PVector(vecType)->elementType);
     codeseg.addOffs(tempVar);
 }
 
@@ -426,6 +427,13 @@ void VmCodeGen::genAssert(Parser& parser)
 {
     genPop();
     codeseg.addOp(opAssert);
+    codeseg.addPtr(ptr(parser.getFileName().c_str()));
+    codeseg.addInt(parser.getLineNum());
+}
+
+void VmCodeGen::genLinenum(Parser& parser)
+{
+    codeseg.addOp(opLinenum);
     codeseg.addPtr(ptr(parser.getFileName().c_str()));
     codeseg.addInt(parser.getLineNum());
 }

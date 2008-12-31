@@ -2,6 +2,7 @@
 #define __VM_H
 
 
+#include "str.h"
 #include "contain.h"
 
 
@@ -81,7 +82,7 @@ enum OpCode
     // vector concatenation
     opCopyToTmpVec,     // [temp-offs]
     opElemToVec,        // [elem-type] [temp-offs]  -1  +1
-    opVecCat,           // [temp-offs]              -2  +1
+    opVecCat,           // [elem-type] [temp-offs]  -2  +1
     opVecElemCat,       // [elem-type] [temp-offs]  -2  +1
 
     // comparison
@@ -154,6 +155,7 @@ enum OpCode
     opEchoSp,           //
     opEchoLn,           //
     opAssert,           // [string* fn, linenum] -1
+    opLinenum,          // [string* fn, linenum]
 
     // TODO: linenum, rangecheck opcodes
 

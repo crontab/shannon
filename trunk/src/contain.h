@@ -5,27 +5,16 @@
 #include "str.h"
 
 
-// Dynamic ref-counted array of chars, privately based on string
+// Dynamic ref-counted array of chars, based on string
 
-class arrayimpl: protected string
+class arrayimpl: public string
 {
 public:
-    arrayimpl(): string()  { }
-    arrayimpl(const arrayimpl& a): string(a) { }
-    ~arrayimpl()           { }
-    
-    int size() const                { return string::size(); }
-    int bytesize() const            { return string::bytesize(); }
-    int refcount() const            { return string::refcount(); }
-    bool empty() const              { return string::empty(); }
-    const char* c_bytes() const     { return string::c_bytes(); }
-    void clear()                    { string::clear(); }
     char* add(int cnt)              { return string::appendn(cnt); }
     char* ins(int where, int cnt)   { return string::ins(where, cnt); }
     void del(int where, int cnt)    { string::del(where, cnt); }
     void pop(int cnt)               { string::resize(size() - cnt); }
     const char* operator[] (int i) const  { return &string::operator[] (i); }
-    void operator= (const arrayimpl& a)   { string::assign(a); }
 };
 
 
@@ -79,7 +68,7 @@ protected:
             PodArray<T>::_alloc(old.bytesize());
             for (int i = 0; i < PodArray<T>::size(); i++)
                 ::new(&PodArray<T>::_at(i)) T(old._at(i));
-            PodArray<T>::_unlock(old);
+            old._unlock();
         }
     }
 
