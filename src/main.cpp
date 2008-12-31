@@ -7,6 +7,7 @@
 #include "except.h"
 #include "langobj.h"
 #include "vm.h"
+#include "codegen.h"
 
 
 // ------------------------------------------------------------------------- //
@@ -646,7 +647,7 @@ ShEnum* ShModule::parseEnumType()
     {
         string ident = parser.getIdent();
         int nextVal = type->nextValue();
-        if (nextVal == INT_MAX)
+        if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShConstant* value = new ShConstant(ident, type, nextVal);
         varScope->addConstant(value, symbolScope);

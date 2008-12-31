@@ -5,6 +5,7 @@
 #include "except.h"
 #include "baseobj.h"
 #include "source.h"
+#include "vm.h"
 
 
 class ShType;
@@ -22,55 +23,9 @@ class ShSymScope;
 class ShScope;
 class ShModule;
 
-
-// --- VIRTUAL MACHINE (PARTIAL) ------------------------------------------- //
-
-
 class VmCodeGen;
 
-typedef int offs;
-
-union VmQuant
-{
-    int   op_;      // OpCode
-    int   int_;
-    ptr   ptr_;
-    offs  offs_;    // offsets within datasegs or stack frames, negative for args
-#ifdef PTR64
-    large large_;   // since ptr's are 64-bit, we can fit 64-bit ints here, too
-                    // otherwise large ints are moved around in 2 ops
-#endif
-};
-
-
-class VmCodeSegment
-{
-protected:
-    PodArray<VmQuant> code;
-
-    static void run(VmQuant* codeseg, pchar dataseg, pchar stkbase, ptr retval);
-
-public:
-    offs reserveStack;
-    offs reserveLocals;
-
-    VmCodeSegment();
-    int size() const       { return code.size(); }
-    bool empty() const     { return code.empty(); }
-    int  refcount() const  { return code.refcount(); }
-    void clear()           { code.clear(); }
-    VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
-    VmQuant* add()         { return &code.add(); }
-    VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
-    offs reserveLocalVar(offs size)
-        { offs t = reserveLocals; reserveLocals += size; return t; }
-    void append(const VmCodeSegment& seg);
-    
-    void execute(pchar dataseg, ptr retval);
-};
-
-
-offs memAlign(int offs);
+// offs memAlign(int offs);
 
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
@@ -103,28 +58,35 @@ enum StorageModel
     // Order is important, it's in sync with VM ops, also the order of first 3
     // is used in some code generation routines. If you change this, also take
     // a look at ShType::staticSize()
-    stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
+    stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid,
+    _stoMax
 };
 
 
 enum ShTypeId
 {
-    typeVoid,
-    typeInt, typeChar, typeEnum, typeBool,
+    typeInt8, typeInt32, typeInt64, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
     typeReference,
-    typeLocalSymScope, typeLocalScope, typeModule
+    typeLocalSymScope, typeLocalScope, typeModule,
+    typeVoid,
+    _typeMax
 };
 
 
 class ShType: public ShBase
 {
     ShTypeId typeId;
+    StorageModel stoModel;
+    offs size;
+    offs alignedSize;
+
+protected:
+
     ShVector* derivedVectorType;
     ShSet* derivedSetType;
     ShReference* derivedRefType;
 
-protected:
     ShScope* owner;
     virtual string getFullDefinition(const string& objName) const = 0;
 
@@ -134,6 +96,8 @@ public:
     virtual ~ShType();
     
     void setOwner(ShScope*);
+    ShTypeId getTypeId() const { return typeId; }
+    void setTypeId(ShTypeId iTypeId);
 
     string getDefinition(const string& objName) const;
     string getDefinition() const;
@@ -143,8 +107,8 @@ public:
     bool isVoid() const { return typeId == typeVoid; }
     bool isTypeRef() const { return typeId == typeTypeRef; }
     bool isRange() const { return typeId == typeRange; }
-    bool isOrdinal() const { return typeId >= typeInt && typeId <= typeBool; }
-    bool isInt() const { return typeId == typeInt; }
+    bool isOrdinal() const { return typeId >= typeInt8 && typeId <= typeBool; }
+    bool isInt() const { return typeId >= typeInt8 && typeId <= typeInt64; }
     bool isChar() const { return typeId == typeChar; }
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
@@ -153,18 +117,18 @@ public:
     bool isArray() const { return typeId == typeArray; }
     bool isReference() const { return typeId == typeReference; }
 
-    virtual StorageModel storageModel() const = 0;
-    offs staticSize() const;
-    offs staticSizeRequired() const;
+    StorageModel storageModel() const
+            { return stoModel; }
+    offs staticSize() const
+            { return size; }
     offs staticSizeAligned() const
-            { return memAlign(staticSize()); }
+            { return alignedSize; }
     bool isPod() const
-            { return storageModel() != stoVec; }
-    virtual bool isString() const
-            { return false; }
+            { return stoModel != stoVec; }
+    bool isString() const;
+    bool canBeArrayIndex()
+            { return canCompareWith(this); }
     virtual bool equals(ShType*) const = 0;
-    virtual bool canBeArrayIndex() const
-            { return false; }
     bool canBeArrayElement() const
             { return staticSize() > 0; }
     virtual bool canCompareWith(ShType* type) const
@@ -187,6 +151,8 @@ public:
     virtual void rtFinalize(ptr) const
             { }
 };
+
+typedef ShType* PType;
 
 
 class ShTypeAlias: public ShBase
@@ -232,8 +198,6 @@ public:
             { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
-    virtual StorageModel storageModel() const
-            { return stoVoid; }
     virtual bool equals(ShType* type) const
             { return false; }
 
@@ -291,23 +255,19 @@ class ShOrdinal: public ShType
 {
 protected:
     ShRange* derivedRangeType;
-    Range range;
-    int size;
+    Range const range;
 
-    void recalcSize()
-            { size = range.physicalSize(); }
     virtual ShOrdinal* cloneWithRange(large min, large max) = 0;
+    void reassignMax(int max)
+        { ((Range&)range).max = max; }
 
 public:
     ShOrdinal(ShTypeId iTypeId, large min, large max);
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
-    virtual StorageModel storageModel() const
-            { return size > 4 ? stoLarge : size > 1 ? stoInt : stoByte; }
-    virtual bool canBeArrayIndex() const
-            { return true; }
     virtual bool canStaticCastTo(ShType* type) const
             { return type->isOrdinal(); }
-    bool isLargeInt() const;
+    bool isLargeInt() const
+            { return getTypeId() == typeInt64; }
     bool contains(large v) const
             { return v >= range.min && v <= range.max; }
     bool contains(const ShValue&) const;
@@ -332,11 +292,8 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-    ShInteger(large min, large max);
     ShInteger(const string& name, large min, large max);
     virtual string displayValue(const ShValue& v) const;
-    bool isLargeInt() const
-            { return size > 4; }
     virtual bool canAssign(ShType* type) const
             { return type->isInt() && (isLargeInt() == PInteger(type)->isLargeInt()); }
     virtual bool canCompareWith(ShType* type) const
@@ -345,17 +302,13 @@ public:
             { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
 };
 
-inline bool ShOrdinal::isLargeInt() const
-        { return isInt() && PInteger(this)->isLargeInt(); }
-
-
 class ShChar: public ShOrdinal
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-    ShChar(int min, int max);
+//    ShChar(int min, int max);
     ShChar(const string& name, int min, int max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canAssign(ShType* type) const
@@ -419,8 +372,6 @@ protected:
 
 public:
     ShVoid(const string& name);
-    virtual StorageModel storageModel() const
-            { return stoVoid; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isVoid(); }
@@ -432,10 +383,8 @@ class ShTypeRef: public ShType
     virtual string getFullDefinition(const string& objName) const;
 public:
     ShTypeRef(const string& name);
-    virtual StorageModel storageModel() const
-            { return stoPtr; }
     virtual string displayValue(const ShValue& v) const;
-    virtual bool canCompareWith(ShType* type) const
+    virtual bool canCheckEq(ShType* type) const
             { return type->isTypeRef(); }
     virtual bool equals(ShType* type) const
             { return type->isTypeRef(); }
@@ -451,8 +400,6 @@ public:
     ShOrdinal* base;
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
-    virtual StorageModel storageModel() const
-            { return stoLarge; }
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isRange() && base->equals(((ShRange*)type)->base); }
@@ -473,12 +420,6 @@ public:
     ShVector(const string& name, ShType* iElementType);
 
     virtual string displayValue(const ShValue& v) const;
-    virtual StorageModel storageModel() const
-            { return stoVec; }
-    virtual bool isString() const
-            { return elementType->isChar() && ((ShChar*)elementType)->isFullRange(); }
-    virtual bool canBeArrayIndex() const
-            { return isString(); }
     virtual bool canCompareWith(ShType* type) const
             { return isString() && (type->isString() || type->isChar()); }
     virtual bool canCheckEq(ShType* type) const
@@ -539,8 +480,6 @@ public:
     ShType* const base;
     ShReference(ShType* iBase);
 
-    virtual StorageModel storageModel() const
-            { return stoPtr; }
     virtual bool equals(ShType* type) const
             { return type->isReference() && base->equals(PReference(type)->base); }
     virtual string displayValue(const ShValue& v) const;

@@ -1,6 +1,6 @@
 module Z
 
-#{
+
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -175,9 +175,12 @@ assert v9 == 3
 
 assert if(true, 'cd' | 'e', 'fg' | 'h') == 'cde'
 var bool bb = 'a' | 'b' == 'ab' or 'c' | 'd' == 'cd'
-}#
 
-var a = ['abc', 'def']
-var b = ['ghi']
-echo a | b | ['jkl']
+
+begin:
+    var a = ['abc', 'def']
+    var b = ['ghi']
+    echo a | b | ['jkl']
+    var char d = 'a'
+    var bool c = 'abc' == d
 
