@@ -1,6 +1,6 @@
 module Z
 
-
+#{
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -85,9 +85,9 @@ const int f5 = not 1 and 2
 const f6 = (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
 
 def enum days(Mon, Tue, Wed)
-const int aa[] = 1
-const aa3 = aa | 2 | 3
-const days aa4[] = Mon | Tue | Wed
+var int aa[] = 1
+var aa3 = aa | 2 | 3
+var days aa4[] = Mon | Tue | Wed
 
 const u2 = 'abc' | 'def'
 const u3 = '@' | 'abc' | 'def' | 'g'
@@ -176,9 +176,12 @@ assert v9 == 3
 assert if(true, 'cd' | 'e', 'fg' | 'h') == 'cde'
 var bool bb = 'a' | 'b' == 'ab' or 'c' | 'd' == 'cd'
 
+echo int | char | bool
+}#
 
 begin:
     var a = ['abc', 'def']
     var b = 'ghi'
-    echo a | b
+    echo ['abc', 'def'] | b
+
 

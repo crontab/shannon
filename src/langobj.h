@@ -591,8 +591,9 @@ protected:
     {
         bool enableEcho;
         bool enableAssert;
+        bool linenumInfo;
         CompilerOptions()
-            : enableEcho(true), enableAssert(true)  { }
+            : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
     };
 
     string fileName;

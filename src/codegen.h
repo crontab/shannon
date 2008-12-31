@@ -2,6 +2,9 @@
 #define __CODEGEN_H
 
 
+#include "str.h"
+#include "contain.h"
+#include "source.h"
 #include "baseobj.h"
 #include "vm.h"
 #include "langobj.h"
@@ -75,6 +78,7 @@ public:
     void genEcho()
             { codeseg.addOp(opEcho); codeseg.addPtr(genPopType()); }
     void genAssert(Parser& parser);
+    void genLinenum(Parser& parser);
     void genOther(OpCode op)
             { codeseg.addOp(op); }
     void genReturn();

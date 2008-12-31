@@ -43,8 +43,6 @@ protected:
 
     void _alloc(int);
     void _realloc(int);
-    void _empty()  { data = emptystr; }
-    void _free();
 
     void initialize()  { data = emptystr; }
     void initialize(const char*, int);
@@ -144,6 +142,8 @@ public:
     friend bool operator!= (char, const string&);
     
     // internal stuff, use with care!
+    void _empty()  { data = emptystr; }
+    void _free();
     ptr _initialize() const
             { pincrement(&STR_REFCOUNT(data)); return ptr(data); }
     int  _unlock()
@@ -154,8 +154,6 @@ public:
 #endif
             return pdecrement(&STR_REFCOUNT(data));
         }
-    static void _unlock(string& s) // this solves a visibility problem
-            { s._unlock(); }
     static ptr _initialize(ptr p)
             { PTR_TO_STRING(p)._initialize(); return p; }
     static ptr _initializen(int size)

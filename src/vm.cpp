@@ -11,6 +11,9 @@ FILE* echostm = stdout;
 
 #ifdef SINGLE_THREADED
 
+const char* fileName = "";
+int lineNum = 0;
+
 VmStack stk;
 
 #endif
@@ -18,7 +21,10 @@ VmStack stk;
 
 static void runtimeError(int code, const char* msg)
 {
-    fprintf(stderr, "\nRuntime error [%d]: %s\n", code, msg);
+    if (lineNum > 0)
+        fprintf(stderr, "\nRuntime error [%d] %s(%d): %s\n", code, fileName, lineNum, msg);
+    else
+        fprintf(stderr, "\nRuntime error [%d]: %s\n", code, msg);
     throw code;
 }
 
@@ -36,6 +42,54 @@ static int compareStrChr(ptr a, int b)
 static int compareStr(ptr a, ptr b)
     { return PTR_TO_STRING(a).compare(PTR_TO_STRING(b)); }
 
+
+static ptr catVecElem(ShType* type)
+{
+    StorageModel sto = type->storageModel();
+    ptr* l = NULL;
+    switch (sto)
+    {
+        case stoByte:
+            {
+                int elem = stk.popInt();
+                l = stk.topPtrRef();
+                PTR_TO_STRING(*l).append(char(elem));
+            }
+            break;
+        case stoInt:
+            {
+                int elem = stk.popInt();
+                l = stk.topPtrRef();
+                *pint(PTR_TO_STRING(*l).appendn(4)) = elem;
+            }
+            break;
+        case stoLarge:
+            {
+                large elem = stk.popLarge();
+                l = stk.topPtrRef();
+                *plarge(PTR_TO_STRING(*l).appendn(8)) = elem;
+            }
+            break;
+        case stoPtr:
+            {
+                ptr elem = stk.popPtr();
+                l = stk.topPtrRef();
+                *pptr(PTR_TO_STRING(*l).appendn(sizeof(ptr))) = elem;
+            }
+            break;
+        case stoVec:
+            {
+                ptr elem = string::_initialize(stk.popPtr());
+                l = stk.topPtrRef();
+                if (PTR_TO_STRING(*l).refcount() > 1)
+                    runtimeError(2, "(Internal) Refcount > 1");
+                *pptr(PTR_TO_STRING(*l).appendn(sizeof(ptr))) = elem;
+            }
+            break;
+        default: runtimeError(2, "(Internal) Unknown type");
+    }
+    return *l;
+}
 
 
 static void popByType(ShType* type, ShValue& result)
@@ -80,6 +134,13 @@ static void doAssert(const char* fn, int linenum)
     }
 }
 
+static void doLinenum(const char* fn, int ln)
+{
+    fileName = fn;
+    lineNum = ln;
+    // printf("VM: %s(%d)\n", fn, ln);
+}
+
 static ptr itostr10(large v)
 {
     return itostring(v)._initialize();
@@ -103,7 +164,7 @@ static ptr itostr10(large v)
             string::_finalize(*s); *s = string::_initialize(t); } break; \
     case opStore##KIND##Void: break; \
     case opInit##KIND##Vec: { ptr t = stk.popPtr(); *pptr(PTR) = string::_initialize(t); } break; \
-    case opFin##KIND##PodVec: string::_finalize(*pptr(PTR)); break; \
+    case opFin##KIND##PodVec: { string::_finalize(*pptr(PTR)); } break; \
     case opFin##KIND##Vec: { ptr t = (p++)->ptr_; PVector(t)->rtFinalize(PTR); } break;
 
 
@@ -163,6 +224,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opElemToVec:
             {
                 ShType* type = PType((p++)->ptr_);
+if (type->isVector()) runtimeError(2, "ELEM2VEC: unknown type");
                 int size = type->staticSize();
                 char* vec = pchar(string::_initializen(size));
                 if (size > 4)
@@ -176,6 +238,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
             break;
         case opVecCat:
             {
+                ShType* type = PType((p++)->ptr_);
+if (type->isVector()) runtimeError(2, "VECCAT: unknown type");
                 ptr r = stk.popPtr();
                 ptr* l = stk.topPtrRef();
                 PTR_TO_STRING(*l).append(PTR_TO_STRING(r));
@@ -183,28 +247,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
             }
             break;
         case opVecElemCat:
-            {
-                ShType* type = PType((p++)->ptr_);
-                int size = type->staticSize();
-                ptr* l;
-                if (size > 4)
-                {
-                    large elem = stk.popLarge();
-                    l = stk.topPtrRef();
-                    *plarge(PTR_TO_STRING(*l).appendn(8)) = elem;
-                }
-                else
-                {
-                    int elem = stk.popInt();
-                    l = stk.topPtrRef();
-                    if (size > 1)
-                        *pint(PTR_TO_STRING(*l).appendn(4)) = elem;
-                    else
-                        PTR_TO_STRING(*l).append(char(elem));
-                }
-                *pptr(stkbase + (p++)->offs_) = *l;
-            }
-            break;
+            { PType type = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = catVecElem(type); } break;
 
 
         // --- COMPARISONS ------------------------------------------------- //
@@ -214,7 +257,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opCmpStr: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(compareStr(l, r)); } break;
         case opCmpStrChr: { int r = stk.popInt(); ptr l = stk.popPtr(); stk.pushInt(compareStrChr(l, r)); } break;
         case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = -compareStrChr(r, *t); } break;
-        case opCmpPodVec: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r))); } break;
+        case opCmpPodVec:
+            { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r))); } break;
         case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
 
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
@@ -285,6 +329,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opEchoSp: putc(' ', echostm); break;
         case opEchoLn: fputs("\n", echostm); break;
         case opAssert: { pconst fn = pconst((p++)->ptr_); doAssert(fn, (p++)->int_); } break;
+        case opLinenum: { pconst fn = pconst((p++)->ptr_); doLinenum(fn, (p++)->int_); } break;
 
         default: fatal(CRIT_FIRST + 50, ("[VM] Unknown opcode " + itostring((--p)->op_, 16, 8, '0')).c_str());
         }
