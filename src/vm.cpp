@@ -104,7 +104,8 @@ static ptr itostr10(large v)
             string::_finalize(*s); *s = string::_initialize(t); } break; \
     case opStore##KIND##Void: break; \
     case opInit##KIND##Vec: { ptr t = stk.popPtr(); *pptr(PTR) = string::_initialize(t); } break; \
-    case opFin##KIND##Vec: string::_finalize(*pptr(PTR)); break;
+    case opFin##KIND##PodVec: string::_finalize(*pptr(PTR)); break; \
+    case opFin##KIND##Vec: { ptr t = (p++)->ptr_; PVector(t)->rtFinalize(PTR); } break;
 
 
 // TODO: try to pass the stack pointer as an arg to this func and see the difference in asm.
@@ -385,7 +386,6 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t, genOffset()));
-    // TODO: this is not accurate, takes more than needed:
     genStackSize += t->staticSizeAligned();
     codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
     resultTypeHint = NULL;
@@ -671,9 +671,15 @@ void VmCodeGen::genInitVar(ShVariable* var)
 void VmCodeGen::genFinVar(ShVariable* var)
 {
     needsRuntimeContext = true;
-    if (var->type->storageModel() == stoVec)
+    if (var->type->isVector())
     {
-        genOp(var->isLocal() ? opFinLocVec : opFinThisVec);
+        if (PVector(var->type)->isPodVector())
+            genOp(var->isLocal() ? opFinLocPodVec : opFinThisPodVec);
+        else
+        {
+            genOp(var->isLocal() ? opFinLocVec : opFinThisVec);
+            genPtr(var->type);
+        }
         genOffs(var->dataOffset);
     }
 }
@@ -737,9 +743,15 @@ offs VmCodeGen::genReserveLocalVar(ShType* type)
 offs VmCodeGen::genReserveTempVar(ShType* type)
 {
     offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
-    if (type->storageModel() == stoVec)
+    if (type->isVector())
     {
-        finseg.add()->op_ = opFinLocVec;
+        if (PVector(type)->isPodVector())
+            finseg.add()->op_ = opFinLocPodVec;
+        else
+        {
+            finseg.add()->op_ = opFinLocVec;
+            finseg.add()->ptr_ = type;
+        }
         finseg.add()->offs_ = offset;
     }
     return offset;

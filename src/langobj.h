@@ -182,6 +182,10 @@ public:
     ShReference* deriveRefType();
     void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
             { derivedVectorType = v; }
+
+    // run-time functions
+    virtual void rtFinalize(ptr) const
+            { }
 };
 
 
@@ -464,8 +468,10 @@ protected:
 
 public:
     ShType* const elementType;
+
     ShVector(ShType* iElementType);
     ShVector(const string& name, ShType* iElementType);
+
     virtual string displayValue(const ShValue& v) const;
     virtual StorageModel storageModel() const
             { return stoVec; }
@@ -483,10 +489,16 @@ public:
             { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
     virtual bool canStaticCastTo(ShType* type) const
             { return isEmptyVec() || equals(type); }
+
     bool elementEquals(ShType* elemType) const
             { return elementType->equals(elemType); }
     bool isEmptyVec() const
             { return elementType->isVoid(); }
+
+    bool isPodVector() const
+            { return elementType->isPod(); }
+
+    virtual void rtFinalize(ptr) const;
 };
 
 inline bool ShType::isEmptyVec() const

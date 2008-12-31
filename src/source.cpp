@@ -640,7 +640,6 @@ string Parser::errorLocation() const
         string s = strValue;
         if (s.size() > 30)
             s = s.copy(0, 30) + "...";
-        // TODO: cut long string literals maybe
         msg += " near '" + s + "'";
     }
     return msg;
