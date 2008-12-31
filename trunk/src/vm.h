@@ -242,9 +242,9 @@ public:
     offs reserveLocals;
 
     VmCodeSegment();
+
     int size() const       { return code.size(); }
     bool empty() const     { return code.empty(); }
-    int  refcount() const  { return code.refcount(); }
     void clear()           { code.clear(); }
     VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
     VmQuant* add()         { return &code.add(); }

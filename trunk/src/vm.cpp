@@ -38,7 +38,6 @@ static int compareStr(ptr a, ptr b)
 
 
 
-
 static void popByType(ShType* type, ShValue& result)
 {
     switch (type->storageModel())
@@ -72,7 +71,6 @@ static void doEcho(ShType* type)
     fwrite(s.c_bytes(), s.size(), 1, echostm);
 }
 
-
 static void doAssert(const char* fn, int linenum)
 {
     if (!stk.popInt())
@@ -81,7 +79,6 @@ static void doAssert(const char* fn, int linenum)
         runtimeError(1, s.c_str());
     }
 }
-
 
 static ptr itostr10(large v)
 {

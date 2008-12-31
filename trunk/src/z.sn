@@ -179,8 +179,6 @@ var bool bb = 'a' | 'b' == 'ab' or 'c' | 'd' == 'cd'
 
 begin:
     var a = ['abc', 'def']
-    var b = ['ghi']
-    echo a | b | ['jkl']
-    var char d = 'a'
-    var bool c = 'abc' == d
+    var b = 'ghi'
+    echo a | b
 
