@@ -163,6 +163,7 @@ begin:
         const w1 = 2L
         assert w1 == 2L
         echo 'Hello, nested nestd block!', typeof(w1), str(w1)
+        var a = 'a' | 'b'
 
 assert w1 == 0
 

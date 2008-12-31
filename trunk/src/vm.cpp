@@ -729,10 +729,14 @@ void VmCodeGen::genIntToStr()
     genOffs(tmpOffset);
 }
 
+offs VmCodeGen::genReserveLocalVar(ShType* type)
+{
+    return codeseg.reserveLocalVar(type->staticSizeAligned());
+}
+
 offs VmCodeGen::genReserveTempVar(ShType* type)
 {
-    offs offset = codeseg.reserveLocals;
-    codeseg.reserveLocals += type->staticSizeAligned();
+    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
     if (type->storageModel() == stoVec)
     {
         finseg.add()->op_ = opFinLocVec;

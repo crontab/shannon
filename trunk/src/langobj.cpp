@@ -165,6 +165,16 @@ void ShSymScope::addSymbol(ShBase* obj)
     symbols.addUnique(obj);
 }
 
+void ShSymScope::finalizeVars(VmCodeGen& code)
+{
+    for (int i = symbols.size() - 1; i >= 0; i--)
+    {
+        ShBase* obj = symbols[i];
+        if (obj->isVariable())
+            code.genFinVar((ShVariable*)obj);
+    }
+}
+
 ShBase* ShSymScope::deepFind(const string& name) const
 {
     ShBase* obj = find(name);
@@ -653,11 +663,18 @@ ShConstant::ShConstant(const string& name, ShEnum* type, int value)
 
 // --- LOCAL SCOPE --- //
 
-ShLocalScope::ShLocalScope()
-    : ShScope("", typeLocalScope)  { }
+ShLocalScope::ShLocalScope(VmCodeGen* iCodeGen)
+    : ShScope("", typeLocalScope), codegen(iCodeGen)  { }
 
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
+
+void ShLocalScope::addVariable(ShVariable* var, ShSymScope* symScope)
+{
+    var->dataOffset = codegen->genReserveLocalVar(var->type);
+    var->local = true;
+    ShScope::addVariable(var, symScope);
+}
 
 
 // --- MODULE --- //
@@ -665,7 +682,8 @@ string ShLocalScope::getFullDefinition(const string& objName) const
 
 ShModule::ShModule(const string& iFileName)
     : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
-      parser(iFileName), symbolScope(this), varScope(this), compiled(false),
+      parser(iFileName), codegen(new VmCodeGen), modLocalScope(codegen),
+      symbolScope(this), varScope(this), compiled(false),
       // runtime
       dataSize(0), dataSegment(NULL)
 {
@@ -676,6 +694,7 @@ ShModule::ShModule(const string& iFileName)
 
 ShModule::~ShModule()
 {
+    delete codegen;
     memfree(dataSegment);
 }
 
@@ -703,16 +722,16 @@ void ShModule::dump(string indent) const
 #endif
 
 
-void ShModule::setupRuntime(VmCodeGen& main)
+void ShModule::setupRuntime()
 {
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
-    mainCode = main.getCodeSeg();
+    mainCode = codegen->getCodeSeg();
     compiled = true;
 }
 
 
-void ShModule::executeMain()
+void ShModule::execute()
 {
     if (!compiled)
         internal(14);
@@ -743,8 +762,7 @@ ShQueenBee::ShQueenBee()
     addType(defaultTypeRef, this);
     addAnonType(defaultEmptyVec);
 
-    VmCodeGen main;
-    setupRuntime(main);
+    setupRuntime();
 }
 
 

@@ -806,10 +806,15 @@ void ShModule::parseBlock(VmCodeGen& code)
 
 void ShModule::enterBlock(VmCodeGen& code)
 {
+    // The SymScope object is temporary; the real objects (types, vars, etc)
+    // are registered with the outer scope: either module or state. Through
+    // the temp symbol scope however, we know which vars to finalize when 
+    // exiting the block.
     ShSymScope tempSymScope(symbolScope);
     symbolScope = &tempSymScope;
     parseBlock(code);
     symbolScope = tempSymScope.parent;
+    tempSymScope.finalizeVars(code);
 }
 
 
@@ -817,8 +822,6 @@ bool ShModule::compile()
 {
     try
     {
-        VmCodeGen main;
-
         try
         {
             parser.next();
@@ -833,7 +836,11 @@ bool ShModule::compile()
                 parser.skipSep();
             }
 
-            parseBlock(main);
+            varScope = &modLocalScope;
+            parseBlock(*codegen);
+            
+            symbolScope->finalizeVars(*codegen);
+
             parser.skip(tokEof, "<EOF>");
         }
         catch (EDuplicate& e)
@@ -845,7 +852,7 @@ bool ShModule::compile()
             error(e.what());
         }
 
-        setupRuntime(main);
+        setupRuntime();
 
 #ifdef DEBUG
         queenBee->dump("");
@@ -911,7 +918,7 @@ int main()
         if (module.compiled)
         {
             // TODO: exec mains for all used modules
-            module.executeMain();
+            module.execute();
             if (!stk.empty())
                 fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }

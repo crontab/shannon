@@ -57,10 +57,13 @@ public:
     VmCodeSegment();
     int size() const       { return code.size(); }
     bool empty() const     { return code.empty(); }
+    int  refcount() const  { return code.refcount(); }
     void clear()           { code.clear(); }
     VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
     VmQuant* add()         { return &code.add(); }
     VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
+    offs reserveLocalVar(offs size)
+        { offs t = reserveLocals; reserveLocals += size; return t; }
     void append(const VmCodeSegment& seg);
     
     void execute(pchar dataseg, ptr retval);
@@ -232,6 +235,7 @@ public:
 
     void addUses(ShModule*);
     void addSymbol(ShBase* obj);
+    void finalizeVars(VmCodeGen& code);
     ShBase* find(const string& name) const
             { return symbols.find(name); }
     ShBase* deepFind(const string&) const;
@@ -612,13 +616,16 @@ public:
 
 class ShLocalScope: public ShScope
 {
+    // Usually belongs to a function/state, plus modules can create local
+    // scopes for nested blocks to avoid pollution of the static space.
 protected:
     virtual string getFullDefinition(const string& objName) const;
+    VmCodeGen* codegen; // for registering vars and getting their addresses
 
 public:
-    ShLocalScope(); // anonymous
+    ShLocalScope(VmCodeGen* iCodeGen);
 
-    virtual void addVariable(ShVariable*, ShScope* symbolScope) = 0;
+    virtual void addVariable(ShVariable*, ShSymScope*);
 };
 
 
@@ -626,6 +633,7 @@ public:
 
 class ShModule: public ShScope
 {
+protected:
     // --- Compiler ---
 
     struct CompilerOptions
@@ -638,8 +646,10 @@ class ShModule: public ShScope
 
     string fileName;
     Parser parser;
+    VmCodeGen* codegen;
     Array<string> vectorConsts;
     CompilerOptions options;
+    ShLocalScope modLocalScope;
 
     ShSymScope* symbolScope; // for symbols only
     ShScope* varScope;    // static or stack-local scope
@@ -705,13 +715,13 @@ public:
 
     // --- RUNTIME --- //
 protected:
-    void setupRuntime(VmCodeGen& main);
+    void setupRuntime();
     VmCodeSegment mainCode;
     offs dataSize;
     char* dataSegment;
     
 public:
-    void executeMain();
+    void execute();
 };
 
 
