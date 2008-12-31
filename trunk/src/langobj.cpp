@@ -525,6 +525,19 @@ string ShVector::displayValue(const ShValue& v) const
     }
 }
 
+void ShVector::rtFinalize(ptr dataseg) const
+{
+    if (!elementType->isPod())
+    {
+        pchar p = pchar(*pptr(dataseg));
+        int itemSize = elementType->staticSize();
+        int count = PTR_TO_STRING(p).size() / itemSize - 1;
+        for (; count >= 0; count--, p += itemSize)
+            elementType->rtFinalize(p);
+    }
+    string::_finalize(*pptr(dataseg));
+}
+
 
 // --- ARRAY TYPE --- //
 

@@ -371,13 +371,8 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
         do
         {
             ShType* right = parseArithmExpr(code);
-            if (right->isVector())
-            {
-                if (left->equals(right))
-                    code.genVecCat(tmpOffset);
-                else
-                    error("Operands of vector concatenation are incompatible");
-            }
+            if (left->equals(right))
+                code.genVecCat(tmpOffset);
             else if (PVector(left)->elementEquals(right))
                 code.genVecElemCat(tmpOffset);
             else
