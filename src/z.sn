@@ -181,7 +181,8 @@ echo int | char | bool
 
 begin:
     var a = ['abc', 'def']
-    var b = 'ghi'
-    echo ['abc', 'def'] | b
+    # var str b[] = 'ghi'
+    # echo ['abc', 'def'] | b
+
 
 

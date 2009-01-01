@@ -43,11 +43,45 @@ static int compareStr(ptr a, ptr b)
     { return PTR_TO_STRING(a).compare(PTR_TO_STRING(b)); }
 
 
+static void popByType(ShType* type, ShValue& result)
+{
+    switch (type->storageModel())
+    {
+        case stoByte:
+        case stoInt: result.assignInt(type, stk.popInt()); break;
+        case stoLarge: result.assignLarge(type, stk.popLarge()); break;
+        case stoPtr: result.assignPtr(type, stk.popPtr()); break;
+        case stoVec: 
+            {
+                ptr p = stk.popPtr();
+                result.assignVec(type, PTR_TO_STRING(p));
+            }
+            break;
+        case stoVoid: result.assignVoid(type); break;
+        default: internal(100);
+    }
+}
+
+/*
+static void popByType(ShType* type, podvalue& result)
+{
+    switch (type->storageModel())
+    {
+        case stoByte:
+        case stoInt: result.int_ = stk.popInt(); break;
+        case stoLarge: result.large_ = stk.popLarge(); break;
+        case stoPtr: 
+        case stoVec: result.ptr_ = stk.popPtr(); break;
+        case stoVoid: break;
+        default: internal(58);
+    }
+}
+*/
+
 static ptr catVecElem(ShType* type)
 {
-    StorageModel sto = type->storageModel();
     ptr* l = NULL;
-    switch (sto)
+    switch (type->storageModel())
     {
         case stoByte:
             {
@@ -81,35 +115,60 @@ static ptr catVecElem(ShType* type)
             {
                 ptr elem = string::_initialize(stk.popPtr());
                 l = stk.topPtrRef();
-                if (PTR_TO_STRING(*l).refcount() > 1)
-                    runtimeError(2, "(Internal) Refcount > 1");
                 *pptr(PTR_TO_STRING(*l).appendn(sizeof(ptr))) = elem;
             }
             break;
-        default: runtimeError(2, "(Internal) Unknown type");
+        default: internal(101);
     }
     return *l;
 }
 
-
-static void popByType(ShType* type, ShValue& result)
+static void finalize(ShType* type, ptr data)
 {
     switch (type->storageModel())
     {
-        case stoByte:
-        case stoInt: result.assignInt(type, stk.popInt()); break;
-        case stoLarge: result.assignLarge(type, stk.popLarge()); break;
-        case stoPtr: result.assignPtr(type, stk.popPtr()); break;
-        case stoVec: 
+        case stoVec:
+        {
+//            if (PVector(type)->isPodVector())
+//                string::_finalize(*pptr(data));
+//            else
             {
-                ptr p = stk.popPtr();
-                result.assignVec(type, PTR_TO_STRING(p));
+                if (PTR_TO_STRING(*pptr(data))._unlock() == 0)
+                {
+puts("*** DESTROYING A NON-POD VECTOR ***");
+                    pchar p = pchar(*pptr(data));
+                    ShType* elementType = PVector(type)->elementType;
+                    int itemSize = elementType->staticSize();
+                    int count = PTR_TO_STRING(p).size() / itemSize - 1;
+                    for (; count >= 0; count--, p += itemSize)
+                        finalize(elementType, p);
+                    PTR_TO_STRING(*pptr(data))._free();
+                }
+//                else
+//                    PTR_TO_STRING(*pptr(data))._empty();
             }
-            break;
-        case stoVoid: result.assignVoid(type); break;
-        default: internal(58);
+        }
+        break;
+
+        default: internal(102);
     }
 }
+
+static ptr elemToVec(ShType* type)
+{
+    ptr vec = string::_initializen(type->staticSize());
+    switch (type->storageModel())
+    {
+        case stoByte: *puchar(vec) = uchar(stk.popInt());; break;
+        case stoInt: *pint(vec) = stk.popInt(); break;
+        case stoLarge: *plarge(vec) = stk.popLarge(); break;
+        case stoPtr: *pptr(vec) = stk.popPtr(); break;
+        case stoVec: *pptr(vec) = string::_initialize(stk.popPtr()); break;
+        default: runtimeError(2, "(Internal) Unknown type");
+    }
+    return vec;
+}
+
 
 static void doEcho(ShType* type)
 {
@@ -159,13 +218,11 @@ static ptr itostr10(large v)
     case opStore##KIND##Byte: { int t = stk.popInt(); *puchar(PTR) = t; } break; \
     case opStore##KIND##Int: { int t = stk.popInt(); *pint(PTR) = t; } break; \
     case opStore##KIND##Large: { large t = stk.popLarge(); *plarge(PTR) = t; } break; \
-    case opStore##KIND##Ptr: { ptr t  = stk.popPtr(); *pptr(PTR) = t; } break; \
-    case opStore##KIND##Vec: { ptr t = stk.popPtr(); pptr s = pptr(PTR); \
-            string::_finalize(*s); *s = string::_initialize(t); } break; \
+    case opStore##KIND##Ptr: { ptr t = stk.popPtr(); *pptr(PTR) = t; } break; \
+    case opStore##KIND##Vec: { ptr t = stk.popPtr(); *pptr(PTR) = string::_initialize(t); } break; \
     case opStore##KIND##Void: break; \
-    case opInit##KIND##Vec: { ptr t = stk.popPtr(); *pptr(PTR) = string::_initialize(t); } break; \
     case opFin##KIND##PodVec: { string::_finalize(*pptr(PTR)); } break; \
-    case opFin##KIND##Vec: { ptr t = (p++)->ptr_; PVector(t)->rtFinalize(PTR); } break;
+    case opFin##KIND: { PType t = PType((p++)->ptr_); finalize(t, PTR); } break;
 
 
 // TODO: try to pass the stack pointer as an arg to this func and see the difference in asm.
@@ -222,20 +279,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
             *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr());
             break;
         case opElemToVec:
-            {
-                ShType* type = PType((p++)->ptr_);
-if (type->isVector()) runtimeError(2, "ELEM2VEC: unknown type");
-                int size = type->staticSize();
-                char* vec = pchar(string::_initializen(size));
-                if (size > 4)
-                    *plarge(vec) = stk.popLarge();
-                else if (size > 1)
-                    *pint(vec) = stk.popInt();
-                else
-                    *puchar(vec) = uchar(stk.popInt());
-                stk.pushPtr(*pptr(stkbase + (p++)->offs_) = vec);
-            }
-            break;
+            { ShType* type = PType((p++)->ptr_); stk.pushPtr(*pptr(stkbase + (p++)->offs_) = elemToVec(type)); } break;
         case opVecCat:
             {
                 ShType* type = PType((p++)->ptr_);
