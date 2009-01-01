@@ -597,9 +597,7 @@ protected:
     ShSymScope* symbolScope; // for symbols only
     ShScope* varScope;    // static or stack-local scope
 
-    string registerString(const string& v) // TODO: fund duplicates
-            { vectorConsts.add(v); return v; }
-    string registerVector(const string& v)
+    string registerString(const string& v) // TODO: find duplicates
             { vectorConsts.add(v); return v; }
     virtual void addVariable(ShVariable*, ShSymScope*);
 
@@ -614,8 +612,8 @@ protected:
     ShBase* getQualifiedName();
     ShType* getDerivators(ShType*);
     ShType* getTypeOrNewIdent(string* strToken);
-    void    getConstCompound(ShType*, ShValue&);
     ShType* getTypeExpr(bool anyObj);
+    ShType* parseCompoundCtor(VmCodeGen& code);
     ShType* parseIfFunc(VmCodeGen& code);
     ShType* parseAtom(VmCodeGen&, bool isLValue);
     ShType* parseDesignator(VmCodeGen&, bool isLValue);
