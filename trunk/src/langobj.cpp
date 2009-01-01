@@ -274,8 +274,6 @@ void ShScope::dump(string indent) const
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
-// TODO: define lo() and hi() for ordinals and also ranges
-
 EInvalidSubrange::EInvalidSubrange(ShOrdinal* type)
     : EMessage("Invalid subrange for " + type->getDefinition())  { }
     
@@ -369,8 +367,9 @@ ShInteger::ShInteger(const string& name, large min, large max)
 
 string ShInteger::getFullDefinition(const string& objName) const
 {
-    return itostring(range.min) + ".." + itostring(range.max)
-        + ' ' + objName;
+    string s = itostring(range.min) + ".." + itostring(range.max);
+    if (!objName.empty()) s += ' ' + objName;
+    return s;
 }
 
 string ShInteger::displayValue(const ShValue& v) const
@@ -392,8 +391,9 @@ ShChar::ShChar(const string& name, int min, int max)
 
 string ShChar::getFullDefinition(const string& objName) const
 {
-    return "'" + mkPrintable(range.min)  + "'..'" + mkPrintable(range.max)
-        + "' " + objName;
+    string s = "'" + mkPrintable(range.min)  + "'..'" + mkPrintable(range.max) + "'";
+    if (!objName.empty()) s += ' ' + objName;
+    return s;
 }
 
 string ShChar::displayValue(const ShValue& v) const
@@ -419,11 +419,11 @@ void ShEnum::finish()
     reassignMax(max);
 }
 
-// TODO: better printing maybe
 string ShEnum::getFullDefinition(const string& objName) const
 {
-    return values[range.min]->name + ".." + values[range.max]->name
-        + ' ' + objName;
+    string s = values[range.min]->name + ".." + values[range.max]->name;
+    if (!objName.empty()) s += ' ' + objName;
+    return s;
 }
 
 ShOrdinal* ShEnum::cloneWithRange(large min, large max)
@@ -449,7 +449,11 @@ ShBool::ShBool(const string& name)
     : ShOrdinal(name, typeBool, 0, 1)  { }
 
 string ShBool::getFullDefinition(const string& objName) const
-    { return "false..true " + objName; }
+{
+    string s = "false..true";
+    if (!objName.empty()) s += ' ' + objName;
+    return s;
+}
 
 string ShBool::displayValue(const ShValue& v) const
     { return v.value.int_ ? "true" : "false"; }

@@ -5,6 +5,8 @@
 #include "common.h"
 
 
+// TODO: opCmpInt0, opCmpLarge0, opStrIsNull, opStore0, opStoreLarge0, opRangeCheck, ...
+
 enum OpCode
 {
     opEnd,              //   
@@ -89,8 +91,6 @@ enum OpCode
     opCmpPodVec,        //                  -2  +1
     opCmpPtr,           //                  -2  +1 - only EQ or NE
 
-    // TODO: opCmpInt0, opCmpLarge0, opStrIsNull
-
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
     opEQ,               //                  -1  +1
@@ -151,8 +151,6 @@ enum OpCode
     opEchoLn,           //
     opAssert,           // [string* fn, linenum] -1
     opLinenum,          // [string* fn, linenum]
-
-    // TODO: linenum, rangecheck opcodes
 
     opMaxCode,
     

@@ -66,6 +66,7 @@
 		362E27180F0BFB05005E05B4 /* codegen.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = codegen.cpp; path = src/codegen.cpp; sourceTree = "<group>"; };
 		362E27190F0BFB05005E05B4 /* codegen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = codegen.h; path = src/codegen.h; sourceTree = "<group>"; };
 		362E29C10F0D67C3005E05B4 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
+		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
 		363C70E80EF70F4400866D2C /* baseobj.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = baseobj.cpp; path = src/baseobj.cpp; sourceTree = "<group>"; };
 		363C70E90EF70F4400866D2C /* baseobj.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = baseobj.h; path = src/baseobj.h; sourceTree = "<group>"; };
 		363C70EA0EF70F4400866D2C /* charset.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = charset.cpp; path = src/charset.cpp; sourceTree = "<group>"; };
@@ -155,6 +156,7 @@
 		C6859E8C029090F304C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				362E29FD0F0D6C58005E05B4 /* TODO */,
 				362E251F0F0AC811005E05B4 /* shannon - Google Code.webloc */,
 				36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
