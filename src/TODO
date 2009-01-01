@@ -5,6 +5,8 @@
 
 * vector item selection, only R-value to start with
 
+* lo(), hi(), len()
+
 * is, as (sometimes can be evaluated at compile time)
 
 * a lot of TODO's in the sources

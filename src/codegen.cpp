@@ -190,7 +190,6 @@ void VmCodeGen::genComparison(OpCode cmp)
 
     else if (left->isOrdinal() && right->isOrdinal())
     {
-        // TODO: check if one of the operands is 0 and generate CmpZero*
         // If even one of the operands is 64-bit, we generate 64-bit ops
         // with the hope that the parser took care of the rest.
         op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;

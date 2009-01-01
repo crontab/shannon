@@ -193,5 +193,7 @@ begin:
     var g = f | d
     echo g
 
+var false..true dbool = false
+
 echo
 
