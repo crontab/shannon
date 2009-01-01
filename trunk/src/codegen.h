@@ -34,6 +34,7 @@ protected:
     ShType* genPopType()                { return genPop().type; }
 
     void genCmpOp(OpCode op, OpCode cmp);
+    void genStoreVar(ShVariable* var);
     void genEnd();
     void runFinCode();
     void verifyClean();

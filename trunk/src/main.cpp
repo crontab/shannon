@@ -49,7 +49,7 @@ ShBase* ShModule::getQualifiedName()
     string errIdent = ident;
     while (parser.token == tokPeriod)
     {
-        if (!obj->isScope())
+        if (!obj->isType() || !PType(obj)->isModule())
             return obj;
         ShScope* scope = (ShScope*)obj;
         parser.next(); // "."

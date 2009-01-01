@@ -49,7 +49,6 @@ public:
     bool isTypeAlias() const  { return baseId == baseTypeAlias; }
     bool isVariable() const   { return baseId == baseVariable; }
     bool isConstant() const   { return baseId == baseConstant; }
-    virtual bool isScope() const      { return false; }
 };
 
 
@@ -82,12 +81,11 @@ class ShType: public ShBase
     offs alignedSize;
 
 protected:
-
+    ShScope* owner;
     ShVector* derivedVectorType;
     ShSet* derivedSetType;
     ShReference* derivedRefType;
 
-    ShScope* owner;
     virtual string getFullDefinition(const string& objName) const = 0;
 
 public:
@@ -116,6 +114,7 @@ public:
     bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
     bool isReference() const { return typeId == typeReference; }
+    bool isModule() const { return typeId == typeModule; }
 
     StorageModel storageModel() const
             { return stoModel; }
@@ -146,10 +145,6 @@ public:
     ShReference* deriveRefType();
     void setDerivedVectorTypePleaseThisIsCheatingIKnow(ShVector* v)
             { derivedVectorType = v; }
-
-    // run-time functions
-    virtual void rtFinalize(ptr) const
-            { }
 };
 
 typedef ShType* PType;
@@ -194,8 +189,6 @@ public:
     ShSymScope(const string& iName, ShTypeId iTypeId)
             : ShType(iName, iTypeId), parent(NULL)  { }
 
-    virtual bool isScope() const
-            { return true; }
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
     virtual bool equals(ShType* type) const
@@ -438,8 +431,6 @@ public:
 
     bool isPodVector() const
             { return elementType->isPod(); }
-
-    virtual void rtFinalize(ptr) const;
 };
 
 inline bool ShType::isEmptyVec() const

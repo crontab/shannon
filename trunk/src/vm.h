@@ -51,9 +51,8 @@ enum OpCode
     opStoreThisVec,     // [offs]           -1
     opStoreThisVoid,    // [offs]           -1
 
-    opInitThisVec,      // [offs]           -1
     opFinThisPodVec,    // [offs]
-    opFinThisVec,       // [ShType*, offs]  -1
+    opFinThis,          // [ShType*, offs]  -1
 
     // --- through stkbase
     opLoadLocByte,      // [local-offs]         +1
@@ -70,9 +69,8 @@ enum OpCode
     opStoreLocVec,      // [local-offs]     -1
     opStoreLocVoid,     // [local-offs]     -1
 
-    opInitLocVec,       // [local-offs]     -1
     opFinLocPodVec,     // [local-offs]
-    opFinLocVec,        // [vec-type, local-offs]  -1
+    opFinLoc,           // [ShType*, local-offs]  -1
     
     opLoadThisRef,      // [offs]               +1
     opLoadLocRef,       // [offs]               +1

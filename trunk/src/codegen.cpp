@@ -308,10 +308,8 @@ void VmCodeGen::genLoadVarRef(ShVariable* var)
     genPush(var->type->deriveRefType());
 }
 
-void VmCodeGen::genStore()
+void VmCodeGen::genStoreVar(ShVariable* var)
 {
-    needsRuntimeContext = true;
-    ShVariable* var = genPopDeferred();
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
@@ -319,34 +317,52 @@ void VmCodeGen::genStore()
     codeseg.addOffs(var->dataOffset);
 }
 
+void VmCodeGen::genStore()
+{
+    needsRuntimeContext = true;
+    ShVariable* var = genPopDeferred();
+    genFinVar(var);
+    genStoreVar(var);
+}
+
 void VmCodeGen::genInitVar(ShVariable* var)
 {
     needsRuntimeContext = true;
     genPop();
-    StorageModel sto = var->type->storageModel();
-    OpCode op = OpCode(opStoreThisFirst + sto);
-    if (sto == stoVec)
-        op = opInitThisVec;
-    if (var->isLocal())
-        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    codeseg.addOp(op);
-    codeseg.addOffs(var->dataOffset);
+    genStoreVar(var);
+}
+
+static void genFin(VmCodeSegment& codeseg, ShType* type, offs offset, bool isLocal)
+{
+    switch (type->storageModel())
+    {
+        case stoVec:
+        {
+            if (PVector(type)->isPodVector())
+                codeseg.addOp(isLocal ? opFinLocPodVec : opFinThisPodVec);
+            else
+            {
+                codeseg.addOp(isLocal ? opFinLoc : opFinThis);
+                codeseg.addPtr(type);
+            }
+            codeseg.addOffs(offset);
+        }
+        break;
+        default: ;
+    }
 }
 
 void VmCodeGen::genFinVar(ShVariable* var)
 {
     needsRuntimeContext = true;
-    if (var->type->isVector())
-    {
-        if (PVector(var->type)->isPodVector())
-            codeseg.addOp(var->isLocal() ? opFinLocPodVec : opFinThisPodVec);
-        else
-        {
-            codeseg.addOp(var->isLocal() ? opFinLocVec : opFinThisVec);
-            codeseg.addPtr(var->type);
-        }
-        codeseg.addOffs(var->dataOffset);
-    }
+    genFin(codeseg, var->type, var->dataOffset, var->isLocal());
+}
+
+offs VmCodeGen::genReserveTempVar(ShType* type)
+{
+    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
+    genFin(finseg, type, offset, true);
+    return offset;
 }
 
 offs VmCodeGen::genCopyToTempVec()
@@ -404,23 +420,6 @@ void VmCodeGen::genIntToStr()
 offs VmCodeGen::genReserveLocalVar(ShType* type)
 {
     return codeseg.reserveLocalVar(type->staticSizeAligned());
-}
-
-offs VmCodeGen::genReserveTempVar(ShType* type)
-{
-    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
-    if (type->isVector())
-    {
-        if (PVector(type)->isPodVector())
-            finseg.addOp(opFinLocPodVec);
-        else
-        {
-            finseg.addOp(opFinLocVec);
-            finseg.addPtr(type);
-        }
-        finseg.addOffs(offset);
-    }
-    return offset;
 }
 
 void VmCodeGen::genAssert(Parser& parser)

@@ -26,17 +26,15 @@ ShBase::ShBase(const string& name, ShBaseId iBaseId)
 
 
 ShType::ShType(ShTypeId iTypeId)
-    : ShBase(baseType),
-      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
-      owner(NULL)
+    : ShBase(baseType), owner(NULL),
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)
 {
     setTypeId(iTypeId);
 }
 
 ShType::ShType(const string& name, ShTypeId iTypeId)
-    : ShBase(name, baseType), 
-      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
-      owner(NULL)
+    : ShBase(name, baseType), owner(NULL),
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)
 {
     setTypeId(iTypeId);
 }
@@ -147,7 +145,6 @@ ShReference* ShType::deriveRefType()
     }
     return derivedRefType;
 }
-
 
 // --- TYPE ALIAS --- //
 
@@ -538,26 +535,6 @@ string ShVector::displayValue(const ShValue& v) const
         }
         return '[' + s + ']';
     }
-}
-
-void ShVector::rtFinalize(ptr dataseg) const
-{
-    if (!elementType->isPod())
-    {
-        if (PTR_TO_STRING(*pptr(dataseg))._unlock() == 0)
-        {
-            pchar p = pchar(*pptr(dataseg));
-            int itemSize = elementType->staticSize();
-            int count = PTR_TO_STRING(p).size() / itemSize - 1;
-            for (; count >= 0; count--, p += itemSize)
-                elementType->rtFinalize(p);
-            PTR_TO_STRING(*pptr(dataseg))._free();
-        }
-        else
-            PTR_TO_STRING(*pptr(dataseg))._empty();
-    }
-    else
-        string::_finalize(*pptr(dataseg));
 }
 
 
