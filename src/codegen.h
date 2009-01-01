@@ -16,9 +16,8 @@ protected:
     struct GenStackInfo
     {
         ShType* type;
-        int codeOffs;
-        GenStackInfo(ShType* iType, int iCodeOffs)
-            : type(iType), codeOffs(iCodeOffs)  { }
+        GenStackInfo(ShType* iType)
+            : type(iType)  { }
     };
 
     VmCodeSegment codeseg;
@@ -98,6 +97,10 @@ public:
 
     VmCodeSegment getCodeSeg();
 };
+
+
+// defined in vm.cpp; made public, because constants need it too
+void finalize(ShType* type, ptr data);
 
 
 #endif

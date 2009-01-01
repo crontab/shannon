@@ -619,8 +619,10 @@ ShValue::ShValue(const ShValue& v)
 void ShValue::_finalize()
 {
     if (type != NULL && type->isVector())
-        // TODO: finalize non-POD vectors
-        string::_finalize(value.ptr_);
+        if (PVector(type)->isPodVector())
+            string::_finalize(value.ptr_);
+        else
+            finalize(type, &value.ptr_);
 }
 
 void ShValue::assignInt(ShType* iType, int i)

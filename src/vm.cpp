@@ -123,15 +123,15 @@ static ptr catVecElem(ShType* type)
     return *l;
 }
 
-static void finalize(ShType* type, ptr data)
+void finalize(ShType* type, ptr data)
 {
     switch (type->storageModel())
     {
         case stoVec:
         {
-//            if (PVector(type)->isPodVector())
-//                string::_finalize(*pptr(data));
-//            else
+            if (PVector(type)->isPodVector())
+                string::_finalize(*pptr(data));
+            else
             {
                 if (PTR_TO_STRING(*pptr(data))._unlock() == 0)
                 {

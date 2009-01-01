@@ -60,7 +60,7 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 
 void VmCodeGen::genPush(ShType* t)
 {
-    genStack.push(GenStackInfo(t, genOffset()));
+    genStack.push(GenStackInfo(t));
     genStackSize += t->staticSizeAligned();
     codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
     resultTypeHint = NULL;
@@ -310,6 +310,7 @@ void VmCodeGen::genLoadVarRef(ShVariable* var)
 
 void VmCodeGen::genStoreVar(ShVariable* var)
 {
+    needsRuntimeContext = true;
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
@@ -319,7 +320,6 @@ void VmCodeGen::genStoreVar(ShVariable* var)
 
 void VmCodeGen::genStore()
 {
-    needsRuntimeContext = true;
     ShVariable* var = genPopDeferred();
     genFinVar(var);
     genStoreVar(var);
@@ -327,7 +327,6 @@ void VmCodeGen::genStore()
 
 void VmCodeGen::genInitVar(ShVariable* var)
 {
-    needsRuntimeContext = true;
     genPop();
     genStoreVar(var);
 }
@@ -360,6 +359,8 @@ void VmCodeGen::genFinVar(ShVariable* var)
 
 offs VmCodeGen::genReserveTempVar(ShType* type)
 {
+    // note that we are not setting needsRuntimeContext, as this can be
+    // executed when evaluating, e.g., const string concatenation
     offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
     genFin(finseg, type, offset, true);
     return offset;

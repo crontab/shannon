@@ -180,7 +180,10 @@ echo int | char | bool
 }#
 
 begin:
-    var a = ['abc', 'def']
+    const a = [[1, 2], [3, 4]]
+    echo a
+    # var b = ['abc', 'def']
+    # var a = ['abc', 'def']
     # var str b[] = 'ghi'
     # echo ['abc', 'def'] | b
 

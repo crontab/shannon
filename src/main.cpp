@@ -63,40 +63,6 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
-void ShModule::getConstCompound(ShType* typeHint, ShValue& result)
-{
-    if (typeHint != NULL && !typeHint->isVector())
-        typeHint = NULL; // let the assignment parser decide
-    if (parser.skipIf(tokRSquare))
-    {
-        result.assignVec(queenBee->defaultEmptyVec, emptystr);
-    }
-    else
-    {
-        string vec;
-        ShType* elemType = typeHint != NULL && typeHint->isVector() ?
-            PVector(typeHint)->elementType : NULL;
-        int elemSize = -1;
-        while (1)
-        {
-            ShValue value;
-            getConstExpr(elemType, value);
-            if (elemType == NULL)
-                elemType = value.type;
-            if (!elemType->canAssign(value.type))
-                errorWithLoc("Type mismatch in vector constructor"); // never reached
-            if (elemSize == -1)
-                elemSize = elemType->staticSize();
-            value.assignToBuf(vec.appendn(elemSize));
-            if (parser.skipIf(tokRSquare))
-                break;
-            parser.skip(tokComma, "]");
-        }
-        result.assignVec(elemType->deriveVectorType(), registerVector(vec));
-    }
-}
-
-
 ShType* ShModule::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
@@ -259,13 +225,7 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
 
     // compound ctor (currently only vector)
     else if (parser.skipIf(tokLSquare))
-    {
-        ShValue comp;
-        getConstCompound(code.resultTypeHint, comp);
-        if (!comp.type->isVector())
-            internal(20);
-        code.genLoadVecConst(comp.type, pconst(comp.value.ptr_));
-    }
+        parseCompoundCtor(code);
     
     else if (!isLValue && parser.skipIf(tokIf))
         parseIfFunc(code);
@@ -368,7 +328,6 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
         }
         else
             error("Invalid vector element type");
-
         do
         {
             ShType* right = parseArithmExpr(code);
@@ -382,6 +341,45 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
         while (parser.skipIf(tokCat));
     }
     return left;
+}
+
+
+ShType* ShModule::parseCompoundCtor(VmCodeGen& code)
+{
+    ShType* typeHint = code.resultTypeHint;
+    if (typeHint != NULL && !typeHint->isVector())
+        typeHint = NULL; // let the assignment parser decide
+    if (parser.skipIf(tokRSquare))
+    {
+        code.genLoadVecConst(queenBee->defaultEmptyVec, emptystr);
+        return queenBee->defaultEmptyVec;
+    }
+    else
+    {
+        ShType* elemType = typeHint != NULL && typeHint->isVector() ?
+            PVector(typeHint)->elementType : NULL;
+        ShVector* vecType = NULL;
+        offs tmpOffset = 0;
+        while (1)
+        {
+            ShType* gotType = parseExpr(code, elemType);
+            if (elemType == NULL)
+                elemType = gotType;
+            if (!elemType->canAssign(gotType))
+                errorWithLoc("Type mismatch in vector constructor");
+            if (vecType == NULL) // first item?
+            {
+                vecType = elemType->deriveVectorType();
+                tmpOffset = code.genElemToVec(vecType);
+            }
+            else
+                code.genVecElemCat(tmpOffset);
+            if (parser.skipIf(tokRSquare))
+                break;
+            parser.skip(tokComma, "]");
+        }
+        return vecType;
+    }
 }
 
 
