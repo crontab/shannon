@@ -3,9 +3,7 @@
 
 
 #include "port.h"
-#include "str.h"
-#include "contain.h"
-#include "except.h"
+#include "common.h"
 
 
 class Base: noncopyable

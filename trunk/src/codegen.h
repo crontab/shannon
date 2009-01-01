@@ -2,8 +2,7 @@
 #define __CODEGEN_H
 
 
-#include "str.h"
-#include "contain.h"
+#include "common.h"
 #include "source.h"
 #include "baseobj.h"
 #include "vm.h"

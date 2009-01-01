@@ -79,8 +79,6 @@ expr-list ::= expr { "," expr }
 
 array-item-selection ::= "[" expr "]"
 
-fifo-item-selection ::= "<" ">"
-
 function-call ::= "(" [ expr-list ] ")"
 
 mute ::= "^"

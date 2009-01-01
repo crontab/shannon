@@ -2,21 +2,15 @@
 
 obj/portatom.o: port.h
 obj/portmem.o: port.h
-obj/strbase.o: port.h str.h
-obj/strconv.o: str.h port.h
-obj/except.o: except.h str.h port.h
-obj/charset.o: charset.h port.h
-obj/contain.o: contain.h str.h port.h
-obj/baseobj.o: str.h port.h baseobj.h contain.h except.h bsearch.h
-obj/source.o: source.h str.h port.h except.h charset.h contain.h baseobj.h
-obj/source.o: bsearch.h
-obj/langobj.o: langobj.h str.h port.h except.h baseobj.h contain.h source.h
-obj/langobj.o: charset.h vm.h codegen.h
-obj/vm.o: vm.h str.h port.h contain.h langobj.h except.h baseobj.h source.h
-obj/vm.o: charset.h
-obj/codegen.o: codegen.h str.h port.h contain.h source.h except.h charset.h
-obj/codegen.o: baseobj.h vm.h langobj.h
-obj/main.o: str.h port.h except.h langobj.h baseobj.h contain.h source.h
-obj/main.o: charset.h vm.h codegen.h
-obj/main-ut.o: charset.h port.h str.h contain.h baseobj.h except.h source.h
-obj/main-ut.o: langobj.h vm.h
+obj/strbase.o: port.h common.h
+obj/strconv.o: common.h port.h
+obj/except.o: common.h port.h
+obj/charset.o: common.h port.h
+obj/contain.o: common.h port.h
+obj/baseobj.o: common.h port.h baseobj.h bsearch.h
+obj/source.o: source.h common.h port.h baseobj.h bsearch.h
+obj/langobj.o: langobj.h common.h port.h baseobj.h source.h vm.h codegen.h
+obj/vm.o: vm.h common.h port.h langobj.h baseobj.h source.h
+obj/codegen.o: codegen.h common.h port.h source.h baseobj.h vm.h langobj.h
+obj/main.o: common.h port.h langobj.h baseobj.h source.h vm.h codegen.h
+obj/main-ut.o: common.h port.h baseobj.h source.h langobj.h vm.h

@@ -14,7 +14,7 @@ SRCS = portatom.cpp portmem.cpp strbase.cpp strconv.cpp except.cpp charset.cpp \
     contain.cpp baseobj.cpp source.cpp langobj.cpp vm.cpp codegen.cpp \
     main.cpp main-ut.cpp
 
-HDRS = port.h str.h except.h charset.h contain.h baseobj.h source.h langobj.h vm.h codegen.h
+HDRS = port.h common.h baseobj.h source.h langobj.h vm.h codegen.h
 
 all: dirs shannon shannon-ut
 
