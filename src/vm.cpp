@@ -39,13 +39,41 @@ static int compareLarge(large a, large b)
 static int compareStrChr(ptr a, int b)
     { return PTR_TO_STRING(a).compare(string(char(b))); }
 
-static int compareStr(ptr a, ptr b)
-    { return PTR_TO_STRING(a).compare(PTR_TO_STRING(b)); }
+
+void finalize(ShType* type, ptr data)
+{
+    switch (type->storageModel)
+    {
+        case stoVec:
+        {
+            if (PVector(type)->isPodVector())
+                string::_finalize(*pptr(data));
+            else
+            {
+                if (PTR_TO_STRING(*pptr(data))._unlock() == 0)
+                {
+                    pchar p = pchar(*pptr(data));
+                    ShType* elementType = PVector(type)->elementType;
+                    int itemSize = elementType->staticSize;
+                    int count = PTR_TO_STRING(p).size() / itemSize - 1;
+                    for (; count >= 0; count--, p += itemSize)
+                        finalize(elementType, p);
+                    PTR_TO_STRING(*pptr(data))._free();
+                }
+//                else
+//                    PTR_TO_STRING(*pptr(data))._empty();
+            }
+        }
+        break;
+
+        default: internal(102);
+    }
+}
 
 
 static void popByType(ShType* type, ShValue& result)
 {
-    switch (type->storageModel())
+    switch (type->storageModel)
     {
         case stoByte:
         case stoInt: result.assignInt(type, stk.popInt()); break;
@@ -78,86 +106,114 @@ static void popByType(ShType* type, podvalue& result)
 }
 */
 
-static ptr catVecElem(ShType* type)
+static void copyElems(ShType* elemType, ptr src, ptr dst, int count)
 {
-    ptr* l = NULL;
-    switch (type->storageModel())
+    switch (elemType->storageModel)
+    {
+        case stoVec:
+            if (count > 0)
+                while (1)
+                {
+                    *pptr(dst) = string::_initialize(*pptr(src));
+                    if (--count == 0)
+                        break;
+                    (*ppptr(&src))++; (*ppptr(&dst))++;
+                }
+            break;
+        default: internal(103);
+    }
+}
+
+
+static void growNonPodVec(ShType* elemType, ptr* pvec, int count)
+{
+    ptr vec = *pvec;
+    if (count == 0)
+        return;
+    if (PTR_TO_STRING(vec).empty())
+        *pvec = string::_new(count * elemType->staticSize);
+    else if (PTR_TO_STRING(vec).refcount() == 1)
+        *pvec = string::_grow(vec, count * elemType->staticSize);
+    else
+    {
+        int oldsize = PTR_TO_STRING(vec).size();
+        ptr newvec = string::_new(oldsize + (count * elemType->staticSize));
+        copyElems(elemType, vec, newvec, oldsize / elemType->staticSize);
+        string::_finalize(*pvec);
+        *pvec = newvec;
+    }
+}
+
+
+static ptr catVecElem(ShType* elemType)
+{
+    ptr* pvec = NULL;
+    switch (elemType->storageModel)
     {
         case stoByte:
             {
                 int elem = stk.popInt();
-                l = stk.topPtrRef();
-                PTR_TO_STRING(*l).append(char(elem));
+                pvec = stk.topPtrRef();
+                PTR_TO_STRING(*pvec).append(char(elem));
             }
             break;
         case stoInt:
             {
                 int elem = stk.popInt();
-                l = stk.topPtrRef();
-                *pint(PTR_TO_STRING(*l).appendn(4)) = elem;
+                pvec = stk.topPtrRef();
+                *pint(PTR_TO_STRING(*pvec).appendn(4)) = elem;
             }
             break;
         case stoLarge:
             {
                 large elem = stk.popLarge();
-                l = stk.topPtrRef();
-                *plarge(PTR_TO_STRING(*l).appendn(8)) = elem;
+                pvec = stk.topPtrRef();
+                *plarge(PTR_TO_STRING(*pvec).appendn(8)) = elem;
             }
             break;
         case stoPtr:
             {
                 ptr elem = stk.popPtr();
-                l = stk.topPtrRef();
-                *pptr(PTR_TO_STRING(*l).appendn(sizeof(ptr))) = elem;
+                pvec = stk.topPtrRef();
+                *pptr(PTR_TO_STRING(*pvec).appendn(sizeof(ptr))) = elem;
             }
             break;
         case stoVec:
             {
                 ptr elem = string::_initialize(stk.popPtr());
-                l = stk.topPtrRef();
-                *pptr(PTR_TO_STRING(*l).appendn(sizeof(ptr))) = elem;
+                pvec = stk.topPtrRef();
+                int oldsize = PTR_TO_STRING(*pvec).size();
+                growNonPodVec(elemType, pvec, 1);
+                *pptr((pchar(*pvec) + oldsize)) = elem;
             }
             break;
         default: internal(101);
     }
-    return *l;
+    return *pvec;
 }
 
-void finalize(ShType* type, ptr data)
+
+static ptr vecCat(ShType* elemType)
 {
-    switch (type->storageModel())
+    ptr r = stk.popPtr();
+    ptr* pvec = stk.topPtrRef();
+    if (elemType->isPod())
+        PTR_TO_STRING(*pvec).append(PTR_TO_STRING(r));
+    else
     {
-        case stoVec:
-        {
-            if (PVector(type)->isPodVector())
-                string::_finalize(*pptr(data));
-            else
-            {
-                if (PTR_TO_STRING(*pptr(data))._unlock() == 0)
-                {
-puts("*** DESTROYING A NON-POD VECTOR ***");
-                    pchar p = pchar(*pptr(data));
-                    ShType* elementType = PVector(type)->elementType;
-                    int itemSize = elementType->staticSize();
-                    int count = PTR_TO_STRING(p).size() / itemSize - 1;
-                    for (; count >= 0; count--, p += itemSize)
-                        finalize(elementType, p);
-                    PTR_TO_STRING(*pptr(data))._free();
-                }
-//                else
-//                    PTR_TO_STRING(*pptr(data))._empty();
-            }
-        }
-        break;
-
-        default: internal(102);
+        int rcount = PTR_TO_STRING(r).size() / elemType->staticSize;
+        int oldsize = PTR_TO_STRING(*pvec).size();
+        growNonPodVec(elemType, pvec, rcount);
+        copyElems(elemType, r, pchar(*pvec) + oldsize, rcount);
     }
+    return *pvec;
 }
+
 
 static ptr elemToVec(ShType* type)
 {
-    ptr vec = string::_initializen(type->staticSize());
-    switch (type->storageModel())
+    ptr vec = string::_new(type->staticSize);
+    switch (type->storageModel)
     {
         case stoByte: *puchar(vec) = uchar(stk.popInt());; break;
         case stoInt: *pint(vec) = stk.popInt(); break;
@@ -260,7 +316,6 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 #endif
         case opLoadFalse: stk.pushInt(0); break;
         case opLoadTrue: stk.pushInt(1); break;
-        case opLoadNull: stk.pushPtr(NULL); break;
         case opLoadNullVec: stk.pushPtr(emptystr); break;
         case opLoadVecConst: stk.pushPtr((p++)->ptr_); break;
         case opLoadTypeRef: stk.pushPtr((p++)->ptr_); break;
@@ -281,28 +336,19 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opElemToVec:
             { ShType* type = PType((p++)->ptr_); stk.pushPtr(*pptr(stkbase + (p++)->offs_) = elemToVec(type)); } break;
         case opVecCat:
-            {
-                ShType* type = PType((p++)->ptr_);
-if (type->isVector()) runtimeError(2, "VECCAT: unknown type");
-                ptr r = stk.popPtr();
-                ptr* l = stk.topPtrRef();
-                PTR_TO_STRING(*l).append(PTR_TO_STRING(r));
-                *pptr(stkbase + (p++)->offs_) = *l;
-            }
-            break;
+            { ShType* t = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = vecCat(t); } break;
         case opVecElemCat:
-            { PType type = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = catVecElem(type); } break;
+            { PType t = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = catVecElem(t); } break;
 
 
         // --- COMPARISONS ------------------------------------------------- //
 
         case opCmpInt: { int r = stk.popInt(); int* t = stk.topIntRef(); *t = compareInt(*t, r); } break;
         case opCmpLarge: { large r = stk.popLarge(); stk.pushInt(compareLarge(stk.popLarge(), r)); } break;
-        case opCmpStr: { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(compareStr(l, r)); } break;
         case opCmpStrChr: { int r = stk.popInt(); ptr l = stk.popPtr(); stk.pushInt(compareStrChr(l, r)); } break;
         case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = -compareStrChr(r, *t); } break;
         case opCmpPodVec:
-            { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(!PTR_TO_STRING(l).equal(PTR_TO_STRING(r))); } break;
+            { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r))); } break;
         case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
 
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;

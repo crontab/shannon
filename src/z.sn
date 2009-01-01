@@ -1,6 +1,6 @@
 module Z
 
-#{
+
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -33,15 +33,16 @@ const 0..2 new1 = 1
 const str s = 'a'
 const s1 = 'b'
 const s2 = 'abc'
-const a3 = 1 != 2
+assert 1 != 2
 const a4 = 1L < 9223372036854775806L
 const a5 = glarge > 9223372036854775806L
-const a8 = 'ab' > 'abc'
-const a9 = s1 == 'b'
-const a10 = 'b' == s1
+assert not 'ab' == 'abc'
+assert 'ab' < 'abc'
+assert s1 == 'b'
+assert 'b' == s1
 
-const a6 = 'abc' == 'a'
-const a7 = 'b' != 'def'
+assert not 'abc' == 'a'
+assert 'b' != 'def'
 const typeof(h) h1 = 'a'
 const typeof(h1) h2 = 'b'
 const h3 = typeof(h2)
@@ -79,10 +80,11 @@ const o5 = 0x10 shr 1
 
 const f1 = true or true and false
 const f2 = true xor 0 < 1 xor true
-const f3 = ((1 or 2 or 4) shl 1) == 14
-const f4 = not true and false
-const int f5 = not 1 and 2
-const f6 = (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
+assert ((1 or 2 or 4) shl 1) == 14
+assert not (not true and false)
+const f5 = not 1 and 3
+assert typeof(f5) == int and f5 == 2
+assert (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
 
 def enum days(Mon, Tue, Wed)
 var int aa[] = 1
@@ -95,9 +97,9 @@ const u4 = 'x' | 'y' | 'z!'
 const u5 = ''
 
 const int u6[] = []
-const u7 = u6 == []
+assert u6 == []
 const u8 = 1 | 2 | 3 + 5
-const u9 = u8 == [1, 2, 3 + 5]
+assert u8 == [1, 2, 3 + 5]
 
 # const j1 = null | null
 # const void j2[] = null
@@ -177,15 +179,19 @@ assert if(true, 'cd' | 'e', 'fg' | 'h') == 'cde'
 var bool bb = 'a' | 'b' == 'ab' or 'c' | 'd' == 'cd'
 
 echo int | char | bool
-}#
+
 
 begin:
     const a = [[1, 2], [3, 4]]
-    echo a
-    # var b = ['abc', 'def']
-    # var a = ['abc', 'def']
-    # var str b[] = 'ghi'
-    # echo ['abc', 'def'] | b
+    var int b[] = []
+    var c = [1] | b
+    assert c == [1]
+    var d = ['abc', 'def']
+    var e = d | 'ghi'
+    # assert e == ['abc', 'def', 'ghi']
+    var f = ['89@'] | e
+    var g = f | d
+    echo g
 
-
+echo
 

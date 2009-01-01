@@ -47,7 +47,6 @@ public:
 
     void genLoadIntConst(ShOrdinal*, int);
     void genLoadLargeConst(ShOrdinal*, large);
-    void genLoadNull();
     void genLoadVecConst(ShType*, const char*);
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);

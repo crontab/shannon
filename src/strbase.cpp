@@ -56,7 +56,7 @@ void string::_realloc(int newchars)
 #endif
     int cap = STR_CAPACITY(data);
     if (newchars > cap || newchars < cap / 2) // grow faster, shrink slower
-    {
+    { // TODO: this is executed for strings < 32
         int allocate = memquantize(newchars + strrecsize);
         if (allocate != cap + strrecsize)
         {
