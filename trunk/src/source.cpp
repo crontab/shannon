@@ -235,6 +235,8 @@ Keywords::kwinfo Keywords::keywords[] =
         {"const", tokConst},
         {"def", tokDef},
         {"echo", tokEcho},
+        {"elif", tokElif},
+        {"else", tokElse},
         {"enum", tokEnum},
         {"false", tokFalse},
         {"if", tokIf},

@@ -84,7 +84,7 @@ ShVariable* VmCodeGen::genPopDeferred()
     return var;
 }
 
-void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
+void VmCodeGen::genLoadIntConst(ShType* type, int value)
 {
     genPush(type);
     if (type->isBool())
@@ -105,7 +105,7 @@ void VmCodeGen::genLoadIntConst(ShOrdinal* type, int value)
     }
 }
 
-void VmCodeGen::genLoadLargeConst(ShOrdinal* type, large value)
+void VmCodeGen::genLoadLargeConst(ShType* type, large value)
 {
     genPush(type);
     if (value == 0)
@@ -140,19 +140,20 @@ void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
 
 void VmCodeGen::genLoadConst(ShType* type, podvalue value)
 {
-    if (type->isOrdinal())
+    switch (type->storageModel)
     {
-        if (POrdinal(type)->isLargeInt())
-            genLoadLargeConst(POrdinal(type), value.large_);
-        else
-            genLoadIntConst(POrdinal(type), value.int_);
+        case stoByte:
+        case stoInt: genLoadIntConst(type, value.int_); break;
+        case stoLarge: genLoadLargeConst(type, value.large_); break;
+        case stoPtr:
+            if (type->isTypeRef())
+                genLoadTypeRef(PType(value.ptr_));
+            else
+                internal(50);
+            break;
+        case stoVec: genLoadVecConst(type, pconst(value.ptr_)); break;
+        default: internal(50);
     }
-    else if (type->isVector())
-        genLoadVecConst(type, pconst(value.ptr_));
-    else if (type->isTypeRef())
-        genLoadTypeRef((ShType*)value.ptr_);
-    else
-        internal(50);
 }
 
 void VmCodeGen::genMkSubrange()

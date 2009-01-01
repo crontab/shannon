@@ -639,6 +639,7 @@ protected:
     void parseOtherStatement(VmCodeGen&);
     void parseBlock(VmCodeGen& code);
     void enterBlock(VmCodeGen& code);
+    void parseIf(VmCodeGen& code);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;
