@@ -1,5 +1,5 @@
 
-#include "str.h"
+#include "common.h"
 #include "baseobj.h"
 #include "bsearch.h"
 

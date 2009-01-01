@@ -1,10 +1,7 @@
 #ifndef __SOURCE_H
 #define __SOURCE_H
 
-#include "str.h"
-#include "except.h"
-#include "charset.h"
-#include "contain.h"
+#include "common.h"
 #include "baseobj.h"
 
 

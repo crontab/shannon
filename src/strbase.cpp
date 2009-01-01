@@ -1,6 +1,6 @@
 
 #include "port.h"
-#include "str.h"
+#include "common.h"
 
 
 void string::stringoverflow()

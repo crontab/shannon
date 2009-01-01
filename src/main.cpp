@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include "str.h"
-#include "except.h"
+#include "common.h"
 #include "langobj.h"
 #include "vm.h"
 #include "codegen.h"

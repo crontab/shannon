@@ -2,8 +2,7 @@
 #define __VM_H
 
 
-#include "str.h"
-#include "contain.h"
+#include "common.h"
 
 
 enum OpCode

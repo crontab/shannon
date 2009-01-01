@@ -8,9 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include "charset.h"
-#include "str.h"
-#include "contain.h"
+#include "common.h"
 #include "baseobj.h"
 #include "source.h"
 #include "langobj.h"

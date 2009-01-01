@@ -1,5 +1,5 @@
 
-#include "str.h"
+#include "common.h"
 
 
 static const char* _itobase(large value, char* buf, int base, int& len, bool _signed)

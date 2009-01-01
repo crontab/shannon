@@ -1,8 +1,7 @@
 #ifndef __LANGOBJ_H
 #define __LANGOBJ_H
 
-#include "str.h"
-#include "except.h"
+#include "common.h"
 #include "baseobj.h"
 #include "source.h"
 #include "vm.h"
