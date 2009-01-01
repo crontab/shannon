@@ -44,8 +44,8 @@ public:
     
     ShType* resultTypeHint; // used by the parser for vector/array constructors
 
-    void genLoadIntConst(ShOrdinal*, int);
-    void genLoadLargeConst(ShOrdinal*, large);
+    void genLoadIntConst(ShType*, int);
+    void genLoadLargeConst(ShType*, large);
     void genLoadVecConst(ShType*, const char*);
     void genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);

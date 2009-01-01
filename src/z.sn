@@ -36,10 +36,12 @@ const s2 = 'abc'
 assert 1 != 2
 const a4 = 1L < 9223372036854775806L
 const a5 = glarge > 9223372036854775806L
+const a6 = 0..9
 assert not 'ab' == 'abc'
 assert 'ab' < 'abc'
 assert s1 == 'b'
 assert 'b' == s1
+echo 'typeof(a6) =', typeof(a6)
 
 assert not 'abc' == 'a'
 assert 'b' != 'def'
@@ -123,6 +125,8 @@ const ssptr = sizeof(str)
 var va = 0
 var int vd[..] = 0..1
 var vf = 'a'
+var false..true dbool = false
+
 
 var vs = 'ab' | u3
 # const tt = typeof(va)
@@ -193,7 +197,13 @@ begin:
     var g = f | d
     echo g
 
-var false..true dbool = false
+begin:
+    ;
+
+if true:
+    echo 'true!'
+
+echo 'that\'s it!'
 
 echo
 

@@ -95,7 +95,7 @@ enum Token
     tokIdent, tokIntValue, tokLargeValue, tokStrValue,
 
     tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
-    tokEnum, tokEcho, tokAssert, tokSizeOf, tokBegin, tokIf,
+    tokEnum, tokEcho, tokAssert, tokSizeOf, tokBegin, tokIf, tokElif, tokElse,
     
     // term level
     tokMul, tokDiv, tokMod,

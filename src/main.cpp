@@ -681,6 +681,7 @@ void ShModule::parseTypeDef()
         type = getDerivators(type);
     }
     varScope->addTypeAlias(new ShTypeAlias(ident, type), symbolScope);
+    parser.skipSep();
 }
 
 
@@ -726,6 +727,8 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
             type = value.type;
         varScope->addConstant(new ShConstant(ident, value), symbolScope);
     }
+
+    parser.skipSep();
 }
 
 
@@ -744,6 +747,7 @@ void ShModule::parseEcho(VmCodeGen& code)
         }
     }
     code.genOther(opEchoLn);
+    parser.skipSep();
 }
 
 
@@ -753,6 +757,7 @@ void ShModule::parseAssert(VmCodeGen& code)
     if (!type->isBool())
         error("Boolean expression expected for assertion");
     code.genAssert(parser);
+    parser.skipSep();
 }
 
 
@@ -768,6 +773,7 @@ void ShModule::parseOtherStatement(VmCodeGen& code)
     }
     else
         error("Definition or statement expected");
+    parser.skipSep();
 }
 
 
@@ -780,7 +786,10 @@ void ShModule::parseBlock(VmCodeGen& code)
     {
         if (options.linenumInfo)
             code.genLinenum(parser);
-        if (parser.skipIf(tokDef))
+
+        if (parser.skipIf(tokSep))
+            ;
+        else if (parser.skipIf(tokDef))
             parseTypeDef();
         else if (parser.skipIf(tokConst))
             parseVarConstDef(false, code);
@@ -794,12 +803,12 @@ void ShModule::parseBlock(VmCodeGen& code)
         {
             parser.skipBlockBegin();
             enterBlock(code);
-            continue;
         }
+        else if (parser.skipIf(tokIf))
+            parseIf(code);
         else
             parseOtherStatement(code);
         code.genFinalizeTemps();
-        parser.skipSep();
     }
 }
 
@@ -815,6 +824,27 @@ void ShModule::enterBlock(VmCodeGen& code)
     parseBlock(code);
     symbolScope = tempSymScope.parent;
     tempSymScope.finalizeVars(code);
+}
+
+
+void ShModule::parseIf(VmCodeGen& code)
+{
+    ShType* type = parseExpr(code, queenBee->defaultBool);
+    if (!type->isBool())
+        error("Boolean expression expected after 'if'");
+    offs endJump = code.genForwardJump(opJumpFalse);
+
+    parser.skipBlockBegin();
+    enterBlock(code);
+
+/*
+    if (parser.token == tokElse)
+    {
+//        offs elseJump = code.genForwardJump(opJump);
+        
+    }
+*/
+    code.genResolveJump(endJump);
 }
 
 
