@@ -84,7 +84,7 @@ ShType* ShModule::parseIfFunc(VmCodeGen& code)
     offs jumpFalseOffs = code.genForwardBoolJump(opJumpFalse);
 
     ShType* trueType = parseExpr(code);
-    if (trueType->storageModel() == stoVoid)
+    if (trueType->storageModel == stoVoid)
         error("Invalid argument type for the 'true' branch of if()");
     parser.skip(tokComma, ",");
     code.genPop();
@@ -212,7 +212,7 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         ShType* type = getTypeExpr(true);
         parser.skip(tokRParen, ")");
         // TODO: actual sizes for states (maybe also vectors/arrays? or len() is enough?)
-        code.genLoadIntConst(queenBee->defaultInt, type->staticSize());
+        code.genLoadIntConst(queenBee->defaultInt, type->staticSize);
     }
     
     // true/false/null
@@ -356,6 +356,11 @@ ShType* ShModule::parseCompoundCtor(VmCodeGen& code)
     }
     else
     {
+        // TODO: if we are constructing a vector with one element which is
+        // to be concatenated with another vector, two tempvars are created,
+        // which results in unnecessary copying of the first vector in
+        // growNonPodVec(). For example:
+        //   var str a[] = ['abc'] | b
         ShType* elemType = typeHint != NULL && typeHint->isVector() ?
             PVector(typeHint)->elementType : NULL;
         ShVector* vecType = NULL;

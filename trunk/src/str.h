@@ -41,9 +41,6 @@ protected:
     static void idxerror();
     static void stringoverflow();
 
-    void _alloc(int);
-    void _realloc(int);
-
     void initialize()  { data = emptystr; }
     void initialize(const char*, int);
     void initialize(const char*);
@@ -142,6 +139,8 @@ public:
     friend bool operator!= (char, const string&);
     
     // internal stuff, use with care!
+    void _alloc(int);
+    void _realloc(int);
     void _empty()  { data = emptystr; }
     void _free();
     ptr _initialize() const
@@ -156,8 +155,10 @@ public:
         }
     static ptr _initialize(ptr p)
             { PTR_TO_STRING(p)._initialize(); return p; }
-    static ptr _initializen(int size)
+    static ptr _new(int size)
             { ptr p; PTR_TO_STRING(p)._alloc(size); return p; }
+    static ptr _grow(ptr p, int size)
+            { PTR_TO_STRING(p)._realloc(STR_LENGTH(p) + size); return p; }
     static void _finalize(ptr p)
             { if (p != NULL) PTR_TO_PSTRING(p)->finalize(); }
 };

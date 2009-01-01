@@ -61,7 +61,7 @@ void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 void VmCodeGen::genPush(ShType* t)
 {
     genStack.push(GenStackInfo(t));
-    genStackSize += t->staticSizeAligned();
+    genStackSize += t->staticSizeAligned;
     codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
     resultTypeHint = NULL;
 }
@@ -69,7 +69,7 @@ void VmCodeGen::genPush(ShType* t)
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
     const GenStackInfo& t = genTop();
-    genStackSize -= t.type->staticSizeAligned();
+    genStackSize -= t.type->staticSizeAligned;
     genStack.pop();
     return t;
 }
@@ -181,7 +181,7 @@ void VmCodeGen::genComparison(OpCode cmp)
         if (right->isChar())
             op = opCmpStrChr;
         else if (rightStr)
-            op = opCmpStr;
+            op = opCmpPodVec;
     }
     else if (rightStr && left->isChar())
     {
@@ -215,20 +215,18 @@ void VmCodeGen::genStaticCast(ShType* type)
 {
     ShType* fromType = genPopType();
     genPush(type);
-    StorageModel stoFrom = fromType->storageModel();
-    StorageModel stoTo = type->storageModel();
+    StorageModel stoFrom = fromType->storageModel;
+    StorageModel stoTo = type->storageModel;
     if (stoFrom == stoLarge && stoTo < stoLarge)
         codeseg.addOp(opLargeToInt);
     else if (stoFrom < stoLarge && stoTo == stoLarge)
         codeseg.addOp(opIntToLarge);
-    // We generate opNop because genPush() stores the position of the next
-    // opcode. It is currenlty not used, but may be in the future.
     else if (stoFrom < stoLarge && stoTo < stoLarge)
-        codeseg.addOp(opNop);
+        ;
     else if (stoFrom == stoPtr && stoTo == stoPtr)
-        codeseg.addOp(opNop);
+        ;
     else if (stoFrom == stoVec && stoTo == stoVec)
-        codeseg.addOp(opNop);
+        ;
     else
         internal(59);
 }
@@ -288,7 +286,7 @@ void VmCodeGen::genLoadVar(ShVariable* var)
 {
     needsRuntimeContext = true;
     genPush(var->type);
-    OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel()));
+    OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel));
 #ifdef DEBUG
     if (op < opLoadThisFirst || op > opLoadThisLast)
         internal(61);
@@ -311,7 +309,7 @@ void VmCodeGen::genLoadVarRef(ShVariable* var)
 void VmCodeGen::genStoreVar(ShVariable* var)
 {
     needsRuntimeContext = true;
-    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel()));
+    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel));
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
     codeseg.addOp(op);
@@ -333,7 +331,7 @@ void VmCodeGen::genInitVar(ShVariable* var)
 
 static void genFin(VmCodeSegment& codeseg, ShType* type, offs offset, bool isLocal)
 {
-    switch (type->storageModel())
+    switch (type->storageModel)
     {
         case stoVec:
         {
@@ -361,7 +359,7 @@ offs VmCodeGen::genReserveTempVar(ShType* type)
 {
     // note that we are not setting needsRuntimeContext, as this can be
     // executed when evaluating, e.g., const string concatenation
-    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned());
+    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned);
     genFin(finseg, type, offset, true);
     return offset;
 }
@@ -420,7 +418,7 @@ void VmCodeGen::genIntToStr()
 
 offs VmCodeGen::genReserveLocalVar(ShType* type)
 {
-    return codeseg.reserveLocalVar(type->staticSizeAligned());
+    return codeseg.reserveLocalVar(type->staticSizeAligned);
 }
 
 void VmCodeGen::genAssert(Parser& parser)
@@ -441,7 +439,7 @@ void VmCodeGen::genLinenum(Parser& parser)
 void VmCodeGen::genReturn()
 {
     ShType* returnType = genPopType();
-    OpCode op = OpCode(opRetFirst + int(returnType->storageModel()));
+    OpCode op = OpCode(opRetFirst + int(returnType->storageModel));
 #ifdef DEBUG
     if (op < opRetFirst || op > opRetLast)
         internal(62);

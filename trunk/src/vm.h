@@ -28,7 +28,6 @@ enum OpCode
     opLoadLargeConst,   // [large]              +2 (+1 for 64-bit env.)
     opLoadFalse,        //                      +1
     opLoadTrue,         //                      +1
-    opLoadNull,         //                      +1
     opLoadNullVec,      //                      +1
     opLoadVecConst,     // [str-data-ptr]       +1
     opLoadTypeRef,      // [ShType*]            +1
@@ -86,10 +85,9 @@ enum OpCode
     // comparison
     opCmpInt,           //                  -2  +1
     opCmpLarge,         //                  -2  +1
-    opCmpStr,           //                  -2  +1
     opCmpStrChr,        //                  -2  +1
     opCmpChrStr,        //                  -2  +1
-    opCmpPodVec,        //                  -2  +1 - only EQ or NE
+    opCmpPodVec,        //                  -2  +1
     opCmpPtr,           //                  -2  +1 - only EQ or NE
 
     // TODO: opCmpInt0, opCmpLarge0, opStrIsNull

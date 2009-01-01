@@ -56,7 +56,8 @@ enum StorageModel
 {
     // Order is important, it's in sync with VM ops, also the order of first 3
     // is used in some code generation routines. If you change this, also take
-    // a look at ShType::staticSize()
+    // a look at ShType::setTypeId(), ShType::isPod() and in case you are
+    // adding a non-POD type, all places where stoVec is mentioned.
     stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid,
     _stoMax
 };
@@ -76,9 +77,6 @@ enum ShTypeId
 class ShType: public ShBase
 {
     ShTypeId typeId;
-    StorageModel stoModel;
-    offs size;
-    offs alignedSize;
 
 protected:
     ShScope* owner;
@@ -89,6 +87,10 @@ protected:
     virtual string getFullDefinition(const string& objName) const = 0;
 
 public:
+    const StorageModel storageModel;
+    const offs staticSize;
+    const offs staticSizeAligned;
+
     ShType(ShTypeId iTypeId);
     ShType(const string& name, ShTypeId iTypeId);
     virtual ~ShType();
@@ -116,20 +118,14 @@ public:
     bool isReference() const { return typeId == typeReference; }
     bool isModule() const { return typeId == typeModule; }
 
-    StorageModel storageModel() const
-            { return stoModel; }
-    offs staticSize() const
-            { return size; }
-    offs staticSizeAligned() const
-            { return alignedSize; }
     bool isPod() const
-            { return stoModel != stoVec; }
+            { return storageModel != stoVec; }
     bool isString() const;
     bool canBeArrayIndex()
             { return canCompareWith(this); }
     virtual bool equals(ShType*) const = 0;
     bool canBeArrayElement() const
-            { return staticSize() > 0; }
+            { return staticSize > 0; }
     virtual bool canCompareWith(ShType* type) const
             { return false; }
     virtual bool canCheckEq(ShType* type) const
@@ -416,7 +412,9 @@ public:
     virtual bool canCompareWith(ShType* type) const
             { return isString() && (type->isString() || type->isChar()); }
     virtual bool canCheckEq(ShType* type) const
-            { return canCompareWith(type) || equals(type) || isEmptyVec() || type->isEmptyVec(); }
+            { return canCompareWith(type)
+                || (isPodVector() && equals(type))
+                || isEmptyVec() || type->isEmptyVec(); }
     virtual bool canAssign(ShType* type) const
             { return equals(type) || elementEquals(type) || type->isEmptyVec(); }
     virtual bool equals(ShType* type) const

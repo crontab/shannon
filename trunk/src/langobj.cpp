@@ -25,18 +25,45 @@ ShBase::ShBase(const string& name, ShBaseId iBaseId)
 // --- TYPE --- //
 
 
-ShType::ShType(ShTypeId iTypeId)
-    : ShBase(baseType), owner(NULL),
-      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)
+static offs stoToSize[_stoMax] = 
+    { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
+static StorageModel typeToSto[_typeMax] =
 {
-    setTypeId(iTypeId);
+    stoByte, stoInt, stoLarge, stoByte, stoByte, stoByte,
+    stoVec, stoVec, stoPtr, stoLarge,
+    stoPtr,
+    stoVoid, stoVoid, stoVoid,
+    stoVoid
+};
+
+offs memAlign(offs size)
+{
+    if (size == 0)
+        return 0;
+    else
+        return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
 }
 
+
+ShType::ShType(ShTypeId iTypeId)
+    : ShBase(baseType), typeId(iTypeId), owner(NULL),
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
+      storageModel(typeToSto[iTypeId]), staticSize(stoToSize[storageModel]),
+      staticSizeAligned(memAlign(staticSize))  { }
+
 ShType::ShType(const string& name, ShTypeId iTypeId)
-    : ShBase(name, baseType), owner(NULL),
-      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL)
+    : ShBase(name, baseType), typeId(iTypeId), owner(NULL),
+      derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
+      storageModel(typeToSto[iTypeId]), staticSize(stoToSize[storageModel]),
+      staticSizeAligned(memAlign(staticSize))  { }
+
+void ShType::setTypeId(ShTypeId iTypeId)
 {
-    setTypeId(iTypeId);
+    typeId = iTypeId;
+    // mute 'const'. sorry, sorry, sorry.
+    *(StorageModel*)&storageModel = typeToSto[iTypeId];
+    *(offs*)&staticSize = stoToSize[storageModel];
+    *(offs*)&staticSizeAligned = memAlign(staticSize);
 }
 
 ShType::~ShType()  { }
@@ -47,33 +74,6 @@ void ShType::setOwner(ShScope* newOwner)
     if (owner != NULL)
         internal(3);
     owner = newOwner;
-}
-
-offs memAlign(offs size)
-{
-    if (size == 0)
-        return 0;
-    else
-        return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
-}
-
-void ShType::setTypeId(ShTypeId iTypeId)
-{
-    typeId = iTypeId;
-    // stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
-    static offs stoToSize[_stoMax] = 
-        { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
-    static StorageModel typeToSto[_typeMax] =
-    {
-        stoByte, stoInt, stoLarge, stoByte, stoByte, stoByte,
-        stoVec, stoVec, stoPtr, stoLarge,
-        stoPtr,
-        stoVoid, stoVoid, stoVoid,
-        stoVoid
-    };
-    stoModel = typeToSto[iTypeId];
-    size = stoToSize[stoModel];
-    alignedSize = memAlign(size);
 }
 
 bool ShType::isString() const
@@ -521,7 +521,7 @@ string ShVector::displayValue(const ShValue& v) const
     {
         string s;
         char* p = pchar(v.value.ptr_);
-        int elemSize = elementType->staticSize();
+        int elemSize = elementType->staticSize;
         if (elemSize == 0)
             return "[]";
         int count = PTR_TO_STRING(p).size() / elemSize;
@@ -638,7 +638,7 @@ void ShValue::assignVoid(ShType* iType)
 
 void ShValue::assignFromBuf(ShType* newType, const ptr p)
 {
-    switch (newType->storageModel())
+    switch (newType->storageModel)
     {
         case stoByte: assignInt(newType, int(*puchar(p))); break;
         case stoInt: assignInt(newType, *pint(p)); break;
@@ -651,7 +651,7 @@ void ShValue::assignFromBuf(ShType* newType, const ptr p)
 
 void ShValue::assignToBuf(ptr p)
 {
-    switch (type->storageModel())
+    switch (type->storageModel)
     {
         case stoByte: *puchar(p) = value.int_; break;
         case stoInt: *pint(p) = value.int_; break;
@@ -720,7 +720,7 @@ void ShModule::error(EDuplicate& e)
 void ShModule::addVariable(ShVariable* obj, ShSymScope* symScope)
 {
     obj->dataOffset = dataSize;
-    dataSize += obj->type->staticSizeAligned();
+    dataSize += obj->type->staticSizeAligned;
     ShScope::addVariable(obj, symScope);
 }
 

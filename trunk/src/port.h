@@ -13,7 +13,6 @@
 typedef unsigned char       uchar;
 typedef unsigned int        uint;
 typedef void*               ptr;
-typedef void**              pptr;
 typedef long long           large;
 typedef unsigned long long  ularge;
 
@@ -23,6 +22,7 @@ typedef uchar*              puchar;
 typedef int*                pint;  // while (pint(guinness)) dump(euro(5));
 typedef uint*               puint;
 typedef ptr*                pptr;
+typedef pptr*               ppptr;
 typedef large*              plarge;
 typedef ularge*             pularge;
 
