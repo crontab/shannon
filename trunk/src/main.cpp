@@ -109,16 +109,16 @@ string typeVsType(ShType* a, ShType* b)
 /*
     <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>,
         true, false, null, compound-ctor
-    <array-sel>, <fifo-sel>, <function-call>, <mute>
-    -, not
+    <array-sel>, <function-call>, <mute>
+    -
     *, /, mod, as
     +, –
-    ++
+    |
     ==, <>, != <, >, <=, >=, in, is
+    not
     and
     or, xor
     ..
-    ,
 */
 
 

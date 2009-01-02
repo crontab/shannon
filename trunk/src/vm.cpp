@@ -300,7 +300,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opRetInt: *pint(retval) = stk.popInt(); break;
         case opRetLarge: *plarge(retval) = stk.popLarge(); break;
         case opRetPtr: *pptr(retval) = stk.popPtr(); break;
-        case opRetVec: *pptr(retval) = string::_initialize(stk.popPtr());
+        case opRetVec: *pptr(retval) = string::_initialize(stk.popPtr()); break;
         case opRetVoid: break;
 
         // --- LOAD/STORE -------------------------------------------------- //
