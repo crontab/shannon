@@ -15,8 +15,8 @@ protected:
     struct GenStackInfo
     {
         ShType* type;
-        GenStackInfo(ShType* iType)
-            : type(iType)  { }
+        podvalue value;
+        bool isValue;
     };
 
     VmCodeSegment codeseg;
@@ -26,10 +26,14 @@ protected:
     bool needsRuntimeContext;
     ShVariable* deferredVar;
     
-    void genPush(ShType* v);
-    const GenStackInfo& genTop()        { return genStack.top(); }
+    GenStackInfo& genPush(ShType* v);
+    void genPushIntValue(ShType*, int);
+    void genPushLargeValue(ShType*, large);
+    void genPushPtrValue(ShType*, ptr);
+    void genPushVecValue(ShType* type, ptr v)  { genPushPtrValue(type, v); }
+    const GenStackInfo& genTop()               { return genStack.top(); }
     ShVariable* genPopDeferred();
-    ShType* genPopType()                { return genPop().type; }
+    ShType* genPopType()                       { return genPop().type; }
 
     void genCmpOp(OpCode op, OpCode cmp);
     void genStoreVar(ShVariable* var);
@@ -90,7 +94,7 @@ public:
     offs genReserveTempVar(ShType*);
 
     void runConstExpr(ShValue& result);
-    ShType* runTypeExpr(ShValue& value, bool anyObj);
+    ShType* runTypeExpr(bool anyObj, bool* cantEval);
     void genFinalizeTemps();
 
     VmCodeSegment getCodeSeg();
