@@ -621,7 +621,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
     if (parser.token == tokIdent)
     {
         *ident = parser.strValue;
-        ShBase* obj = deepFind(*ident);
+        ShBase* obj = symbolScope->deepFind(*ident);
         // In one of the previous attempts to implement this guessing we were calling
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd

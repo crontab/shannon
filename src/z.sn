@@ -207,3 +207,7 @@ echo 'that\'s it!'
 
 echo
 
+
+begin:
+    const myint = int
+    var myint v = 0
