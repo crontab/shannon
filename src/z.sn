@@ -21,11 +21,16 @@ def int intr[..]
 def typeref mytr
 
 const int g = 922337
+assert g == 922337
 const glarge = 9223372036854775807L
+assert glarge == 9223372036854775807L
 const h = 'h'
+assert h == 'h'
 const i = '\x00'
 const j = h
+assert j == 'h'
 const dc = 'a'..j
+# assert dc == ('a'..'h')
 const dd = 0..2
 const ref = int[char]
 const 0..2 new1 = 1
@@ -252,3 +257,8 @@ else: ift = 11
 assert ift == 11
 
 echo
+
+begin:
+    const a = 'a'..'z'
+    echo a
+    

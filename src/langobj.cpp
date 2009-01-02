@@ -167,13 +167,13 @@ void ShSymScope::addSymbol(ShBase* obj)
     symbols.addUnique(obj);
 }
 
-void ShSymScope::finalizeVars(VmCodeGen& code)
+void ShSymScope::finalizeVars(VmCodeGen* codegen)
 {
     for (int i = symbols.size() - 1; i >= 0; i--)
     {
         ShBase* obj = symbols[i];
         if (obj->isVariable())
-            code.genFinVar((ShVariable*)obj);
+            codegen->genFinVar((ShVariable*)obj);
     }
 }
 
@@ -714,6 +714,8 @@ void ShModule::dump(string indent) const
 {
     printf("\n%smodule %s\n", indent.c_str(), name.c_str());
     ShScope::dump(indent);
+    for (int i = 0; i < scopes.size(); i++)
+        scopes[i]->dump("");
 }
 #endif
 
