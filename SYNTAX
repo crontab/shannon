@@ -35,6 +35,44 @@ string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
         | ( "\x" ## hexdigit ## hexdigit )
 
 
+# Definitions
+
+definition ::= type-def | const-def | var-def
+
+type-def ::= type-alias | function-def
+
+type-alias ::= "def" type ident { type-derivator }
+
+type ::= type-id { type-derivator }
+
+type-id ::= qualified-name | "typeof" "(" expr ")" | subrange | "enum"
+
+type-derivator ::= array-derivator | mute-derivator | range-derivator
+        | enum-spec
+
+array-derivator ::= "[" [ type ] "]"
+
+mute-derivator ::= "^"
+
+range-derivator ::= "[" ".." "]"
+
+enum-spec ::= "(" ident { "," ident ")"
+
+function-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ function-body ]
+
+pipe-type ::= type "/" type
+
+const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
+
+var-def ::= "var" ( auto-object-spec | typed-object-spec ) "=" expr
+
+auto-object-spec ::= ident
+
+typed-object-spec ::= type ident { type-derivator }
+
+subrange ::= rel-expr ".." rel-expr
+
+
 # Expressions
 
 expr ::= or-expr [ '..' or-expr ]
@@ -90,47 +128,23 @@ fifo-filter ::= atom "||" expr
 
 # Module
 
-module ::= [module-header] { statement | definition }
+module ::= [module-header <SEP>] { statement <SEP> | definition <SEP> }
 
 module-header ::= "module" ident
 
-statement ::= call | pipe | assignment | compount-statement
 
+# Statements
 
-# Definitions
+statement ::= call | pipe | assignment | compount-statement | if-clause
 
-definition ::= type-def | const-def | var-def
+assignment ::= designator '=' expr
 
-type-def ::= type-alias | function-def
+compound-statement ::= "begin" <BEGIN> statement-list <END>
 
-type-alias ::= "def" type ident { type-derivator }
+statement-list ::= { statement <SEP> }
 
-type ::= type-id { type-derivator }
-
-type-id ::= qualified-name | "typeof" "(" expr ")" | subrange | "enum"
-
-type-derivator ::= array-derivator | mute-derivator | range-derivator
-        | enum-spec
-
-array-derivator ::= "[" [ type ] "]"
-
-mute-derivator ::= "^"
-
-range-derivator ::= "[" ".." "]"
-
-enum-spec ::= "(" ident { "," ident ")"
-
-function-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ function-body ]
-
-pipe-type ::= type "/" type
-
-const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
-
-var-def ::= "var" ( auto-object-spec | typed-object-spec ) "=" expr
-
-auto-object-spec ::= ident
-
-typed-object-spec ::= type ident { type-derivator }
-
-subrange ::= rel-expr ".." rel-expr
+if-clause ::= 'if' expr <BEGIN> statement-list
+        { <END> 'elif' <BEGIN> statement-list }
+        [ <END> 'else' <BEGIN> statement-list ]
+        <END>
 
