@@ -146,12 +146,6 @@ ShReference* ShType::deriveRefType()
     return derivedRefType;
 }
 
-// --- TYPE ALIAS --- //
-
-ShTypeAlias::ShTypeAlias(const string& name, ShType* iBase)
-    : ShBase(name, baseTypeAlias), base(iBase)  { }
-
-
 // --- VARIABLE --- //
 
 ShVariable::ShVariable(ShType* iType)
@@ -211,17 +205,9 @@ ShScope::ShScope(const string& name, ShTypeId iTypeId)
 ShScope::~ShScope()
 {
     // Order is important
-    typeAliases.clear();
     consts.clear();
     vars.clear();
     types.clear();
-}
-
-void ShScope::addType(ShType* obj, ShSymScope* symScope)
-{
-    types.add(obj);
-    obj->setOwner(this);
-    symScope->addSymbol(obj);
 }
 
 void ShScope::addAnonType(ShType* obj)
@@ -230,9 +216,10 @@ void ShScope::addAnonType(ShType* obj)
     obj->setOwner(this);
 }
 
-void ShScope::addTypeAlias(ShTypeAlias* obj, ShSymScope* symScope)
+void ShScope::addTypeAlias(const string& name, ShType* type, ShSymScope* symScope)
 {
-    typeAliases.add(obj);
+    ShConstant* obj = new ShConstant(name, queenBee->defaultTypeRef, type);
+    consts.add(obj);
     symScope->addSymbol(obj);
 }
 
@@ -254,9 +241,6 @@ void ShScope::dump(string indent) const
 {
     for (int i = 0; i < types.size(); i++)
         printf("%s# def %s\n", indent.c_str(), types[i]->getDefinition("*").c_str());
-    for (int i = 0; i < typeAliases.size(); i++)
-        printf("%sdef %s\n", indent.c_str(),
-            typeAliases[i]->base->getDefinition(typeAliases[i]->name).c_str());
     for (int i = 0; i < consts.size(); i++)
     {
         ShConstant* c = consts[i];
@@ -672,8 +656,11 @@ void ShValue::assignToBuf(ptr p)
 ShConstant::ShConstant(const string& name, const ShValue& iValue)
     : ShBase(name, baseConstant), value(iValue)  { }
 
-ShConstant::ShConstant(const string& name, ShEnum* type, int value)
-    : ShBase(name, baseConstant), value(type, value)  { }
+ShConstant::ShConstant(const string& name, ShEnum* type, int iValue)
+    : ShBase(name, baseConstant), value(type, iValue)  { }
+
+ShConstant::ShConstant(const string& name, ShTypeRef* typeref, ShType* iValue)
+    : ShBase(name, baseConstant), value(typeref, iValue)  { }
 
 
 // ------------------------------------------------------------------------ //
@@ -762,25 +749,36 @@ void ShModule::execute()
 
 ShQueenBee::ShQueenBee()
     : ShModule("System"),
+      defaultTypeRef(new ShTypeRef("typeref")),
       defaultInt(new ShInteger("int", INT_MIN, INT_MAX)),
       defaultLarge(new ShInteger("large", LLONG_MIN, LLONG_MAX)),
       defaultChar(new ShChar("char", 0, 255)),
       defaultStr(new ShVector("str", defaultChar)),
       defaultBool(new ShBool("bool")),
       defaultVoid(new ShVoid("void")),
-      defaultTypeRef(new ShTypeRef("typeref")),
       defaultEmptyVec(new ShVector(defaultVoid))
 {
-    addType(defaultInt, this);
-    addType(defaultLarge, this);
-    addType(defaultChar, this);
-    addType(defaultStr, this);
+    addAnonType(defaultInt);
+    addAnonType(defaultLarge);
+    addAnonType(defaultChar);
+    addAnonType(defaultStr);
     defaultChar->setDerivedVectorTypePleaseThisIsCheatingIKnow(defaultStr);
-    addType(defaultBool, this);
-    addType(defaultVoid, this);
-    addType(defaultTypeRef, this);
+    addAnonType(defaultBool);
+    addAnonType(defaultVoid);
+    addAnonType(defaultTypeRef);
     addAnonType(defaultEmptyVec);
+}
 
+
+void ShQueenBee::setup()
+{
+    addTypeAlias(defaultTypeRef->name, defaultTypeRef, this);
+    addTypeAlias(defaultInt->name, defaultInt, this);
+    addTypeAlias(defaultLarge->name, defaultLarge, this);
+    addTypeAlias(defaultChar->name, defaultChar, this);
+    addTypeAlias(defaultStr->name, defaultStr, this);
+    addTypeAlias(defaultBool->name, defaultBool, this);
+    addTypeAlias(defaultVoid->name, defaultVoid, this);
     setupRuntime();
 }
 
@@ -796,6 +794,7 @@ BaseList<ShModule> moduleList;
 void initLangObjs()
 {
     registerModule(queenBee = new ShQueenBee());
+    queenBee->setup();
 }
 
 

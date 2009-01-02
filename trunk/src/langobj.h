@@ -32,7 +32,7 @@ class VmCodeGen;
 
 enum ShBaseId
 {
-    baseType, baseTypeAlias, baseVariable, baseConstant
+    baseType, baseVariable, baseConstant
 };
 
 
@@ -45,7 +45,6 @@ public:
     ShBase(const string& name, ShBaseId iBaseId);
     
     bool isType() const       { return baseId == baseType; }
-    bool isTypeAlias() const  { return baseId == baseTypeAlias; }
     bool isVariable() const   { return baseId == baseVariable; }
     bool isConstant() const   { return baseId == baseConstant; }
 };
@@ -145,14 +144,6 @@ public:
 typedef ShType* PType;
 
 
-class ShTypeAlias: public ShBase
-{
-public:
-    ShType* const base;
-    ShTypeAlias(const string& name, ShType* iBase);
-};
-
-
 class ShVariable: public ShBase
 {
 public:
@@ -205,15 +196,13 @@ class ShScope: public ShSymScope
 protected:
     BaseList<ShType> types;
     BaseList<ShVariable> vars;
-    BaseList<ShTypeAlias> typeAliases;
     BaseList<ShConstant> consts;
     
 public:
     ShScope(const string& name, ShTypeId iTypeId);
     ~ShScope();
     void addAnonType(ShType*);
-    void addType(ShType*, ShSymScope*);
-    void addTypeAlias(ShTypeAlias*, ShSymScope*);
+    void addTypeAlias(const string&, ShType*, ShSymScope*);
     void addConstant(ShConstant*, ShSymScope*);
     virtual void addVariable(ShVariable*, ShSymScope*);
     void dump(string indent) const;
@@ -521,6 +510,7 @@ struct ShValue: noncopyable
     ShValue(): type(NULL)  { }
     ShValue(const ShValue&);
     ShValue(ShType* iType, int iValue): type(iType) { value.int_ = iValue; }
+    ShValue(ShType* iType, ptr iValue): type(iType) { value.ptr_ = iValue; }
     ~ShValue()  { _finalize(); }
 
     void assignInt(ShType* iType, int i);
@@ -547,6 +537,7 @@ public:
     const ShValue value;
     ShConstant(const string& name, const ShValue& iValue);
     ShConstant(const string& name, ShEnum* type, int value);
+    ShConstant(const string& name, ShTypeRef*, ShType*);
 };
 
 
@@ -612,6 +603,7 @@ protected:
     ShType* getTypeExpr(bool anyObj);
     ShType* parseCompoundCtor(VmCodeGen& code);
     ShType* parseIfFunc(VmCodeGen& code);
+    ShType* parseStaticCast(VmCodeGen& code, ShType* toType);
     ShType* parseAtom(VmCodeGen&, bool isLValue);
     ShType* parseDesignator(VmCodeGen&, bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
@@ -669,16 +661,17 @@ public:
 class ShQueenBee: public ShModule
 {
 public:
+    ShTypeRef* const defaultTypeRef; // "typeref"
     ShInteger* const defaultInt;     // "int"
     ShInteger* const defaultLarge;   // "large"
     ShChar* const defaultChar;       // "char"
     ShVector* const defaultStr;      // "str"
     ShBool* const defaultBool;       // "bool"
     ShVoid* const defaultVoid;       // "void"
-    ShTypeRef* const defaultTypeRef; // "typeref"
     ShVector* const defaultEmptyVec;
     
     ShQueenBee();
+    void setup();
 };
 
 

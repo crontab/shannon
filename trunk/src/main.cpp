@@ -48,7 +48,7 @@ ShBase* ShModule::getQualifiedName()
     string errIdent = ident;
     while (parser.token == tokPeriod)
     {
-        if (!obj->isType() || !PType(obj)->isModule())
+        if (!PType(obj)->isModule())
             return obj;
         ShScope* scope = (ShScope*)obj;
         parser.next(); // "."
@@ -146,39 +146,21 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
     else if (parser.token == tokIdent)
     {
         ShBase* obj = getQualifiedName();
-        bool isAlias = obj->isTypeAlias();
-        // symbolic constant
         if (obj->isConstant())
         {
             ShConstant* c = (ShConstant*)obj;
-            code.genLoadConst(c->value.type, c->value.value);
-        }
-
-        // type or type alias: static cast
-        // only typeid(expr) is allowed for function-style typecasts
-        else if (obj->isType() || isAlias)
-        {
-            // TODO: type casts must be in parseDesignator()
-            ShType* toType = isAlias ? ((ShTypeAlias*)obj)->base : (ShType*)obj;
-            if (parser.token == tokLParen)
+            if (c->value.type->isTypeRef())
             {
-                parser.next();
-                code.resultTypeHint = toType;
-                parseExpr(code);
-                parser.skip(tokRParen, ")");
-                ShType* fromType = code.genTopType();
-                if (fromType->isOrdinal() && toType->isString())
-                    code.genIntToStr();
-                else if (fromType->canStaticCastTo(toType))
-                    code.genStaticCast(toType);
+                ShType* refType = PType(c->value.value.ptr_);
+                if (parser.skipIf(tokLParen))
+                    parseStaticCast(code, refType);
                 else
-                    error("Can't do static typecast from " + fromType->getDefinitionQ()
-                        + " to " + toType->getDefinitionQ());
+                    code.genLoadTypeRef(getDerivators(refType));
             }
             else
-                code.genLoadTypeRef(getDerivators(toType));
+                code.genLoadConst(c->value.type, c->value.value);
         }
-        
+
         else if (obj->isVariable())
         {
             if (isLValue)
@@ -233,6 +215,23 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         errorWithLoc("Expression syntax");
 
     return code.genTopType();
+}
+
+
+ShType* ShModule::parseStaticCast(VmCodeGen& code, ShType* toType)
+{
+    code.resultTypeHint = toType;
+    parseExpr(code);
+    parser.skip(tokRParen, ")");
+    ShType* fromType = code.genTopType();
+    if (fromType->isOrdinal() && toType->isString())
+        code.genIntToStr();
+    else if (fromType->canStaticCastTo(toType))
+        code.genStaticCast(toType);
+    else
+        error("Can't do static typecast from " + fromType->getDefinitionQ()
+            + " to " + toType->getDefinitionQ());
+    return toType;
 }
 
 
@@ -536,7 +535,8 @@ ShType* ShModule::parseExpr(VmCodeGen& code, ShType* resultType)
         code.genElemToVec(PVector(resultType));
 
     // ordinal typecast, if necessary, so that a constant has a proper type
-    else if (resultType != NULL && resultType->isOrdinal() && !resultType->equals(topType))
+    else if (resultType != NULL && resultType->isOrdinal()
+            && !resultType->equals(topType) && topType->canStaticCastTo(resultType))
         code.genStaticCast(resultType);
 
     return topType;
@@ -626,7 +626,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
         // better do something rather heuristic here:
-        if (obj == NULL || (!obj->isType() && !obj->isTypeAlias() && !obj->isConstant()))
+        if (obj == NULL || !obj->isConstant())
         {
             parser.next();
             return NULL;
@@ -680,7 +680,7 @@ void ShModule::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    varScope->addTypeAlias(new ShTypeAlias(ident, type), symbolScope);
+    varScope->addTypeAlias(ident, type, symbolScope);
     parser.skipSep();
 }
 
