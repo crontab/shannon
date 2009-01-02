@@ -14,27 +14,40 @@
 // ------------------------------------------------------------------------- //
 
 
+struct CompilerOptions
+{
+    bool enableEcho;
+    bool enableAssert;
+    bool linenumInfo;
+
+    CompilerOptions()
+        : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
+};
+
+
 class ShCompiler: public Base
 {
-    struct CompilerOptions
+    struct LoopInfo
     {
-        bool enableEcho;
-        bool enableAssert;
-        bool linenumInfo;
-        CompilerOptions()
-            : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
+        offs continueTarget;
+        PodArray<offs> breakJumps; // unresolved jumps
     };
 
     ShModule& module;
     string fileName;
 
     Parser parser;
-    VmCodeGen codegen;
+    VmCodeGen mainCodeGen;
+    VmCodeGen nullCode;
     CompilerOptions options;
 
     ShSymScope* symbolScope; // for symbols only
     ShScope* varScope;    // static or stack-local scope
+    LoopInfo* topLoop;
+    VmCodeGen* codegen;
 
+    VmCodeGen* replaceCodeGen(VmCodeGen* c)
+            { VmCodeGen* t = codegen; codegen = c; return t; }
     void error(const string& msg)           { parser.error(msg); }
     void error(EDuplicate& e);
     void error(const char* msg)             { parser.error(msg); }
@@ -47,37 +60,36 @@ class ShCompiler: public Base
     ShType* getDerivators(ShType*);
     ShType* getTypeOrNewIdent(string* strToken);
     ShType* getTypeExpr(bool anyObj);
-    ShType* parseCompoundCtor(VmCodeGen& code);
-    ShType* parseIfFunc(VmCodeGen& code);
-    ShType* parseStaticCast(VmCodeGen& code, ShType* toType);
-    ShType* parseAtom(VmCodeGen&, bool isLValue);
-    ShType* parseDesignator(VmCodeGen&, bool isLValue);
+    ShType* parseCompoundCtor();
+    ShType* parseIfFunc();
+    ShType* parseStaticCast(ShType* toType);
+    ShType* parseAtom(bool isLValue);
+    ShType* parseDesignator(bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
-    ShType* parseFactor(VmCodeGen&);
-    ShType* parseTerm(VmCodeGen&);
-    ShType* parseArithmExpr(VmCodeGen&);
-    ShType* parseSimpleExpr(VmCodeGen&);
-    ShType* parseRelExpr(VmCodeGen&);
-    ShType* parseNotLevel(VmCodeGen&);
-    ShType* parseAndLevel(VmCodeGen&);
-    ShType* parseOrLevel(VmCodeGen&);
-    ShType* parseSubrange(VmCodeGen&);
-    ShType* parseBoolExpr(VmCodeGen& code)
-            { return parseOrLevel(code); }
-    ShType* parseExpr(VmCodeGen& code)
-            { return parseSubrange(code); }
-    ShType* parseExpr(VmCodeGen& code, ShType* resultType);
+    ShType* parseFactor();
+    ShType* parseTerm();
+    ShType* parseArithmExpr();
+    ShType* parseSimpleExpr();
+    ShType* parseRelExpr();
+    ShType* parseNotLevel();
+    ShType* parseAndLevel();
+    ShType* parseOrLevel();
+    ShType* parseSubrange();
+    ShType* parseBoolExpr()                 { return parseOrLevel(); }
+    ShType* parseExpr()                     { return parseSubrange(); }
+    ShType* parseExpr(ShType* resultType);
     void getConstExpr(ShType* typeHint, ShValue& result);
 
     ShEnum* parseEnumType();
     void parseTypeDef();
-    void parseVarConstDef(bool isVar, VmCodeGen&);
-    void parseEcho(VmCodeGen&);
-    void parseAssert(VmCodeGen&);
-    void parseOtherStatement(VmCodeGen&);
-    void parseBlock(VmCodeGen& code);
-    void enterBlock(VmCodeGen& code);
-    void parseIf(VmCodeGen& code, Token tok);
+    void parseVarConstDef(bool isVar);
+    void parseEcho(VmCodeGen*);
+    void parseAssert(VmCodeGen*);
+    void parseOtherStatement();
+    void parseBlock();
+    void enterBlock();
+    void parseIf(Token);
+    void parseWhile();
 
 public:
     ShCompiler(const string& filename, ShModule& iModule);
@@ -87,8 +99,9 @@ public:
 
 
 ShCompiler::ShCompiler(const string& iFileName, ShModule& iModule)
-    : module(iModule), fileName(iFileName), parser(iFileName), codegen(),
-      symbolScope(&module), varScope(&module)
+    : module(iModule), fileName(iFileName), parser(iFileName),
+      symbolScope(&module), varScope(&module), topLoop(NULL),
+      codegen(&mainCodeGen)
 {
     module.registerString(fileName);
 }
@@ -156,46 +169,48 @@ ShBase* ShCompiler::getQualifiedName()
 ShType* ShCompiler::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
-    parseExpr(tcode);
+    VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
+    parseExpr();
     bool cantEval = false;
     ShType* type = tcode.runTypeExpr(anyObj, &cantEval);
     if (cantEval)
         error("Expression can't be evaluated at compile time");
+    replaceCodeGen(saveCodeGen);
     return type;
 }
 
 
-ShType* ShCompiler::parseIfFunc(VmCodeGen& code)
+ShType* ShCompiler::parseIfFunc()
 {
     parser.skip(tokLParen, "(");
-    if (!parseExpr(code, queenBee->defaultBool)->isBool())
+    if (!parseExpr(queenBee->defaultBool)->isBool())
         error("Boolean expression expected as first argument to if()");
     parser.skip(tokComma, ",");
-    offs jumpFalseOffs = code.genForwardBoolJump(opJumpFalse);
+    offs jumpFalseOffs = codegen->genForwardBoolJump(opJumpFalse);
 
-    ShType* trueType = parseExpr(code);
+    ShType* trueType = parseExpr();
     if (trueType->storageModel == stoVoid)
         error("Invalid argument type for the 'true' branch of if()");
     parser.skip(tokComma, ",");
-    code.genPop();
-    offs jumpOutOffs = code.genForwardJump();
+    codegen->genPop();
+    offs jumpOutOffs = codegen->genForwardJump();
 
-    code.genResolveJump(jumpFalseOffs);
-    ShType* falseType = parseExpr(code, trueType);
+    codegen->genResolveJump(jumpFalseOffs);
+    ShType* falseType = parseExpr(trueType);
     if (!trueType->equals(falseType))
         error("Types of 'true' and 'false' branches for if() don't match");
 
-    code.genResolveJump(jumpOutOffs);
+    codegen->genResolveJump(jumpOutOffs);
     parser.skip(tokRParen, ")");
-    return code.genTopType();
+    return codegen->genTopType();
 }
 
 
-ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
+ShType* ShCompiler::parseAtom(bool isLValue)
 {
     if (parser.skipIf(tokLParen))
     {
-        parseExpr(code);
+        parseExpr();
         parser.skip(tokRParen, ")");
     }
 
@@ -206,14 +221,14 @@ ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
         parser.next();
         if (!queenBee->defaultInt->contains(value))
             error("Value out of range (use the 'L' suffix for large consts)");
-        code.genLoadIntConst(queenBee->defaultInt, value);
+        codegen->genLoadIntConst(queenBee->defaultInt, value);
     }
 
     else if (parser.token == tokLargeValue)
     {
         ularge value = parser.largeValue; // largeValue is unsigned int
         parser.next();
-        code.genLoadLargeConst(queenBee->defaultLarge, value);
+        codegen->genLoadLargeConst(queenBee->defaultLarge, value);
     }
 
     // string or char literal
@@ -223,13 +238,13 @@ ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
         {
             int value = (unsigned)parser.strValue[0];
             parser.next();
-            code.genLoadIntConst(queenBee->defaultChar, value);
+            codegen->genLoadIntConst(queenBee->defaultChar, value);
         }
         else
         {
             string s = parser.strValue;
             parser.next();
-            code.genLoadVecConst(queenBee->defaultStr,
+            codegen->genLoadVecConst(queenBee->defaultStr,
                 module.registerString(s).c_bytes());
         }
     }
@@ -245,20 +260,20 @@ ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
             {
                 ShType* refType = PType(c->value.value.ptr_);
                 if (parser.skipIf(tokLParen))
-                    parseStaticCast(code, refType);
+                    parseStaticCast(refType);
                 else
-                    code.genLoadTypeRef(getDerivators(refType));
+                    codegen->genLoadTypeRef(getDerivators(refType));
             }
             else
-                code.genLoadConst(c->value.type, c->value.value);
+                codegen->genLoadConst(c->value.type, c->value.value);
         }
 
         else if (obj->isVariable())
         {
             if (isLValue)
-                code.genLoadVarRef((ShVariable*)obj);
+                codegen->genLoadVarRef((ShVariable*)obj);
             else
-                code.genLoadVar((ShVariable*)obj);
+                codegen->genLoadVar((ShVariable*)obj);
         }
         
         // TODO: funcs
@@ -274,7 +289,7 @@ ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
         // and finally a dynamic type of a state. The question is how. The 
         // problem of 'is' and 'as' is related.
         parser.skip(tokLParen, "(");
-        code.genLoadTypeRef(getTypeExpr(true));
+        codegen->genLoadTypeRef(getTypeExpr(true));
         parser.skip(tokRParen, ")");
     }
 
@@ -285,41 +300,41 @@ ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
         ShType* type = getTypeExpr(true);
         parser.skip(tokRParen, ")");
         // TODO: actual sizes for states (maybe also vectors/arrays? or len() is enough?)
-        code.genLoadIntConst(queenBee->defaultInt, type->staticSize);
+        codegen->genLoadIntConst(queenBee->defaultInt, type->staticSize);
     }
     
     // true/false/null
     else if (parser.skipIf(tokTrue))
-        code.genLoadIntConst(queenBee->defaultBool, 1);
+        codegen->genLoadIntConst(queenBee->defaultBool, 1);
     else if (parser.skipIf(tokFalse))
-        code.genLoadIntConst(queenBee->defaultBool, 0);
+        codegen->genLoadIntConst(queenBee->defaultBool, 0);
 //    else if (parser.skipIf(tokNull))
-//        code.genLoadNull();
+//        codegen->genLoadNull();
 
     // compound ctor (currently only vector)
     else if (parser.skipIf(tokLSquare))
-        parseCompoundCtor(code);
+        parseCompoundCtor();
     
     else if (!isLValue && parser.skipIf(tokIf))
-        parseIfFunc(code);
+        parseIfFunc();
 
     else
         errorWithLoc("Expression syntax");
 
-    return code.genTopType();
+    return codegen->genTopType();
 }
 
 
-ShType* ShCompiler::parseStaticCast(VmCodeGen& code, ShType* toType)
+ShType* ShCompiler::parseStaticCast(ShType* toType)
 {
-    code.resultTypeHint = toType;
-    parseExpr(code);
+    codegen->resultTypeHint = toType;
+    parseExpr();
     parser.skip(tokRParen, ")");
-    ShType* fromType = code.genTopType();
+    ShType* fromType = codegen->genTopType();
     if (fromType->isOrdinal() && toType->isString())
-        code.genIntToStr();
+        codegen->genIntToStr();
     else if (fromType->canStaticCastTo(toType))
-        code.genStaticCast(toType);
+        codegen->genStaticCast(toType);
     else
         error("Can't do static typecast from " + fromType->getDefinitionQ()
             + " to " + toType->getDefinitionQ());
@@ -327,22 +342,22 @@ ShType* ShCompiler::parseStaticCast(VmCodeGen& code, ShType* toType)
 }
 
 
-ShType* ShCompiler::parseDesignator(VmCodeGen& code, bool isLValue)
+ShType* ShCompiler::parseDesignator(bool isLValue)
 {
-    return parseAtom(code, isLValue);
+    return parseAtom(isLValue);
 }
 
 
-ShType* ShCompiler::parseFactor(VmCodeGen& code)
+ShType* ShCompiler::parseFactor()
 {
     bool isNeg = parser.skipIf(tokMinus);
-    ShType* resultType = parseDesignator(code, false);
+    ShType* resultType = parseDesignator(false);
     if (isNeg)
     {
-        resultType = code.genTopType();
+        resultType = codegen->genTopType();
         if (!resultType->isInt())
             error("Invalid operand for arithmetic negation");
-        code.genUnArithm(opNeg, PInteger(resultType));
+        codegen->genUnArithm(opNeg, PInteger(resultType));
     }
     return resultType;
 }
@@ -359,18 +374,18 @@ ShInteger* ShCompiler::arithmResultType(ShInteger* left, ShInteger* right)
 }
 
 
-ShType* ShCompiler::parseTerm(VmCodeGen& code)
+ShType* ShCompiler::parseTerm()
 {
-    ShType* left = parseFactor(code);
+    ShType* left = parseFactor();
     while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
     {
         Token tok = parser.token;
         parser.next();
-        ShType* right = parseFactor(code);
+        ShType* right = parseFactor();
         if (left->isInt() && right->isInt())
         {
             left = arithmResultType(PInteger(left), PInteger(right));
-            code.genBinArithm(tok == tokMul ? opMul
+            codegen->genBinArithm(tok == tokMul ? opMul
                 : tok == tokDiv ? opDiv : opMod, PInteger(left));
         }
         else
@@ -380,18 +395,18 @@ ShType* ShCompiler::parseTerm(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseArithmExpr(VmCodeGen& code)
+ShType* ShCompiler::parseArithmExpr()
 {
-    ShType* left = parseTerm(code);
+    ShType* left = parseTerm();
     while (parser.token == tokPlus || parser.token == tokMinus)
     {
         Token tok = parser.token;
         parser.next();
-        ShType* right = parseTerm(code);
+        ShType* right = parseTerm();
         if (left->isInt() && right->isInt())
         {
             left = arithmResultType(PInteger(left), PInteger(right));
-            code.genBinArithm(tok == tokPlus ? opAdd : opSub,
+            codegen->genBinArithm(tok == tokPlus ? opAdd : opSub,
                 PInteger(left));
         }
         else
@@ -401,30 +416,30 @@ ShType* ShCompiler::parseArithmExpr(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseSimpleExpr(VmCodeGen& code)
+ShType* ShCompiler::parseSimpleExpr()
 {
-    ShType* left = parseArithmExpr(code);
+    ShType* left = parseArithmExpr();
     if (parser.token == tokCat)
     {
         parser.next();
 
         offs tmpOffset = 0;
         if (left->isVector())
-            tmpOffset = code.genCopyToTempVec();
+            tmpOffset = codegen->genCopyToTempVec();
         else if (left->canBeArrayElement())
         {
             left = left->deriveVectorType();
-            tmpOffset = code.genElemToVec(PVector(left));
+            tmpOffset = codegen->genElemToVec(PVector(left));
         }
         else
             error("Invalid vector element type");
         do
         {
-            ShType* right = parseArithmExpr(code);
+            ShType* right = parseArithmExpr();
             if (left->equals(right))
-                code.genVecCat(tmpOffset);
+                codegen->genVecCat(tmpOffset);
             else if (PVector(left)->elementEquals(right))
-                code.genVecElemCat(tmpOffset);
+                codegen->genVecElemCat(tmpOffset);
             else
                 error("Operands of vector concatenation are incompatible");
         }
@@ -434,14 +449,14 @@ ShType* ShCompiler::parseSimpleExpr(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseCompoundCtor(VmCodeGen& code)
+ShType* ShCompiler::parseCompoundCtor()
 {
-    ShType* typeHint = code.resultTypeHint;
+    ShType* typeHint = codegen->resultTypeHint;
     if (typeHint != NULL && !typeHint->isVector())
         typeHint = NULL; // let the assignment parser decide
     if (parser.skipIf(tokRSquare))
     {
-        code.genLoadVecConst(queenBee->defaultEmptyVec, emptystr);
+        codegen->genLoadVecConst(queenBee->defaultEmptyVec, emptystr);
         return queenBee->defaultEmptyVec;
     }
     else
@@ -457,7 +472,7 @@ ShType* ShCompiler::parseCompoundCtor(VmCodeGen& code)
         offs tmpOffset = 0;
         while (1)
         {
-            ShType* gotType = parseExpr(code, elemType);
+            ShType* gotType = parseExpr(elemType);
             if (elemType == NULL)
                 elemType = gotType;
             if (!elemType->canAssign(gotType))
@@ -465,10 +480,10 @@ ShType* ShCompiler::parseCompoundCtor(VmCodeGen& code)
             if (vecType == NULL) // first item?
             {
                 vecType = elemType->deriveVectorType();
-                tmpOffset = code.genElemToVec(vecType);
+                tmpOffset = codegen->genElemToVec(vecType);
             }
             else
-                code.genVecElemCat(tmpOffset);
+                codegen->genVecElemCat(tmpOffset);
             if (parser.skipIf(tokRSquare))
                 break;
             parser.skip(tokComma, "]");
@@ -478,19 +493,19 @@ ShType* ShCompiler::parseCompoundCtor(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseRelExpr(VmCodeGen& code)
+ShType* ShCompiler::parseRelExpr()
 {
-    ShType* left = parseSimpleExpr(code);
+    ShType* left = parseSimpleExpr();
     if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
     {
         OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
         parser.next();
-        ShType* right = parseSimpleExpr(code);
+        ShType* right = parseSimpleExpr();
         if (left->canCompareWith(right)
                 || ((op == opEQ || op == opNE) && left->canCheckEq(right)))
         {
-            code.genComparison(op);
-            left = code.genTopType();
+            codegen->genComparison(op);
+            left = codegen->genTopType();
         }
         else
             error("Type mismatch in comparison: " + typeVsType(left, right));
@@ -499,16 +514,16 @@ ShType* ShCompiler::parseRelExpr(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseNotLevel(VmCodeGen& code)
+ShType* ShCompiler::parseNotLevel()
 {
     bool isNot = parser.skipIf(tokNot);
-    ShType* type = parseRelExpr(code);
+    ShType* type = parseRelExpr();
     if (isNot)
     {
         if (type->isInt())
-            code.genBitNot(PInteger(type));
+            codegen->genBitNot(PInteger(type));
         else if (type->isBool())
-            code.genBoolNot();
+            codegen->genBoolNot();
         else
             error("Boolean or integer expression expected after 'not'");
     }
@@ -516,18 +531,18 @@ ShType* ShCompiler::parseNotLevel(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseAndLevel(VmCodeGen& code)
+ShType* ShCompiler::parseAndLevel()
 {
-    ShType* left = parseNotLevel(code);
+    ShType* left = parseNotLevel();
     if (left->isBool())
     {
         if (parser.skipIf(tokAnd))
         {
-            offs saveOffset = code.genForwardBoolJump(opJumpAnd);
-            ShType* right = parseAndLevel(code);
+            offs saveOffset = codegen->genForwardBoolJump(opJumpAnd);
+            ShType* right = parseAndLevel();
             if (!right->isBool())
                 error("Boolean expression expected after 'and'");
-            code.genResolveJump(saveOffset);
+            codegen->genResolveJump(saveOffset);
         }
     }
     else if (left->isInt())
@@ -536,13 +551,13 @@ ShType* ShCompiler::parseAndLevel(VmCodeGen& code)
         {
             Token tok = parser.token;
             parser.next();
-            ShType* right = parseNotLevel(code);
+            ShType* right = parseNotLevel();
             if (right->isInt())
             {
                 if ((tok == tokShl || tok == tokShr) && PInteger(right)->isLargeInt())
                     error("Right operand of a bit shift can not be large");
                 left = arithmResultType(PInteger(left), PInteger(right));
-                code.genBinArithm(tok == tokShl ? opBitShl
+                codegen->genBinArithm(tok == tokShl ? opBitShl
                     : tok == tokShr ? opBitShr : opBitAnd, PInteger(left));
             }
             else
@@ -553,25 +568,25 @@ ShType* ShCompiler::parseAndLevel(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseOrLevel(VmCodeGen& code)
+ShType* ShCompiler::parseOrLevel()
 {
-    ShType* left = parseAndLevel(code);
+    ShType* left = parseAndLevel();
     if (left->isBool())
     {
         if (parser.skipIf(tokOr))
         {
-            offs saveOffset = code.genForwardBoolJump(opJumpOr);
-            ShType* right = parseOrLevel(code);
+            offs saveOffset = codegen->genForwardBoolJump(opJumpOr);
+            ShType* right = parseOrLevel();
             if (!right->isBool())
                 error("Boolean expression expected after 'or'");
-            code.genResolveJump(saveOffset);
+            codegen->genResolveJump(saveOffset);
         }
         else if (parser.skipIf(tokXor))
         {
-            ShType* right = parseOrLevel(code);
+            ShType* right = parseOrLevel();
             if (!right->isBool())
                 error("Boolean expression expected after 'xor'");
-            code.genBoolXor();
+            codegen->genBoolXor();
         }
     }
     else if (left->isInt())
@@ -580,11 +595,11 @@ ShType* ShCompiler::parseOrLevel(VmCodeGen& code)
         {
             Token tok = parser.token;
             parser.next();
-            ShType* right = parseAndLevel(code);
+            ShType* right = parseAndLevel();
             if (right->isInt())
             {
                 left = arithmResultType(PInteger(left), PInteger(right));
-                code.genBinArithm(tok == tokOr ? opBitOr : opBitXor,
+                codegen->genBinArithm(tok == tokOr ? opBitOr : opBitXor,
                     PInteger(left));
             }
             else
@@ -595,41 +610,41 @@ ShType* ShCompiler::parseOrLevel(VmCodeGen& code)
 }
 
 
-ShType* ShCompiler::parseSubrange(VmCodeGen& code)
+ShType* ShCompiler::parseSubrange()
 {
-    ShType* left = parseOrLevel(code);
+    ShType* left = parseOrLevel();
     if (parser.token == tokRange)
     {
         // Check bounds for left < right maybe? Or maybe not.
         parser.next();
-        ShType* right = parseOrLevel(code);
+        ShType* right = parseOrLevel();
         if (!left->isOrdinal() || !right->isOrdinal())
             error("Only ordinal types are allowed in subranges");
         if (!left->equals(right))
             error("Left and right values of a subrange must be compatible");
         if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
             error("Large subrange bounds are not supported");
-        code.genMkSubrange();
-        left = code.genTopType();
+        codegen->genMkSubrange();
+        left = codegen->genTopType();
     }
     return left;
 }
 
 
-ShType* ShCompiler::parseExpr(VmCodeGen& code, ShType* resultType)
+ShType* ShCompiler::parseExpr(ShType* resultType)
 {
-    code.resultTypeHint = resultType;
-    ShType* topType = parseExpr(code);
+    codegen->resultTypeHint = resultType;
+    ShType* topType = parseExpr();
 
     // see if this is an elem-to-vector assignment
     bool hintIsVec = resultType != NULL && resultType->isVector();
     if (hintIsVec && resultType->canAssign(topType) && PVector(resultType)->elementEquals(topType))
-        code.genElemToVec(PVector(resultType));
+        codegen->genElemToVec(PVector(resultType));
 
     // ordinal typecast, if necessary, so that a constant has a proper type
     else if (resultType != NULL && resultType->isOrdinal()
             && !resultType->equals(topType) && topType->canStaticCastTo(resultType))
-        code.genStaticCast(resultType);
+        codegen->genStaticCast(resultType);
 
     return topType;
 }
@@ -637,10 +652,11 @@ ShType* ShCompiler::parseExpr(VmCodeGen& code, ShType* resultType)
 
 void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCodeGen code;
+    VmCodeGen tcode;
+    VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
 
-    parseExpr(code, typeHint);
-    code.runConstExpr(result);
+    parseExpr(typeHint);
+    tcode.runConstExpr(result);
     
     if (result.type == NULL)
         error("Expression can't be evaluated at compile time");
@@ -666,6 +682,7 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
 
+    replaceCodeGen(saveCodeGen);
 }
 
 
@@ -777,7 +794,7 @@ void ShCompiler::parseTypeDef()
 }
 
 
-void ShCompiler::parseVarConstDef(bool isVar, VmCodeGen& code)
+void ShCompiler::parseVarConstDef(bool isVar)
 {
     string ident;
     ShType* type = NULL;
@@ -802,14 +819,14 @@ void ShCompiler::parseVarConstDef(bool isVar, VmCodeGen& code)
 
     if (isVar)
     {
-        ShType* exprType = parseExpr(code, type);
+        ShType* exprType = parseExpr(type);
         if (type == NULL) // auto
             type = exprType;
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
         ShVariable* var = new ShVariable(ident, type);
-        varScope->addVariable(var, symbolScope, &code);
-        code.genInitVar(var);
+        varScope->addVariable(var, symbolScope, codegen);
+        codegen->genInitVar(var);
     }
     else
     {
@@ -824,44 +841,48 @@ void ShCompiler::parseVarConstDef(bool isVar, VmCodeGen& code)
 }
 
 
-void ShCompiler::parseEcho(VmCodeGen& code)
+void ShCompiler::parseEcho(VmCodeGen* tcode)
 {
+    VmCodeGen* saveCodeGen = replaceCodeGen(tcode);
     if (parser.token != tokSep)
     {
         while (1)
         {
-            parseExpr(code);
-            code.genEcho();
+            parseExpr();
+            codegen->genEcho();
             if (parser.skipIf(tokComma))
-                code.genOther(opEchoSp);
+                codegen->genOther(opEchoSp);
             else
                 break;
         }
     }
-    code.genOther(opEchoLn);
+    codegen->genOther(opEchoLn);
+    replaceCodeGen(saveCodeGen);
     parser.skipSep();
 }
 
 
-void ShCompiler::parseAssert(VmCodeGen& code)
+void ShCompiler::parseAssert(VmCodeGen* tcode)
 {
-    ShType* type = parseExpr(code);
+    VmCodeGen* saveCodeGen = replaceCodeGen(tcode);
+    ShType* type = parseExpr();
     if (!type->isBool())
         error("Boolean expression expected for assertion");
-    code.genAssert(parser);
+    codegen->genAssert(parser);
+    replaceCodeGen(saveCodeGen);
     parser.skipSep();
 }
 
 
-void ShCompiler::parseOtherStatement(VmCodeGen& code)
+void ShCompiler::parseOtherStatement()
 {
-    ShType* type = parseDesignator(code, true);
+    ShType* type = parseDesignator(true);
     if (parser.skipIf(tokAssign))
     {
         if (!type->isReference())
             error("L-value expected in assignment");
-        parseExpr(code, PReference(type)->base);
-        code.genStore();
+        parseExpr(PReference(type)->base);
+        codegen->genStore();
     }
     else
         error("Definition or statement expected");
@@ -869,47 +890,44 @@ void ShCompiler::parseOtherStatement(VmCodeGen& code)
 }
 
 
-VmCodeGen nullGen;
-
-
-void ShCompiler::parseBlock(VmCodeGen& code)
+void ShCompiler::parseBlock()
 {
     while (!parser.skipIf(tokBlockEnd))
     {
         if (options.linenumInfo)
-            code.genLinenum(parser);
+            codegen->genLinenum(parser);
 
         if (parser.skipIf(tokSep))
             ;
         else if (parser.skipIf(tokDef))
             parseTypeDef();
         else if (parser.skipIf(tokConst))
-            parseVarConstDef(false, code);
+            parseVarConstDef(false);
         else if (parser.skipIf(tokVar))
-            parseVarConstDef(true, code);
+            parseVarConstDef(true);
         else if (parser.skipIf(tokEcho))
-            parseEcho(options.enableEcho ? code : nullGen);
+            parseEcho(options.enableEcho ? codegen : &nullCode);
         else if (parser.skipIf(tokAssert))
-            parseAssert(options.enableAssert ? code : nullGen);
+            parseAssert(options.enableAssert ? codegen : &nullCode);
         else if (parser.skipIf(tokBegin))
         {
             parser.skipBlockBegin();
-            enterBlock(code);
+            enterBlock();
         }
         else if (parser.skipIf(tokIf))
-            parseIf(code, tokIf);
+            parseIf(tokIf);
         else if (parser.token == tokElse)
             error("Misplaced 'else'");
         else if (parser.token == tokElif)
             error("Misplaced 'elif'");
         else
-            parseOtherStatement(code);
-        code.genFinalizeTemps();
+            parseOtherStatement();
+        codegen->genFinalizeTemps();
     }
 }
 
 
-void ShCompiler::enterBlock(VmCodeGen& code)
+void ShCompiler::enterBlock()
 {
     // The SymScope object is temporary; the real objects (types, vars, etc)
     // are registered with the outer scope: either module or state. Through
@@ -917,38 +935,38 @@ void ShCompiler::enterBlock(VmCodeGen& code)
     // exiting the block.
     ShSymScope tempSymScope(symbolScope);
     symbolScope = &tempSymScope;
-    parseBlock(code);
+    parseBlock();
     symbolScope = tempSymScope.parent;
-    tempSymScope.finalizeVars(code);
+    tempSymScope.finalizeVars(codegen);
 }
 
 
-void ShCompiler::parseIf(VmCodeGen& code, Token tok)
+void ShCompiler::parseIf(Token tok)
 {
     offs endJump = -1;
     if (tok != tokElse)
     {
-        ShType* type = parseExpr(code, queenBee->defaultBool);
+        ShType* type = parseExpr(queenBee->defaultBool);
         if (!type->isBool())
             error("Boolean expression expected");
-        endJump = code.genForwardJump(opJumpFalse);
+        endJump = codegen->genForwardJump(opJumpFalse);
     }
 
     parser.skipBlockBegin();
-    enterBlock(code);
+    enterBlock();
 
     if (tok != tokElse && (parser.token == tokElse || parser.token == tokElif))
     {
-        offs t = code.genForwardJump(opJump);
-        code.genResolveJump(endJump);
+        offs t = codegen->genForwardJump(opJump);
+        codegen->genResolveJump(endJump);
         endJump = t;
         Token saveTok = parser.token;
         parser.next();
-        parseIf(code, saveTok);
+        parseIf(saveTok);
     }
 
     if (endJump != -1)
-        code.genResolveJump(endJump);
+        codegen->genResolveJump(endJump);
 }
 
 
@@ -975,8 +993,9 @@ bool ShCompiler::compile(VmCodeSegment& retCodeSeg)
             ShScope* localScope = new ShLocalScope();
             module.addScope(localScope);
             varScope = localScope;
+            codegen = &mainCodeGen;
 
-            parseBlock(codegen);
+            parseBlock();
             symbolScope->finalizeVars(codegen);
             parser.skip(tokEof, "<EOF>");
 
@@ -999,12 +1018,10 @@ bool ShCompiler::compile(VmCodeSegment& retCodeSeg)
     catch(Exception& e)
     {
         fprintf(stderr, "%s\n", e.what().c_str());
-        nullGen.clear();
         return false;
     }
 
-    retCodeSeg = codegen.getCodeSeg();
-    nullGen.clear();
+    retCodeSeg = mainCodeGen.getCodeSeg();
     return true;
 }
 

@@ -180,7 +180,7 @@ public:
 
     void addUses(ShModule*);
     void addSymbol(ShBase* obj);
-    void finalizeVars(VmCodeGen& code);
+    void finalizeVars(VmCodeGen* code);
     ShBase* find(const string& name) const
             { return symbols.find(name); }
     ShBase* deepFind(const string&) const;
