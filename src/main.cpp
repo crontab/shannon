@@ -631,20 +631,23 @@ ShType* ShCompiler::parseSubrange()
 }
 
 
-ShType* ShCompiler::parseExpr(ShType* resultType)
+ShType* ShCompiler::parseExpr(ShType* typeHint)
 {
-    codegen->resultTypeHint = resultType;
+    codegen->resultTypeHint = typeHint;
     ShType* topType = parseExpr();
 
     // see if this is an elem-to-vector assignment
-    bool hintIsVec = resultType != NULL && resultType->isVector();
-    if (hintIsVec && resultType->canAssign(topType) && PVector(resultType)->elementEquals(topType))
-        codegen->genElemToVec(PVector(resultType));
+    if (typeHint != NULL)
+    {
+        if (typeHint->isVector() && typeHint->canAssign(topType)
+                && PVector(typeHint)->elementEquals(topType))
+            codegen->genElemToVec(PVector(typeHint));
 
-    // ordinal typecast, if necessary, so that a constant has a proper type
-    else if (resultType != NULL && resultType->isOrdinal()
-            && !resultType->equals(topType) && topType->canStaticCastTo(resultType))
-        codegen->genStaticCast(resultType);
+        // ordinal typecast, if necessary, so that a constant has a proper type
+        else if (typeHint->isOrdinal() && !typeHint->equals(topType)
+                && topType->canStaticCastTo(typeHint))
+            codegen->genStaticCast(typeHint);
+    }
 
     return topType;
 }

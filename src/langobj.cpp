@@ -529,7 +529,7 @@ string ShVector::displayValue(const ShValue& v) const
 // --- ARRAY TYPE --- //
 
 ShArray::ShArray(ShType* iElementType, ShType* iIndexType)
-        : ShVector(iElementType), indexType(iIndexType)  { }
+        : ShType(typeArray), elementType(iElementType), indexType(iIndexType)  { }
 
 string ShArray::getFullDefinition(const string& objName) const
 {

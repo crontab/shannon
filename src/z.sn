@@ -30,9 +30,10 @@ const i = '\x00'
 const j = h
 assert j == 'h'
 const dc = 'a'..j
-# assert dc == ('a'..'h')
+assert dc == ('a'..'h')
 const dd = 0..2
 const ref = int[char]
+assert ref == int[char]
 const 0..2 new1 = 1
 const str s = 'a'
 const s1 = 'b'
@@ -257,8 +258,3 @@ else: ift = 11
 assert ift == 11
 
 echo
-
-begin:
-    const a = 'a'..'z'
-    echo a
-    

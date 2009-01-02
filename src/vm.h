@@ -89,7 +89,7 @@ enum OpCode
     opCmpStrChr,        //                  -2  +1
     opCmpChrStr,        //                  -2  +1
     opCmpPodVec,        //                  -2  +1
-    opCmpPtr,           //                  -2  +1 - only EQ or NE
+    opCmpTypeRef,       //                  -2  +1 - only EQ or NE
 
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
