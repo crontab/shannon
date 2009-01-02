@@ -631,7 +631,7 @@ protected:
     void parseOtherStatement(VmCodeGen&);
     void parseBlock(VmCodeGen& code);
     void enterBlock(VmCodeGen& code);
-    void parseIf(VmCodeGen& code);
+    void parseIf(VmCodeGen& code, Token tok);
 
 protected:
     virtual string getFullDefinition(const string& objName) const;

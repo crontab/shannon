@@ -805,7 +805,11 @@ void ShModule::parseBlock(VmCodeGen& code)
             enterBlock(code);
         }
         else if (parser.skipIf(tokIf))
-            parseIf(code);
+            parseIf(code, tokIf);
+        else if (parser.token == tokElse)
+            error("Misplaced 'else'");
+        else if (parser.token == tokElif)
+            error("Misplaced 'elif'");
         else
             parseOtherStatement(code);
         code.genFinalizeTemps();
@@ -827,24 +831,32 @@ void ShModule::enterBlock(VmCodeGen& code)
 }
 
 
-void ShModule::parseIf(VmCodeGen& code)
+void ShModule::parseIf(VmCodeGen& code, Token tok)
 {
-    ShType* type = parseExpr(code, queenBee->defaultBool);
-    if (!type->isBool())
-        error("Boolean expression expected after 'if'");
-    offs endJump = code.genForwardJump(opJumpFalse);
+    offs endJump = -1;
+    if (tok != tokElse)
+    {
+        ShType* type = parseExpr(code, queenBee->defaultBool);
+        if (!type->isBool())
+            error("Boolean expression expected");
+        endJump = code.genForwardJump(opJumpFalse);
+    }
 
     parser.skipBlockBegin();
     enterBlock(code);
 
-/*
-    if (parser.token == tokElse)
+    if (tok != tokElse && (parser.token == tokElse || parser.token == tokElif))
     {
-//        offs elseJump = code.genForwardJump(opJump);
-        
+        offs t = code.genForwardJump(opJump);
+        code.genResolveJump(endJump);
+        endJump = t;
+        Token saveTok = parser.token;
+        parser.next();
+        parseIf(code, saveTok);
     }
-*/
-    code.genResolveJump(endJump);
+
+    if (endJump != -1)
+        code.genResolveJump(endJump);
 }
 
 
