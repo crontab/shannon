@@ -24,8 +24,6 @@ class ShModule;
 
 class VmCodeGen;
 
-// offs memAlign(int offs);
-
 
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
@@ -204,7 +202,7 @@ public:
     void addAnonType(ShType*);
     void addTypeAlias(const string&, ShType*, ShSymScope*);
     void addConstant(ShConstant*, ShSymScope*);
-    virtual void addVariable(ShVariable*, ShSymScope*);
+    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
     void dump(string indent) const;
 };
 
@@ -550,12 +548,11 @@ class ShLocalScope: public ShScope
     // scopes for nested blocks to avoid pollution of the static space.
 protected:
     virtual string getFullDefinition(const string& objName) const;
-    VmCodeGen* codegen; // for registering vars and getting their addresses
 
 public:
-    ShLocalScope(VmCodeGen* iCodeGen);
+    ShLocalScope();
 
-    virtual void addVariable(ShVariable*, ShSymScope*);
+    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
 };
 
 
@@ -564,95 +561,24 @@ public:
 class ShModule: public ShScope
 {
 protected:
-    // --- Compiler ---
-
-    struct CompilerOptions
-    {
-        bool enableEcho;
-        bool enableAssert;
-        bool linenumInfo;
-        CompilerOptions()
-            : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
-    };
-
-    string fileName;
-    Parser parser;
-    VmCodeGen* codegen;
     Array<string> vectorConsts;
-    CompilerOptions options;
-    ShLocalScope modLocalScope;
+    BaseList<ShScope> scopes;
 
-    ShSymScope* symbolScope; // for symbols only
-    ShScope* varScope;    // static or stack-local scope
+    virtual string getFullDefinition(const string& objName) const;
+    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
+
+public:
+    offs dataSize;
+    
+    ShModule(const string&);
+    ~ShModule();
 
     string registerString(const string& v) // TODO: find duplicates
             { vectorConsts.add(v); return v; }
-    virtual void addVariable(ShVariable*, ShSymScope*);
-
-    void error(const string& msg)           { parser.error(msg); }
-    void error(EDuplicate& e);
-    void error(const char* msg)             { parser.error(msg); }
-    void errorWithLoc(const string& msg)    { parser.errorWithLoc(msg); }
-    void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
-    void errorNotFound(const string& msg)   { parser.errorNotFound(msg); }
-    void notImpl()                          { error("Feature not implemented"); }
-
-    ShBase* getQualifiedName();
-    ShType* getDerivators(ShType*);
-    ShType* getTypeOrNewIdent(string* strToken);
-    ShType* getTypeExpr(bool anyObj);
-    ShType* parseCompoundCtor(VmCodeGen& code);
-    ShType* parseIfFunc(VmCodeGen& code);
-    ShType* parseStaticCast(VmCodeGen& code, ShType* toType);
-    ShType* parseAtom(VmCodeGen&, bool isLValue);
-    ShType* parseDesignator(VmCodeGen&, bool isLValue);
-    ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
-    ShType* parseFactor(VmCodeGen&);
-    ShType* parseTerm(VmCodeGen&);
-    ShType* parseArithmExpr(VmCodeGen&);
-    ShType* parseSimpleExpr(VmCodeGen&);
-    ShType* parseRelExpr(VmCodeGen&);
-    ShType* parseNotLevel(VmCodeGen&);
-    ShType* parseAndLevel(VmCodeGen&);
-    ShType* parseOrLevel(VmCodeGen&);
-    ShType* parseSubrange(VmCodeGen&);
-    ShType* parseBoolExpr(VmCodeGen& code)
-            { return parseOrLevel(code); }
-    ShType* parseExpr(VmCodeGen& code)
-            { return parseSubrange(code); }
-    ShType* parseExpr(VmCodeGen& code, ShType* resultType);
-    void getConstExpr(ShType* typeHint, ShValue& result);
-
-    ShEnum* parseEnumType();
-    void parseTypeDef();
-    void parseVarConstDef(bool isVar, VmCodeGen&);
-    void parseEcho(VmCodeGen&);
-    void parseAssert(VmCodeGen&);
-    void parseOtherStatement(VmCodeGen&);
-    void parseBlock(VmCodeGen& code);
-    void enterBlock(VmCodeGen& code);
-    void parseIf(VmCodeGen& code, Token tok);
-
-protected:
-    virtual string getFullDefinition(const string& objName) const;
-
-public:
-    bool compiled;
-
-    ShModule(const string& filename);
-    ~ShModule();
-    bool compile();
+    void addScope(ShScope*);
     void dump(string indent) const;
 
-    // --- RUNTIME --- //
-protected:
-    void setupRuntime();
-    VmCodeSegment mainCode;
-    offs dataSize;
-    char* dataSegment;
-    
-public:
-    void execute();
+    void execute(VmCodeSegment&);
 };
 
 

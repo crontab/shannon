@@ -14,6 +14,90 @@
 // ------------------------------------------------------------------------- //
 
 
+class ShCompiler: public Base
+{
+    struct CompilerOptions
+    {
+        bool enableEcho;
+        bool enableAssert;
+        bool linenumInfo;
+        CompilerOptions()
+            : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
+    };
+
+    ShModule& module;
+    string fileName;
+
+    Parser parser;
+    VmCodeGen codegen;
+    CompilerOptions options;
+
+    ShSymScope* symbolScope; // for symbols only
+    ShScope* varScope;    // static or stack-local scope
+
+    void error(const string& msg)           { parser.error(msg); }
+    void error(EDuplicate& e);
+    void error(const char* msg)             { parser.error(msg); }
+    void errorWithLoc(const string& msg)    { parser.errorWithLoc(msg); }
+    void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
+    void errorNotFound(const string& msg)   { parser.errorNotFound(msg); }
+    void notImpl()                          { error("Feature not implemented"); }
+
+    ShBase* getQualifiedName();
+    ShType* getDerivators(ShType*);
+    ShType* getTypeOrNewIdent(string* strToken);
+    ShType* getTypeExpr(bool anyObj);
+    ShType* parseCompoundCtor(VmCodeGen& code);
+    ShType* parseIfFunc(VmCodeGen& code);
+    ShType* parseStaticCast(VmCodeGen& code, ShType* toType);
+    ShType* parseAtom(VmCodeGen&, bool isLValue);
+    ShType* parseDesignator(VmCodeGen&, bool isLValue);
+    ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
+    ShType* parseFactor(VmCodeGen&);
+    ShType* parseTerm(VmCodeGen&);
+    ShType* parseArithmExpr(VmCodeGen&);
+    ShType* parseSimpleExpr(VmCodeGen&);
+    ShType* parseRelExpr(VmCodeGen&);
+    ShType* parseNotLevel(VmCodeGen&);
+    ShType* parseAndLevel(VmCodeGen&);
+    ShType* parseOrLevel(VmCodeGen&);
+    ShType* parseSubrange(VmCodeGen&);
+    ShType* parseBoolExpr(VmCodeGen& code)
+            { return parseOrLevel(code); }
+    ShType* parseExpr(VmCodeGen& code)
+            { return parseSubrange(code); }
+    ShType* parseExpr(VmCodeGen& code, ShType* resultType);
+    void getConstExpr(ShType* typeHint, ShValue& result);
+
+    ShEnum* parseEnumType();
+    void parseTypeDef();
+    void parseVarConstDef(bool isVar, VmCodeGen&);
+    void parseEcho(VmCodeGen&);
+    void parseAssert(VmCodeGen&);
+    void parseOtherStatement(VmCodeGen&);
+    void parseBlock(VmCodeGen& code);
+    void enterBlock(VmCodeGen& code);
+    void parseIf(VmCodeGen& code, Token tok);
+
+public:
+    ShCompiler(const string& filename, ShModule& iModule);
+    ~ShCompiler();
+    bool compile(VmCodeSegment&);
+};
+
+
+ShCompiler::ShCompiler(const string& iFileName, ShModule& iModule)
+    : module(iModule), fileName(iFileName), parser(iFileName), codegen(),
+      symbolScope(&module), varScope(&module)
+{
+    module.registerString(fileName);
+}
+
+ShCompiler::~ShCompiler()
+{
+}
+
+
 string typeVsType(ShType* a, ShType* b)
 {
     return a->getDefinitionQ() + " vs. " + b->getDefinitionQ();
@@ -37,9 +121,16 @@ string typeVsType(ShType* a, ShType* b)
     ,
 */
 
+
+void ShCompiler::error(EDuplicate& e)
+{
+    parser.error("'" + e.getEntry() + "' is already defined within this scope");
+}
+
+
 // TODO: execute constant code as much as possible (in VmCodeGen probably)
 
-ShBase* ShModule::getQualifiedName()
+ShBase* ShCompiler::getQualifiedName()
 {
     string ident = parser.getIdent();
     ShBase* obj = symbolScope->deepFind(ident);
@@ -62,7 +153,7 @@ ShBase* ShModule::getQualifiedName()
 }
 
 
-ShType* ShModule::getTypeExpr(bool anyObj)
+ShType* ShCompiler::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
     parseExpr(tcode);
@@ -74,7 +165,7 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 }
 
 
-ShType* ShModule::parseIfFunc(VmCodeGen& code)
+ShType* ShCompiler::parseIfFunc(VmCodeGen& code)
 {
     parser.skip(tokLParen, "(");
     if (!parseExpr(code, queenBee->defaultBool)->isBool())
@@ -100,7 +191,7 @@ ShType* ShModule::parseIfFunc(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
+ShType* ShCompiler::parseAtom(VmCodeGen& code, bool isLValue)
 {
     if (parser.skipIf(tokLParen))
     {
@@ -138,7 +229,8 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
         {
             string s = parser.strValue;
             parser.next();
-            code.genLoadVecConst(queenBee->defaultStr, registerString(s).c_bytes());
+            code.genLoadVecConst(queenBee->defaultStr,
+                module.registerString(s).c_bytes());
         }
     }
 
@@ -218,7 +310,7 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
 }
 
 
-ShType* ShModule::parseStaticCast(VmCodeGen& code, ShType* toType)
+ShType* ShCompiler::parseStaticCast(VmCodeGen& code, ShType* toType)
 {
     code.resultTypeHint = toType;
     parseExpr(code);
@@ -235,13 +327,13 @@ ShType* ShModule::parseStaticCast(VmCodeGen& code, ShType* toType)
 }
 
 
-ShType* ShModule::parseDesignator(VmCodeGen& code, bool isLValue)
+ShType* ShCompiler::parseDesignator(VmCodeGen& code, bool isLValue)
 {
     return parseAtom(code, isLValue);
 }
 
 
-ShType* ShModule::parseFactor(VmCodeGen& code)
+ShType* ShCompiler::parseFactor(VmCodeGen& code)
 {
     bool isNeg = parser.skipIf(tokMinus);
     ShType* resultType = parseDesignator(code, false);
@@ -256,7 +348,7 @@ ShType* ShModule::parseFactor(VmCodeGen& code)
 }
 
 
-ShInteger* ShModule::arithmResultType(ShInteger* left, ShInteger* right)
+ShInteger* ShCompiler::arithmResultType(ShInteger* left, ShInteger* right)
 {
     if (PInteger(left)->isLargeInt() != PInteger(right)->isLargeInt())
         error("Mixing int and large: typecast needed (or 'L' with numbers)");
@@ -267,7 +359,7 @@ ShInteger* ShModule::arithmResultType(ShInteger* left, ShInteger* right)
 }
 
 
-ShType* ShModule::parseTerm(VmCodeGen& code)
+ShType* ShCompiler::parseTerm(VmCodeGen& code)
 {
     ShType* left = parseFactor(code);
     while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
@@ -288,7 +380,7 @@ ShType* ShModule::parseTerm(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseArithmExpr(VmCodeGen& code)
+ShType* ShCompiler::parseArithmExpr(VmCodeGen& code)
 {
     ShType* left = parseTerm(code);
     while (parser.token == tokPlus || parser.token == tokMinus)
@@ -309,7 +401,7 @@ ShType* ShModule::parseArithmExpr(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
+ShType* ShCompiler::parseSimpleExpr(VmCodeGen& code)
 {
     ShType* left = parseArithmExpr(code);
     if (parser.token == tokCat)
@@ -342,7 +434,7 @@ ShType* ShModule::parseSimpleExpr(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseCompoundCtor(VmCodeGen& code)
+ShType* ShCompiler::parseCompoundCtor(VmCodeGen& code)
 {
     ShType* typeHint = code.resultTypeHint;
     if (typeHint != NULL && !typeHint->isVector())
@@ -386,7 +478,7 @@ ShType* ShModule::parseCompoundCtor(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseRelExpr(VmCodeGen& code)
+ShType* ShCompiler::parseRelExpr(VmCodeGen& code)
 {
     ShType* left = parseSimpleExpr(code);
     if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
@@ -407,7 +499,7 @@ ShType* ShModule::parseRelExpr(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseNotLevel(VmCodeGen& code)
+ShType* ShCompiler::parseNotLevel(VmCodeGen& code)
 {
     bool isNot = parser.skipIf(tokNot);
     ShType* type = parseRelExpr(code);
@@ -424,7 +516,7 @@ ShType* ShModule::parseNotLevel(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseAndLevel(VmCodeGen& code)
+ShType* ShCompiler::parseAndLevel(VmCodeGen& code)
 {
     ShType* left = parseNotLevel(code);
     if (left->isBool())
@@ -461,7 +553,7 @@ ShType* ShModule::parseAndLevel(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseOrLevel(VmCodeGen& code)
+ShType* ShCompiler::parseOrLevel(VmCodeGen& code)
 {
     ShType* left = parseAndLevel(code);
     if (left->isBool())
@@ -503,7 +595,7 @@ ShType* ShModule::parseOrLevel(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseSubrange(VmCodeGen& code)
+ShType* ShCompiler::parseSubrange(VmCodeGen& code)
 {
     ShType* left = parseOrLevel(code);
     if (parser.token == tokRange)
@@ -524,7 +616,7 @@ ShType* ShModule::parseSubrange(VmCodeGen& code)
 }
 
 
-ShType* ShModule::parseExpr(VmCodeGen& code, ShType* resultType)
+ShType* ShCompiler::parseExpr(VmCodeGen& code, ShType* resultType)
 {
     code.resultTypeHint = resultType;
     ShType* topType = parseExpr(code);
@@ -543,7 +635,7 @@ ShType* ShModule::parseExpr(VmCodeGen& code, ShType* resultType)
 }
 
 
-void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
+void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
 {
     VmCodeGen code;
 
@@ -580,7 +672,7 @@ void ShModule::getConstExpr(ShType* typeHint, ShValue& result)
 // --- TYPES --------------------------------------------------------------- //
 
 
-ShType* ShModule::getDerivators(ShType* type)
+ShType* ShCompiler::getDerivators(ShType* type)
 {
     if (parser.skipIf(tokLSquare))
     {
@@ -613,7 +705,7 @@ ShType* ShModule::getDerivators(ShType* type)
 }
 
 
-ShType* ShModule::getTypeOrNewIdent(string* ident)
+ShType* ShCompiler::getTypeOrNewIdent(string* ident)
 {
     ident->clear();
     
@@ -640,7 +732,7 @@ ShType* ShModule::getTypeOrNewIdent(string* ident)
 // --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
 
 
-ShEnum* ShModule::parseEnumType()
+ShEnum* ShCompiler::parseEnumType()
 {
     ShEnum* type = new ShEnum();
     varScope->addAnonType(type);
@@ -663,7 +755,7 @@ ShEnum* ShModule::parseEnumType()
 }
 
 
-void ShModule::parseTypeDef()
+void ShCompiler::parseTypeDef()
 {
     string ident;
     ShType* type;
@@ -685,7 +777,7 @@ void ShModule::parseTypeDef()
 }
 
 
-void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
+void ShCompiler::parseVarConstDef(bool isVar, VmCodeGen& code)
 {
     string ident;
     ShType* type = NULL;
@@ -716,7 +808,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
         ShVariable* var = new ShVariable(ident, type);
-        varScope->addVariable(var, symbolScope);
+        varScope->addVariable(var, symbolScope, &code);
         code.genInitVar(var);
     }
     else
@@ -732,7 +824,7 @@ void ShModule::parseVarConstDef(bool isVar, VmCodeGen& code)
 }
 
 
-void ShModule::parseEcho(VmCodeGen& code)
+void ShCompiler::parseEcho(VmCodeGen& code)
 {
     if (parser.token != tokSep)
     {
@@ -751,7 +843,7 @@ void ShModule::parseEcho(VmCodeGen& code)
 }
 
 
-void ShModule::parseAssert(VmCodeGen& code)
+void ShCompiler::parseAssert(VmCodeGen& code)
 {
     ShType* type = parseExpr(code);
     if (!type->isBool())
@@ -761,7 +853,7 @@ void ShModule::parseAssert(VmCodeGen& code)
 }
 
 
-void ShModule::parseOtherStatement(VmCodeGen& code)
+void ShCompiler::parseOtherStatement(VmCodeGen& code)
 {
     ShType* type = parseDesignator(code, true);
     if (parser.skipIf(tokAssign))
@@ -780,7 +872,7 @@ void ShModule::parseOtherStatement(VmCodeGen& code)
 VmCodeGen nullGen;
 
 
-void ShModule::parseBlock(VmCodeGen& code)
+void ShCompiler::parseBlock(VmCodeGen& code)
 {
     while (!parser.skipIf(tokBlockEnd))
     {
@@ -817,7 +909,7 @@ void ShModule::parseBlock(VmCodeGen& code)
 }
 
 
-void ShModule::enterBlock(VmCodeGen& code)
+void ShCompiler::enterBlock(VmCodeGen& code)
 {
     // The SymScope object is temporary; the real objects (types, vars, etc)
     // are registered with the outer scope: either module or state. Through
@@ -831,7 +923,7 @@ void ShModule::enterBlock(VmCodeGen& code)
 }
 
 
-void ShModule::parseIf(VmCodeGen& code, Token tok)
+void ShCompiler::parseIf(VmCodeGen& code, Token tok)
 {
     offs endJump = -1;
     if (tok != tokElse)
@@ -860,7 +952,7 @@ void ShModule::parseIf(VmCodeGen& code, Token tok)
 }
 
 
-bool ShModule::compile()
+bool ShCompiler::compile(VmCodeSegment& retCodeSeg)
 {
     try
     {
@@ -872,18 +964,22 @@ bool ShModule::compile()
             {
                 parser.next();
                 string modName = parser.getIdent();
-                if (strcasecmp(modName.c_str(), name.c_str()) != 0)
+                if (strcasecmp(modName.c_str(), module.name.c_str()) != 0)
                     error("Module name mismatch");
-                setNamePleaseThisIsWrongIKnow(modName);
+                module.setNamePleaseThisIsWrongIKnow(modName);
                 parser.skipSep();
             }
 
-            varScope = &modLocalScope;
-            parseBlock(*codegen);
-            
-            symbolScope->finalizeVars(*codegen);
+            // register all vars in the stack-local scope; may change in the
+            // future with supplementary modules
+            ShScope* localScope = new ShLocalScope();
+            module.addScope(localScope);
+            varScope = localScope;
 
+            parseBlock(codegen);
+            symbolScope->finalizeVars(codegen);
             parser.skip(tokEof, "<EOF>");
+
         }
         catch (EDuplicate& e)
         {
@@ -894,11 +990,9 @@ bool ShModule::compile()
             error(e.what());
         }
 
-        setupRuntime();
-
 #ifdef DEBUG
         queenBee->dump("");
-        dump("");
+        module.dump("");
 #endif
 
     }
@@ -909,6 +1003,7 @@ bool ShModule::compile()
         return false;
     }
 
+    retCodeSeg = codegen.getCodeSeg();
     nullGen.clear();
     return true;
 }
@@ -944,26 +1039,35 @@ public:
 
 int main()
 {
+#ifdef XCODE
+        string filename = "/Users/hovik/Projects/Shannon/src/z.sn";
+#else
+        string filename = "z.sn";
+#endif
+
     try
     {
         initLangObjs();
-        
-#ifdef XCODE
-        ShModule module("/Users/hovik/Projects/Shannon/src/z.sn");
-#else
-        ShModule module("z.sn");
-#endif
-        module.compile();
 
-        if (module.compiled)
+        ShModule module(extractFileName(filename));
+        VmCodeSegment codeseg;
+        bool compiled = false;
+
+        {
+            ShCompiler compiler(filename, module);
+            compiled = compiler.compile(codeseg);
+        }
+
+        if (compiled)
         {
             // TODO: exec mains for all used modules
-            module.execute();
+            module.execute(codeseg);
             if (!stk.empty())
                 fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }
         else
             return 1;
+
     }
     catch (Exception& e)
     {

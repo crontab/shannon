@@ -229,7 +229,7 @@ void ShScope::addConstant(ShConstant* obj, ShSymScope* symScope)
     symScope->addSymbol(obj);
 }
 
-void ShScope::addVariable(ShVariable* obj, ShSymScope* symScope)
+void ShScope::addVariable(ShVariable* obj, ShSymScope* symScope, VmCodeGen*)
 {
     vars.add(obj);
     symScope->addSymbol(obj);
@@ -668,80 +668,71 @@ ShConstant::ShConstant(const string& name, ShTypeRef* typeref, ShType* iValue)
 
 // --- LOCAL SCOPE --- //
 
-ShLocalScope::ShLocalScope(VmCodeGen* iCodeGen)
-    : ShScope("", typeLocalScope), codegen(iCodeGen)  { }
+ShLocalScope::ShLocalScope()
+    : ShScope("", typeLocalScope)  { }
 
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
-void ShLocalScope::addVariable(ShVariable* var, ShSymScope* symScope)
+void ShLocalScope::addVariable(ShVariable* var, ShSymScope* symScope, VmCodeGen* codegen)
 {
     var->dataOffset = codegen->genReserveLocalVar(var->type);
     var->local = true;
-    ShScope::addVariable(var, symScope);
+    ShScope::addVariable(var, symScope, codegen);
 }
 
 
 // --- MODULE --- //
 
 
-ShModule::ShModule(const string& iFileName)
-    : ShScope(extractFileName(iFileName), typeModule), fileName(iFileName),
-      parser(iFileName), codegen(new VmCodeGen), modLocalScope(codegen),
-      symbolScope(this), varScope(this), compiled(false),
-      // runtime
-      dataSize(0), dataSegment(NULL)
+ShModule::ShModule(const string& name)
+    : ShScope(name, typeModule), dataSize(0)
 {
     if (queenBee != NULL)
         addUses(queenBee);
-    registerString(fileName); // file name can be used in 'assert' statements
 }
 
 ShModule::~ShModule()
 {
-    delete codegen;
-    memfree(dataSegment);
 }
 
-void ShModule::error(EDuplicate& e)
-{
-    parser.error("'" + e.getEntry() + "' is already defined within this scope");
-}
-
-void ShModule::addVariable(ShVariable* obj, ShSymScope* symScope)
+void ShModule::addVariable(ShVariable* obj, ShSymScope* symScope, VmCodeGen* codegen)
 {
     obj->dataOffset = dataSize;
     dataSize += obj->type->staticSizeAligned;
-    ShScope::addVariable(obj, symScope);
+    ShScope::addVariable(obj, symScope, codegen);
 }
 
 string ShModule::getFullDefinition(const string& objName) const
     { return name; }
+
+void ShModule::addScope(ShScope* scope)
+{
+    scopes.add(scope);
+}
 
 #ifdef DEBUG
 void ShModule::dump(string indent) const
 {
     printf("\n%smodule %s\n", indent.c_str(), name.c_str());
     ShScope::dump(indent);
-    modLocalScope.dump("");
 }
 #endif
 
 
-void ShModule::setupRuntime()
+void ShModule::execute(VmCodeSegment& code)
 {
+    pchar dataSegment = NULL;
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
-    mainCode = codegen->getCodeSeg();
-    compiled = true;
-}
-
-
-void ShModule::execute()
-{
-    if (!compiled)
-        internal(14);
-    mainCode.execute(dataSegment, NULL);
+    try
+    {
+        code.execute(dataSegment, NULL);
+    }
+    catch (...)
+    {
+        memfree(dataSegment);
+    }
 }
 
 
@@ -779,7 +770,6 @@ void ShQueenBee::setup()
     addTypeAlias(defaultStr->name, defaultStr, this);
     addTypeAlias(defaultBool->name, defaultBool, this);
     addTypeAlias(defaultVoid->name, defaultVoid, this);
-    setupRuntime();
 }
 
 

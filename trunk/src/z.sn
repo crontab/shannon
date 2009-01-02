@@ -206,6 +206,9 @@ echo
 
 var ift = 0
 
+if true: ;
+else: ;
+
 if true: ift = 1
 assert ift == 1
 
@@ -247,7 +250,6 @@ if false: assert false
 elif false: assert false
 else: ift = 11
 assert ift == 11
-
 
 echo
 
