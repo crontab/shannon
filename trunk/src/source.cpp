@@ -232,7 +232,9 @@ Keywords::kwinfo Keywords::keywords[] =
         {"as", tokAs},
         {"assert", tokAssert},
         {"begin", tokBegin},
+        {"break", tokBreak},
         {"const", tokConst},
+        {"continue", tokContinue},
         {"def", tokDef},
         {"echo", tokEcho},
         {"elif", tokElif},
@@ -253,6 +255,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"true", tokTrue},
         {"typeof", tokTypeOf},
         {"var", tokVar},
+        {"while", tokWhile},
         {"xor", tokXor},
         {NULL, tokUndefined}
     };

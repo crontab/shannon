@@ -1,7 +1,7 @@
 
 * if, while, case
 
-* stoQuad storage model
+* arrays: static and associative (stoDblPtr storage model)
 
 * vector item selection, only R-value to start with
 

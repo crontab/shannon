@@ -106,8 +106,10 @@ static void popByType(ShType* type, podvalue& result)
 }
 */
 
-static void copyElems(ShType* elemType, ptr src, ptr dst, int count)
+static void copyElems(ShType* elemType, ptr src_, ptr dst_, int count)
 {
+    pptr src = pptr(src_); // couldn't find a better way to please gcc 4.x
+    pptr dst = pptr(dst_);
     switch (elemType->storageModel)
     {
         case stoVec:
@@ -117,7 +119,7 @@ static void copyElems(ShType* elemType, ptr src, ptr dst, int count)
                     *pptr(dst) = string::_initialize(*pptr(src));
                     if (--count == 0)
                         break;
-                    (*ppptr(&src))++; (*ppptr(&dst))++;
+                    src++; dst++;
                 }
             break;
         default: internal(103);
