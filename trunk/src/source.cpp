@@ -650,7 +650,9 @@ string Parser::errorLocation() const
 
 void Parser::skipSep()
 {
-    if (token != tokSep && token != tokEof)
+    if (token == tokBlockEnd || token == tokEof)
+        return;
+    if (token != tokSep)
         errorWithLoc("End of statement expected");
     next();
 }

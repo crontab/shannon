@@ -202,15 +202,52 @@ begin:
 begin:
     ;
 
-if true:
-    echo 'true!'
-
-echo 'that\'s it!'
-
 echo
 
+var ift = 0
 
-begin:
-    const myint = int
-    var myint v = 0
+if true: ift = 1
+assert ift == 1
+
+if false: assert false
+
+if true: ift = 2
+else: assert false
+assert ift == 2
+
+if false: assert false
+else: ift = 5
+assert ift == 5
+
+if true: ift = 6
+elif false: assert false
+assert ift == 6
+
+if false: assert false
+elif true: ift = 7
+assert ift == 7
+
+if false: assert false
+elif true: ift = 8
+elif false: assert false
+assert ift == 8
+
+if false: assert false
+elif false: assert false
+elif true: ift = 9
+assert ift == 9
+
+if false: assert false
+elif false: assert false
+elif true: ift = 10
+else: assert false
+assert ift == 10
+
+if false: assert false
+elif false: assert false
+else: ift = 11
+assert ift == 11
+
+
+echo
 
