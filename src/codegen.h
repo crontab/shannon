@@ -33,7 +33,6 @@ protected:
     void genPushVecValue(ShType* type, ptr v)  { genPushPtrValue(type, v); }
     const GenStackInfo& genTop()               { return genStack.top(); }
     ShVariable* genPopDeferred();
-    ShType* genPopType()                       { return genPop().type; }
 
     void genCmpOp(OpCode op, OpCode cmp);
     void genStoreVar(ShVariable* var);
@@ -90,6 +89,9 @@ public:
     const GenStackInfo& genPop();
     ShType* genTopType()
             { return genTop().type; }
+    ShType* genPopType()
+            { return genPop().type; }
+    ptr genTopPtrValue();
     offs genReserveLocalVar(ShType*);
     offs genReserveTempVar(ShType*);
 

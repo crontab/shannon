@@ -128,6 +128,15 @@ const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
     return t;
 }
 
+ptr VmCodeGen::genTopPtrValue()
+{
+    const GenStackInfo& i = genTop();
+    if (i.isValue)
+        return i.value.ptr_;
+    else
+        return NULL;
+}
+
 ShVariable* VmCodeGen::genPopDeferred()
 {
     ShVariable* var = deferredVar;
