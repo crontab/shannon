@@ -28,12 +28,11 @@ void VmCodeGen::runConstExpr(ShValue& result)
     if (i.isValue)
     {
         // help return the result quicker, without evaluating the whole expr
-        result.type = i.type;
-        result.value = i.value;
+        result.assignValue(i.type, i.value);
         return;
     }
 
-    result.type = NULL;
+    result.clear();
     if (needsRuntimeContext)
         return;
     result.type = genTopType();
@@ -41,6 +40,7 @@ void VmCodeGen::runConstExpr(ShValue& result)
     genFinalizeTemps();
     genEnd();
     codeseg.execute(NULL, &result.value);
+
 #ifdef DEBUG
     verifyClean();
 #endif
@@ -50,6 +50,7 @@ void VmCodeGen::runConstExpr(ShValue& result)
 ShType* VmCodeGen::runTypeExpr(bool anyObj, bool* cantEval)
 {
     *cantEval = false;
+
     const GenStackInfo& i = genTop();
     if (i.isValue)
     {

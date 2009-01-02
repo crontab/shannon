@@ -502,11 +502,11 @@ union podvalue
 
 struct ShValue: noncopyable
 {
-    podvalue value;
     ShType* type;
+    podvalue value;
 
     ShValue(): type(NULL)  { }
-    ShValue(const ShValue&);
+    ShValue(ShType*, const podvalue&);
     ShValue(ShType* iType, int iValue): type(iType) { value.int_ = iValue; }
     ShValue(ShType* iType, ptr iValue): type(iType) { value.ptr_ = iValue; }
     ~ShValue()  { _finalize(); }
@@ -516,8 +516,12 @@ struct ShValue: noncopyable
     void assignPtr(ShType* iType, ptr p);
     void assignVec(ShType* iType, const string& s);
     void assignVoid(ShType* iType);
-    void assignFromBuf(ShType*, const ptr);
+    void assignFromBuf(ShType*, ptr);
     void assignToBuf(ptr);
+    void assignValue(ShType* type, const podvalue& v)
+        { assignFromBuf(type, ptr(&v)); }
+    void clear()
+        { _finalize(); type = NULL; }
 
     int rangeMin() const
             { return int(value.large_); }

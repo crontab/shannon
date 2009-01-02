@@ -595,13 +595,11 @@ string ShState::getFullDefinition(const string& objName) const
 
 // --- LITERAL VALUE --- //
 
-ShValue::ShValue(const ShValue& v)
-    : type(v.type)
+ShValue::ShValue(ShType* iType, const podvalue& iValue)
+    : type(iType), value(iValue)
 {
     if (type != NULL && type->isVector())
-        value.ptr_ = PTR_TO_STRING(v.value.ptr_)._initialize();
-    else
-        value = v.value;
+        PTR_TO_STRING(value.ptr_)._initialize();
 }
 
 void ShValue::_finalize()
@@ -624,7 +622,7 @@ void ShValue::assignVec(ShType* iType, const string& s)
 void ShValue::assignVoid(ShType* iType)
         { _finalize(); type = iType; value.ptr_ = 0; }
 
-void ShValue::assignFromBuf(ShType* newType, const ptr p)
+void ShValue::assignFromBuf(ShType* newType, ptr p)
 {
     switch (newType->storageModel)
     {
@@ -654,7 +652,7 @@ void ShValue::assignToBuf(ptr p)
 // --- CONSTANT --- //
 
 ShConstant::ShConstant(const string& name, const ShValue& iValue)
-    : ShBase(name, baseConstant), value(iValue)  { }
+    : ShBase(name, baseConstant), value(iValue.type, iValue.value)  { }
 
 ShConstant::ShConstant(const string& name, ShEnum* type, int iValue)
     : ShBase(name, baseConstant), value(type, iValue)  { }
