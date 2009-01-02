@@ -66,9 +66,9 @@ ShType* ShModule::getTypeExpr(bool anyObj)
 {
     VmCodeGen tcode;
     parseExpr(tcode);
-    ShValue value;
-    ShType* type = tcode.runTypeExpr(value, anyObj);
-    if (value.type == NULL)
+    bool cantEval = false;
+    ShType* type = tcode.runTypeExpr(anyObj, &cantEval);
+    if (cantEval)
         error("Expression can't be evaluated at compile time");
     return type;
 }
