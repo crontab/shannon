@@ -39,6 +39,11 @@ static int compareLarge(large a, large b)
 static int compareStrChr(ptr a, int b)
     { return PTR_TO_STRING(a).compare(string(char(b))); }
 
+static int typeRefsEqual(PType a, PType b)
+{
+    return a == b || a->equals(b);
+}
+
 
 void finalize(ShType* type, ptr data)
 {
@@ -351,7 +356,7 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = -compareStrChr(r, *t); } break;
         case opCmpPodVec:
             { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r))); } break;
-        case opCmpPtr: stk.pushInt(!(stk.popPtr() == stk.popPtr())); break;
+        case opCmpTypeRef: stk.pushInt(!typeRefsEqual(PType(stk.popPtr()), PType(stk.popPtr()))); break;
 
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
         case opLT: { int* t = stk.topIntRef(); *t = *t < 0; } break;

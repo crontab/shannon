@@ -1,6 +1,8 @@
 #ifndef __LANGOBJ_H
 #define __LANGOBJ_H
 
+#include <stdio.h>
+
 #include "common.h"
 #include "baseobj.h"
 #include "source.h"
@@ -376,6 +378,8 @@ public:
     ShRange(ShOrdinal* iBase);
     ShRange(const string& name, ShOrdinal* iBase);
     virtual string displayValue(const ShValue& v) const;
+    virtual bool canCheckEq(ShType* type) const
+            { return equals(type); }
     virtual bool equals(ShType* type) const
             { return type->isRange() && base->equals(((ShRange*)type)->base); }
 };
@@ -421,17 +425,20 @@ inline bool ShType::isEmptyVec() const
         { return isVector() && PVector(this)->isEmptyVec(); }
 
 
-class ShArray: public ShVector
+class ShArray: public ShType
 {
 protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
+    ShType* const elementType;
     ShType* const indexType;
+
     ShArray(ShType* iElementType, ShType* iIndexType);
+
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
-            { return type->isArray() && elementEquals(((ShArray*)type)->elementType)
+        { return type->isArray() && elementType->equals(((ShArray*)type)->elementType)
                 && indexType->equals(((ShArray*)type)->indexType); }
 };
 

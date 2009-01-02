@@ -260,12 +260,15 @@ void VmCodeGen::genComparison(OpCode cmp)
         op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
     }
     
+    else if (left->isRange() && right->isRange())
+        op = opCmpLarge;
+
     else if (left->isVector() && right->isVector()
             && (cmp == opEQ || cmp == opNE))
         op = opCmpPodVec;
 
     else if (left->isTypeRef() && right->isTypeRef())
-        op = opCmpPtr;
+        op = opCmpTypeRef;
 
     if (op == opInv)
         internal(52);
