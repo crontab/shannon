@@ -169,7 +169,7 @@ ShType* ShModule::parseAtom(VmCodeGen& code, bool isLValue)
                 code.genLoadVar((ShVariable*)obj);
         }
         
-        // TODO: vars, funcs
+        // TODO: funcs
         else
             notImpl();
     }
@@ -933,9 +933,7 @@ public:
             fprintf(stderr, "Internal: stralloc = %d\n", stralloc);
         if (FifoChunk::chunkCount != 0)
             fprintf(stderr, "Internal: chunkCount = %d\n", FifoChunk::chunkCount);
-#ifdef SINGLE_THREADED
         stk.clear();
-#endif
         if (stackimpl::stackAlloc != 0)
             fprintf(stderr, "Internal: stackAlloc = %d\n", stackimpl::stackAlloc);
     }
@@ -964,14 +962,18 @@ int main()
             if (!stk.empty())
                 fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }
+        else
+            return 1;
     }
     catch (Exception& e)
     {
         fprintf(stderr, "\n*** Exception: %s\n", e.what().c_str());
+        return 2;
     }
     catch (int)
     {
         // run-time error
+        return 3;
     }
 
     return 0;
