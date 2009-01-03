@@ -146,15 +146,6 @@ ShReference* ShType::deriveRefType()
     return derivedRefType;
 }
 
-// --- VARIABLE --- //
-
-ShVariable::ShVariable(ShType* iType)
-    : ShBase(baseVariable), type(iType), dataOffset(0), local(false)  { }
-
-ShVariable::ShVariable(const string& name, ShType* iType)
-    : ShBase(name, baseVariable), type(iType), dataOffset(0), local(false)  { }
-
-
 // --- SYMBOLS-ONLY SCOPE --- //
 
 ShSymScope::ShSymScope(ShSymScope* iParent)
@@ -229,13 +220,6 @@ void ShScope::addConstant(ShConstant* obj, ShSymScope* symScope)
     symScope->addSymbol(obj);
 }
 
-void ShScope::addVariable(ShVariable* obj, ShSymScope* symScope, VmCodeGen*)
-{
-    vars.add(obj);
-    symScope->addSymbol(obj);
-}
-
-
 #ifdef DEBUG
 void ShScope::dump(string indent) const
 {
@@ -254,6 +238,13 @@ void ShScope::dump(string indent) const
             vars[i]->type->getDefinition(vars[i]->name).c_str());
 }
 #endif
+
+
+// --- VARIABLE --- //
+
+ShVariable::ShVariable(const string& name, ShType* iType,
+    ShScope* iOwnerScope, offs iOffs): ShBase(name, baseVariable),
+        type(iType), ownerScope(iOwnerScope), dataOffset(iOffs)  { }
 
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
@@ -672,11 +663,13 @@ ShLocalScope::ShLocalScope()
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
-void ShLocalScope::addVariable(ShVariable* var, ShSymScope* symScope, VmCodeGen* codegen)
+ShVariable* ShLocalScope::addVariable(const string& name, ShType* type,
+    ShSymScope* symScope, VmCodeGen* codegen)
 {
-    var->dataOffset = codegen->genReserveLocalVar(var->type);
-    var->local = true;
-    ShScope::addVariable(var, symScope, codegen);
+    ShVariable* var = new ShVariable(name, type, this, codegen->genReserveLocalVar(type));
+    vars.add(var);
+    symScope->addSymbol(var);
+    return var;
 }
 
 
@@ -694,40 +687,38 @@ ShModule::~ShModule()
 {
 }
 
-void ShModule::addVariable(ShVariable* obj, ShSymScope* symScope, VmCodeGen* codegen)
+ShVariable* ShModule::addVariable(const string& name, ShType* type,
+    ShSymScope* symScope, VmCodeGen* codegen)
 {
-    obj->dataOffset = dataSize;
-    dataSize += obj->type->staticSizeAligned;
-    ShScope::addVariable(obj, symScope, codegen);
+    ShVariable* var = new ShVariable(name, type, this, dataSize);
+    vars.add(var);
+    symScope->addSymbol(var);
+    dataSize += var->type->staticSizeAligned;
+    return var;
 }
+
 
 string ShModule::getFullDefinition(const string& objName) const
     { return name; }
 
-void ShModule::addScope(ShScope* scope)
-{
-    scopes.add(scope);
-}
 
 #ifdef DEBUG
 void ShModule::dump(string indent) const
 {
     printf("\n%smodule %s\n", indent.c_str(), name.c_str());
     ShScope::dump(indent);
-    for (int i = 0; i < scopes.size(); i++)
-        scopes[i]->dump("");
 }
 #endif
 
 
-void ShModule::execute(VmCodeSegment& code)
+void ShModule::execute()
 {
     pchar dataSegment = NULL;
     if (dataSize > 0)
         dataSegment = pchar(memalloc(dataSize));
     try
     {
-        code.execute(dataSegment, NULL);
+        codeseg.execute(dataSegment, NULL);
     }
     catch (...)
     {

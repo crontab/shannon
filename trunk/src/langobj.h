@@ -1,8 +1,6 @@
 #ifndef __LANGOBJ_H
 #define __LANGOBJ_H
 
-#include <stdio.h>
-
 #include "common.h"
 #include "baseobj.h"
 #include "source.h"
@@ -11,6 +9,7 @@
 
 class ShType;
 class ShConstant;
+class ShVariable;
 class ShValue;
 class ShOrdinal;
 class ShInteger;
@@ -114,6 +113,7 @@ public:
     bool isEmptyVec() const;
     bool isArray() const { return typeId == typeArray; }
     bool isReference() const { return typeId == typeReference; }
+    bool isLocalScope() const { return typeId == typeLocalScope; }
     bool isModule() const { return typeId == typeModule; }
 
     bool isPod() const
@@ -142,19 +142,6 @@ public:
 };
 
 typedef ShType* PType;
-
-
-class ShVariable: public ShBase
-{
-public:
-    ShType* type;
-    offs dataOffset;
-    bool local;
-
-    ShVariable(ShType* iType);
-    ShVariable(const string& name, ShType* iType);
-    bool isLocal() const { return local; }
-};
 
 
 // --- SYMBOLS-ONLY SCOPE --- //
@@ -204,8 +191,20 @@ public:
     void addAnonType(ShType*);
     void addTypeAlias(const string&, ShType*, ShSymScope*);
     void addConstant(ShConstant*, ShSymScope*);
-    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
+    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*) = 0;
     void dump(string indent) const;
+};
+
+
+class ShVariable: public ShBase
+{
+public:
+    ShType* const type;
+    ShScope* const ownerScope;
+    offs const dataOffset;
+
+    ShVariable(const string&, ShType*, ShScope*, offs);
+    bool isLocal() const { return ownerScope->isLocalScope(); }
 };
 
 
@@ -563,7 +562,7 @@ protected:
 public:
     ShLocalScope();
 
-    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
+    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
 };
 
 
@@ -573,23 +572,23 @@ class ShModule: public ShScope
 {
 protected:
     Array<string> vectorConsts;
-    BaseList<ShScope> scopes;
 
     virtual string getFullDefinition(const string& objName) const;
-    virtual void addVariable(ShVariable*, ShSymScope*, VmCodeGen*);
+    virtual ShVariable* addVariable(const string& name, ShType* type,
+                ShSymScope*, VmCodeGen*);
 
 public:
     offs dataSize;
+    VmCodeSegment codeseg;
     
     ShModule(const string&);
     ~ShModule();
 
     string registerString(const string& v) // TODO: find duplicates
             { vectorConsts.add(v); return v; }
-    void addScope(ShScope*);
     void dump(string indent) const;
 
-    void execute(VmCodeSegment&);
+    void execute();
 };
 
 

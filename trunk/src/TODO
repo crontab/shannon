@@ -1,7 +1,9 @@
 
 * if, while, case
 
-* arrays: static and associative (stoDblPtr storage model)
+* combined assignment operators
+
+* arrays: static and associative (stoDblPtr storage model?)
 
 * vector item selection, only R-value to start with
 
@@ -11,3 +13,6 @@
 
 * a lot of TODO's in the sources
 
+* functions
+
+* procedures (pipes)

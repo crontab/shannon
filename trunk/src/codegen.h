@@ -23,7 +23,6 @@ protected:
     VmCodeSegment finseg;
     PodStack<GenStackInfo> genStack;
     int genStackSize;
-    bool needsRuntimeContext;
     ShVariable* deferredVar;
     
     GenStackInfo& genPush(ShType* v);
@@ -37,14 +36,17 @@ protected:
     void genCmpOp(OpCode op, OpCode cmp);
     void genStoreVar(ShVariable* var);
     void genEnd();
+    void verifyContext(ShVariable*);
     void runFinCode();
     void verifyClean();
 
 public:
-    VmCodeGen();
+    VmCodeGen(ShScope* iHostScope);
     
     void clear();
     
+    ShScope* hostScope;
+
     ShType* resultTypeHint; // used by the parser for vector/array constructors
 
     void genLoadIntConst(ShType*, int);
@@ -67,6 +69,7 @@ public:
     offs genForwardBoolJump(OpCode op);
     offs genForwardJump(OpCode op = opJump);
     void genResolveJump(offs jumpOffset);
+    void genJump(offs target);
     void genLoadVar(ShVariable*);
     void genLoadVarRef(ShVariable*);
     void genStore();
@@ -96,10 +99,20 @@ public:
     offs genReserveTempVar(ShType*);
 
     void runConstExpr(ShValue& result);
-    ShType* runTypeExpr(bool anyObj, bool* cantEval);
+    ShType* runTypeExpr(bool anyObj);
     void genFinalizeTemps();
 
     VmCodeSegment getCodeSeg();
+};
+
+
+class ENoContext: public Exception
+{
+public:
+    ENoContext()  { }
+    virtual ~ENoContext()  { }
+    virtual string what() const
+            { return "Expression can't be evaluated at compile time"; }
 };
 
 

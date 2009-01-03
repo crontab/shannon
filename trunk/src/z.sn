@@ -257,4 +257,24 @@ elif false: assert false
 else: ift = 11
 assert ift == 11
 
-echo
+var wt = 0
+while wt < 100:
+    wt = wt + 1
+assert wt == 100
+
+wt = 0
+while wt < 100:
+    var s = 'memleak' | 'test'
+    wt = wt + 1
+    if wt == 50:
+        var s = 'memleak' | 'test'
+        break
+assert wt == 50
+
+var ws = ''
+while ws < 'aaaaa':
+    ws = ws | 'a'
+    echo ws
+    continue
+    assert false
+

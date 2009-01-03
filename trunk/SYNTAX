@@ -128,23 +128,27 @@ fifo-filter ::= atom "||" expr
 
 # Module
 
-module ::= [module-header <SEP>] { statement <SEP> | definition <SEP> }
+module ::= [module-header <SEP>] statement-list
 
 module-header ::= "module" ident
 
 
 # Statements
 
+statement-list ::= { ( statement | definition ) <SEP> }
+
 statement ::= call | pipe | assignment | compount-statement | if-clause
+    | while-clause | 'break' | 'continue'
 
 assignment ::= designator '=' expr
 
-compound-statement ::= "begin" <BEGIN> statement-list <END>
+compound-statement ::= "begin" block
 
-statement-list ::= { statement <SEP> }
+block ::= <BEGIN> statement-list <END>
 
 if-clause ::= 'if' expr <BEGIN> statement-list
         { <END> 'elif' <BEGIN> statement-list }
         [ <END> 'else' <BEGIN> statement-list ]
         <END>
 
+while-clause ::= 'while' expr block
