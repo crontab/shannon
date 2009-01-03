@@ -210,9 +210,8 @@ public:
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
-class EInvalidSubrange: public EMessage
+struct EInvalidSubrange: public Exception
 {
-public:
     EInvalidSubrange(ShOrdinal*);
 };
 

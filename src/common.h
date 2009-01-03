@@ -563,45 +563,26 @@ public:
 // --- EXCEPTIONS ---------------------------------------------------------- //
 
 
-class Exception
-{
-public:
-    virtual ~Exception();
-    virtual string what() const = 0;
-};
-
-
-class EMessage: public Exception
+struct Exception
 {
     string message;
-public:
-    EMessage(const string& imessage): Exception(), message(imessage)  { }
-    virtual ~EMessage();
-    virtual string what() const;
+    Exception(const string& msg);
+    ~Exception();
+    string what() const { return message; }
 };
 
 
-class EDuplicate: public Exception
+struct EDuplicate: public Exception
 {
     string entry;
-public:
     EDuplicate(const string& ientry);
-    virtual ~EDuplicate();
-    virtual string what() const;
-    const string& getEntry() const  { return entry; }
+    ~EDuplicate();
 };
 
 
-class ESysError: public Exception
+struct ESysError: public Exception
 {
-    int code;
-    string arg;
-public:
-    ESysError(int icode): Exception(), code(icode)  { }
-    ESysError(int icode, const string& iArg)
-            : Exception(), code(icode), arg(iArg)  { }
-    virtual ~ESysError();
-    virtual string what() const;
+    ESysError(int icode, const string& iArg);
 };
 
 
