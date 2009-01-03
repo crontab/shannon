@@ -233,6 +233,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"assert", tokAssert},
         {"begin", tokBegin},
         {"break", tokBreak},
+        {"case", tokCase},
         {"const", tokConst},
         {"continue", tokContinue},
         {"def", tokDef},

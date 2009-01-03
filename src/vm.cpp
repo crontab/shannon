@@ -227,7 +227,7 @@ static ptr elemToVec(ShType* type)
         case stoLarge: *plarge(vec) = stk.popLarge(); break;
         case stoPtr: *pptr(vec) = stk.popPtr(); break;
         case stoVec: *pptr(vec) = string::_initialize(stk.popPtr()); break;
-        default: runtimeError(2, "(Internal) Unknown type");
+        default: internal(106);
     }
     return vec;
 }
@@ -288,7 +288,13 @@ static ptr itostr10(large v)
     case opFin##KIND: { PType t = PType((p++)->ptr_); finalize(t, PTR); } break;
 
 
-// TODO: try to pass the stack pointer as an arg to this func and see the difference in asm.
+// TODO: try to pass the stack pointer as an arg to this func and see the 
+// difference in asm.
+
+// TODO: use a static variable for comparison results, instead of pushing them 
+// onto the stack
+
+// TODO: indirect goto instead of switch?
 
 void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 {
@@ -335,29 +341,96 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         GEN_LOADERS(Loc, stkbase + (p++)->offs_)
         GEN_STORERS(Loc, stkbase + (p++)->offs_)
         
+        case opPopInt: stk.popInt(); break;
+        case opPopLarge: stk.popLarge(); break;
+        case opPopPtr: stk.popPtr(); break;
+
         // --- SOME VECTOR MAGIC ------------------------------------------- //
 
         case opCopyToTmpVec:
             *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr());
             break;
         case opElemToVec:
-            { ShType* type = PType((p++)->ptr_); stk.pushPtr(*pptr(stkbase + (p++)->offs_) = elemToVec(type)); } break;
+            {
+                ShType* type = PType((p++)->ptr_);
+                stk.pushPtr(*pptr(stkbase + (p++)->offs_) = elemToVec(type));
+            }
+            break;
         case opVecCat:
-            { ShType* t = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = vecCat(t); } break;
+            {
+                ShType* t = PType((p++)->ptr_);
+                *pptr(stkbase + (p++)->offs_) = vecCat(t);
+            }
+            break;
         case opVecElemCat:
-            { PType t = PType((p++)->ptr_); *pptr(stkbase + (p++)->offs_) = catVecElem(t); } break;
+            {
+                PType t = PType((p++)->ptr_);
+                *pptr(stkbase + (p++)->offs_) = catVecElem(t);
+            }
+            break;
 
 
         // --- COMPARISONS ------------------------------------------------- //
 
-        case opCmpInt: { int r = stk.popInt(); int* t = stk.topIntRef(); *t = compareInt(*t, r); } break;
-        case opCmpLarge: { large r = stk.popLarge(); stk.pushInt(compareLarge(stk.popLarge(), r)); } break;
-        case opCmpStrChr: { int r = stk.popInt(); ptr l = stk.popPtr(); stk.pushInt(compareStrChr(l, r)); } break;
-        case opCmpChrStr: { ptr r = stk.popPtr(); int* t = stk.topIntRef(); *t = -compareStrChr(r, *t); } break;
+        case opCmpInt:
+            {
+                int r = stk.popInt();
+                int* t = stk.topIntRef();
+                *t = compareInt(*t, r);
+            }
+            break;
+        case opCmpLarge:
+            {
+                large r = stk.popLarge();
+                stk.pushInt(compareLarge(stk.popLarge(), r));
+            }
+            break;
+        case opCmpStrChr:
+            {
+                int r = stk.popInt();
+                ptr l = stk.popPtr();
+                stk.pushInt(compareStrChr(l, r));
+            }
+            break;
+        case opCmpChrStr:
+            {
+                ptr r = stk.popPtr();
+                int* t = stk.topIntRef();
+                *t = -compareStrChr(r, *t);
+            }
+            break;
         case opCmpPodVec:
-            { ptr r = stk.popPtr(); ptr l = stk.popPtr(); stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r))); } break;
-        case opCmpTypeRef: stk.pushInt(!typeRefsEqual(PType(stk.popPtr()), PType(stk.popPtr()))); break;
+            {
+                ptr r = stk.popPtr();
+                ptr l = stk.popPtr();
+                stk.pushInt(PTR_TO_STRING(l).compare(PTR_TO_STRING(r)));
+            }
+            break;
+        case opCmpTypeRef:
+            stk.pushInt(!typeRefsEqual(PType(stk.popPtr()), PType(stk.popPtr())));
+            break;
 
+        // case labels
+        case opCaseInt: stk.pushInt(stk.topInt() == (p++)->int_); break;
+        case opCaseRange:
+            {
+                int lo = (p++)->int_;
+                int l = stk.topInt();
+                stk.pushInt(l >= lo && l <= (p++)->int_);
+            }
+            break;
+        case opCaseStr:
+            {
+                ptr r = (p++)->ptr_;
+                ptr l = stk.topPtr();
+                stk.pushInt(PTR_TO_STRING(l).equal(PTR_TO_STRING(r)));
+            }
+            break;
+        case opCaseTypeRef:
+            stk.pushInt(typeRefsEqual(PType(stk.topPtr()), PType((p++)->ptr_)));
+            break;
+
+        //
         case opEQ: { int* t = stk.topIntRef(); *t = *t == 0; } break;
         case opLT: { int* t = stk.topIntRef(); *t = *t < 0; } break;
         case opLE: { int* t = stk.topIntRef(); *t = *t <= 0; } break;
@@ -368,8 +441,12 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         // typecasts
         case opLargeToInt: stk.pushInt(stk.popLarge()); break;
         case opIntToLarge: stk.pushLarge(stk.popInt()); break;
-        case opIntToStr: stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popInt())); break;
-        case opLargeToStr: stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popLarge())); break;
+        case opIntToStr:
+            stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popInt()));
+            break;
+        case opLargeToStr:
+            stk.pushPtr(*pptr(stkbase + (p++)->offs_) = itostr10(stk.popLarge()));
+            break;
 
         // --- BINARY OPERATORS -------------------------------------------- //
 #ifdef PTR64
@@ -466,6 +543,10 @@ void VmCodeSegment::execute(pchar dataseg, ptr retval)
     // run, rabbit, run!
     run(getCode(), dataseg, savebase, retval);
 
+#ifdef DEBUG
+    if (!stk.endis(savebase + reserveLocals))
+        internal(105);
+#endif
     // restore stack base
     stk.restoreendr(savebase);
 }

@@ -16,3 +16,5 @@
 * functions
 
 * procedures (pipes)
+
+* string table and type table; binary code should contain only indexes

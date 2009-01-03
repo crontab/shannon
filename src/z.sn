@@ -278,3 +278,13 @@ while ws < 'aaaaa':
     continue
     assert false
 
+var ct = 'a'
+case ct:
+    'a': assert true
+    'b': assert false
+
+ct = 'b'
+case ct:
+    'a': assert false
+    'b': assert true
+
