@@ -21,7 +21,7 @@ struct CompilerOptions
     bool linenumInfo;
 
     CompilerOptions()
-        : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
+        : enableEcho(true), enableAssert(true), linenumInfo(false)  { }
 };
 
 
@@ -29,25 +29,29 @@ class ShCompiler: public Base
 {
     struct LoopInfo
     {
+        // jump target for 'continue'
         offs continueTarget;
-        PodArray<offs> breakJumps; // unresolved jumps
+        // unresolved forward jumps produced by 'break'
+        PodStack<offs> breakJumps;
+        // nested symbol scopes to be finalized in case of 'break' or 'continue'
+        PodStack<ShSymScope*> symScopes;
     };
 
+    Parser& parser;
     ShModule& module;
-    string fileName;
 
-    Parser parser;
     VmCodeGen mainCodeGen;
     VmCodeGen nullCode;
     CompilerOptions options;
 
     ShSymScope* symbolScope; // for symbols only
-    ShScope* varScope;    // static or stack-local scope
     LoopInfo* topLoop;
     VmCodeGen* codegen;
 
     VmCodeGen* replaceCodeGen(VmCodeGen* c)
             { VmCodeGen* t = codegen; codegen = c; return t; }
+    LoopInfo* replaceTopLoop(LoopInfo* l)
+            { LoopInfo* t = topLoop; topLoop = l; return t; }
     void error(const string& msg)           { parser.error(msg); }
     void error(EDuplicate& e);
     void error(const char* msg)             { parser.error(msg); }
@@ -90,25 +94,19 @@ class ShCompiler: public Base
     void enterBlock();
     void parseIf(Token);
     void parseWhile();
+    void parseBreakCont(bool);
+    void parseModuleHeader();
 
 public:
-    ShCompiler(const string& filename, ShModule& iModule);
-    ~ShCompiler();
-    bool compile(VmCodeSegment&);
+    ShCompiler(Parser& iParser, ShModule& iModule);
+    bool compile();
 };
 
 
-ShCompiler::ShCompiler(const string& iFileName, ShModule& iModule)
-    : module(iModule), fileName(iFileName), parser(iFileName),
-      symbolScope(&module), varScope(&module), topLoop(NULL),
-      codegen(&mainCodeGen)
-{
-    module.registerString(fileName);
-}
-
-ShCompiler::~ShCompiler()
-{
-}
+ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
+    : parser(iParser), module(iModule), mainCodeGen(&module),
+      nullCode(&module), symbolScope(&module), topLoop(NULL),
+      codegen(&mainCodeGen)  { }
 
 
 string typeVsType(ShType* a, ShType* b)
@@ -157,7 +155,7 @@ ShBase* ShCompiler::getQualifiedName()
         ShScope* scope = (ShScope*)obj;
         parser.next(); // "."
         ident = parser.getIdent();
-        errIdent += '.' + ident; // this is important for the hack in getTypeOrNewIdent()
+        errIdent += '.' + ident;
         obj = scope->find(ident);
         if (obj == NULL)
             errorNotFound(errIdent);
@@ -168,13 +166,10 @@ ShBase* ShCompiler::getQualifiedName()
 
 ShType* ShCompiler::getTypeExpr(bool anyObj)
 {
-    VmCodeGen tcode;
+    VmCodeGen tcode(NULL);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     parseExpr();
-    bool cantEval = false;
-    ShType* type = tcode.runTypeExpr(anyObj, &cantEval);
-    if (cantEval)
-        error("Expression can't be evaluated at compile time");
+    ShType* type = tcode.runTypeExpr(anyObj);
     replaceCodeGen(saveCodeGen);
     return type;
 }
@@ -655,7 +650,7 @@ ShType* ShCompiler::parseExpr(ShType* typeHint)
 
 void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
 {
-    VmCodeGen tcode;
+    VmCodeGen tcode(NULL);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
 
     parseExpr(typeHint);
@@ -755,7 +750,7 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
 ShEnum* ShCompiler::parseEnumType()
 {
     ShEnum* type = new ShEnum();
-    varScope->addAnonType(type);
+    codegen->hostScope->addAnonType(type);
     parser.skip(tokLParen, "(");
     while (1)
     {
@@ -764,7 +759,7 @@ ShEnum* ShCompiler::parseEnumType()
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShConstant* value = new ShConstant(ident, type, nextVal);
-        varScope->addConstant(value, symbolScope);
+        codegen->hostScope->addConstant(value, symbolScope);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -792,7 +787,7 @@ void ShCompiler::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    varScope->addTypeAlias(ident, type, symbolScope);
+    codegen->hostScope->addTypeAlias(ident, type, symbolScope);
     parser.skipSep();
 }
 
@@ -823,24 +818,23 @@ void ShCompiler::parseVarConstDef(bool isVar)
     if (isVar)
     {
         ShType* exprType = parseExpr(type);
+        parser.skipSep();
         if (type == NULL) // auto
             type = exprType;
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
-        ShVariable* var = new ShVariable(ident, type);
-        varScope->addVariable(var, symbolScope, codegen);
+        ShVariable* var = codegen->hostScope->addVariable(ident, type, symbolScope, codegen);
         codegen->genInitVar(var);
     }
     else
     {
         ShValue value;
         getConstExpr(type, value);
+        parser.skipSep();
         if (type == NULL) // auto
             type = value.type;
-        varScope->addConstant(new ShConstant(ident, value), symbolScope);
+        codegen->hostScope->addConstant(new ShConstant(ident, value), symbolScope);
     }
-
-    parser.skipSep();
 }
 
 
@@ -913,16 +907,19 @@ void ShCompiler::parseBlock()
         else if (parser.skipIf(tokAssert))
             parseAssert(options.enableAssert ? codegen : &nullCode);
         else if (parser.skipIf(tokBegin))
-        {
-            parser.skipBlockBegin();
             enterBlock();
-        }
         else if (parser.skipIf(tokIf))
             parseIf(tokIf);
+        else if (parser.skipIf(tokWhile))
+            parseWhile();
         else if (parser.token == tokElse)
             error("Misplaced 'else'");
         else if (parser.token == tokElif)
             error("Misplaced 'elif'");
+        else if (parser.skipIf(tokBreak))
+            parseBreakCont(true);
+        else if (parser.skipIf(tokContinue))
+            parseBreakCont(false);
         else
             parseOtherStatement();
         codegen->genFinalizeTemps();
@@ -938,7 +935,15 @@ void ShCompiler::enterBlock()
     // exiting the block.
     ShSymScope tempSymScope(symbolScope);
     symbolScope = &tempSymScope;
+    if (topLoop != NULL)
+        topLoop->symScopes.push(&tempSymScope);
+    
+    parser.skipBlockBegin();
     parseBlock();
+    
+    if (topLoop != NULL)
+        if (topLoop->symScopes.pop() != &tempSymScope)
+            internal(150);
     symbolScope = tempSymScope.parent;
     tempSymScope.finalizeVars(codegen);
 }
@@ -955,7 +960,6 @@ void ShCompiler::parseIf(Token tok)
         endJump = codegen->genForwardJump(opJumpFalse);
     }
 
-    parser.skipBlockBegin();
     enterBlock();
 
     if (tok != tokElse && (parser.token == tokElse || parser.token == tokElif))
@@ -973,58 +977,85 @@ void ShCompiler::parseIf(Token tok)
 }
 
 
-bool ShCompiler::compile(VmCodeSegment& retCodeSeg)
+void ShCompiler::parseWhile()
+{
+    LoopInfo thisLoop;
+    LoopInfo* saveTopLoop = replaceTopLoop(&thisLoop);
+
+    thisLoop.continueTarget = codegen->genOffset();
+    ShType* type = parseExpr(queenBee->defaultBool);
+    if (!type->isBool())
+        error("Boolean expression expected");
+    offs endJump = codegen->genForwardJump(opJumpFalse);
+
+    enterBlock();
+    codegen->genJump(thisLoop.continueTarget);
+
+    while (!thisLoop.breakJumps.empty())
+        codegen->genResolveJump(thisLoop.breakJumps.pop());
+    codegen->genResolveJump(endJump);
+    replaceTopLoop(saveTopLoop);
+}
+
+
+void ShCompiler::parseBreakCont(bool isBreak)
+{
+    if (topLoop == NULL)
+        error(string(isBreak ? "'break'" : "'continue'") + " not inside loop");
+    for (int i = -1; i >= -topLoop->symScopes.size(); i--)
+        topLoop->symScopes.at(i)->finalizeVars(codegen);
+    if (isBreak)
+        topLoop->breakJumps.push(codegen->genForwardJump(opJump));
+    else
+        codegen->genJump(topLoop->continueTarget);
+}
+
+
+void ShCompiler::parseModuleHeader()
+{
+    string modName = parser.getIdent();
+    if (strcasecmp(modName.c_str(), module.name.c_str()) != 0)
+        error("Module name mismatch");
+    module.setNamePleaseThisIsWrongIKnow(modName);
+    parser.skipSep();
+}
+
+
+bool ShCompiler::compile()
 {
     try
     {
-        try
-        {
-            parser.next();
-            
-            if (parser.token == tokModule)
-            {
-                parser.next();
-                string modName = parser.getIdent();
-                if (strcasecmp(modName.c_str(), module.name.c_str()) != 0)
-                    error("Module name mismatch");
-                module.setNamePleaseThisIsWrongIKnow(modName);
-                parser.skipSep();
-            }
+        codegen = &mainCodeGen;
 
-            // register all vars in the stack-local scope; may change in the
-            // future with supplementary modules
-            ShScope* localScope = new ShLocalScope();
-            module.addScope(localScope);
-            varScope = localScope;
-            codegen = &mainCodeGen;
+        parser.next();
+        if (parser.skipIf(tokModule))
+            parseModuleHeader();
 
-            parseBlock();
-            symbolScope->finalizeVars(codegen);
-            parser.skip(tokEof, "<EOF>");
+        parseBlock();
 
-        }
-        catch (EDuplicate& e)
-        {
-            error(e);
-        }
-        catch(EInvalidSubrange& e)
-        {
-            error(e.what());
-        }
+        symbolScope->finalizeVars(codegen);
+        parser.skip(tokEof, "<EOF>");
+    }
+    catch (EDuplicate& e)
+    {
+        error(e);
+    }
+    catch(EInvalidSubrange& e)
+    {
+        error(e.what());
+    }
+    catch(ENoContext& e)
+    {
+        error(e.what());
+    }
 
 #ifdef DEBUG
-        queenBee->dump("");
-        module.dump("");
+    queenBee->dump("");
+    module.dump("");
 #endif
 
-    }
-    catch(Exception& e)
-    {
-        fprintf(stderr, "%s\n", e.what().c_str());
-        return false;
-    }
+    module.codeseg = mainCodeGen.getCodeSeg();
 
-    retCodeSeg = mainCodeGen.getCodeSeg();
     return true;
 }
 
@@ -1069,19 +1100,20 @@ int main()
     {
         initLangObjs();
 
+        Parser parser(filename);
         ShModule module(extractFileName(filename));
-        VmCodeSegment codeseg;
+        module.registerString(filename);
         bool compiled = false;
 
         {
-            ShCompiler compiler(filename, module);
-            compiled = compiler.compile(codeseg);
+            ShCompiler compiler(parser, module);
+            compiled = compiler.compile();
         }
 
         if (compiled)
         {
             // TODO: exec mains for all used modules
-            module.execute(codeseg);
+            module.execute();
             if (!stk.empty())
                 fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }
@@ -1091,7 +1123,7 @@ int main()
     }
     catch (Exception& e)
     {
-        fprintf(stderr, "\n*** Exception: %s\n", e.what().c_str());
+        fprintf(stderr, "%s\n", e.what().c_str());
         return 2;
     }
     catch (int)

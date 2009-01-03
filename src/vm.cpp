@@ -106,7 +106,7 @@ static void popByType(ShType* type, podvalue& result)
         case stoPtr: 
         case stoVec: result.ptr_ = stk.popPtr(); break;
         case stoVoid: break;
-        default: internal(58);
+        default: internal(104);
     }
 }
 */

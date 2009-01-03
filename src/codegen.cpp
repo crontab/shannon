@@ -3,9 +3,15 @@
 #include "codegen.h"
 
 
-VmCodeGen::VmCodeGen()
-    : codeseg(), finseg(), genStack(), genStackSize(0), needsRuntimeContext(false), 
-      deferredVar(NULL), resultTypeHint(NULL)  { }
+void noRuntimeContext()
+{
+    throw ENoContext();
+}
+
+
+VmCodeGen::VmCodeGen(ShScope* iHostScope)
+    : codeseg(), finseg(), genStack(), genStackSize(0),
+      deferredVar(NULL), hostScope(iHostScope), resultTypeHint(NULL)  { }
 
 void VmCodeGen::clear()
 {
@@ -33,9 +39,8 @@ void VmCodeGen::runConstExpr(ShValue& result)
     }
 
     result.clear();
-    if (needsRuntimeContext)
-        return;
     result.type = genTopType();
+
     genReturn();
     genFinalizeTemps();
     genEnd();
@@ -47,10 +52,8 @@ void VmCodeGen::runConstExpr(ShValue& result)
 }
 
 
-ShType* VmCodeGen::runTypeExpr(bool anyObj, bool* cantEval)
+ShType* VmCodeGen::runTypeExpr(bool anyObj)
 {
-    *cantEval = false;
-
     const GenStackInfo& i = genTop();
     if (i.isValue)
     {
@@ -62,12 +65,7 @@ ShType* VmCodeGen::runTypeExpr(bool anyObj, bool* cantEval)
     ShValue value;
     runConstExpr(value);
 
-    if (value.type == NULL)
-    {
-        *cantEval = true;
-        return NULL;
-    }
-    else if (value.type->isTypeRef())
+    if (value.type->isTypeRef())
         return PType(value.value.ptr_);
     else if (value.type->isRange())
         return ((ShRange*)value.type)->base->deriveOrdinalFromRange(value);
@@ -336,7 +334,7 @@ offs VmCodeGen::genForwardJump(OpCode op)
 {
     int t = genOffset();
     codeseg.addOp(op);
-    codeseg.addInt(0);
+    codeseg.addOffs(0);
     return t;
 }
 
@@ -349,9 +347,16 @@ void VmCodeGen::genResolveJump(offs jumpOffset)
     q->offs_ = genOffset() - (jumpOffset + 2);
 }
 
+void VmCodeGen::genJump(offs target)
+{
+    offs o = target - (genOffset() + 2);
+    codeseg.addOp(opJump);
+    codeseg.addOffs(o);
+}
+
 void VmCodeGen::genLoadVar(ShVariable* var)
 {
-    needsRuntimeContext = true;
+    verifyContext(var);
     genPush(var->type);
     OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel));
 #ifdef DEBUG
@@ -366,7 +371,7 @@ void VmCodeGen::genLoadVar(ShVariable* var)
 
 void VmCodeGen::genLoadVarRef(ShVariable* var)
 {
-    needsRuntimeContext = true;
+    verifyContext(var);
     if (deferredVar != NULL)
         internal(66);
     deferredVar = var;
@@ -375,7 +380,7 @@ void VmCodeGen::genLoadVarRef(ShVariable* var)
 
 void VmCodeGen::genStoreVar(ShVariable* var)
 {
-    needsRuntimeContext = true;
+    verifyContext(var);
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel));
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
@@ -418,7 +423,7 @@ static void genFin(VmCodeSegment& codeseg, ShType* type, offs offset, bool isLoc
 
 void VmCodeGen::genFinVar(ShVariable* var)
 {
-    needsRuntimeContext = true;
+    verifyContext(var);
     genFin(codeseg, var->type, var->dataOffset, var->isLocal());
 }
 
@@ -536,4 +541,10 @@ VmCodeSegment VmCodeGen::getCodeSeg()
     return codeseg;
 }
 
-
+void VmCodeGen::verifyContext(ShVariable* var)
+{
+    if (hostScope == NULL)
+        noRuntimeContext();
+    if (var->ownerScope != hostScope)
+        internal(70);
+}
