@@ -82,8 +82,9 @@ class ShCompiler: public Base
     ShType* parseBoolExpr()                 { return parseOrLevel(); }
     ShType* parseExpr()                     { return parseSubrange(); }
     ShType* parseExpr(ShType* resultType);
-    void getConstExpr(ShType* typeHint, ShValue& result);
+    void getConstExpr(ShType* typeHint, ShValue& result, bool allowRange);
 
+    void parseModuleHeader();
     ShEnum* parseEnumType();
     void parseTypeDef();
     void parseVarConstDef(bool isVar);
@@ -95,7 +96,7 @@ class ShCompiler: public Base
     void parseIf(Token);
     void parseWhile();
     void parseBreakCont(bool);
-    void parseModuleHeader();
+    void parseCase();
 
 public:
     ShCompiler(Parser& iParser, ShModule& iModule);
@@ -360,7 +361,7 @@ ShType* ShCompiler::parseFactor()
 
 ShInteger* ShCompiler::arithmResultType(ShInteger* left, ShInteger* right)
 {
-    if (PInteger(left)->isLargeInt() != PInteger(right)->isLargeInt())
+    if (left->isLargeInt() != right->isLargeInt())
         error("Mixing int and large: typecast needed (or 'L' with numbers)");
     ShInteger* resultType = PInteger(left);
     if (PInteger(right)->rangeIsGreaterOrEqual(PInteger(left)))
@@ -549,7 +550,7 @@ ShType* ShCompiler::parseAndLevel()
             ShType* right = parseNotLevel();
             if (right->isInt())
             {
-                if ((tok == tokShl || tok == tokShr) && PInteger(right)->isLargeInt())
+                if ((tok == tokShl || tok == tokShr) && right->isLargeInt())
                     error("Right operand of a bit shift can not be large");
                 left = arithmResultType(PInteger(left), PInteger(right));
                 codegen->genBinArithm(tok == tokShl ? opBitShl
@@ -617,7 +618,7 @@ ShType* ShCompiler::parseSubrange()
             error("Only ordinal types are allowed in subranges");
         if (!left->equals(right))
             error("Left and right values of a subrange must be compatible");
-        if (POrdinal(left)->isLargeInt() || POrdinal(right)->isLargeInt())
+        if (left->isLargeInt() || right->isLargeInt())
             error("Large subrange bounds are not supported");
         codegen->genMkSubrange();
         left = codegen->genTopType();
@@ -648,7 +649,7 @@ ShType* ShCompiler::parseExpr(ShType* typeHint)
 }
 
 
-void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
+void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange)
 {
     VmCodeGen tcode(NULL);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
@@ -663,9 +664,15 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result)
         typeHint = result.type;
     else
     {
+         // empty vectors are always of void type, so simply pass the hint type
         if (typeHint->isVector() && result.type->isEmptyVec())
-            // empty vectors are always of void type, so simply pass the hint type
             result.type = typeHint;
+
+        // some parts of the compiler allow compatible ranges on the right (see
+        // parseCase() for example)
+        if (allowRange && result.type->isRange()
+            && typeHint->canAssign(PRange(result.type)->base))
+                typeHint = result.type;
     }
 
     if (!typeHint->canAssign(result.type))
@@ -745,6 +752,16 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
 
 
 // --- STATEMENTS/DEFINITIONS ---------------------------------------------- //
+
+
+void ShCompiler::parseModuleHeader()
+{
+    string modName = parser.getIdent();
+    if (strcasecmp(modName.c_str(), module.name.c_str()) != 0)
+        error("Module name mismatch");
+    module.setNamePleaseThisIsWrongIKnow(modName);
+    parser.skipSep();
+}
 
 
 ShEnum* ShCompiler::parseEnumType()
@@ -829,7 +846,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
     else
     {
         ShValue value;
-        getConstExpr(type, value);
+        getConstExpr(type, value, false);
         parser.skipSep();
         if (type == NULL) // auto
             type = value.type;
@@ -920,6 +937,8 @@ void ShCompiler::parseBlock()
             parseBreakCont(true);
         else if (parser.skipIf(tokContinue))
             parseBreakCont(false);
+        else if (parser.skipIf(tokCase))
+            parseCase();
         else
             parseOtherStatement();
         codegen->genFinalizeTemps();
@@ -1011,14 +1030,46 @@ void ShCompiler::parseBreakCont(bool isBreak)
 }
 
 
-void ShCompiler::parseModuleHeader()
+void ShCompiler::parseCase()
 {
-    string modName = parser.getIdent();
-    if (strcasecmp(modName.c_str(), module.name.c_str()) != 0)
-        error("Module name mismatch");
-    module.setNamePleaseThisIsWrongIKnow(modName);
-    parser.skipSep();
+    ShType* caseCtlType = parseExpr();
+    if (!caseCtlType->isOrdinal() && !caseCtlType->isString() && !caseCtlType->isTypeRef())
+        error("Case control expression must be ordinal, string or typeref");
+    if (caseCtlType->isLargeInt())
+        error("Large ints are not supported byt the 'case' operator");
+    parser.skipBlockBegin();
+
+    PodStack<offs> endJumps;
+    offs falseJump = -1;
+    ShValue value;
+    do
+    {
+        // TODO: lists of values
+        getConstExpr(caseCtlType, value, true);
+        if (falseJump != -1)
+            codegen->genResolveJump(falseJump);
+        falseJump = codegen->genCase(value);
+        enterBlock();
+        endJumps.push(codegen->genForwardJump());
+    }
+    while (parser.token != tokBlockEnd && parser.token != tokElse);
+    
+    if (parser.skipIf(tokElse))
+    {
+        if (falseJump != -1)
+            codegen->genResolveJump(falseJump);
+        enterBlock();
+    }
+    else
+        parser.next();
+
+    while (!endJumps.empty())
+        codegen->genResolveJump(endJumps.pop());
+    codegen->genPopValue(caseCtlType);
 }
+
+
+// ------------------------------------------------------------------------- //
 
 
 bool ShCompiler::compile()
@@ -1114,8 +1165,6 @@ int main()
         {
             // TODO: exec mains for all used modules
             module.execute();
-            if (!stk.empty())
-                fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
         }
         else
             return 1;
@@ -1131,6 +1180,9 @@ int main()
         // run-time error
         return 3;
     }
+
+    if (!stk.empty())
+        fatal(CRIT_FIRST + 54, "[VM] Stack in undefined state after execution");
 
     return 0;
 }

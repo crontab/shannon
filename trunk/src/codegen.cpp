@@ -257,7 +257,7 @@ void VmCodeGen::genComparison(OpCode cmp)
     {
         // If even one of the operands is 64-bit, we generate 64-bit ops
         // with the hope that the parser took care of the rest.
-        op = POrdinal(left)->isLargeInt() ? opCmpLarge : opCmpInt;
+        op = left->isLargeInt() ? opCmpLarge : opCmpInt;
     }
     
     else if (left->isRange() && right->isRange())
@@ -397,6 +397,49 @@ void VmCodeGen::genStore()
     genStoreVar(var);
 }
 
+offs VmCodeGen::genCase(const ShValue& value)
+{
+    genPush(queenBee->defaultBool);
+    if (value.type->isOrdinal() && !value.type->isLargeInt())
+    {
+        codeseg.addOp(opCaseInt);
+        codeseg.addInt(value.value.int_);
+    }
+    else if (value.type->isRange())
+    {
+        codeseg.addOp(opCaseRange);
+        codeseg.addInt(value.rangeMin());
+        codeseg.addInt(value.rangeMax());
+    }
+    else if (value.type->isString())
+    {
+        codeseg.addOp(opCaseStr);
+        codeseg.addPtr(value.value.ptr_);
+    }
+    else if (value.type->isTypeRef())
+    {
+        codeseg.addOp(opCaseTypeRef);
+        codeseg.addPtr(value.value.ptr_);
+    }
+    else
+        internal(72);
+    return genForwardBoolJump(opJumpFalse);
+}
+
+void VmCodeGen::genPopValue(ShType* type)
+{
+    genPop();
+    switch (type->storageModel)
+    {
+        case stoByte:
+        case stoInt: codeseg.addOp(opPopInt); break;
+        case stoLarge: codeseg.addOp(opPopLarge); break;
+        case stoPtr:
+        case stoVec: codeseg.addOp(opPopPtr); break;
+        default: internal(71);
+    }
+}
+
 void VmCodeGen::genInitVar(ShVariable* var)
 {
     genPop();
@@ -486,7 +529,7 @@ void VmCodeGen::genIntToStr()
         internal(68);
     genPush(queenBee->defaultStr);
     offs tmpOffset = genReserveTempVar(queenBee->defaultStr);
-    codeseg.addOp(POrdinal(type)->isLargeInt() ? opLargeToStr : opIntToStr);
+    codeseg.addOp(type->isLargeInt() ? opLargeToStr : opIntToStr);
     codeseg.addOffs(tmpOffset);
 }
 

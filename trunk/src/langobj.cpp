@@ -316,7 +316,7 @@ bool ShOrdinal::contains(const ShValue& v) const
 {
     if (v.type->isOrdinal())
     {
-        if (POrdinal(v.type)->isLargeInt())
+        if (v.type->isLargeInt())
             return v.value.large_ >= range.min && v.value.large_ <= range.max;
         else
             return v.value.int_ >= range.min && v.value.int_ <= range.max;
@@ -723,6 +723,7 @@ void ShModule::execute()
     catch (...)
     {
         memfree(dataSegment);
+        throw;
     }
 }
 

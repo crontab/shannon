@@ -136,6 +136,17 @@ stackimpl::stackimpl()
     : end(NULL), begin(NULL), capend(NULL)  { }
 
 
+#ifdef SMALLER_SLOWER
+void* stackimpl::advance(int len)
+{
+    end += len;
+    if (end > capend)
+        grow();
+    return end - len;
+}
+#endif    
+
+
 void stackimpl::clear()
 {
     if (begin != NULL)

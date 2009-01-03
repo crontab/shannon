@@ -106,6 +106,7 @@ public:
     bool isRange() const { return typeId == typeRange; }
     bool isOrdinal() const { return typeId >= typeInt8 && typeId <= typeBool; }
     bool isInt() const { return typeId >= typeInt8 && typeId <= typeInt64; }
+    bool isLargeInt() const { return typeId == typeInt64; }
     bool isChar() const { return typeId == typeChar; }
     bool isEnum() const  { return typeId == typeEnum; }
     bool isBool() const  { return typeId == typeBool; }
@@ -241,8 +242,6 @@ public:
     ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
     virtual bool canStaticCastTo(ShType* type) const
             { return type->isOrdinal(); }
-    bool isLargeInt() const
-            { return getTypeId() == typeInt64; }
     bool contains(large v) const
             { return v >= range.min && v <= range.max; }
     bool contains(const ShValue&) const;
@@ -270,7 +269,7 @@ public:
     ShInteger(const string& name, large min, large max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canAssign(ShType* type) const
-            { return type->isInt() && (isLargeInt() == PInteger(type)->isLargeInt()); }
+            { return type->isInt() && (isLargeInt() == type->isLargeInt()); }
     virtual bool canCompareWith(ShType* type) const
             { return canAssign(type); }
     virtual bool equals(ShType* type) const
@@ -365,6 +364,8 @@ public:
             { return type->isTypeRef(); }
 };
 
+
+typedef ShRange* PRange;
 
 class ShRange: public ShType
 {

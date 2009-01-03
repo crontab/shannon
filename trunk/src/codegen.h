@@ -73,6 +73,8 @@ public:
     void genLoadVar(ShVariable*);
     void genLoadVarRef(ShVariable*);
     void genStore();
+    offs genCase(const ShValue&);
+    void genPopValue(ShType*);
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
     offs genCopyToTempVec();

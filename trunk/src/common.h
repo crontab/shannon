@@ -457,6 +457,9 @@ public:
     bool empty() const  { return end == begin; }
     int size() const    { return end - begin; }
 
+#ifdef SMALLER_SLOWER
+    void* advance(int len);
+#else
     void* advance(int len)
     {
         end += len;
@@ -464,7 +467,7 @@ public:
             grow();
         return end - len;
     }
-    
+#endif    
     void* withdraw(int len)
     {
         end -= len;
@@ -537,9 +540,9 @@ public:
 #endif
     }
     void pushbytes(int len)
-    {
-        advance(len);
-    }
+            { advance(len);  }
+    bool endis(char* e)
+            { return end == e; }
 };
 
 

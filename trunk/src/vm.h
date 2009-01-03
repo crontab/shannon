@@ -72,8 +72,13 @@ enum OpCode
     opFinLocPodVec,     // [local-offs]
     opFinLoc,           // [ShType*, local-offs]
     
-    opLoadThisRef,      // [offs]               +1
-    opLoadLocRef,       // [offs]               +1
+//    opLoadThisRef,      // [offs]               +1
+//    opLoadLocRef,       // [offs]               +1
+    
+    // pop and forget
+    opPopInt,           //                  -1
+    opPopLarge,         //                  -1
+    opPopPtr,           //                  -1
 
     // --------------------------------------------------------------------- //
 
@@ -90,6 +95,13 @@ enum OpCode
     opCmpChrStr,        //                  -2  +1
     opCmpPodVec,        //                  -2  +1
     opCmpTypeRef,       //                  -2  +1 - only EQ or NE
+    
+    // case labels: cmp the top element with the arg and leave 0 or 1 for
+    // further boolean jump
+    opCaseInt,          // [int-val]        -1  +1
+    opCaseRange,        // [range-val]      -1  +1
+    opCaseStr,          // [str*]           -1  +1
+    opCaseTypeRef,      // [ShType*]        -1  +1
 
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
