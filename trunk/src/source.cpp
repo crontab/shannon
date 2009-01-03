@@ -671,6 +671,10 @@ void Parser::skipBlockBegin()
     { skip(tokBlockBegin, "<BEGIN>"); }
 
 
+void Parser::skipBlockEnd()
+    { skip(tokBlockEnd, "<END>"); }
+
+
 string extractFileName(string filepath)
 {
     const char* p = filepath.c_str();

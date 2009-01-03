@@ -287,4 +287,11 @@ ct = 'b'
 case ct:
     'a': assert false
     'b': assert true
+    else: assert false
+
+ct = 'c'
+case ct:
+    'a': assert false
+    'b': assert false
+    else: assert true
 
