@@ -1060,8 +1060,8 @@ void ShCompiler::parseCase()
             codegen->genResolveJump(falseJump);
         enterBlock();
     }
-    else
-        parser.next();
+
+    parser.skipBlockEnd();
 
     while (!endJumps.empty())
         codegen->genResolveJump(endJumps.pop());

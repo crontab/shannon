@@ -152,6 +152,7 @@ public:
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
     void skipBlockBegin();
+    void skipBlockEnd();
     string getIdent();
     
     string getFileName() const { return input->getFileName(); }
