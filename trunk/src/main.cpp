@@ -135,7 +135,7 @@ string typeVsType(ShType* a, ShType* b)
 
 void ShCompiler::error(EDuplicate& e)
 {
-    parser.error("'" + e.getEntry() + "' is already defined within this scope");
+    parser.error("'" + e.entry + "' is already defined within this scope");
 }
 
 

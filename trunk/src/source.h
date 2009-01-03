@@ -62,28 +62,16 @@ public:
 };
 
 
-class EParser: public EMessage
+struct EParser: public Exception
 {
-protected:
-    string filename;
-    int linenum;
-public:
     EParser(const string& ifilename, int ilinenum, const string& msg);
-    virtual ~EParser();
-    virtual string what() const;
 };
 
 
-class ENotFound: public EParser
+struct ENotFound: public EParser
 {
-    string entry;
-public:
     ENotFound(const string& ifilename, int ilinenum, const string& ientry);
-    virtual ~ENotFound();
-    const string& getEntry() const  { return entry; }
 };
-
-
 
 
 

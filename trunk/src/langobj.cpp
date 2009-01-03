@@ -8,7 +8,7 @@
 
 static void notImpl()
 {
-    throw EMessage("Feature not implemented");
+    throw Exception("Feature not implemented");
 }
 
 
@@ -250,7 +250,7 @@ ShVariable::ShVariable(const string& name, ShType* iType,
 // --- LANGUAGE TYPES ----------------------------------------------------- //
 
 EInvalidSubrange::EInvalidSubrange(ShOrdinal* type)
-    : EMessage("Invalid subrange for " + type->getDefinition())  { }
+    : Exception("Invalid subrange for " + type->getDefinition())  { }
     
 
 int Range::physicalSize() const

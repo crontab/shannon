@@ -106,13 +106,9 @@ public:
 };
 
 
-class ENoContext: public Exception
+struct ENoContext: public Exception
 {
-public:
-    ENoContext()  { }
-    virtual ~ENoContext()  { }
-    virtual string what() const
-            { return "Expression can't be evaluated at compile time"; }
+    ENoContext();
 };
 
 

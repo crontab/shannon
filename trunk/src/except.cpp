@@ -4,23 +4,16 @@
 #include "common.h"
 
 
+Exception::Exception(const string& msg): message(msg)  { }
 Exception::~Exception()  { }
 
 
-string EMessage::what() const  { return message; }
-EMessage::~EMessage()  { }
-
-
 EDuplicate::EDuplicate(const string& ientry)
-    : Exception(), entry(ientry) { }
+    : Exception("Duplicate identifier '" + ientry + '\''), entry(ientry)  { }
 EDuplicate::~EDuplicate()  { }
-string EDuplicate::what() const  { return "Duplicate identifier '" + entry + '\''; }
 
 
-ESysError::~ESysError()  { }
-
-
-string ESysError::what() const
+static string sysErrorStr(int code, const string& arg)
 {
     // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
     // not the only strange thing about this computer and OS. Could be me, could be hardware
@@ -30,23 +23,25 @@ string ESysError::what() const
     string result = strerror(code);
     if (!arg.empty())
         result += " (" + arg + ")";
-    return "Error: " + result;
+    return result;
 }
 
 
-class EInternal: public EMessage
+ESysError::ESysError(int code, const string& arg)
+    : Exception(sysErrorStr(code, arg))  { }
+
+
+struct EInternal: public Exception
 {
 public:
     EInternal(int code);
     EInternal(int code, string const& hint);
-    virtual ~EInternal();
 };
 
 EInternal::EInternal(int code)
-    : EMessage("Internal error #" + itostring(code))  {}
+    : Exception("Internal error #" + itostring(code))  {}
 EInternal::EInternal(int code, const string& hint)
-    : EMessage("Internal error #" + itostring(code) + " (" + hint + ')')  {}
-EInternal::~EInternal()  { }
+    : Exception("Internal error #" + itostring(code) + " (" + hint + ')')  {}
 
 
 void internal(int code)

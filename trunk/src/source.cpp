@@ -267,24 +267,21 @@ Keywords::kwinfo Keywords::keywords[] =
 // ------------------------------------------------------------------------ //
 
 
-EParser::EParser(const string& ifilename, int ilinenum, const string& msg)
-    : EMessage(msg), filename(ifilename), linenum(ilinenum)  { }
-
-EParser::~EParser() { }
-
-
-string EParser::what() const
+static string parserErrorStr(const string& filename, int linenum, const string& msg)
 {
     string s;
     if (!filename.empty())
         s = filename + '(' + itostring(linenum) + "): ";
-    return s + EMessage::what();
+    return s + msg;
 }
 
 
+EParser::EParser(const string& ifilename, int ilinenum, const string& msg)
+    : Exception(parserErrorStr(ifilename, ilinenum, msg))  { }
+
+
 ENotFound::ENotFound(const string& ifilename, int ilinenum, const string& ientry)
-    : EParser(ifilename, ilinenum, "Unknown identifier '" + ientry + '\''), entry(ientry) { }
-ENotFound::~ENotFound()  { }
+    : EParser(ifilename, ilinenum, "Unknown identifier '" + ientry + '\'')  { }
 
 
 const charset wsChars = "\t ";

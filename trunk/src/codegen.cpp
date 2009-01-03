@@ -3,10 +3,12 @@
 #include "codegen.h"
 
 
+ENoContext::ENoContext()
+    : Exception("Expression can't be evaluated at compile time")  { }
+
+
 void noRuntimeContext()
-{
-    throw ENoContext();
-}
+    { throw ENoContext(); }
 
 
 VmCodeGen::VmCodeGen(ShScope* iHostScope)
