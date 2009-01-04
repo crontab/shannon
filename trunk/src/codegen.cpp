@@ -590,6 +590,6 @@ void VmCodeGen::verifyContext(ShVariable* var)
 {
     if (hostScope == NULL)
         noRuntimeContext();
-    if (var->ownerScope != hostScope)
+    if (var->ownerScope != hostScope && var->ownerScope != hostScope->parent)
         internal(70);
 }

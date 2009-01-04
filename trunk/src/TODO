@@ -1,6 +1,4 @@
 
-* if, while, case
-
 * combined assignment operators
 
 * arrays: static and associative (stoDblPtr storage model?)
@@ -18,3 +16,4 @@
 * procedures (pipes)
 
 * string table and type table; binary code should contain only indexes
+

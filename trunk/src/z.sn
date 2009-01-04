@@ -178,6 +178,8 @@ begin:
         assert w1 == 2L
         echo 'Hello, nested nested block!', typeof(w1), str(w1)
         var a = 'a' | 'b'
+begin:
+    var w1 = 3
 
 assert w1 == 0
 
@@ -301,3 +303,8 @@ case ct:
     'b', 'c'..'e', 'g': assert true
     else: assert false
 
+var ct2 = 'abc'
+case ct2:
+    'a': assert false
+    'abc': ct2 = 'def';
+assert ct2 == 'def'
