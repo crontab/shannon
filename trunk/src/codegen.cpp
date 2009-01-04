@@ -397,7 +397,7 @@ void VmCodeGen::genStore()
     genStoreVar(var);
 }
 
-offs VmCodeGen::genCase(const ShValue& value)
+offs VmCodeGen::genCase(const ShValue& value, OpCode jumpOp)
 {
     genPush(queenBee->defaultBool);
     if (value.type->isOrdinal() && !value.type->isLargeInt())
@@ -423,7 +423,7 @@ offs VmCodeGen::genCase(const ShValue& value)
     }
     else
         internal(72);
-    return genForwardBoolJump(opJumpFalse);
+    return genForwardBoolJump(jumpOp);
 }
 
 void VmCodeGen::genPopValue(ShType* type)

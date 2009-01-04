@@ -73,7 +73,7 @@ public:
     void genLoadVar(ShVariable*);
     void genLoadVarRef(ShVariable*);
     void genStore();
-    offs genCase(const ShValue&);
+    offs genCase(const ShValue&, OpCode jumpOp);
     void genPopValue(ShType*);
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
