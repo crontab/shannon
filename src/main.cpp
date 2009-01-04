@@ -44,7 +44,8 @@ class ShCompiler: public Base
     VmCodeGen nullCode;
     CompilerOptions options;
 
-    ShSymScope* symbolScope; // for symbols only
+    ShSymScope* currentSymbolScope; // for symbols only; replaced for every nested block
+    ShStateBase* currentStateScope; // module or state
     LoopInfo* topLoop;
     VmCodeGen* codegen;
 
@@ -106,8 +107,8 @@ public:
 
 ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
     : parser(iParser), module(iModule), mainCodeGen(&module),
-      nullCode(&module), symbolScope(&module), topLoop(NULL),
-      codegen(&mainCodeGen)  { }
+      nullCode(&module), currentSymbolScope(NULL), 
+      currentStateScope(NULL), topLoop(NULL), codegen(&mainCodeGen)  { }
 
 
 string typeVsType(ShType* a, ShType* b)
@@ -145,7 +146,7 @@ void ShCompiler::error(EDuplicate& e)
 ShBase* ShCompiler::getQualifiedName()
 {
     string ident = parser.getIdent();
-    ShBase* obj = symbolScope->deepFind(ident);
+    ShBase* obj = currentSymbolScope->deepFind(ident);
     if (obj == NULL)
         errorNotFound(ident);
     string errIdent = ident;
@@ -735,7 +736,7 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
     if (parser.token == tokIdent)
     {
         *ident = parser.strValue;
-        ShBase* obj = symbolScope->deepFind(*ident);
+        ShBase* obj = currentSymbolScope->deepFind(*ident);
         // In one of the previous attempts to implement this guessing we were calling
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
@@ -776,7 +777,7 @@ ShEnum* ShCompiler::parseEnumType()
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShConstant* value = new ShConstant(ident, type, nextVal);
-        codegen->hostScope->addConstant(value, symbolScope);
+        codegen->hostScope->addConstant(value, currentSymbolScope);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -804,7 +805,7 @@ void ShCompiler::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    codegen->hostScope->addTypeAlias(ident, type, symbolScope);
+    codegen->hostScope->addTypeAlias(ident, type, currentSymbolScope);
     parser.skipSep();
 }
 
@@ -840,7 +841,8 @@ void ShCompiler::parseVarConstDef(bool isVar)
             type = exprType;
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization");
-        ShVariable* var = codegen->hostScope->addVariable(ident, type, symbolScope, codegen);
+        ShVariable* var = codegen->hostScope->addVariable(ident, type,
+            currentSymbolScope, codegen);
         codegen->genInitVar(var);
     }
     else
@@ -850,7 +852,8 @@ void ShCompiler::parseVarConstDef(bool isVar)
         parser.skipSep();
         if (type == NULL) // auto
             type = value.type;
-        codegen->hostScope->addConstant(new ShConstant(ident, value), symbolScope);
+        codegen->hostScope->addConstant(new ShConstant(ident, value),
+            currentSymbolScope);
     }
 }
 
@@ -948,23 +951,39 @@ void ShCompiler::parseBlock()
 
 void ShCompiler::enterBlock()
 {
-    // The SymScope object is temporary; the real objects (types, vars, etc)
-    // are registered with the outer scope: either module or state. Through
-    // the temp symbol scope however, we know which vars to finalize when 
-    // exiting the block.
-    ShSymScope tempSymScope(symbolScope);
-    symbolScope = &tempSymScope;
-    if (topLoop != NULL)
-        topLoop->symScopes.push(&tempSymScope);
-    
-    parser.skipBlockBegin();
-    parseBlock();
-    
-    if (topLoop != NULL)
-        if (topLoop->symScopes.pop() != &tempSymScope)
-            internal(150);
-    symbolScope = tempSymScope.parent;
-    tempSymScope.finalizeVars(codegen);
+    if (codegen->hostScope->isLocalScope())
+    {
+        // The tempSymScope object is temporary; the real objects (types, vars,
+        // etc) are registered with the outer scope: either module or state. 
+        // Through the temp symbol scope however, we know which vars to 
+        // finalize when exiting the block.
+        ShSymScope tempSymScope("", typeSymScope, currentSymbolScope);
+        currentSymbolScope = &tempSymScope;
+        if (topLoop != NULL)
+            topLoop->symScopes.push(currentSymbolScope);
+        parser.skipBlockBegin();
+        parseBlock();
+        if (topLoop != NULL)
+            if (topLoop->symScopes.pop() != currentSymbolScope)
+                internal(150);
+        currentSymbolScope = currentSymbolScope->parent;
+        tempSymScope.finalizeVars(codegen);
+    }
+    else
+    {
+        // We replace the current "host" scope if it's a module-static or a 
+        // state-static one with a local scope, so that objects defined in any 
+        // nested block are allocated on the stack rather than statically. This
+        // can happen only at top-level in modules and states, but not ordinary
+        // functions.
+        if (currentStateScope->localScope.parent != codegen->hostScope)
+            internal(151);
+        if (!currentStateScope->localScope.isLocalScope())
+            internal(152);
+        codegen->hostScope = &currentStateScope->localScope;
+        enterBlock();
+        codegen->hostScope = (ShScope*)codegen->hostScope->parent;
+    }
 }
 
 
@@ -1085,6 +1104,8 @@ bool ShCompiler::compile()
     try
     {
         codegen = &mainCodeGen;
+        currentStateScope = &module;
+        currentSymbolScope = &module;
 
         parser.next();
         if (parser.skipIf(tokModule))
@@ -1092,7 +1113,7 @@ bool ShCompiler::compile()
 
         parseBlock();
 
-        symbolScope->finalizeVars(codegen);
+        currentSymbolScope->finalizeVars(codegen);
         parser.skip(tokEof, "<EOF>");
     }
     catch (EDuplicate& e)

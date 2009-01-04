@@ -18,8 +18,8 @@ static void notImpl()
 ShBase::ShBase(ShBaseId iBaseId)
     : BaseNamed(), baseId(iBaseId)  { }
 
-ShBase::ShBase(const string& name, ShBaseId iBaseId)
-    : BaseNamed(name), baseId(iBaseId)  { }
+ShBase::ShBase(const string& iName, ShBaseId iBaseId)
+    : BaseNamed(iName), baseId(iBaseId)  { }
 
 
 // --- TYPE --- //
@@ -51,8 +51,8 @@ ShType::ShType(ShTypeId iTypeId)
       storageModel(typeToSto[iTypeId]), staticSize(stoToSize[storageModel]),
       staticSizeAligned(memAlign(staticSize))  { }
 
-ShType::ShType(const string& name, ShTypeId iTypeId)
-    : ShBase(name, baseType), typeId(iTypeId), owner(NULL),
+ShType::ShType(const string& iName, ShTypeId iTypeId)
+    : ShBase(iName, baseType), typeId(iTypeId), owner(NULL),
       derivedVectorType(NULL), derivedSetType(NULL), derivedRefType(NULL),
       storageModel(typeToSto[iTypeId]), staticSize(stoToSize[storageModel]),
       staticSizeAligned(memAlign(staticSize))  { }
@@ -148,8 +148,8 @@ ShReference* ShType::deriveRefType()
 
 // --- SYMBOLS-ONLY SCOPE --- //
 
-ShSymScope::ShSymScope(ShSymScope* iParent)
-    : ShType("", typeLocalSymScope), parent(iParent)  { }
+ShSymScope::ShSymScope(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
+        : ShType(iName, iTypeId), parent(iParent)  { }
 
 void ShSymScope::addSymbol(ShBase* obj)
 {
@@ -168,19 +168,19 @@ void ShSymScope::finalizeVars(VmCodeGen* codegen)
     }
 }
 
-ShBase* ShSymScope::deepFind(const string& name) const
+ShBase* ShSymScope::deepFind(const string& ident) const
 {
-    ShBase* obj = find(name);
+    ShBase* obj = find(ident);
     if (obj != NULL)
         return obj;
     for (int i = uses.size() - 1; i >= 0; i--)
     {
-        obj = uses[i]->find(name);
+        obj = uses[i]->find(ident);
         if (obj != NULL)
             return obj;
     }
     if (parent != NULL)
-        return parent->deepFind(name);
+        return parent->deepFind(ident);
     return NULL;
 }
 
@@ -190,8 +190,8 @@ void ShSymScope::addUses(ShModule* obj)
 
 // --- SCOPE --- //
 
-ShScope::ShScope(const string& name, ShTypeId iTypeId)
-        : ShSymScope(name, iTypeId)  { }
+ShScope::ShScope(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
+        : ShSymScope(iName, iTypeId, iParent)  { }
 
 ShScope::~ShScope()
 {
@@ -207,9 +207,9 @@ void ShScope::addAnonType(ShType* obj)
     obj->setOwner(this);
 }
 
-void ShScope::addTypeAlias(const string& name, ShType* type, ShSymScope* symScope)
+void ShScope::addTypeAlias(const string& ident, ShType* type, ShSymScope* symScope)
 {
-    ShConstant* obj = new ShConstant(name, queenBee->defaultTypeRef, type);
+    ShConstant* obj = new ShConstant(ident, queenBee->defaultTypeRef, type);
     consts.add(obj);
     symScope->addSymbol(obj);
 }
@@ -242,9 +242,9 @@ void ShScope::dump(string indent) const
 
 // --- VARIABLE --- //
 
-ShVariable::ShVariable(const string& name, ShType* iType,
-    ShScope* iOwnerScope, offs iOffs): ShBase(name, baseVariable),
-        type(iType), ownerScope(iOwnerScope), dataOffset(iOffs)  { }
+ShVariable::ShVariable(const string& iName, ShType* iType, ShScope* iOwnerScope, offs iOffs)
+    : ShBase(iName, baseVariable), type(iType), ownerScope(iOwnerScope),
+      dataOffset(iOffs)  { }
 
 
 // --- LANGUAGE TYPES ----------------------------------------------------- //
@@ -283,9 +283,8 @@ ShOrdinal::ShOrdinal(ShTypeId iTypeId, large min, large max)
     : ShType(iTypeId), derivedRangeType(NULL),
       range(min, max)  { }
 
-ShOrdinal::ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max)
-    : ShType(name, iTypeId), derivedRangeType(NULL),
-      range(min, max)  { }
+ShOrdinal::ShOrdinal(const string& iName, ShTypeId iTypeId, large min, large max)
+    : ShType(iName, iTypeId), derivedRangeType(NULL), range(min, max)  { }
 
 ShRange* ShOrdinal::deriveRangeType()
 {
@@ -329,8 +328,8 @@ bool ShOrdinal::contains(const ShValue& v) const
 
 // --- INTEGER TYPE --- //
 
-ShInteger::ShInteger(const string& name, large min, large max)
-    : ShOrdinal(name, typeInt32, min, max)
+ShInteger::ShInteger(const string& iName, large min, large max)
+    : ShOrdinal(iName, typeInt32, min, max)
 {
     int size = range.physicalSize();
     if (size == 1)
@@ -361,8 +360,8 @@ ShOrdinal* ShInteger::cloneWithRange(large min, large max)
 
 // --- CHAR TYPE --- //
 
-ShChar::ShChar(const string& name, int min, int max)
-    : ShOrdinal(name, typeChar, min, max)  { }
+ShChar::ShChar(const string& iName, int min, int max)
+    : ShOrdinal(iName, typeChar, min, max)  { }
 
 string ShChar::getFullDefinition(const string& objName) const
 {
@@ -420,8 +419,8 @@ string ShEnum::displayValue(const ShValue& v) const
 
 // --- BOOL TYPE --- //
 
-ShBool::ShBool(const string& name)
-    : ShOrdinal(name, typeBool, 0, 1)  { }
+ShBool::ShBool(const string& iName)
+    : ShOrdinal(iName, typeBool, 0, 1)  { }
 
 string ShBool::getFullDefinition(const string& objName) const
 {
@@ -440,8 +439,8 @@ ShOrdinal* ShBool::cloneWithRange(large min, large max)
 
 // --- VOID TYPE --- //
 
-ShVoid::ShVoid(const string& name)
-    : ShType(name, typeVoid)  { }
+ShVoid::ShVoid(const string& iName)
+    : ShType(iName, typeVoid)  { }
 
 string ShVoid::getFullDefinition(const string& objName) const
     { return "void"; }
@@ -452,8 +451,8 @@ string ShVoid::displayValue(const ShValue& v) const
 
 // --- TYPEREF TYPE --- //
 
-ShTypeRef::ShTypeRef(const string& name)
-    : ShType(name, typeTypeRef)  { }
+ShTypeRef::ShTypeRef(const string& iName)
+    : ShType(iName, typeTypeRef)  { }
 
 string ShTypeRef::getFullDefinition(const string& objName) const
     { return "typeref"; }
@@ -467,8 +466,8 @@ string ShTypeRef::displayValue(const ShValue& v) const
 ShRange::ShRange(ShOrdinal* iBase)
     : ShType(typeRange), base(iBase)  { }
 
-ShRange::ShRange(const string& name, ShOrdinal* iBase)
-    : ShType(name, typeTypeRef), base(iBase)  { }
+ShRange::ShRange(const string& iName, ShOrdinal* iBase)
+    : ShType(iName, typeTypeRef), base(iBase)  { }
 
 string ShRange::getFullDefinition(const string& objName) const
     { return base->getDefinition(objName) + "[..]"; }
@@ -486,8 +485,8 @@ string ShRange::displayValue(const ShValue& v) const
 ShVector::ShVector(ShType* iElementType)
         : ShType(typeVector), elementType(iElementType)  { }
 
-ShVector::ShVector(const string& name, ShType* iElementType)
-        : ShType(name, typeVector), elementType(iElementType)  { }
+ShVector::ShVector(const string& iName, ShType* iElementType)
+        : ShType(iName, typeVector), elementType(iElementType)  { }
 
 string ShVector::getFullDefinition(const string& objName) const
     { return elementType->getDefinition(objName) + "[]"; }
@@ -555,35 +554,6 @@ string ShReference::displayValue(const ShValue& v) const
     { return base->displayValue(v); }
 
 
-// --- STATE --- //
-
-/*
-void ShState::addState(ShState* obj)
-        { states.add(obj); addSymbol(obj); }
-
-void ShState::addArgument(ShArgument* obj)
-        { args.add(obj); addSymbol(obj); }
-
-string ShState::getArgsDefinition() const
-{
-    string result = '(';
-    if (!args.empty())
-    {
-        result += args[0]->type->getDefinition(args[0]->name);
-        for (int i = 1; i < args.size(); i++)
-            result += ", " + args[i]->type->getDefinition(args[0]->name);
-    }
-    result += ')';
-    return result;
-}
-
-string ShState::getFullDefinition(const string& objName) const
-{
-    return "state " + objName + getArgsDefinition();
-}
-*/
-
-
 // --- LITERAL VALUE --- //
 
 ShValue::ShValue(ShType* iType, const podvalue& iValue)
@@ -642,14 +612,14 @@ void ShValue::assignToBuf(ptr p)
 
 // --- CONSTANT --- //
 
-ShConstant::ShConstant(const string& name, const ShValue& iValue)
-    : ShBase(name, baseConstant), value(iValue.type, iValue.value)  { }
+ShConstant::ShConstant(const string& iName, const ShValue& iValue)
+    : ShBase(iName, baseConstant), value(iValue.type, iValue.value)  { }
 
-ShConstant::ShConstant(const string& name, ShEnum* type, int iValue)
-    : ShBase(name, baseConstant), value(type, iValue)  { }
+ShConstant::ShConstant(const string& iName, ShEnum* type, int iValue)
+    : ShBase(iName, baseConstant), value(type, iValue)  { }
 
-ShConstant::ShConstant(const string& name, ShTypeRef* typeref, ShType* iValue)
-    : ShBase(name, baseConstant), value(typeref, iValue)  { }
+ShConstant::ShConstant(const string& iName, ShTypeRef* typeref, ShType* iValue)
+    : ShBase(iName, baseConstant), value(typeref, iValue)  { }
 
 
 // ------------------------------------------------------------------------ //
@@ -657,27 +627,34 @@ ShConstant::ShConstant(const string& name, ShTypeRef* typeref, ShType* iValue)
 
 // --- LOCAL SCOPE --- //
 
-ShLocalScope::ShLocalScope()
-    : ShScope("", typeLocalScope)  { }
+ShLocalScope::ShLocalScope(const string& iName, ShSymScope* iParent)
+    : ShScope(iName, typeLocalScope, iParent)  { }
 
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
-ShVariable* ShLocalScope::addVariable(const string& name, ShType* type,
+ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
     ShSymScope* symScope, VmCodeGen* codegen)
 {
-    ShVariable* var = new ShVariable(name, type, this, codegen->genReserveLocalVar(type));
+    ShVariable* var = new ShVariable(ident, type, this, codegen->genReserveLocalVar(type));
     vars.add(var);
     symScope->addSymbol(var);
     return var;
 }
 
 
+// --- STATE BASE --- //
+
+ShStateBase::ShStateBase(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
+    : ShScope(iName, iTypeId, iParent), localScope("", this)  { }
+
+
+
 // --- MODULE --- //
 
 
-ShModule::ShModule(const string& name)
-    : ShScope(name, typeModule), dataSize(0)
+ShModule::ShModule(const string& iName)
+    : ShStateBase(iName, typeModule, NULL), dataSize(0)
 {
     if (queenBee != NULL)
         addUses(queenBee);
@@ -687,10 +664,10 @@ ShModule::~ShModule()
 {
 }
 
-ShVariable* ShModule::addVariable(const string& name, ShType* type,
+ShVariable* ShModule::addVariable(const string& ident, ShType* type,
     ShSymScope* symScope, VmCodeGen* codegen)
 {
-    ShVariable* var = new ShVariable(name, type, this, dataSize);
+    ShVariable* var = new ShVariable(ident, type, this, dataSize);
     vars.add(var);
     symScope->addSymbol(var);
     dataSize += var->type->staticSizeAligned;

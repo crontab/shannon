@@ -41,7 +41,7 @@ class ShBase: public BaseNamed
 
 public:
     ShBase(ShBaseId iBaseId);
-    ShBase(const string& name, ShBaseId iBaseId);
+    ShBase(const string&, ShBaseId iBaseId);
     
     bool isType() const       { return baseId == baseType; }
     bool isVariable() const   { return baseId == baseVariable; }
@@ -65,7 +65,7 @@ enum ShTypeId
     typeInt8, typeInt32, typeInt64, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
     typeReference,
-    typeLocalSymScope, typeLocalScope, typeModule,
+    typeSymScope, typeLocalScope, typeModule,
     typeVoid,
     _typeMax
 };
@@ -88,13 +88,13 @@ public:
     const offs staticSize;
     const offs staticSizeAligned;
 
-    ShType(ShTypeId iTypeId);
-    ShType(const string& name, ShTypeId iTypeId);
+    ShType(ShTypeId);
+    ShType(const string&, ShTypeId);
     virtual ~ShType();
     
     void setOwner(ShScope*);
     ShTypeId getTypeId() const { return typeId; }
-    void setTypeId(ShTypeId iTypeId);
+    void setTypeId(ShTypeId);
 
     string getDefinition(const string& objName) const;
     string getDefinition() const;
@@ -159,9 +159,7 @@ protected:
 public:
     ShSymScope* const parent;
 
-    ShSymScope(ShSymScope* iParent);
-    ShSymScope(const string& iName, ShTypeId iTypeId)
-            : ShType(iName, iTypeId), parent(NULL)  { }
+    ShSymScope(const string&, ShTypeId, ShSymScope* iParent);
 
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
@@ -169,10 +167,10 @@ public:
             { return false; }
 
     void addUses(ShModule*);
-    void addSymbol(ShBase* obj);
-    void finalizeVars(VmCodeGen* code);
-    ShBase* find(const string& name) const
-            { return symbols.find(name); }
+    void addSymbol(ShBase*);
+    void finalizeVars(VmCodeGen*);
+    ShBase* find(const string& ident) const
+            { return symbols.find(ident); }
     ShBase* deepFind(const string&) const;
 };
 
@@ -187,7 +185,7 @@ protected:
     BaseList<ShConstant> consts;
     
 public:
-    ShScope(const string& name, ShTypeId iTypeId);
+    ShScope(const string&, ShTypeId, ShSymScope* iParent);
     ~ShScope();
     void addAnonType(ShType*);
     void addTypeAlias(const string&, ShType*, ShSymScope*);
@@ -238,8 +236,8 @@ protected:
         { ((Range&)range).max = max; }
 
 public:
-    ShOrdinal(ShTypeId iTypeId, large min, large max);
-    ShOrdinal(const string& name, ShTypeId iTypeId, large min, large max);
+    ShOrdinal(ShTypeId, large min, large max);
+    ShOrdinal(const string&, ShTypeId, large min, large max);
     virtual bool canStaticCastTo(ShType* type) const
             { return type->isOrdinal(); }
     bool contains(large v) const
@@ -266,7 +264,7 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-    ShInteger(const string& name, large min, large max);
+    ShInteger(const string&, large min, large max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canAssign(ShType* type) const
             { return type->isInt() && (isLargeInt() == type->isLargeInt()); }
@@ -282,8 +280,7 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-//    ShChar(int min, int max);
-    ShChar(const string& name, int min, int max);
+    ShChar(const string&, int min, int max);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canAssign(ShType* type) const
             { return type->isChar(); }
@@ -328,7 +325,7 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 public:
-    ShBool(const string& name);
+    ShBool(const string&);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canAssign(ShType* type) const
             { return type->isBool(); }
@@ -345,7 +342,7 @@ protected:
     virtual string getFullDefinition(const string& objName) const;
 
 public:
-    ShVoid(const string& name);
+    ShVoid(const string&);
     virtual string displayValue(const ShValue& v) const;
     virtual bool equals(ShType* type) const
             { return type->isVoid(); }
@@ -356,7 +353,7 @@ class ShTypeRef: public ShType
 {
     virtual string getFullDefinition(const string& objName) const;
 public:
-    ShTypeRef(const string& name);
+    ShTypeRef(const string&);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canCheckEq(ShType* type) const
             { return type->isTypeRef(); }
@@ -375,7 +372,7 @@ class ShRange: public ShType
 public:
     ShOrdinal* base;
     ShRange(ShOrdinal* iBase);
-    ShRange(const string& name, ShOrdinal* iBase);
+    ShRange(const string&, ShOrdinal* iBase);
     virtual string displayValue(const ShValue& v) const;
     virtual bool canCheckEq(ShType* type) const
             { return equals(type); }
@@ -395,7 +392,7 @@ public:
     ShType* const elementType;
 
     ShVector(ShType* iElementType);
-    ShVector(const string& name, ShType* iElementType);
+    ShVector(const string&, ShType* iElementType);
 
     virtual string displayValue(const ShValue& v) const;
     virtual bool canCompareWith(ShType* type) const
@@ -467,34 +464,6 @@ public:
 };
 
 
-/*
-class ShState: public ShScope
-{
-protected:
-    BaseList<ShArgument> args;
-    BaseList<ShState> states;
-
-    virtual string getFullDefinition(const string& objName) const;
-    string getArgsDefinition() const;
-
-public:
-    void addArgument(ShArgument*);
-    void addState(ShState*);
-};
-*/
-
-
-/*
-class ShFunction: public ShState
-{
-    BaseList<ShType> retTypes;
-public:
-    void addReturnType(ShType* obj)
-            { retTypes.add(obj); }
-};
-*/
-
-
 // --- LITERAL VALUES ----------------------------------------------------- //
 
 
@@ -543,9 +512,9 @@ class ShConstant: public ShBase
 {
 public:
     const ShValue value;
-    ShConstant(const string& name, const ShValue& iValue);
-    ShConstant(const string& name, ShEnum* type, int value);
-    ShConstant(const string& name, ShTypeRef*, ShType*);
+    ShConstant(const string&, const ShValue&);
+    ShConstant(const string&, ShEnum* type, int value);
+    ShConstant(const string&, ShTypeRef*, ShType*);
 };
 
 
@@ -558,23 +527,32 @@ class ShLocalScope: public ShScope
     // scopes for nested blocks to avoid pollution of the static space.
 protected:
     virtual string getFullDefinition(const string& objName) const;
-
 public:
-    ShLocalScope();
-
+    ShLocalScope(const string& iName, ShSymScope* iParent);
     virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
+};
+
+
+// --- STATE --- //
+
+class ShStateBase: public ShScope
+{
+    // basis for modules, functions and states
+public:
+    ShLocalScope localScope;
+    ShStateBase(const string&, ShTypeId, ShSymScope* iParent);
 };
 
 
 // --- MODULE --- //
 
-class ShModule: public ShScope
+class ShModule: public ShStateBase
 {
 protected:
     Array<string> vectorConsts;
 
     virtual string getFullDefinition(const string& objName) const;
-    virtual ShVariable* addVariable(const string& name, ShType* type,
+    virtual ShVariable* addVariable(const string&, ShType* type,
                 ShSymScope*, VmCodeGen*);
 
 public:
@@ -619,8 +597,8 @@ extern ShQueenBee* queenBee;
 void initLangObjs();
 void doneLangObjs();
 
-ShModule* findModule(const string& name);
-void registerModule(ShModule* module);
+ShModule* findModule(const string&);
+void registerModule(ShModule*);
 
 
 #endif
