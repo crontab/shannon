@@ -1036,7 +1036,7 @@ void ShCompiler::parseCase()
     if (!caseCtlType->isOrdinal() && !caseCtlType->isString() && !caseCtlType->isTypeRef())
         error("Case control expression must be ordinal, string or typeref");
     if (caseCtlType->isLargeInt())
-        error("Large ints are not supported byt the 'case' operator");
+        error("Large ints are not supported with the 'case' operator");
     parser.skipBlockBegin();
 
     PodStack<offs> endJumps;
@@ -1044,13 +1044,21 @@ void ShCompiler::parseCase()
     ShValue value;
     do
     {
-        // TODO: lists of values
-        getConstExpr(caseCtlType, value, true);
         if (falseJump != -1)
             codegen->genResolveJump(falseJump);
-        falseJump = codegen->genCase(value);
+        getConstExpr(caseCtlType, value, true);
+        PodStack<offs> trueJumps;
+        while (parser.skipIf(tokComma))
+        {
+            trueJumps.push(codegen->genCase(value, opJumpTrue));
+            getConstExpr(caseCtlType, value, true);
+        }
+        falseJump = codegen->genCase(value, opJumpFalse);
+        while (!trueJumps.empty())
+            codegen->genResolveJump(trueJumps.pop());
         enterBlock();
-        endJumps.push(codegen->genForwardJump());
+        if (parser.token != tokBlockEnd) // avoid unnecessary jumps
+            endJumps.push(codegen->genForwardJump());
     }
     while (parser.token != tokBlockEnd && parser.token != tokElse);
     

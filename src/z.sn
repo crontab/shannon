@@ -280,18 +280,24 @@ while ws < 'aaaaa':
 
 var ct = 'a'
 case ct:
-    'a': assert true
-    'b': assert false
+    'a': ct = 'b'
+    'c': assert false
+assert ct == 'b'
 
-ct = 'b'
 case ct:
-    'a': assert false
-    'b': assert true
+    'a', 'c': assert false
+    'd', 'b': ct = 'c'
     else: assert false
+assert ct == 'c'
 
-ct = 'c'
 case ct:
     'a': assert false
     'b': assert false
-    else: assert true
+    else: ct = 'd'
+assert ct == 'd'
+
+case ct:
+    'a': assert false
+    'b', 'c'..'e', 'g': assert true
+    else: assert false
 
