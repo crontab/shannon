@@ -240,10 +240,9 @@ ShType* ShCompiler::parseAtom(bool isLValue)
         }
         else
         {
-            string s = parser.strValue;
+            string s = module.registerString(parser.strValue);
             parser.next();
-            codegen->genLoadVecConst(queenBee->defaultStr,
-                module.registerString(s).c_bytes());
+            codegen->genLoadVecConst(queenBee->defaultStr, s.c_bytes());
         }
     }
 
@@ -658,7 +657,7 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange
 
     parseExpr(typeHint);
     tcode.runConstExpr(result);
-    
+
     if (result.type == NULL)
         error("Expression can't be evaluated at compile time");
 
@@ -1013,11 +1012,13 @@ void ShCompiler::parseCase()
         if (falseJump != -1)
             codegen->genResolveJump(falseJump);
         getConstExpr(caseCtlType, value, true);
+        value.registerConst(module);
         PodStack<offs> trueJumps;
         while (parser.skipIf(tokComma))
         {
             trueJumps.push(codegen->genCase(value, opJumpTrue));
             getConstExpr(caseCtlType, value, true);
+            value.registerConst(module);
         }
         falseJump = codegen->genCase(value, opJumpFalse);
         while (!trueJumps.empty())

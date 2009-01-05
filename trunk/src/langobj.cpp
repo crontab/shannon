@@ -587,6 +587,12 @@ void ShValue::assignVec(ShType* iType, const string& s)
 void ShValue::assignVoid(ShType* iType)
         { _finalize(); type = iType; value.ptr_ = 0; }
 
+void ShValue::registerConst(ShModule& module)
+{
+    if (type != NULL && type->isString())
+        assignVec(type, module.registerString(PTR_TO_STRING(value.ptr_)));
+}
+
 void ShValue::assignFromBuf(ShType* newType, ptr p)
 {
     switch (newType->storageModel)

@@ -61,7 +61,7 @@ ShType* VmCodeGen::runTypeExpr(bool anyObj)
     const GenStackInfo& i = genTop();
     if (i.isValue)
     {
-        // help return the result quicker, without evaluating the whole expr
+        // help to return the result quicker, without evaluating the whole expr
         if (i.type->isTypeRef())
             return PType(i.value.ptr_);
     }

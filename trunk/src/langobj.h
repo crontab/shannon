@@ -492,6 +492,7 @@ struct ShValue: noncopyable
     void assignLarge(ShType* iType, large l);
     void assignPtr(ShType* iType, ptr p);
     void assignVec(ShType* iType, const string& s);
+    void registerConst(ShModule&);
     void assignVoid(ShType* iType);
     void assignFromBuf(ShType*, ptr);
     void assignToBuf(ptr);
@@ -575,8 +576,7 @@ public:
 class ShModule: public ShStateBase
 {
 protected:
-    Array<string> vectorConsts;
-
+    StringTable stringTable;
     virtual string getFullDefinition(const string& objName) const;
     virtual ShVariable* addVariable(const string&, ShType* type,
                 ShSymScope*, VmCodeGen*);
@@ -588,8 +588,9 @@ public:
     ShModule(const string&);
     ~ShModule();
 
-    string registerString(const string& v) // TODO: find duplicates
-            { vectorConsts.add(v); return v; }
+    string registerString(const string& s)
+        { return stringTable.addUnique(s); }
+
     void dump(string indent) const;
 
     void execute();

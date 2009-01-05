@@ -97,3 +97,16 @@ void baselistimpl::erase(int index)
 void baselistimpl::clear()
         { Array<BasePtr>::clear(); }
 
+
+string StringTable::addUnique(const string& str)
+{
+    int index;
+    if (!search(str, &index))
+    {
+        StringInfo* si = new StringInfo(str, size());
+        insert(index, si);
+        list.add(si);
+    }
+    return operator[] (index)->name;
+}
+
