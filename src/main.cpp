@@ -86,18 +86,19 @@ class ShCompiler: public Base
     void getConstExpr(ShType* typeHint, ShValue& result, bool allowRange);
 
     void parseModuleHeader();
-    ShEnum* parseEnumType();
+    ShEnum* parseEnumType(const string&);
     void parseTypeDef();
     void parseVarConstDef(bool isVar);
     void parseEcho(VmCodeGen*);
     void parseAssert(VmCodeGen*);
     void parseOtherStatement();
-    void parseBlock();
-    void enterBlock();
     void parseIf(Token);
     void parseWhile();
     void parseBreakCont(bool);
     void parseCase();
+    void parseBlock();
+    void enterBlock();
+    void parseFunctionBody(ShFunction* funcType);
 
 public:
     ShCompiler(Parser& iParser, ShModule& iModule);
@@ -697,6 +698,7 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange
 
 ShType* ShCompiler::getDerivators(ShType* type)
 {
+    // vectors/arrays/sets
     if (parser.skipIf(tokLSquare))
     {
         if (parser.skipIf(tokRSquare))
@@ -723,6 +725,29 @@ ShType* ShCompiler::getDerivators(ShType* type)
             type = type->deriveArrayType(indexType);
         }
         type = getDerivators(type);
+    }
+
+    // functions
+    else if (parser.skipIf(tokLParen))
+    {
+        if (currentSymbolScope != &module)
+            error("Functions/states can be defined only at module level");
+        ShFunction* funcType = new ShFunction(type, currentSymbolScope);
+        codegen->hostScope->addAnonType(funcType);
+        if (!parser.skipIf(tokRParen))
+        {
+            while (1)
+            {
+                ShType* argType = getTypeExpr(false);
+                funcType->addArgument(parser.getIdent(), argType);
+                if (parser.skipIf(tokRParen))
+                    break;
+                parser.skip(tokComma, ")");
+            }
+        }
+        funcType->finishArguments();
+        parseFunctionBody(funcType);
+        type = funcType;
     }
     return type;
 }
@@ -765,9 +790,9 @@ void ShCompiler::parseModuleHeader()
 }
 
 
-ShEnum* ShCompiler::parseEnumType()
+ShEnum* ShCompiler::parseEnumType(const string& enumName)
 {
-    ShEnum* type = new ShEnum();
+    ShEnum* type = new ShEnum(enumName); // the name is for diag. purposes
     codegen->hostScope->addAnonType(type);
     parser.skip(tokLParen, "(");
     while (1)
@@ -795,7 +820,7 @@ void ShCompiler::parseTypeDef()
     if (parser.skipIf(tokEnum))
     {
         ident = parser.getIdent();
-        type = parseEnumType();
+        type = parseEnumType(ident);
     }
     else
     {
@@ -818,7 +843,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
     if (parser.skipIf(tokEnum))
     {
         ident = parser.getIdent();
-        type = parseEnumType();
+        type = parseEnumType("");
     }
     else
     {
@@ -904,86 +929,6 @@ void ShCompiler::parseOtherStatement()
     else
         error("Definition or statement expected");
     parser.skipSep();
-}
-
-
-void ShCompiler::parseBlock()
-{
-    while (!parser.skipIf(tokBlockEnd))
-    {
-        if (options.linenumInfo)
-            codegen->genLinenum(parser);
-
-        if (parser.skipIf(tokSep))
-            ;
-        else if (parser.skipIf(tokDef))
-            parseTypeDef();
-        else if (parser.skipIf(tokConst))
-            parseVarConstDef(false);
-        else if (parser.skipIf(tokVar))
-            parseVarConstDef(true);
-        else if (parser.skipIf(tokEcho))
-            parseEcho(options.enableEcho ? codegen : &nullCode);
-        else if (parser.skipIf(tokAssert))
-            parseAssert(options.enableAssert ? codegen : &nullCode);
-        else if (parser.skipIf(tokBegin))
-            enterBlock();
-        else if (parser.skipIf(tokIf))
-            parseIf(tokIf);
-        else if (parser.skipIf(tokWhile))
-            parseWhile();
-        else if (parser.token == tokElse)
-            error("Misplaced 'else'");
-        else if (parser.token == tokElif)
-            error("Misplaced 'elif'");
-        else if (parser.skipIf(tokBreak))
-            parseBreakCont(true);
-        else if (parser.skipIf(tokContinue))
-            parseBreakCont(false);
-        else if (parser.skipIf(tokCase))
-            parseCase();
-        else
-            parseOtherStatement();
-        codegen->genFinalizeTemps();
-    }
-}
-
-
-void ShCompiler::enterBlock()
-{
-    if (codegen->hostScope->isLocalScope())
-    {
-        // The tempSymScope object is temporary; the real objects (types, vars,
-        // etc) are registered with the outer scope: either module or state. 
-        // Through the temp symbol scope however, we know which vars to 
-        // finalize when exiting the block.
-        ShSymScope tempSymScope("", typeSymScope, currentSymbolScope);
-        currentSymbolScope = &tempSymScope;
-        if (topLoop != NULL)
-            topLoop->symScopes.push(currentSymbolScope);
-        parser.skipBlockBegin();
-        parseBlock();
-        if (topLoop != NULL)
-            if (topLoop->symScopes.pop() != currentSymbolScope)
-                internal(150);
-        currentSymbolScope = currentSymbolScope->parent;
-        tempSymScope.finalizeVars(codegen);
-    }
-    else
-    {
-        // We replace the current "host" scope if it's a module-static or a 
-        // state-static one with a local scope, so that objects defined in any 
-        // nested block are allocated on the stack rather than statically. This
-        // can happen only at top-level in modules and states, but not ordinary
-        // functions.
-        if (currentStateScope->localScope.parent != codegen->hostScope)
-            internal(151);
-        if (!currentStateScope->localScope.isLocalScope())
-            internal(152);
-        codegen->hostScope = &currentStateScope->localScope;
-        enterBlock();
-        codegen->hostScope = (ShScope*)codegen->hostScope->parent;
-    }
 }
 
 
@@ -1096,6 +1041,98 @@ void ShCompiler::parseCase()
 }
 
 
+void ShCompiler::parseBlock()
+{
+    while (!parser.skipIf(tokBlockEnd))
+    {
+        if (options.linenumInfo)
+            codegen->genLinenum(parser);
+
+        if (parser.skipIf(tokSep))
+            ;
+        else if (parser.skipIf(tokDef))
+            parseTypeDef();
+        else if (parser.skipIf(tokConst))
+            parseVarConstDef(false);
+        else if (parser.skipIf(tokVar))
+            parseVarConstDef(true);
+        else if (parser.skipIf(tokEcho))
+            parseEcho(options.enableEcho ? codegen : &nullCode);
+        else if (parser.skipIf(tokAssert))
+            parseAssert(options.enableAssert ? codegen : &nullCode);
+        else if (parser.skipIf(tokBegin))
+            enterBlock();
+        else if (parser.skipIf(tokIf))
+            parseIf(tokIf);
+        else if (parser.skipIf(tokWhile))
+            parseWhile();
+        else if (parser.token == tokElse)
+            error("Misplaced 'else'");
+        else if (parser.token == tokElif)
+            error("Misplaced 'elif'");
+        else if (parser.skipIf(tokBreak))
+            parseBreakCont(true);
+        else if (parser.skipIf(tokContinue))
+            parseBreakCont(false);
+        else if (parser.skipIf(tokCase))
+            parseCase();
+        else
+            parseOtherStatement();
+        codegen->genFinalizeTemps();
+    }
+}
+
+
+void ShCompiler::enterBlock()
+{
+    if (codegen->hostScope->isLocalScope())
+    {
+        // The tempSymScope object is temporary; the real objects (types, vars,
+        // etc) are registered with the outer scope: either module or state. 
+        // Through the temp symbol scope however, we know which vars to 
+        // finalize when exiting the block.
+        ShSymScope tempSymScope("", typeSymScope, currentSymbolScope);
+        currentSymbolScope = &tempSymScope;
+        if (topLoop != NULL)
+            topLoop->symScopes.push(currentSymbolScope);
+        parser.skipBlockBegin();
+        parseBlock();
+        if (topLoop != NULL)
+            if (topLoop->symScopes.pop() != currentSymbolScope)
+                internal(150);
+        currentSymbolScope = currentSymbolScope->parent;
+        tempSymScope.finalizeVars(codegen);
+    }
+    else
+    {
+        // We replace the current "host" scope if it's a module-static or a 
+        // state-static one with a local scope, so that objects defined in any 
+        // nested block are allocated on the stack rather than statically. This
+        // can happen only at top-level in modules and states, but not ordinary
+        // functions.
+        if (currentStateScope->localScope.parent != codegen->hostScope)
+            internal(151);
+        if (!currentStateScope->localScope.isLocalScope())
+            internal(152);
+        codegen->hostScope = &currentStateScope->localScope;
+        enterBlock();
+        codegen->hostScope = (ShScope*)codegen->hostScope->parent;
+    }
+}
+
+
+void ShCompiler::parseFunctionBody(ShFunction* funcType)
+{
+    if (funcType->parent != codegen->hostScope)
+        internal(153);
+    if (topLoop != NULL)
+        internal(154);
+    codegen->hostScope = &funcType->localScope;
+    enterBlock();
+    codegen->hostScope = (ShScope*)codegen->hostScope->parent;
+}
+
+
 // ------------------------------------------------------------------------- //
 
 
@@ -1113,8 +1150,9 @@ bool ShCompiler::compile()
 
         parseBlock();
 
-        currentSymbolScope->finalizeVars(codegen);
         parser.skip(tokEof, "<EOF>");
+
+        currentSymbolScope->finalizeVars(codegen);
     }
     catch (EDuplicate& e)
     {

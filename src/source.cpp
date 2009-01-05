@@ -250,6 +250,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"not", tokNot},
         {"null", tokNull},
         {"or", tokOr},
+        {"return", tokReturn},
         {"shl", tokShl},
         {"shr", tokShr},
         {"sizeof", tokSizeOf},

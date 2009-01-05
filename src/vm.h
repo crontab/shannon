@@ -267,7 +267,6 @@ public:
     void addLarge(large v)  { addInt(int(v)); addInt(int(v >> 32)); }
 #endif
 
-
     offs reserveLocalVar(offs size)
         { offs t = reserveLocals; reserveLocals += size; return t; }
     void append(const VmCodeSegment& seg);
