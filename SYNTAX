@@ -39,16 +39,15 @@ string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
 
 definition ::= type-def | const-def | var-def
 
-type-def ::= type-alias | function-def
-
-type-alias ::= "def" type ident { type-derivator }
+type-def ::= "def" type [ "/" type ] ident { type-derivator }
 
 type ::= type-id { type-derivator }
 
 type-id ::= qualified-name | "typeof" "(" expr ")" | subrange | "enum"
+        | "state"
 
 type-derivator ::= array-derivator | mute-derivator | range-derivator
-        | enum-spec
+        | enum-spec | func-derivator
 
 array-derivator ::= "[" [ type ] "]"
 
@@ -58,9 +57,7 @@ range-derivator ::= "[" ".." "]"
 
 enum-spec ::= "(" ident { "," ident ")"
 
-function-def ::= "def" ( "state" | type | pipe-type ) [ arg-list ] [ function-body ]
-
-pipe-type ::= type "/" type
+func-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")" function-body
 
 const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
 

@@ -865,7 +865,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         if (type == NULL) // auto
             type = exprType;
         else if (!type->canAssign(exprType))
-            error("Type mismatch in variable initialization");
+            error("Type mismatch in variable initialization: " + typeVsType(type, exprType));
         ShVariable* var = codegen->hostScope->addVariable(ident, type,
             currentSymbolScope, codegen);
         codegen->genInitVar(var);
@@ -923,7 +923,9 @@ void ShCompiler::parseOtherStatement()
     {
         if (!type->isReference())
             error("L-value expected in assignment");
-        parseExpr(PReference(type)->base);
+        ShType* exprType = parseExpr(PReference(type)->base);
+        if (!PReference(type)->base->canAssign(exprType))
+            error("Type mismatch in assignment: " + typeVsType(PReference(type)->base, exprType));
         codegen->genStore();
     }
     else
@@ -1127,9 +1129,11 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
         internal(153);
     if (topLoop != NULL)
         internal(154);
-    codegen->hostScope = &funcType->localScope;
+    VmCodeGen tcode(&funcType->localScope);
+    VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     enterBlock();
-    codegen->hostScope = (ShScope*)codegen->hostScope->parent;
+    funcType->code = tcode.getCodeSeg();
+    replaceCodeGen(saveCodeGen);
 }
 
 

@@ -18,7 +18,9 @@ VmCodeGen::VmCodeGen(ShScope* iHostScope)
 void VmCodeGen::clear()
 {
     codeseg.clear();
+    finseg.clear();
     genStack.clear();
+    deferredVar = NULL;
 }
 
 void VmCodeGen::verifyClean()
