@@ -23,9 +23,9 @@ ident ::= ( letter | "_" ) ## { letter | digit | "_" }
 
 number ::= decimal | hexadecimal
 
-decimal ::= digit ## { digit } [ ## 'L' ]
+decimal ::= digit ## { digit } [ ## "L" ]
 
-hexadecimal ::= '0x' ## hexdigit ## { hexdigit } [ ## 'L' ]
+hexadecimal ::= "0x" ## hexdigit ## { hexdigit } [ ## "L" ]
 
 string-literal ::= "'" ## { string-element } ## "'"
 
@@ -72,23 +72,23 @@ subrange ::= rel-expr ".." rel-expr
 
 # Expressions
 
-expr ::= or-expr [ '..' or-expr ]
+expr ::= or-expr [ ".." or-expr ]
 
-or-expr ::= and-expr { ( 'or' | 'xor' ) and-expr }
+or-expr ::= and-expr { ( "or" | "xor" ) and-expr }
 
-and-expr ::= not-expr { ( 'and' | 'shl' | 'shr' ) not-expr }
+and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
 
-not-expr ::= [ 'not' ] rel-expr
+not-expr ::= [ "not" ] rel-expr
 
-rel-expr ::= simple-expr { ( '==' | '<' | '<=' | '>=' | '>' | '!=' ) simple-expr }
+rel-expr ::= simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" ) simple-expr }
 
-simple-expr ::= arithm-expr { '|' arithm-expr }
+simple-expr ::= arithm-expr { "|" arithm-expr }
 
-arithm-expr ::= term { ( '+' | '-' ) term }
+arithm-expr ::= term { ( "+" | "-" ) term }
 
-term ::= factor { ( '*' | '/' | 'mod' ) factor }
+term ::= factor { ( "*" | "/" | "mod" ) factor }
 
-factor ::= [ '-' | 'not' ] designator
+factor ::= [ "-" | "not" ] designator
 
 designator ::= atom { }
 
@@ -135,24 +135,24 @@ module-header ::= "module" ident
 statement-list ::= { ( statement | definition ) <SEP> }
 
 statement ::= call | pipe | assignment | compount-statement | if-clause
-    | while-clause | 'break' | 'continue' | case-clause
+    | while-clause | "break" | "continue" | case-clause | "return"
 
-assignment ::= designator '=' expr
+assignment ::= designator "=" expr
 
 compound-statement ::= "begin" block
 
 block ::= <BEGIN> statement-list <END>
 
-if-clause ::= 'if' expr <BEGIN> statement-list
-        { <END> 'elif' <BEGIN> statement-list }
-        [ <END> 'else' <BEGIN> statement-list ]
+if-clause ::= "if" expr <BEGIN> statement-list
+        { <END> "elif" <BEGIN> statement-list }
+        [ <END> "else" <BEGIN> statement-list ]
         <END>
 
-while-clause ::= 'while' expr block
+while-clause ::= "while" expr block
 
-case-clause ::= 'case' expr <BEGIN>
-        { case-label { ',' case-label } block }
-        [ 'else' block ]
+case-clause ::= "case" expr <BEGIN>
+        { case-label { "," case-label } block }
+        [ "else" block ]
         <END>
 
 case-label ::= const-expr | subrange
