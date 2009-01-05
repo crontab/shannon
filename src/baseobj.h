@@ -66,7 +66,7 @@ class BaseTable: public basetblimpl
     typedef T* Tptr;
 public:
     T* operator[] (int i) const    { return Tptr(basetblimpl::operator[] (i)); }
-    void insert(int i, Base* obj)  { basetblimpl::insert(i, obj); }
+    void insert(int i, T* obj)     { basetblimpl::insert(i, obj); }
     void add(T* obj)               { basetblimpl::add(obj); }
     void addUnique(T* obj) throw(EDuplicate)  { basetblimpl::addUnique(obj); }
     T* find(const string& s) const { return Tptr(basetblimpl::find(s)); }
@@ -131,5 +131,25 @@ public:
     void add(T* obj)               { baselistimpl::add(obj); }
 };
 
+
+//
+// String-to-int map
+//
+
+class StringInfo: public BaseNamed
+{
+public:
+    const int id;
+    StringInfo(const string& str, int id):
+        BaseNamed(str), id(id)  { }
+};
+
+
+class StringTable: public BaseTable<StringInfo>
+{
+public:
+    BaseList<StringInfo> list;
+    string addUnique(const string& str);
+};
 
 #endif
