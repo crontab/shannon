@@ -662,7 +662,10 @@ ShFunction::ShFunction(ShType* iReturnType, ShSymScope* iParent)
     : ShStateBase("", typeFunction, iParent), 
       // why symbol scope for the return var is "this": because we don't want
       // it to be finalized upon function return
-      returnVar(localScope.addVariable("result", iReturnType, this, NULL))  { }
+      returnVar(localScope.addVariable("result", iReturnType, this, NULL))
+{
+    localScope.parent = parent;
+}
 
 ShVariable* ShFunction::addVariable(const string& ident, ShType* type,
         ShSymScope* symScope, VmCodeGen* codegen)

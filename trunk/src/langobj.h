@@ -159,7 +159,7 @@ protected:
             { return "*undefined*"; }
 
 public:
-    ShSymScope* const parent;
+    ShSymScope* parent;
 
     ShSymScope(const string&, ShTypeId, ShSymScope* iParent);
 
