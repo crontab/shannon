@@ -13,6 +13,8 @@
 
 * functions
 
+* the yield operator
+
 * procedures (pipes)
 
 * string table and type table; binary code should contain only indexes

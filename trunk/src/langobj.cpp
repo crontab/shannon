@@ -379,8 +379,8 @@ ShOrdinal* ShChar::cloneWithRange(large min, large max)
 
 // --- ENUM TYPE --- //
 
-ShEnum::ShEnum()
-    : ShOrdinal(typeEnum, 0, 0)  { }
+ShEnum::ShEnum(const string& iName)
+    : ShOrdinal(iName, typeEnum, 0, 0)  { }
 
 ShEnum::ShEnum(const BaseTable<ShConstant>& t, int min, int max)
     : ShOrdinal(typeEnum, min, max), values(t)  { }
@@ -458,7 +458,11 @@ string ShTypeRef::getFullDefinition(const string& objName) const
     { return "typeref"; }
 
 string ShTypeRef::displayValue(const ShValue& v) const
-    { return "typeof(" + ((ShType*)(v.value.ptr_))->getDefinition() + ")"; }
+{
+    ShType* type = PType(v.value.ptr_);
+    // TODO: display subranges with typeof(...)
+    return type->getDefinition();
+}
 
 
 // --- RANGE TYPE --- //
@@ -636,7 +640,10 @@ string ShLocalScope::getFullDefinition(const string& objName) const
 ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
     ShSymScope* symScope, VmCodeGen* codegen)
 {
-    ShVariable* var = new ShVariable(ident, type, this, codegen->genReserveLocalVar(type));
+    offs offset = 0;
+    if (codegen != NULL)
+        offset = codegen->genReserveLocalVar(type);
+    ShVariable* var = new ShVariable(ident, type, this, offset);
     vars.add(var);
     symScope->addSymbol(var);
     return var;
@@ -648,6 +655,60 @@ ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
 ShStateBase::ShStateBase(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
     : ShScope(iName, iTypeId, iParent), localScope("", this)  { }
 
+
+// --- FUNCTION --- //
+
+ShFunction::ShFunction(ShType* iReturnType, ShSymScope* iParent)
+    : ShStateBase("", typeFunction, iParent), 
+      // why symbol scope for the return var is "this": because we don't want
+      // it to be finalized upon function return
+      returnVar(localScope.addVariable("result", iReturnType, this, NULL))  { }
+
+ShVariable* ShFunction::addVariable(const string& ident, ShType* type,
+        ShSymScope* symScope, VmCodeGen* codegen)
+{
+    return localScope.addVariable(ident, type, symScope, codegen);
+}
+
+void ShFunction::addArgument(const string& ident, ShType* type)
+{
+    ShVariable* arg = new ShVariable(ident, type, this, 0);
+    args.add(arg);
+    localScope.addSymbol(arg);
+}
+
+void ShFunction::finishArguments()
+{
+    offs offset = 0;
+    for (int i = args.size() - 1; i >= 0; i--)
+    {
+        ShVariable* arg = args[i];
+        offset -= arg->type->staticSizeAligned;
+        arg->dataOffset = offset;
+    }
+    offset -= returnVar->type->staticSizeAligned;
+    returnVar->dataOffset = offset;
+}
+
+string ShFunction::getArgDefs() const
+{
+    string result = '(';
+    if (!args.empty())
+    {
+        result += args[0]->type->getDefinition();
+        for (int i = 1; i < args.size(); i++)
+            result += ", " + args[i]->type->getDefinition();
+    }
+    result += ')';
+    return result;
+}
+
+string ShFunction::getFullDefinition(const string& objName) const
+{
+    string o = objName.empty() ? "*" : objName;
+    return returnVar->type->getDefinition() + ' ' + o
+        + getArgDefs();
+}
 
 
 // --- MODULE --- //

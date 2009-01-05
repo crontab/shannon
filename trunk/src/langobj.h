@@ -21,6 +21,7 @@ class ShArray;
 class ShReference;
 class ShSymScope;
 class ShScope;
+class ShFunction;
 class ShModule;
 
 class VmCodeGen;
@@ -65,7 +66,7 @@ enum ShTypeId
     typeInt8, typeInt32, typeInt64, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
     typeReference,
-    typeSymScope, typeLocalScope, typeModule,
+    typeSymScope, typeLocalScope, typeModule, typeFunction,
     typeVoid,
     _typeMax
 };
@@ -116,6 +117,7 @@ public:
     bool isReference() const { return typeId == typeReference; }
     bool isLocalScope() const { return typeId == typeLocalScope; }
     bool isModule() const { return typeId == typeModule; }
+    bool isFunction() const { return typeId == typeFunction; }
 
     bool isPod() const
             { return storageModel != stoVec; }
@@ -200,7 +202,7 @@ class ShVariable: public ShBase
 public:
     ShType* const type;
     ShScope* const ownerScope;
-    offs const dataOffset;
+    offs dataOffset;
 
     ShVariable(const string&, ShType*, ShScope*, offs);
     bool isLocal() const { return ownerScope->isLocalScope(); }
@@ -271,7 +273,7 @@ public:
     virtual bool canCompareWith(ShType* type) const
             { return canAssign(type); }
     virtual bool equals(ShType* type) const
-            { return type->isInt() && rangeEquals(((ShInteger*)type)->range); }
+            { return type->isInt() && rangeEquals(PInteger(type)->range); }
 };
 
 class ShChar: public ShOrdinal
@@ -303,7 +305,7 @@ protected:
     virtual ShOrdinal* cloneWithRange(large min, large max);
 
 public:
-    ShEnum();
+    ShEnum(const string&);
     virtual bool equals(ShType* type) const
             { return type == this; }
     virtual bool canAssign(ShType* type) const
@@ -377,7 +379,7 @@ public:
     virtual bool canCheckEq(ShType* type) const
             { return equals(type); }
     virtual bool equals(ShType* type) const
-            { return type->isRange() && base->equals(((ShRange*)type)->base); }
+            { return type->isRange() && base->equals(PRange(type)->base); }
 };
 
 
@@ -404,7 +406,7 @@ public:
     virtual bool canAssign(ShType* type) const
             { return equals(type) || elementEquals(type) || type->isEmptyVec(); }
     virtual bool equals(ShType* type) const
-            { return type->isVector() && elementEquals(((ShVector*)type)->elementType); }
+            { return type->isVector() && elementEquals(PVector(type)->elementType); }
     virtual bool canStaticCastTo(ShType* type) const
             { return isEmptyVec() || equals(type); }
 
@@ -541,6 +543,30 @@ class ShStateBase: public ShScope
 public:
     ShLocalScope localScope;
     ShStateBase(const string&, ShTypeId, ShSymScope* iParent);
+};
+
+
+// --- FUNCTION --- //
+
+typedef ShFunction* PFunction;
+
+class ShFunction: public ShStateBase
+{
+protected:
+    virtual string getFullDefinition(const string& objName) const;
+    string getArgDefs() const;
+public:
+    ShVariable* const returnVar;
+    BaseList<ShVariable> args;
+    VmCodeSegment code;
+
+    ShFunction(ShType* iReturnType, ShSymScope* iParent);
+    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
+    void addArgument(const string&, ShType*);
+    void finishArguments();
+    // equal() must check also that the parent context is the same, too
+    void execute(pchar thisPtr, ptr retval)
+            { code.execute(thisPtr, retval); }
 };
 
 
