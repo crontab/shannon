@@ -8,7 +8,7 @@
 
 
 class ShType;
-class ShConstant;
+class ShDefinition;
 class ShVariable;
 class ShValue;
 class ShOrdinal;
@@ -32,7 +32,7 @@ class VmCodeGen;
 
 enum ShBaseId
 {
-    baseType, baseVariable, baseConstant
+    baseType, baseVariable, baseDefinition
 };
 
 
@@ -46,7 +46,7 @@ public:
     
     bool isType() const       { return baseId == baseType; }
     bool isVariable() const   { return baseId == baseVariable; }
-    bool isConstant() const   { return baseId == baseConstant; }
+    bool isDefinition() const { return baseId == baseDefinition; }
 };
 
 
@@ -184,14 +184,14 @@ class ShScope: public ShSymScope
 protected:
     BaseList<ShType> types;
     BaseList<ShVariable> vars;
-    BaseList<ShConstant> consts;
+    BaseList<ShDefinition> defs;
     
 public:
     ShScope(const string&, ShTypeId, ShSymScope* iParent);
     ~ShScope();
     void addAnonType(ShType*);
     void addTypeAlias(const string&, ShType*, ShSymScope*);
-    void addConstant(ShConstant*, ShSymScope*);
+    void addDefinition(ShDefinition*, ShSymScope*);
     virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*) = 0;
     void dump(string indent) const;
 };
@@ -298,9 +298,9 @@ public:
 class ShEnum: public ShOrdinal
 {
 protected:
-    BaseTable<ShConstant> values;
+    BaseTable<ShDefinition> values;
 
-    ShEnum(const BaseTable<ShConstant>& t, int min, int max);
+    ShEnum(const BaseTable<ShDefinition>& t, int min, int max);
     virtual string getFullDefinition(const string& objName) const;
     virtual ShOrdinal* cloneWithRange(large min, large max);
 
@@ -313,7 +313,7 @@ public:
     virtual bool canCompareWith(ShType* type) const
             { return canAssign(type); }
     virtual string displayValue(const ShValue& v) const;
-    void registerConst(ShConstant* obj)
+    void registerConst(ShDefinition* obj)
             { values.add(obj); }
     int nextValue()
             { return values.size(); }
@@ -511,13 +511,13 @@ protected:
 };
 
 
-class ShConstant: public ShBase
+class ShDefinition: public ShBase
 {
 public:
     const ShValue value;
-    ShConstant(const string&, const ShValue&);
-    ShConstant(const string&, ShEnum* type, int value);
-    ShConstant(const string&, ShTypeRef*, ShType*);
+    ShDefinition(const string&, const ShValue&);
+    ShDefinition(const string&, ShEnum* type, int value);
+    ShDefinition(const string&, ShTypeRef*, ShType*);
 };
 
 
