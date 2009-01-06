@@ -196,7 +196,7 @@ ShScope::ShScope(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
 ShScope::~ShScope()
 {
     // Order is important
-    consts.clear();
+    defs.clear();
     vars.clear();
     types.clear();
 }
@@ -209,14 +209,14 @@ void ShScope::addAnonType(ShType* obj)
 
 void ShScope::addTypeAlias(const string& ident, ShType* type, ShSymScope* symScope)
 {
-    ShConstant* obj = new ShConstant(ident, queenBee->defaultTypeRef, type);
-    consts.add(obj);
+    ShDefinition* obj = new ShDefinition(ident, queenBee->defaultTypeRef, type);
+    defs.add(obj);
     symScope->addSymbol(obj);
 }
 
-void ShScope::addConstant(ShConstant* obj, ShSymScope* symScope)
+void ShScope::addDefinition(ShDefinition* obj, ShSymScope* symScope)
 {
-    consts.add(obj);
+    defs.add(obj);
     symScope->addSymbol(obj);
 }
 
@@ -225,9 +225,9 @@ void ShScope::dump(string indent) const
 {
     for (int i = 0; i < types.size(); i++)
         printf("%s# def %s\n", indent.c_str(), types[i]->getDefinition("*").c_str());
-    for (int i = 0; i < consts.size(); i++)
+    for (int i = 0; i < defs.size(); i++)
     {
-        ShConstant* c = consts[i];
+        ShDefinition* c = defs[i];
         ShType* t = c->value.type;
         printf("%sconst %s = %s\n", indent.c_str(),
             t->getDefinition(c->name).c_str(),
@@ -382,7 +382,7 @@ ShOrdinal* ShChar::cloneWithRange(large min, large max)
 ShEnum::ShEnum(const string& iName)
     : ShOrdinal(iName, typeEnum, 0, 0)  { }
 
-ShEnum::ShEnum(const BaseTable<ShConstant>& t, int min, int max)
+ShEnum::ShEnum(const BaseTable<ShDefinition>& t, int min, int max)
     : ShOrdinal(typeEnum, min, max), values(t)  { }
 
 void ShEnum::finish()
@@ -622,14 +622,14 @@ void ShValue::assignToBuf(ptr p)
 
 // --- CONSTANT --- //
 
-ShConstant::ShConstant(const string& iName, const ShValue& iValue)
-    : ShBase(iName, baseConstant), value(iValue.type, iValue.value)  { }
+ShDefinition::ShDefinition(const string& iName, const ShValue& iValue)
+    : ShBase(iName, baseDefinition), value(iValue.type, iValue.value)  { }
 
-ShConstant::ShConstant(const string& iName, ShEnum* type, int iValue)
-    : ShBase(iName, baseConstant), value(type, iValue)  { }
+ShDefinition::ShDefinition(const string& iName, ShEnum* type, int iValue)
+    : ShBase(iName, baseDefinition), value(type, iValue)  { }
 
-ShConstant::ShConstant(const string& iName, ShTypeRef* typeref, ShType* iValue)
-    : ShBase(iName, baseConstant), value(typeref, iValue)  { }
+ShDefinition::ShDefinition(const string& iName, ShTypeRef* typeref, ShType* iValue)
+    : ShBase(iName, baseDefinition), value(typeref, iValue)  { }
 
 
 // ------------------------------------------------------------------------ //

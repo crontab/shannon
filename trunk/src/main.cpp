@@ -263,9 +263,9 @@ ShType* ShCompiler::parseAtom(bool isLValue)
     else if (parser.token == tokIdent)
     {
         ShBase* obj = getQualifiedName();
-        if (obj->isConstant())
+        if (obj->isDefinition())
         {
-            ShConstant* c = (ShConstant*)obj;
+            ShDefinition* c = (ShDefinition*)obj;
             if (c->value.type->isTypeRef())
             {
                 ShType* refType = PType(c->value.value.ptr_);
@@ -777,7 +777,7 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
         // better do something rather heuristic here:
-        if (obj == NULL || !obj->isConstant())
+        if (obj == NULL || !obj->isDefinition())
         {
             parser.next();
             return NULL;
@@ -812,8 +812,8 @@ ShEnum* ShCompiler::parseEnumType(const string& enumName)
         int nextVal = type->nextValue();
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
-        ShConstant* value = new ShConstant(ident, type, nextVal);
-        codegen->hostScope->addConstant(value, currentSymbolScope);
+        ShDefinition* value = new ShDefinition(ident, type, nextVal);
+        codegen->hostScope->addDefinition(value, currentSymbolScope);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -888,7 +888,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         parser.skipSep();
         if (type == NULL) // auto
             type = value.type;
-        codegen->hostScope->addConstant(new ShConstant(ident, value),
+        codegen->hostScope->addDefinition(new ShDefinition(ident, value),
             currentSymbolScope);
     }
 }
