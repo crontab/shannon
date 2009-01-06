@@ -19,3 +19,5 @@
 
 * string table and type table; binary code should contain only indexes
 
+* decide what to do with function call vs. typecast (funcs are types!)
+

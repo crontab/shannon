@@ -15,6 +15,10 @@ static void notImpl()
 // --- BASIC LANGUAGE OBJECTS ---------------------------------------------- //
 
 
+
+
+
+
 ShBase::ShBase(ShBaseId iBaseId)
     : BaseNamed(), baseId(iBaseId)  { }
 
@@ -26,15 +30,23 @@ ShBase::ShBase(const string& iName, ShBaseId iBaseId)
 
 
 static offs stoToSize[_stoMax] = 
+//  stoByte, stoInt, stoLarge, stoPtr, stoVec, stoVoid
     { 1, 4, 8, sizeof(ptr), sizeof(ptr), 0 };
+
 static StorageModel typeToSto[_typeMax] =
 {
+//  typeInt8, typeInt32, typeInt64, typeChar, typeEnum, typeBool,
     stoByte, stoInt, stoLarge, stoByte, stoByte, stoByte,
+//  typeVector, typeArray, typeTypeRef, typeRange,
     stoVec, stoVec, stoPtr, stoLarge,
+//  typeReference,
     stoPtr,
+//  typeSymScope, typeLocalScope, typeModule, typeFunction,
     stoVoid, stoVoid, stoVoid,
+//  typeVoid,
     stoVoid
 };
+
 
 offs memAlign(offs size)
 {
