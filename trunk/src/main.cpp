@@ -842,7 +842,8 @@ void ShCompiler::parseTypeDef()
         type = getDerivators(type);
     }
     codegen->hostScope->addTypeAlias(ident, type, currentSymbolScope);
-    parser.skipSep();
+    if (!type->isFunction())
+        parser.skipSep();
 }
 
 

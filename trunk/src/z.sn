@@ -313,6 +313,7 @@ assert ct2 == 'def'
 
 # -------------------------------------------------------------------------
 
-def int avg(int a, int b):
+def void testf():
     ct2 = 'a'
 
+const ff = testf(0)
