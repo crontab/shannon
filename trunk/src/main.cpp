@@ -36,6 +36,14 @@ class ShCompiler: public Base
         // nested symbol scopes to be finalized in case of 'break' or 'continue'
         PodStack<ShSymScope*> symScopes;
     };
+    
+    struct FunctionInfo
+    {
+        // unresolved forward jumps produced by 'return'
+        PodStack<offs> returnJumps;
+        // nested symbol scopes to be finalized in case of 'return'
+        PodStack<ShSymScope*> symScopes;
+    };
 
     Parser& parser;
     ShModule& module;
@@ -47,12 +55,16 @@ class ShCompiler: public Base
     ShSymScope* currentSymbolScope; // for symbols only; replaced for every nested block
     ShStateBase* currentStateScope; // module or state
     LoopInfo* topLoop;
+    FunctionInfo* topFunction;
     VmCodeGen* codegen;
 
     VmCodeGen* replaceCodeGen(VmCodeGen* c)
             { VmCodeGen* t = codegen; codegen = c; return t; }
     LoopInfo* replaceTopLoop(LoopInfo* l)
             { LoopInfo* t = topLoop; topLoop = l; return t; }
+    FunctionInfo* replaceTopFunction(FunctionInfo* f)
+            { FunctionInfo* t = topFunction; topFunction = f; return t; }
+
     void error(const string& msg)           { parser.error(msg); }
     void error(EDuplicate& e);
     void error(const char* msg)             { parser.error(msg); }
@@ -109,7 +121,8 @@ public:
 ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
     : parser(iParser), module(iModule), mainCodeGen(&module),
       nullCode(&module), currentSymbolScope(NULL), 
-      currentStateScope(NULL), topLoop(NULL), codegen(&mainCodeGen)  { }
+      currentStateScope(NULL), topLoop(NULL), topFunction(NULL),
+      codegen(&mainCodeGen)  { }
 
 
 string typeVsType(ShType* a, ShType* b)
@@ -273,7 +286,6 @@ ShType* ShCompiler::parseAtom(bool isLValue)
                 codegen->genLoadVar((ShVariable*)obj);
         }
         
-        // TODO: funcs
         else
             notImpl();
     }
@@ -1115,8 +1127,6 @@ void ShCompiler::enterBlock()
         // functions.
         if (currentStateScope->localScope.parent != codegen->hostScope)
             internal(151);
-        if (!currentStateScope->localScope.isLocalScope())
-            internal(152);
         codegen->hostScope = &currentStateScope->localScope;
         enterBlock();
         codegen->hostScope = (ShScope*)codegen->hostScope->parent;
@@ -1130,6 +1140,8 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
         internal(153);
     if (topLoop != NULL)
         internal(154);
+    if (topFunction != NULL)
+        internal(155);
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     enterBlock();
