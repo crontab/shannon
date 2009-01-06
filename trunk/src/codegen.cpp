@@ -27,7 +27,7 @@ void VmCodeGen::verifyClean()
 {
     if (!genStack.empty() || genStackSize != 0)
         fatal(CRIT_FIRST + 52, "[VM] Emulation stack in undefined state");
-    if (stk.bytesize() != 0)
+    if (!stk.empty())
         fatal(CRIT_FIRST + 53, "[VM] Stack in undefined state");
 }
 
@@ -564,6 +564,19 @@ void VmCodeGen::genReturn()
         internal(62);
 #endif
     codeseg.addOp(op);
+}
+
+void VmCodeGen::genCall(ShFunction* funcType)
+{
+    if (hostScope == NULL)
+        noRuntimeContext();
+    if (funcType->parent->isModule())
+    {
+        codeseg.addOp(opCallThis);
+        codeseg.addPtr(funcType);
+    }
+    else
+        internal(73);
 }
 
 void VmCodeGen::genEnd()

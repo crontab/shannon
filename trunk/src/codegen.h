@@ -88,6 +88,7 @@ public:
     void genOther(OpCode op)
             { codeseg.addOp(op); }
     void genReturn();
+    void genCall(ShFunction*);
 
     offs genOffset() const
             { return codeseg.size(); }

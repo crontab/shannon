@@ -453,22 +453,13 @@ public:
     ~stackimpl()  { clear(); }
 
     void clear();
-
+    void* advance(int len);
+    void reserve(int len);
+    
     bool empty() const  { return end == begin; }
     int size() const    { return end - begin; }
 
-#ifdef SMALLER_SLOWER
-    void* advance(int len);
-#else
-    void* advance(int len)
-    {
-        end += len;
-        if (end > capend)
-            grow();
-        return end - len;
-    }
-#endif    
-    void* withdraw(int len)
+    char* poprbytes(int len)
     {
         end -= len;
 #ifdef DEBUG
@@ -477,50 +468,6 @@ public:
         return end;
     }
     
-    void reserve(int len);
-    
-    void* _at(int i)        { return end + i; }
-    void* _at(int i) const  { return end + i; }
-    void* at(int i)         { idx(i); return _at(i); }
-    void* at(int i) const   { idx(i); return _at(i); }
-
-    static int stackAlloc;
-};
-
-
-template <class T>
-class PodStack: protected stackimpl
-{
-protected:
-    typedef T* Tptr;
-    enum { Tsize = int(sizeof(T)) };
-public:
-    PodStack(): stackimpl()   { }
-    ~PodStack()               { }
-    bool empty() const        { return stackimpl::empty(); }
-    int size() const          { return stackimpl::size() / Tsize; }
-    int bytesize() const      { return stackimpl::size(); }
-    void clear()              { stackimpl::clear(); }
-    void reservebytes(int size)  { stackimpl::reserve(size); }
-    T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
-    void push(const T& t)     { ::new(&push()) T(t); }
-    T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }
-    T& at(int i)              { return *Tptr(stackimpl::at(i * Tsize)); }
-    T& top()                  { return *Tptr(stackimpl::at(-Tsize)); }
-    const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
-    const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
-    const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
-    const T& pop()            { return *Tptr(stackimpl::withdraw(Tsize)); }
-    T& pushr()
-    {
-        void* saveend = end;
-        end += Tsize;
-#ifdef DEBUG
-        if (end > capend)
-            invstackop();
-#endif
-        return *Tptr(saveend);
-    }
     char* pushrbytes(int len)
     {
         char* saveend = end;
@@ -531,6 +478,7 @@ public:
 #endif
         return saveend;
     }
+    
     void restoreendr(char* e)
     {
         end = e;
@@ -539,10 +487,48 @@ public:
             invstackop();
 #endif
     }
-    void pushbytes(int len)
-            { advance(len);  }
-    bool endis(char* e)
-            { return end == e; }
+
+    void pushbytes(int len) { advance(len);  }
+    void verifyend(char* e) { if (end != e) invstackop(); }
+    void* _at(int i)        { return end + i; }
+    void* _at(int i) const  { return end + i; }
+    void* at(int i)         { idx(i); return _at(i); }
+    void* at(int i) const   { idx(i); return _at(i); }
+
+    static int stackAlloc;
+};
+
+
+template <class T>
+class PodStack: public stackimpl
+{
+protected:
+    typedef T* Tptr;
+    enum { Tsize = int(sizeof(T)) };
+public:
+    PodStack(): stackimpl()   { }
+    ~PodStack()               { }
+    int size() const          { return stackimpl::size() / Tsize; }
+    T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
+    void push(const T& t)     { ::new(&push()) T(t); }
+    T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }
+    T& at(int i)              { return *Tptr(stackimpl::at(i * Tsize)); }
+    T& top()                  { return *Tptr(stackimpl::at(-Tsize)); }
+    const T& _at(int i) const { return *Tptr(stackimpl::_at(i * Tsize)); }
+    const T& at(int i) const  { return *Tptr(stackimpl::at(i * Tsize)); }
+    const T& top() const      { return *Tptr(stackimpl::at(-Tsize)); }
+    const T& pop()            { return *Tptr(stackimpl::poprbytes(Tsize)); }
+
+    T& pushr()
+    {
+        void* saveend = end;
+        end += Tsize;
+#ifdef DEBUG
+        if (end > capend)
+            invstackop();
+#endif
+        return *Tptr(saveend);
+    }
 };
 
 

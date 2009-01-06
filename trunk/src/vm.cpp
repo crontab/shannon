@@ -95,21 +95,21 @@ static void popByType(ShType* type, ShValue& result)
     }
 }
 
-/*
-static void popByType(ShType* type, podvalue& result)
+
+static void pushByType(ShType* type, podvalue& result)
 {
-    switch (type->storageModel())
+    switch (type->storageModel)
     {
         case stoByte:
-        case stoInt: result.int_ = stk.popInt(); break;
-        case stoLarge: result.large_ = stk.popLarge(); break;
+        case stoInt: stk.pushInt(result.int_); break;
+        case stoLarge: stk.pushLarge(result.large_); break;
         case stoPtr: 
-        case stoVec: result.ptr_ = stk.popPtr(); break;
+        case stoVec: stk.pushPtr(result.ptr_); break;
         case stoVoid: break;
         default: internal(104);
     }
 }
-*/
+
 
 static void copyElems(ShType* elemType, ptr src_, ptr dst_, int count)
 {
@@ -296,7 +296,7 @@ static ptr itostr10(large v)
 
 // TODO: indirect goto instead of switch?
 
-void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
+void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
 {
     while (1)
     {
@@ -335,8 +335,8 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
 
         // --- VAR LOAD/STORE ---------------------------------------------- //
 
-        GEN_LOADERS(This, dataseg + (p++)->offs_)
-        GEN_STORERS(This, dataseg + (p++)->offs_)
+        GEN_LOADERS(This, thisseg + (p++)->offs_)
+        GEN_STORERS(This, thisseg + (p++)->offs_)
 
         GEN_LOADERS(Loc, stkbase + (p++)->offs_)
         GEN_STORERS(Loc, stkbase + (p++)->offs_)
@@ -497,6 +497,20 @@ void VmCodeSegment::run(VmQuant* p, pchar dataseg, pchar stkbase, ptr retval)
         case opJumpFalse: if (!stk.popInt()) p += p->offs_; p++; break;
         case opJump: p += p->offs_; p++; break;
 
+        // --- CALLS ------------------------------------------------------- //
+        
+        case opCallThis:
+            {
+                ShFunction* func = PFunction((p++)->ptr_);
+                // the reason we keep the return value here and not on our stack
+                // is because the VM stack may occasionally reallocate and thus
+                // invalidate any pointers
+                podvalue val;
+                stkbase = func->execute(thisseg, &val);
+                pushByType(func->returnVar->type, val);
+            }
+            break;
+
         // --- MISC. ------------------------------------------------------- //
 
         case opEcho: doEcho((ShType*)(p++)->ptr_); break;
@@ -523,32 +537,32 @@ void VmCodeSegment::append(const VmCodeSegment& seg)
 }
 
 
-void VmCodeSegment::execute(pchar dataseg, ptr retval)
+pchar VmCodeSegment::execute(pchar thisseg, ptr retval)
 {
+#ifdef DEBUG
     if (code.empty())
-        return;
+        internal(107);
+#endif
 
-    // TODO: function arguments (no need for finalization)
-
-    // make room on the stack for this function so that no reallocations are needed
-    stk.reservebytes(reserveStack + reserveLocals);
+    // make room on the stack for this function so that no reallocations happen
+    // at least during its execution
+    stk.reserve(reserveLocals + reserveStack);
 
     // reserve space for locals and temps; to be restored to this point later.
     // we also reset the local storage to zero so that any unused tempvars can 
     // be finalized properly, and in the future this will help to unwind the 
-    // stack after an exception.
+    // stack after an exception
     char* savebase = stk.pushrbytes(reserveLocals);
     memset(savebase, 0, reserveLocals);
 
     // run, rabbit, run!
-    run(getCode(), dataseg, savebase, retval);
+    run(getCode(), thisseg, savebase, retval);
 
 #ifdef DEBUG
-    if (!stk.endis(savebase + reserveLocals))
-        internal(105);
+    stk.verifyend(savebase + reserveLocals);
 #endif
-    // restore stack base
-    stk.restoreendr(savebase);
+    // restore stack base and return the base pointer to the caller
+    return stk.poprbytes(reserveLocals);
 }
 
 
