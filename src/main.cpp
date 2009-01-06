@@ -80,7 +80,7 @@ class ShCompiler: public Base
     ShType* parseCompoundCtor();
     ShType* parseIfFunc();
     ShType* parseStaticCast(ShType* toType);
-    ShType* parseAtom(bool isLValue);
+    ShType* parseAtom();
     ShType* parseDesignator(bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
     ShType* parseFactor();
@@ -217,7 +217,7 @@ ShType* ShCompiler::parseIfFunc()
 }
 
 
-ShType* ShCompiler::parseAtom(bool isLValue)
+ShType* ShCompiler::parseAtom()
 {
     if (parser.skipIf(tokLParen))
     {
@@ -264,30 +264,16 @@ ShType* ShCompiler::parseAtom(bool isLValue)
     {
         ShBase* obj = getQualifiedName();
         if (obj->isDefinition())
-        {
-            ShDefinition* c = (ShDefinition*)obj;
-            if (c->value.type->isTypeRef())
-            {
-                ShType* refType = PType(c->value.value.ptr_);
-                if (parser.skipIf(tokLParen))
-                    parseStaticCast(refType);
-                else
-                    codegen->genLoadTypeRef(getDerivators(refType));
-            }
-            else
-                codegen->genLoadConst(c->value.type, c->value.value);
-        }
+            codegen->genLoadConst(PDefinition(obj)->value.type,
+                PDefinition(obj)->value.value);
 
         else if (obj->isVariable())
-        {
-            if (isLValue)
-                codegen->genLoadVarRef((ShVariable*)obj);
-            else
-                codegen->genLoadVar((ShVariable*)obj);
-        }
+            // this opcode can be undone or modified later depending on 
+            // whether this is an assignment or just R-value
+            codegen->genLoadVarRef(PVariable(obj));
         
         else
-            notImpl();
+            errorWithLoc("Error in expression");
     }
 
     // typeof(...)
@@ -296,7 +282,7 @@ ShType* ShCompiler::parseAtom(bool isLValue)
         // TODO: currently only works with const expressions, however,
         // it should be possible to get a type of a variable or an array item,
         // and finally a dynamic type of a state. The question is how. The 
-        // problem of 'is' and 'as' is related.
+        // problem of 'is' and 'as' is probably related.
         parser.skip(tokLParen, "(");
         codegen->genLoadTypeRef(getTypeExpr(true));
         parser.skip(tokRParen, ")");
@@ -324,7 +310,7 @@ ShType* ShCompiler::parseAtom(bool isLValue)
     else if (parser.skipIf(tokLSquare))
         parseCompoundCtor();
     
-    else if (!isLValue && parser.skipIf(tokIf))
+    else if (parser.skipIf(tokIf))
         parseIfFunc();
 
     else
@@ -353,7 +339,31 @@ ShType* ShCompiler::parseStaticCast(ShType* toType)
 
 ShType* ShCompiler::parseDesignator(bool isLValue)
 {
-    return parseAtom(isLValue);
+    ShType* type = parseAtom();
+    if (type->isReference())
+    {
+        if (parser.isAssignment())
+        {
+            if (!isLValue)
+                error("Misplaced assignment in expression");
+            return type;
+        }
+        else
+            type = codegen->genDerefVar();
+    }
+
+/*
+            if (c->value.type->isTypeRef())
+            {
+                ShType* refType = PType(c->value.value.ptr_);
+                if (parser.skipIf(tokLParen))
+                    parseStaticCast(refType);
+                else
+                    codegen->genLoadTypeRef(getDerivators(refType));
+            }
+            else
+*/
+    return type;
 }
 
 
@@ -935,10 +945,11 @@ void ShCompiler::parseOtherStatement()
     {
         if (!type->isReference())
             error("L-value expected in assignment");
+        ShVariable* var = codegen->genUndoVar();
         ShType* exprType = parseExpr(PReference(type)->base);
         if (!PReference(type)->base->canAssign(exprType))
             error("Type mismatch in assignment: " + typeVsType(PReference(type)->base, exprType));
-        codegen->genStore();
+        codegen->genStoreVar(var);
     }
     else
         error("Definition or statement expected");

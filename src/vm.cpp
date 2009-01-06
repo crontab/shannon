@@ -527,13 +527,21 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
 
 
 VmCodeSegment::VmCodeSegment()
-        : code(), reserveStack(0), reserveLocals(0)  { }
+        : code(), reserveStack(0), reserveLocals(0), lastOpOffset(0)  { }
+
 
 void VmCodeSegment::append(const VmCodeSegment& seg)
 {
     reserveStack = imax(reserveStack, seg.reserveStack);
     reserveLocals = imax(reserveLocals, seg.reserveLocals);
     code.append(seg.code);
+}
+
+
+void VmCodeSegment::addOp(OpCode op)
+{
+    lastOpOffset = size();
+    code.add().op_ = op;
 }
 
 

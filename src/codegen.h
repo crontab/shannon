@@ -16,6 +16,7 @@ protected:
     {
         ShType* type;
         podvalue value;
+        offs opOffset;
         bool isValue;
     };
 
@@ -23,18 +24,16 @@ protected:
     VmCodeSegment finseg;
     PodStack<GenStackInfo> genStack;
     int genStackSize;
-    ShVariable* deferredVar;
     
     GenStackInfo& genPush(ShType* v);
     void genPushIntValue(ShType*, int);
     void genPushLargeValue(ShType*, large);
     void genPushPtrValue(ShType*, ptr);
     void genPushVecValue(ShType* type, ptr v)  { genPushPtrValue(type, v); }
-    const GenStackInfo& genTop()               { return genStack.top(); }
-    ShVariable* genPopDeferred();
+    void genPushVarRef(ShVariable*);
+    const GenStackInfo& genTop() const         { return genStack.top(); }
 
     void genCmpOp(OpCode op, OpCode cmp);
-    void genStoreVar(ShVariable* var);
     void genEnd();
     void verifyContext(ShVariable*);
     void runFinCode();
@@ -70,9 +69,10 @@ public:
     offs genForwardJump(OpCode op = opJump);
     void genResolveJump(offs jumpOffset);
     void genJump(offs target);
-    void genLoadVar(ShVariable*);
     void genLoadVarRef(ShVariable*);
-    void genStore();
+    ShType* genDerefVar();
+    ShVariable* genUndoVar();
+    void genStoreVar(ShVariable*);
     offs genCase(const ShValue&, OpCode jumpOp);
     void genPopValue(ShType*);
     void genInitVar(ShVariable*);
@@ -92,6 +92,8 @@ public:
 
     offs genOffset() const
             { return codeseg.size(); }
+    bool genTopIsValue() const
+            { return genTop().isValue; }
     const GenStackInfo& genPop();
     ShType* genTopType()
             { return genTop().type; }

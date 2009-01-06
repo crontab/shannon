@@ -13,14 +13,13 @@ void noRuntimeContext()
 
 VmCodeGen::VmCodeGen(ShScope* iHostScope)
     : codeseg(), finseg(), genStack(), genStackSize(0),
-      deferredVar(NULL), hostScope(iHostScope), resultTypeHint(NULL)  { }
+      hostScope(iHostScope), resultTypeHint(NULL)  { }
 
 void VmCodeGen::clear()
 {
     codeseg.clear();
     finseg.clear();
     genStack.clear();
-    deferredVar = NULL;
 }
 
 void VmCodeGen::verifyClean()
@@ -92,6 +91,7 @@ VmCodeGen::GenStackInfo& VmCodeGen::genPush(ShType* t)
 {
     GenStackInfo& i = genStack.push();
     i.type = t;
+    i.opOffset = codeseg.size();
     i.isValue = false;
     genStackSize += t->staticSizeAligned;
     codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
@@ -106,14 +106,12 @@ void VmCodeGen::genPushIntValue(ShType* type, int v)
     i.value.int_ = v;
 }
 
-
 void VmCodeGen::genPushLargeValue(ShType* type, large v)
 {
     GenStackInfo& i = genPush(type);
     i.isValue = true;
     i.value.large_ = v;
 }
-
 
 void VmCodeGen::genPushPtrValue(ShType* type, ptr v)
 {
@@ -122,6 +120,12 @@ void VmCodeGen::genPushPtrValue(ShType* type, ptr v)
     i.value.ptr_ = v;
 }
 
+void VmCodeGen::genPushVarRef(ShVariable* var)
+{
+    GenStackInfo& i = genPush(var->type->deriveRefType());
+    i.isValue = true;
+    i.value.ptr_ = var;
+}
 
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
@@ -138,16 +142,6 @@ ptr VmCodeGen::genTopPtrValue()
         return i.value.ptr_;
     else
         return NULL;
-}
-
-ShVariable* VmCodeGen::genPopDeferred()
-{
-    ShVariable* var = deferredVar;
-    if (var == NULL)
-        internal(67);
-    deferredVar = NULL;
-    genPop();
-    return var;
 }
 
 void VmCodeGen::genLoadIntConst(ShType* type, int value)
@@ -358,8 +352,21 @@ void VmCodeGen::genJump(offs target)
     codeseg.addOffs(o);
 }
 
-void VmCodeGen::genLoadVar(ShVariable* var)
+void VmCodeGen::genLoadVarRef(ShVariable* var)
 {
+    genPushVarRef(var);
+    codeseg.addOp(opLoadRef);
+    codeseg.addOffs(var->dataOffset);
+}
+
+ShType* VmCodeGen::genDerefVar()
+{
+    const GenStackInfo& i = genPop();
+    if (!i.type->isReference() || !i.isValue || i.opOffset != codeseg.lastOpOffset)
+        internal(74);
+    ShVariable* var = PVariable(i.value.ptr_);
+    // now replace the LoadRef opcode with an opcode that actually loads the
+    // value from that var
     verifyContext(var);
     genPush(var->type);
     OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel));
@@ -369,34 +376,23 @@ void VmCodeGen::genLoadVar(ShVariable* var)
 #endif
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    codeseg.addOp(op);
-    codeseg.addOffs(var->dataOffset);
+    codeseg.at(codeseg.lastOpOffset)->op_ = op;
+    return var->type;
 }
 
-void VmCodeGen::genLoadVarRef(ShVariable* var)
+ShVariable* VmCodeGen::genUndoVar()
 {
-    verifyContext(var);
-    if (deferredVar != NULL)
-        internal(66);
-    deferredVar = var;
-    genPush(var->type->deriveRefType());
+    const GenStackInfo& i = genPop();
+    if (!i.type->isReference() || !i.isValue || i.opOffset != codeseg.lastOpOffset)
+        internal(75);
+    codeseg.removeLast();
+    return PVariable(i.value.ptr_);
 }
 
 void VmCodeGen::genStoreVar(ShVariable* var)
 {
-    verifyContext(var);
-    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel));
-    if (var->isLocal())
-        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
-    codeseg.addOp(op);
-    codeseg.addOffs(var->dataOffset);
-}
-
-void VmCodeGen::genStore()
-{
-    ShVariable* var = genPopDeferred();
     genFinVar(var);
-    genStoreVar(var);
+    genInitVar(var);
 }
 
 offs VmCodeGen::genCase(const ShValue& value, OpCode jumpOp)
@@ -445,7 +441,11 @@ void VmCodeGen::genPopValue(ShType* type)
 void VmCodeGen::genInitVar(ShVariable* var)
 {
     genPop();
-    genStoreVar(var);
+    OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel));
+    if (var->isLocal())
+        op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
+    codeseg.addOp(op);
+    codeseg.addOffs(var->dataOffset);
 }
 
 static void genFin(VmCodeSegment& codeseg, ShType* type, offs offset, bool isLocal)
