@@ -295,6 +295,7 @@ public:
     void append(const PodArray<T>& a)       { arrayimpl::append(a); }
 
     int size() const                { return arrayimpl::size() / Tsize; }
+    void resize(int newsize)        { arrayimpl::resize(newsize * Tsize); }
     T& add()                        { return *::new(Tptr(arrayimpl::add(Tsize))) T(); }
     void add(const T& t)            { ::new(Tptr(arrayimpl::add(Tsize))) T(t); }
     T& ins(int i)                   { return *::new(Tptr(arrayimpl::ins(idxa(i), Tsize))) T(); }
@@ -509,6 +510,7 @@ public:
     PodStack(): stackimpl()   { }
     ~PodStack()               { }
     int size() const          { return stackimpl::size() / Tsize; }
+    int bytesize() const      { return stackimpl::size(); }
     T& push()                 { return *Tptr(stackimpl::advance(Tsize)); }
     void push(const T& t)     { ::new(&push()) T(t); }
     T& _at(int i)             { return *Tptr(stackimpl::_at(i * Tsize)); }

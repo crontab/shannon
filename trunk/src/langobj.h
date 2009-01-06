@@ -197,6 +197,8 @@ public:
 };
 
 
+typedef ShVariable* PVariable;
+
 class ShVariable: public ShBase
 {
 public:
@@ -510,6 +512,8 @@ protected:
     void _finalize();
 };
 
+
+typedef ShDefinition* PDefinition;
 
 class ShDefinition: public ShBase
 {

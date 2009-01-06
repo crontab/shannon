@@ -71,9 +71,7 @@ enum OpCode
 
     opFinLocPodVec,     // [local-offs]
     opFinLoc,           // [ShType*, local-offs]
-    
-//    opLoadThisRef,      // [offs]               +1
-//    opLoadLocRef,       // [offs]               +1
+    opLoadRef,          // [offs/local-offs]    +1 NOTIMPL
     
     // pop and forget
     opPopInt,           //                  -1
@@ -250,25 +248,29 @@ protected:
 public:
     offs reserveStack;
     offs reserveLocals;
+    
+    offs lastOpOffset; // codegen helper
 
     VmCodeSegment();
 
-    int size() const       { return code.size(); }
-    bool empty() const     { return code.empty(); }
-    void clear()           { code.clear(); }
-    VmQuant* getCode()     { return (VmQuant*)code.c_bytes(); }
-    VmQuant* add()         { return &code.add(); }
-    VmQuant* at(int i)     { return (VmQuant*)&code[i]; }
+    int size() const        { return code.size(); }
+    bool empty() const      { return code.empty(); }
+    void clear()            { code.clear(); }
+    VmQuant* getCode()      { return (VmQuant*)code.c_bytes(); }
+    VmQuant* add()          { return &code.add(); }
+    VmQuant* at(int i)      { return (VmQuant*)&code[i]; }
 
-    void addOp(OpCode op)  { code.add().op_ = op; }
-    void addInt(int v)     { code.add().int_ = v; }
-    void addOffs(offs v)   { code.add().offs_ = v; }
-    void addPtr(ptr v)     { code.add().ptr_ = v; }
+    void addOp(OpCode op);
+    void addInt(int v)      { code.add().int_ = v; }
+    void addOffs(offs v)    { code.add().offs_ = v; }
+    void addPtr(ptr v)      { code.add().ptr_ = v; }
 #ifdef PTR64
     void addLarge(large v)  { code.add().large_ = v; }
 #else
     void addLarge(large v)  { addInt(int(v)); addInt(int(v >> 32)); }
 #endif
+
+    void removeLast()       { code.resize(lastOpOffset); }
 
     offs reserveLocalVar(offs size)
         { offs t = reserveLocals; reserveLocals += size; return t; }

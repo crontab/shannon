@@ -316,4 +316,4 @@ assert ct2 == 'def'
 def void testf():
     ct2 = 'a'
 
-const ff = testf(0)
+# const ff = testf(0)

@@ -142,6 +142,8 @@ public:
     
     Token next();
 
+    bool isAssignment()
+            { return token == tokAssign; }
     void error(const string& msg);
     void errorWithLoc(const string& msg);
     void error(const char*);
