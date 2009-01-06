@@ -1011,9 +1011,9 @@ void ShCompiler::parseCase()
     {
         if (falseJump != -1)
             codegen->genResolveJump(falseJump);
+        PodStack<offs> trueJumps;
         getConstExpr(caseCtlType, value, true);
         value.registerConst(module);
-        PodStack<offs> trueJumps;
         while (parser.skipIf(tokComma))
         {
             trueJumps.push(codegen->genCase(value, opJumpTrue));

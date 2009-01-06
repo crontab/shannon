@@ -159,7 +159,7 @@ protected:
             { return "*undefined*"; }
 
 public:
-    ShSymScope* parent;
+    ShSymScope* const parent;
 
     ShSymScope(const string&, ShTypeId, ShSymScope* iParent);
 
@@ -543,7 +543,8 @@ class ShStateBase: public ShScope
     // basis for modules, functions and states
 public:
     ShLocalScope localScope;
-    ShStateBase(const string&, ShTypeId, ShSymScope* iParent);
+    ShStateBase(const string&, ShTypeId, ShSymScope* iParent,
+        ShSymScope* iLocalParent);
 };
 
 
@@ -559,15 +560,17 @@ protected:
 public:
     ShVariable* const returnVar;
     BaseList<ShVariable> args;
+    offs argsSize;
     VmCodeSegment code;
 
     ShFunction(ShType* iReturnType, ShSymScope* iParent);
+
     virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
     void addArgument(const string&, ShType*);
     void finishArguments();
     // equal() must check also that the parent context is the same, too
-    void execute(pchar thisPtr, ptr retval)
-            { code.execute(thisPtr, retval); }
+    pchar execute(pchar thisPtr, ptr retval)
+            { return code.execute(thisPtr, retval); }
 };
 
 

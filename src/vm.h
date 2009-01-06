@@ -156,6 +156,9 @@ enum OpCode
     opJumpTrue,         // [dst]            -1
     opJumpFalse,        // [dst]            -1
     opJump,             // [dst]
+    
+    // function calls
+    opCallThis,         // [ShFunction*]    -args +1
 
     // helpers
     opEcho,             // [ShType*]        -1
@@ -271,7 +274,7 @@ public:
         { offs t = reserveLocals; reserveLocals += size; return t; }
     void append(const VmCodeSegment& seg);
     
-    void execute(pchar dataseg, ptr retval);
+    pchar execute(pchar thisseg, ptr retval);
 };
 
 
