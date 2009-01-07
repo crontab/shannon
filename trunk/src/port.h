@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+#define SINGLE_THREADED
+
 
 #ifdef DEBUG
 #  define CHECK_BOUNDS 

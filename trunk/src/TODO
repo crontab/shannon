@@ -1,4 +1,6 @@
 
+* functions
+
 * combined assignment operators
 
 * arrays: static and associative (stoDblPtr storage model?)
@@ -11,9 +13,7 @@
 
 * a lot of TODO's in the sources
 
-* functions
-
-* the yield operator
+* the yield operator?
 
 * procedures (pipes)
 
@@ -21,3 +21,10 @@
 
 * decide what to do with function call vs. typecast (funcs are types!)
 
+* make push's and pop's macros that operate through the stkbase received by 
+  the run() function
+
+* how states can access module-static data? possibly through indirection. so
+  module-level functions have thisseg=module, nested functions have 
+  thisseg=outer-frame, etc. states and their member functions have 
+  thisseg=this
