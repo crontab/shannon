@@ -37,8 +37,6 @@ typedef ularge*             pularge;
 #  error Unknown architecure.
 #endif
 
-#define DATA_MEM_ALIGN sizeof(int)
-
 
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
 

@@ -243,11 +243,12 @@ class VmCodeSegment
 protected:
     PodArray<VmQuant> code;
 
-    static void run(VmQuant* codeseg, pchar dataseg, pchar stkbase, ptr retval);
+    static void run(VmQuant* codeseg, pchar thisseg, pchar stkbase, ptr retval);
 
 public:
     offs reserveStack;
     offs reserveLocals;
+    offs popOnReturn;
     
     offs lastOpOffset; // codegen helper
 
@@ -274,6 +275,8 @@ public:
 
     offs reserveLocalVar(offs size)
         { offs t = reserveLocals; reserveLocals += size; return t; }
+    void addPopOnReturn(offs size)
+        { popOnReturn += size; }
     void append(const VmCodeSegment& seg);
     
     pchar execute(pchar thisseg, ptr retval);

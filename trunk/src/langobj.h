@@ -573,6 +573,8 @@ public:
     void addArgument(const string&, ShType*);
     void finishArguments();
     // equal() must check also that the parent context is the same, too
+    void setCodeSeg(const VmCodeSegment& iCode)
+            { code = iCode; code.addPopOnReturn(argsSize); }
     pchar execute(pchar thisPtr, ptr retval)
             { return code.execute(thisPtr, retval); }
 };

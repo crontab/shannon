@@ -559,11 +559,11 @@ void VmCodeGen::genReturn()
 
 void VmCodeGen::genCall(ShFunction* func)
 {
+    if (hostScope == NULL)
+        noRuntimeContext();
     for (int i = func->args.size() - 1; i >= 0; i--)
         genPop();
     genPushFuncCall(func);
-    if (hostScope == NULL)
-        noRuntimeContext();
     if (func->parent->isModule())
     {
         codeseg.addOp(opCallThis);
@@ -575,8 +575,7 @@ void VmCodeGen::genCall(ShFunction* func)
 
 void VmCodeGen::genEnd()
 {
-    if (!codeseg.empty())
-        codeseg.addOp(opEnd);
+    codeseg.addOp(opEnd);
 }
 
 void VmCodeGen::genFinalizeTemps()
