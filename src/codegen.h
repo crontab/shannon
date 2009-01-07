@@ -18,6 +18,7 @@ protected:
         podvalue value;
         offs opOffset;
         bool isValue;
+        bool isFuncCall;
     };
 
     VmCodeSegment codeseg;
@@ -26,11 +27,13 @@ protected:
     int genStackSize;
     
     GenStackInfo& genPush(ShType* v);
+    GenStackInfo& genPushValue(ShType* v);
     void genPushIntValue(ShType*, int);
     void genPushLargeValue(ShType*, large);
     void genPushPtrValue(ShType*, ptr);
     void genPushVecValue(ShType* type, ptr v)  { genPushPtrValue(type, v); }
     void genPushVarRef(ShVariable*);
+    void genPushFuncCall(ShFunction*);
     const GenStackInfo& genTop() const         { return genStack.top(); }
 
     void genCmpOp(OpCode op, OpCode cmp);
@@ -51,7 +54,7 @@ public:
     void genLoadIntConst(ShType*, int);
     void genLoadLargeConst(ShType*, large);
     void genLoadVecConst(ShType*, const char*);
-    void genLoadTypeRef(ShType*);
+    ShTypeRef* genLoadTypeRef(ShType*);
     void genLoadConst(ShType*, podvalue);
     void genMkSubrange();
     void genComparison(OpCode);
@@ -72,9 +75,10 @@ public:
     void genLoadVarRef(ShVariable*);
     ShType* genDerefVar();
     ShVariable* genUndoVar();
+    ShType* genUndoTypeRef();
     void genStoreVar(ShVariable*);
     offs genCase(const ShValue&, OpCode jumpOp);
-    void genPopValue(ShType*);
+    void genPopValue();
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
     offs genCopyToTempVec();
@@ -94,6 +98,8 @@ public:
             { return codeseg.size(); }
     bool genTopIsValue() const
             { return genTop().isValue; }
+    bool genTopIsFuncCall() const
+            { return genTop().isFuncCall; }
     const GenStackInfo& genPop();
     ShType* genTopType()
             { return genTop().type; }
