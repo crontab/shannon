@@ -344,6 +344,7 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
         case opPopInt: stk.popInt(); break;
         case opPopLarge: stk.popLarge(); break;
         case opPopPtr: stk.popPtr(); break;
+        case opPopVec: finalize(PType((p++)->ptr_), stk.popPtr()); break;
 
         // --- SOME VECTOR MAGIC ------------------------------------------- //
 

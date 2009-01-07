@@ -1,6 +1,6 @@
 module Z
 
-#{
+
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -316,12 +316,14 @@ case 'cat' | 'dog':
     'dogcat': assert false
     'catcat': assert false
 
-}#
+
 # -------------------------------------------------------------------------
 
-def void inc(int a):
-    var s = 'Hello!'
-    echo 'Hello, ' | 'function!'
+def int inc(int a):
+    var i = 10
+    # var s = 'Hello' | ', function?'
+    # echo 'Hello, ' | 'function!'
+    ;
 
 inc(0)
 inc(1)

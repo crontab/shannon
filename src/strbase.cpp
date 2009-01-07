@@ -311,6 +311,10 @@ void string::append(char c)
 
 void string::append(const string& s1)
 {
+#ifdef DEBUG
+    if (STR_REFCOUNT(data) <= 0 || STR_REFCOUNT(s1.data) <= 0)
+        stringoverflow();
+#endif
     if (STR_LENGTH(data) == 0)
         assign(s1);
     else if (STR_LENGTH(s1.data) > 0)
@@ -388,6 +392,10 @@ bool string::operator== (const char* s) const
 
 bool string::equal(const string& s) const 
 {
+#ifdef DEBUG
+    if (STR_REFCOUNT(data) <= 0 || STR_REFCOUNT(s.data) <= 0)
+        stringoverflow();
+#endif
     return (STR_LENGTH(data) == STR_LENGTH(s.data))
         && ((STR_LENGTH(data) == 0) || (memcmp(data, s.data, STR_LENGTH(data)) == 0));
 }
@@ -401,6 +409,10 @@ bool string::operator== (char c) const
 
 int string::compare(const string& s) const
 {
+#ifdef DEBUG
+    if (STR_REFCOUNT(data) <= 0 || STR_REFCOUNT(s.data) <= 0)
+        stringoverflow();
+#endif
     int alen = STR_LENGTH(data);
     int blen = STR_LENGTH(s.data);
     int len = imin(alen, blen);

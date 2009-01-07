@@ -21,7 +21,7 @@ struct CompilerOptions
     bool linenumInfo;
 
     CompilerOptions()
-        : enableEcho(true), enableAssert(true), linenumInfo(false)  { }
+        : enableEcho(true), enableAssert(true), linenumInfo(true)  { }
 };
 
 
@@ -933,15 +933,13 @@ void ShCompiler::parseEcho(VmCodeGen* tcode)
     VmCodeGen* saveCodeGen = replaceCodeGen(tcode);
     if (parser.token != tokSep)
     {
-        while (1)
+        do
         {
             parseExpr();
             codegen->genEcho();
-            if (parser.skipIf(tokComma))
-                codegen->genOther(opEchoSp);
-            else
-                break;
+            codegen->genFinalizeTemps();
         }
+        while (parser.skipIf(tokComma));
     }
     codegen->genOther(opEchoLn);
     replaceCodeGen(saveCodeGen);
@@ -956,6 +954,7 @@ void ShCompiler::parseAssert(VmCodeGen* tcode)
     if (!type->isBool())
         error("Boolean expression expected for assertion");
     codegen->genAssert(parser);
+    codegen->genFinalizeTemps();
     replaceCodeGen(saveCodeGen);
     parser.skipSep();
 }
@@ -966,7 +965,7 @@ void ShCompiler::parseOtherStatement()
     ShType* type = parseDesignator(true);
     if (codegen->genTopIsFuncCall())
     {
-        codegen->genPopValue();
+        codegen->genPopValue(true);
     }
     else if (parser.skipIf(tokAssign))
     {
@@ -992,6 +991,7 @@ void ShCompiler::parseIf(Token tok)
         ShType* type = parseExpr(queenBee->defaultBool);
         if (!type->isBool())
             error("Boolean expression expected");
+        codegen->genFinalizeTemps();
         endJump = codegen->genForwardJump(opJumpFalse);
     }
 
@@ -1021,6 +1021,7 @@ void ShCompiler::parseWhile()
     ShType* type = parseExpr(queenBee->defaultBool);
     if (!type->isBool())
         error("Boolean expression expected");
+    codegen->genFinalizeTemps();
     offs endJump = codegen->genForwardJump(opJumpFalse);
 
     enterBlock();
@@ -1053,6 +1054,7 @@ void ShCompiler::parseCase()
         error("Case control expression must be ordinal, string or typeref");
     if (caseCtlType->isLargeInt())
         error("Large ints are not supported with the 'case' operator");
+    codegen->genFinalizeTemps();
     parser.skipBlockBegin();
 
     PodStack<offs> endJumps;
@@ -1091,7 +1093,7 @@ void ShCompiler::parseCase()
 
     while (!endJumps.empty())
         codegen->genResolveJump(endJumps.pop());
-    codegen->genPopValue();
+    codegen->genPopValue(false);
 }
 
 
@@ -1190,10 +1192,14 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     parser.skipBlockBegin();
     parseBlock();
 
-    // funcType->localScope.finalizeVars(&tcode);
+    funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
     currentSymbolScope = saveSymScope;
     replaceCodeGen(saveCodeGen);
+
+#ifdef DEBUG
+    funcType->code.print();
+#endif
 }
 
 
@@ -1231,12 +1237,12 @@ bool ShCompiler::compile()
         error(e.what());
     }
 
-#ifdef DEBUG
-    queenBee->dump("");
-    module.dump("");
-#endif
-
     module.codeseg = mainCodeGen.getCodeSeg();
+#ifdef DEBUG
+//    queenBee->dump("");
+//    module.dump("");
+    module.codeseg.print();
+#endif
 
     return true;
 }
