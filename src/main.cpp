@@ -1190,7 +1190,7 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     parser.skipBlockBegin();
     parseBlock();
 
-    funcType->localScope.finalizeVars(&tcode);
+    // funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
     currentSymbolScope = saveSymScope;
     replaceCodeGen(saveCodeGen);

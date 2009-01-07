@@ -563,11 +563,12 @@ protected:
     string getArgDefs() const;
 public:
     ShVariable* const returnVar;
-    BaseList<ShVariable> args;
+    BaseTable<ShVariable> args;
     offs argsSize;
     VmCodeSegment code;
 
     ShFunction(ShType* iReturnType, ShSymScope* iParent);
+    ~ShFunction();
 
     virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
     void addArgument(const string&, ShType*);

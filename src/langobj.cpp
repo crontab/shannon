@@ -633,7 +633,7 @@ void ShValue::assignToBuf(ptr p)
 }
 
 
-// --- CONSTANT --- //
+// --- CONSTANT/TYPEDEF --- //
 
 ShDefinition::ShDefinition(const string& iName, const ShValue& iValue)
     : ShBase(iName, baseDefinition), value(iValue.type, iValue.value)  { }
@@ -680,10 +680,11 @@ ShStateBase::ShStateBase(const string& iName, ShTypeId iTypeId,
 
 ShFunction::ShFunction(ShType* iReturnType, ShSymScope* iParent)
     : ShStateBase("", typeFunction, iParent, iParent),
-      // why symbol scope for the return var is "this": because we don't want
-      // it to be finalized upon function return
-      returnVar(localScope.addVariable("result", iReturnType, this, NULL)),
+      returnVar(new ShVariable("@result", iReturnType, &localScope, 0)),
       argsSize(0)  { }
+
+ShFunction::~ShFunction()
+    { delete returnVar; }
 
 ShVariable* ShFunction::addVariable(const string& ident, ShType* type,
         ShSymScope* symScope, VmCodeGen* codegen)
@@ -693,9 +694,7 @@ ShVariable* ShFunction::addVariable(const string& ident, ShType* type,
 
 void ShFunction::addArgument(const string& ident, ShType* type)
 {
-    ShVariable* arg = new ShVariable(ident, type, this, 0);
-    args.add(arg);
-    localScope.addSymbol(arg);
+    args.add(localScope.addVariable(ident, type, &localScope, NULL));
 }
 
 void ShFunction::finishArguments()

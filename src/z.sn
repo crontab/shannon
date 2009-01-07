@@ -320,7 +320,8 @@ case 'cat' | 'dog':
 # -------------------------------------------------------------------------
 
 def void inc(int a):
-    echo 'Hello, function!'
+    var s = 'Hello!'
+    echo 'Hello, ' | 'function!'
 
 inc(0)
 inc(1)
