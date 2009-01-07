@@ -9,28 +9,28 @@
 
 enum OpCode
 {
-    opEnd,              //   
-    opNop,              //   
+    opEnd,              // []
+    opNop,              // []
     
     // copy the function return value
-    opRetByte,          //                  -1
-    opRetInt,           //                  -1
-    opRetLarge,         //                  -1
-    opRetPtr,           //                  -1
-    opRetVec,           //                  -1
-    opRetVoid,          //                  -1
+    opRetByte,          // []               -1
+    opRetInt,           // []               -1
+    opRetLarge,         // []               -1
+    opRetPtr,           // []               -1
+    opRetVec,           // []               -1
+    opRetVoid,          // []               -1
 
     // const loaders
-    opLoadZero,         //                      +1
-    opLoadLargeZero,    //                      +1
-    opLoadOne,          //                      +1
-    opLoadLargeOne,     //                      +1
+    opLoadZero,         // []                   +1
+    opLoadLargeZero,    // []                   +1
+    opLoadOne,          // []                   +1
+    opLoadLargeOne,     // []                   +1
     opLoadIntConst,     // [int]                +1
     opLoadLargeConst,   // [large]              +2 (+1 for 64-bit env.)
-    opLoadFalse,        //                      +1
-    opLoadTrue,         //                      +1
-    opLoadNullVec,      //                      +1
-    opLoadVecConst,     // [str-data-ptr]       +1
+    opLoadFalse,        // []                   +1
+    opLoadTrue,         // []                   +1
+    opLoadNullVec,      // []                   +1
+    opLoadVecConst,     // [ptr]                +1
     opLoadTypeRef,      // [ShType*]            +1
 
     // --- VAR LOAD/STORE -------------------------------------------------- //
@@ -55,115 +55,116 @@ enum OpCode
     opFinThis,          // [ShType*, offs]
 
     // --- through stkbase
-    opLoadLocByte,      // [local-offs]         +1
-    opLoadLocInt,       // [local-offs]         +1
-    opLoadLocLarge,     // [local-offs]         +1
-    opLoadLocPtr,       // [local-offs]         +1
-    opLoadLocVec,       // [local-offs]         +1
-    opLoadLocVoid,      // [local-offs]         +1
+    opLoadLocByte,      // [offs]               +1
+    opLoadLocInt,       // [offs]               +1
+    opLoadLocLarge,     // [offs]               +1
+    opLoadLocPtr,       // [offs]               +1
+    opLoadLocVec,       // [offs]               +1
+    opLoadLocVoid,      // [offs]               +1
     
-    opStoreLocByte,     // [local-offs]     -1
-    opStoreLocInt,      // [local-offs]     -1
-    opStoreLocLarge,    // [local-offs]     -1
-    opStoreLocPtr,      // [local-offs]     -1
-    opStoreLocVec,      // [local-offs]     -1
-    opStoreLocVoid,     // [local-offs]     -1
+    opStoreLocByte,     // [offs]           -1
+    opStoreLocInt,      // [offs]           -1
+    opStoreLocLarge,    // [offs]           -1
+    opStoreLocPtr,      // [offs]           -1
+    opStoreLocVec,      // [offs]           -1
+    opStoreLocVoid,     // [offs]           -1
 
-    opFinLocPodVec,     // [local-offs]
-    opFinLoc,           // [ShType*, local-offs]
-    opLoadRef,          // [offs/local-offs]    +1 NOTIMPL
+    opFinLocPodVec,     // [offs]      
+    opFinLoc,           // [ShType*, offs]
+    opLoadRef,          // [offs]               +1 NOTIMPL
     
     // pop and forget
-    opPopInt,           //                  -1
-    opPopLarge,         //                  -1
-    opPopPtr,           //                  -1
+    opPopInt,           // []               -1
+    opPopLarge,         // []               -1
+    opPopPtr,           // []               -1
+    opPopVec,           // [ShType*]        -1
 
     // --------------------------------------------------------------------- //
 
     // vector concatenation
-    opCopyToTmpVec,     // [temp-offs]
-    opElemToVec,        // [elem-type] [temp-offs]  -1  +1
-    opVecCat,           // [elem-type] [temp-offs]  -2  +1
-    opVecElemCat,       // [elem-type] [temp-offs]  -2  +1
+    opCopyToTmpVec,     // [offs]
+    opElemToVec,        // [ShType*, offs]  -1  +1
+    opVecCat,           // [ShType*, offs]  -2  +1
+    opVecElemCat,       // [ShType*, offs]  -2  +1
 
     // comparison
-    opCmpInt,           //                  -2  +1
-    opCmpLarge,         //                  -2  +1
-    opCmpStrChr,        //                  -2  +1
-    opCmpChrStr,        //                  -2  +1
-    opCmpPodVec,        //                  -2  +1
-    opCmpTypeRef,       //                  -2  +1 - only EQ or NE
+    opCmpInt,           // []               -2  +1
+    opCmpLarge,         // []               -2  +1
+    opCmpStrChr,        // []               -2  +1
+    opCmpChrStr,        // []               -2  +1
+    opCmpPodVec,        // []               -2  +1
+    opCmpTypeRef,       // []               -2  +1 - only EQ or NE
     
     // case labels: cmp the top element with the arg and leave 0 or 1 for
     // further boolean jump
-    opCaseInt,          // [int-val]        -1  +1
-    opCaseRange,        // [range-val]      -1  +1
-    opCaseStr,          // [str*]           -1  +1
+    opCaseInt,          // [int]            -1  +1
+    opCaseRange,        // [large]          -1  +1
+    opCaseStr,          // [ptr]            -1  +1
     opCaseTypeRef,      // [ShType*]        -1  +1
 
     // compare the stack top with 0 and replace it with a bool value;
     // the order of these opcodes is in sync with tokEqual..tokNotEq
-    opEQ,               //                  -1  +1
-    opLT,               //                  -1  +1
-    opLE,               //                  -1  +1
-    opGE,               //                  -1  +1
-    opGT,               //                  -1  +1
-    opNE,               //                  -1  +1
+    opEQ,               // []               -1  +1
+    opLT,               // []               -1  +1
+    opLE,               // []               -1  +1
+    opGE,               // []               -1  +1
+    opGT,               // []               -1  +1
+    opNE,               // []               -1  +1
     
     // typecasts
-    opLargeToInt,       //                  -1  +1
-    opIntToLarge,       //                  -1  +1
-    opIntToStr,         // [temp-offs]      -1  +1
-    opLargeToStr,       // [temp-offs]      -1  +1
+    opLargeToInt,       // []               -1  +1
+    opIntToLarge,       // []               -1  +1
+    opIntToStr,         // [offs]           -1  +1
+    opLargeToStr,       // [offs]           -1  +1
 
     // binary
-    opMkSubrange,       //                  -2  +1
+    opMkSubrange,       // []               -2  +1
 
-    opAdd,              //                  -2  +1
-    opAddLarge,         //                  -2  +1
-    opSub,              //                  -2  +1
-    opSubLarge,         //                  -2  +1
-    opMul,              //                  -2  +1
-    opMulLarge,         //                  -2  +1
-    opDiv,              //                  -2  +1
-    opDivLarge,         //                  -2  +1
-    opMod,              //                  -2  +1
-    opModLarge,         //                  -2  +1
-    opBitAnd,           //                  -2  +1
-    opBitAndLarge,      //                  -2  +1
-    opBitOr,            //                  -2  +1
-    opBitOrLarge,       //                  -2  +1
-    opBitXor,           //                  -2  +1
-    opBitXorLarge,      //                  -2  +1
-    opBitShl,           //                  -2  +1
-    opBitShlLarge,      //                  -2  +1
-    opBitShr,           //                  -2  +1
-    opBitShrLarge,      //                  -2  +1
+    opAdd,              // []               -2  +1
+    opAddLarge,         // []               -2  +1
+    opSub,              // []               -2  +1
+    opSubLarge,         // []               -2  +1
+    opMul,              // []               -2  +1
+    opMulLarge,         // []               -2  +1
+    opDiv,              // []               -2  +1
+    opDivLarge,         // []               -2  +1
+    opMod,              // []               -2  +1
+    opModLarge,         // []               -2  +1
+    opBitAnd,           // []               -2  +1
+    opBitAndLarge,      // []               -2  +1
+    opBitOr,            // []               -2  +1
+    opBitOrLarge,       // []               -2  +1
+    opBitXor,           // []               -2  +1
+    opBitXorLarge,      // []               -2  +1
+    opBitShl,           // []               -2  +1
+    opBitShlLarge,      // []               -2  +1
+    opBitShr,           // []               -2  +1
+    opBitShrLarge,      // []               -2  +1
 
     // unary
-    opNeg,              //                  -1  +1
-    opNegLarge,         //                  -1  +1
-    opBitNot,           //                  -1  +1
-    opBitNotLarge,      //                  -1  +1
-    opBoolNot,          //                  -1  +1
+    opNeg,              // []               -1  +1
+    opNegLarge,         // []               -1  +1
+    opBitNot,           // []               -1  +1
+    opBitNotLarge,      // []               -1  +1
+    opBoolNot,          // []               -1  +1
     
     // jumps; [dst] is a relative offset
     //   short bool evaluation: pop if jump, leave it otherwise
-    opJumpOr,           // [dst]            -1/0
-    opJumpAnd,          // [dst]            -1/0
-    opJumpTrue,         // [dst]            -1
-    opJumpFalse,        // [dst]            -1
-    opJump,             // [dst]
+    opJumpOr,           // [offs]           -1/0
+    opJumpAnd,          // [offs]           -1/0
+    opJumpTrue,         // [offs]           -1
+    opJumpFalse,        // [offs]           -1
+    opJump,             // [offs]
     
     // function calls
     opCallThis,         // [ShFunction*]    -args +1
 
     // helpers
     opEcho,             // [ShType*]        -1
-    opEchoSp,           //
-    opEchoLn,           //
-    opAssert,           // [string* fn, linenum] -1
-    opLinenum,          // [string* fn, linenum]
+    opEchoSp,           // []
+    opEchoLn,           // []
+    opAssert,           // [ptr, int]       -1
+    opLinenum,          // [ptr, int]
 
     opMaxCode,
     
@@ -182,6 +183,7 @@ inline bool isJump(OpCode op) { return op >= opJumpOr && op <= opJump; }
 
 
 typedef int offs;
+typedef offs* poffs;
 
 union VmQuant
 {
@@ -280,6 +282,8 @@ public:
     void append(const VmCodeSegment& seg);
     
     pchar execute(pchar thisseg, ptr retval);
+
+    void print(); // in vmdebug.cpp
 };
 
 

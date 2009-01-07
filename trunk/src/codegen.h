@@ -78,7 +78,7 @@ public:
     ShType* genUndoTypeRef();
     void genStoreVar(ShVariable*);
     offs genCase(const ShValue&, OpCode jumpOp);
-    void genPopValue();
+    void genPopValue(bool finalize);
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
     offs genCopyToTempVec();

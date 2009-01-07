@@ -422,7 +422,7 @@ offs VmCodeGen::genCase(const ShValue& value, OpCode jumpOp)
     return genForwardBoolJump(jumpOp);
 }
 
-void VmCodeGen::genPopValue()
+void VmCodeGen::genPopValue(bool finalize)
 {
     ShType* type = genPopType();
     switch (type->storageModel)
@@ -430,8 +430,18 @@ void VmCodeGen::genPopValue()
         case stoByte:
         case stoInt: codeseg.addOp(opPopInt); break;
         case stoLarge: codeseg.addOp(opPopLarge); break;
-        case stoPtr:
-        case stoVec: codeseg.addOp(opPopPtr); break;
+        case stoPtr: codeseg.addOp(opPopPtr); break;
+        case stoVec:
+            {
+                if (finalize)
+                {
+                    codeseg.addOp(opPopVec);
+                    codeseg.addPtr(type);
+                }
+                else
+                    codeseg.addOp(opPopPtr);
+            }
+            break;
         case stoVoid: break;
         default: internal(71);
     }
