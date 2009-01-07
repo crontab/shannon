@@ -1181,10 +1181,18 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
         internal(154);
     if (topFunction != NULL)
         internal(155);
+
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
-    enterBlock();
+    ShSymScope* saveSymScope = currentSymbolScope;
+    currentSymbolScope = &funcType->localScope;
+
+    parser.skipBlockBegin();
+    parseBlock();
+
+    funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
+    currentSymbolScope = saveSymScope;
     replaceCodeGen(saveCodeGen);
 }
 
