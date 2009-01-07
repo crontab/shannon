@@ -1,6 +1,6 @@
 module Z
 
-
+#{
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -311,9 +311,16 @@ case ct2:
     'x', 'xyz', 'abc': assert false
 assert ct2 == 'def'
 
+case 'cat' | 'dog':
+    'catdog': ;
+    'dogcat': assert false
+    'catcat': assert false
+
+}#
 # -------------------------------------------------------------------------
 
 def void inc(int a):
     echo 'Hello, function!'
 
 inc(0)
+inc(1)

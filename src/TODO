@@ -1,4 +1,6 @@
 
+* case control variable probably needs a temp storage for proper finalization
+
 * functions
 
 * combined assignment operators

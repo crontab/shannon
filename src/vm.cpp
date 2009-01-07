@@ -527,7 +527,7 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
 
 
 VmCodeSegment::VmCodeSegment()
-        : code(), reserveStack(0), reserveLocals(0), lastOpOffset(0)  { }
+        : code(), reserveStack(0), reserveLocals(0), popOnReturn(0), lastOpOffset(0)  { }
 
 
 void VmCodeSegment::append(const VmCodeSegment& seg)
@@ -570,8 +570,6 @@ pchar VmCodeSegment::execute(pchar thisseg, ptr retval)
     stk.verifyend(savebase + reserveLocals);
 #endif
     // restore stack base and return the base pointer to the caller
-    return stk.poprbytes(reserveLocals);
+    return stk.poprbytes(reserveLocals + popOnReturn);
 }
-
-
 

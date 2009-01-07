@@ -4,6 +4,7 @@
 
 #include "langobj.h"
 #include "codegen.h"
+#include "vm.h"
 
 
 static void notImpl()
@@ -53,7 +54,7 @@ offs memAlign(offs size)
     if (size == 0)
         return 0;
     else
-        return (((size - 1) / DATA_MEM_ALIGN) + 1) * DATA_MEM_ALIGN;
+        return (((size - 1) / sizeof(VmQuant)) + 1) * sizeof(VmQuant);
 }
 
 

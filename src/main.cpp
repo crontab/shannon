@@ -1184,7 +1184,7 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     enterBlock();
-    funcType->code = tcode.getCodeSeg();
+    funcType->setCodeSeg(tcode.getCodeSeg());
     replaceCodeGen(saveCodeGen);
 }
 
