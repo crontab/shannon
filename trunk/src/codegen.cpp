@@ -80,58 +80,50 @@ ShType* VmCodeGen::runTypeExpr(bool anyObj)
 void VmCodeGen::genCmpOp(OpCode op, OpCode cmp)
 {
     codeseg.addOp(op);
-#ifdef DEBUG
     if (cmp < opCmpFirst || cmp > opCmpLast)
         internal(60);
-#endif
     codeseg.addOp(cmp);
 }
 
-VmCodeGen::GenStackInfo& VmCodeGen::genPush(ShType* t)
+VmCodeGen::GenStackInfo& VmCodeGen::genPush(ShType* type)
 {
     GenStackInfo& i = genStack.push();
-    i.type = t;
+    i.type = type;
     i.opOffset = codeseg.size();
     i.isValue = false;
-    genStackSize += t->staticSizeAligned;
+    i.isFuncCall = false;
+    genStackSize += type->staticSizeAligned;
     codeseg.reserveStack = imax(codeseg.reserveStack, genStackSize);
     resultTypeHint = NULL;
     return i;
 }
 
-void VmCodeGen::genPushIntValue(ShType* type, int v)
+VmCodeGen::GenStackInfo& VmCodeGen::genPushValue(ShType* type)
 {
     GenStackInfo& i = genPush(type);
     i.isValue = true;
-    i.value.int_ = v;
+    return i;
 }
+
+void VmCodeGen::genPushIntValue(ShType* type, int v)
+    { genPushValue(type).value.int_ = v; }
 
 void VmCodeGen::genPushLargeValue(ShType* type, large v)
-{
-    GenStackInfo& i = genPush(type);
-    i.isValue = true;
-    i.value.large_ = v;
-}
+    { genPushValue(type).value.large_ = v; }
 
 void VmCodeGen::genPushPtrValue(ShType* type, ptr v)
-{
-    GenStackInfo& i = genPush(type);
-    i.isValue = true;
-    i.value.ptr_ = v;
-}
+    { genPushValue(type).value.ptr_ = v; }
 
 void VmCodeGen::genPushVarRef(ShVariable* var)
-{
-    GenStackInfo& i = genPush(var->type->deriveRefType());
-    i.isValue = true;
-    i.value.ptr_ = var;
-}
+    { genPushValue(var->type->deriveRefType()).value.ptr_ = var; }
+
+void VmCodeGen::genPushFuncCall(ShFunction* func)
+    { genPush(func->returnVar->type).isFuncCall = true; }
 
 const VmCodeGen::GenStackInfo& VmCodeGen::genPop()
 {
-    const GenStackInfo& t = genTop();
+    const GenStackInfo& t = genStack.pop();
     genStackSize -= t.type->staticSizeAligned;
-    genStack.pop();
     return t;
 }
 
@@ -179,11 +171,12 @@ void VmCodeGen::genLoadLargeConst(ShType* type, large value)
     }
 }
 
-void VmCodeGen::genLoadTypeRef(ShType* type)
+ShTypeRef* VmCodeGen::genLoadTypeRef(ShType* type)
 {
     genPushPtrValue(queenBee->defaultTypeRef, type);
     codeseg.addOp(opLoadTypeRef);
     codeseg.addPtr(type);
+    return queenBee->defaultTypeRef;
 }
 
 void VmCodeGen::genLoadVecConst(ShType* type, const char* s)
@@ -220,10 +213,8 @@ void VmCodeGen::genMkSubrange()
 {
     genPop();
     ShType* type = genPopType();
-#ifdef DEBUG
     if (!type->isOrdinal())
         internal(51);
-#endif
     genPush(POrdinal(type)->deriveRangeType());
     codeseg.addOp(opMkSubrange);
 }
@@ -370,10 +361,8 @@ ShType* VmCodeGen::genDerefVar()
     verifyContext(var);
     genPush(var->type);
     OpCode op = OpCode(opLoadThisFirst + int(var->type->storageModel));
-#ifdef DEBUG
     if (op < opLoadThisFirst || op > opLoadThisLast)
         internal(61);
-#endif
     if (var->isLocal())
         op = OpCode(op - opStoreThisFirst + opStoreLocFirst);
     codeseg.at(codeseg.lastOpOffset)->op_ = op;
@@ -387,6 +376,15 @@ ShVariable* VmCodeGen::genUndoVar()
         internal(75);
     codeseg.removeLast();
     return PVariable(i.value.ptr_);
+}
+
+ShType* VmCodeGen::genUndoTypeRef()
+{
+    const GenStackInfo& i = genPop();
+    if (!i.type->isTypeRef() || !i.isValue || i.opOffset != codeseg.lastOpOffset)
+        internal(76);
+    codeseg.removeLast();
+    return PType(i.value.ptr_);
 }
 
 void VmCodeGen::genStoreVar(ShVariable* var)
@@ -424,9 +422,9 @@ offs VmCodeGen::genCase(const ShValue& value, OpCode jumpOp)
     return genForwardBoolJump(jumpOp);
 }
 
-void VmCodeGen::genPopValue(ShType* type)
+void VmCodeGen::genPopValue()
 {
-    genPop();
+    ShType* type = genPopType();
     switch (type->storageModel)
     {
         case stoByte:
@@ -434,6 +432,7 @@ void VmCodeGen::genPopValue(ShType* type)
         case stoLarge: codeseg.addOp(opPopLarge); break;
         case stoPtr:
         case stoVec: codeseg.addOp(opPopPtr); break;
+        case stoVoid: break;
         default: internal(71);
     }
 }
@@ -486,10 +485,8 @@ offs VmCodeGen::genReserveTempVar(ShType* type)
 offs VmCodeGen::genCopyToTempVec()
 {
     ShType* type = genTopType();
-#ifdef DEBUG
     if (!type->isVector())
         internal(63);
-#endif
     offs tmpOffset = genReserveTempVar(type);
     codeseg.addOp(opCopyToTmpVec);
     codeseg.addOffs(tmpOffset);
@@ -500,10 +497,8 @@ void VmCodeGen::genVecCat(offs tempVar)
 {
     genPop();
     ShType* vecType = genPopType();
-#ifdef DEBUG
     if (!vecType->isVector())
         internal(64);
-#endif
     genPush(vecType);
     codeseg.addOp(opVecCat);
     codeseg.addPtr(PVector(vecType)->elementType);
@@ -514,10 +509,8 @@ void VmCodeGen::genVecElemCat(offs tempVar)
 {
     genPop();
     ShType* vecType = genPopType();
-#ifdef DEBUG
     if (!vecType->isVector())
         internal(64);
-#endif
     genPush(vecType);
     codeseg.addOp(opVecElemCat);
     codeseg.addPtr(PVector(vecType)->elementType);
@@ -559,21 +552,22 @@ void VmCodeGen::genReturn()
 {
     ShType* returnType = genPopType();
     OpCode op = OpCode(opRetFirst + int(returnType->storageModel));
-#ifdef DEBUG
     if (op < opRetFirst || op > opRetLast)
         internal(62);
-#endif
     codeseg.addOp(op);
 }
 
-void VmCodeGen::genCall(ShFunction* funcType)
+void VmCodeGen::genCall(ShFunction* func)
 {
+    for (int i = func->args.size() - 1; i >= 0; i--)
+        genPop();
+    genPushFuncCall(func);
     if (hostScope == NULL)
         noRuntimeContext();
-    if (funcType->parent->isModule())
+    if (func->parent->isModule())
     {
         codeseg.addOp(opCallThis);
-        codeseg.addPtr(funcType);
+        codeseg.addPtr(func);
     }
     else
         internal(73);

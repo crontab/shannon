@@ -42,7 +42,7 @@ static StorageModel typeToSto[_typeMax] =
 //  typeReference,
     stoPtr,
 //  typeSymScope, typeLocalScope, typeModule, typeFunction,
-    stoVoid, stoVoid, stoVoid,
+    stoVoid, stoVoid, stoVoid, stoVoid,
 //  typeVoid,
     stoVoid
 };

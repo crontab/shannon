@@ -313,7 +313,7 @@ assert ct2 == 'def'
 
 # -------------------------------------------------------------------------
 
-def void testf():
-    ct2 = 'a'
+def void inc(int a):
+    echo 'Hello, function!'
 
-# const ff = testf(0)
+inc(0)

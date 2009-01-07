@@ -80,6 +80,7 @@ class ShCompiler: public Base
     ShType* parseCompoundCtor();
     ShType* parseIfFunc();
     ShType* parseStaticCast(ShType* toType);
+    ShType* parseFunctionCall(ShFunction*);
     ShType* parseAtom();
     ShType* parseDesignator(bool isLValue);
     ShInteger* arithmResultType(ShInteger* left, ShInteger* right);
@@ -313,6 +314,8 @@ ShType* ShCompiler::parseAtom()
     else if (parser.skipIf(tokIf))
         parseIfFunc();
 
+    // TODO: anonymous enum
+
     else
         errorWithLoc("Expression syntax");
 
@@ -337,9 +340,26 @@ ShType* ShCompiler::parseStaticCast(ShType* toType)
 }
 
 
+ShType* ShCompiler::parseFunctionCall(ShFunction* func)
+{
+    for (int i = 0; i < func->args.size(); i++)
+    {
+        ShType* argType = func->args[i]->type;
+        ShType* exprType = parseExpr(argType);
+        if (!argType->canAssign(exprType))
+            error("Type mismatch for argument #" + itostring(i + 1)
+                + " in call to " + func->name);
+    }
+    parser.skip(tokRParen, ")");
+    codegen->genCall(func);
+    return func->returnVar->type;
+}
+
+
 ShType* ShCompiler::parseDesignator(bool isLValue)
 {
     ShType* type = parseAtom();
+
     if (type->isReference())
     {
         if (parser.isAssignment())
@@ -352,17 +372,20 @@ ShType* ShCompiler::parseDesignator(bool isLValue)
             type = codegen->genDerefVar();
     }
 
-/*
-            if (c->value.type->isTypeRef())
-            {
-                ShType* refType = PType(c->value.value.ptr_);
-                if (parser.skipIf(tokLParen))
-                    parseStaticCast(refType);
-                else
-                    codegen->genLoadTypeRef(getDerivators(refType));
-            }
+    else if (type->isTypeRef() && codegen->genTopIsValue())
+    {
+        ShType* refType = codegen->genUndoTypeRef();
+        if (parser.skipIf(tokLParen))
+        {
+            if (refType->isFunction())
+                type = parseFunctionCall(PFunction(refType));
             else
-*/
+                type = parseStaticCast(refType);
+        }
+        else
+            type = codegen->genLoadTypeRef(getDerivators(refType));
+    }
+
     return type;
 }
 
@@ -941,7 +964,11 @@ void ShCompiler::parseAssert(VmCodeGen* tcode)
 void ShCompiler::parseOtherStatement()
 {
     ShType* type = parseDesignator(true);
-    if (parser.skipIf(tokAssign))
+    if (codegen->genTopIsFuncCall())
+    {
+        codegen->genPopValue();
+    }
+    else if (parser.skipIf(tokAssign))
     {
         if (!type->isReference())
             error("L-value expected in assignment");
@@ -1064,7 +1091,7 @@ void ShCompiler::parseCase()
 
     while (!endJumps.empty())
         codegen->genResolveJump(endJumps.pop());
-    codegen->genPopValue(caseCtlType);
+    codegen->genPopValue();
 }
 
 
