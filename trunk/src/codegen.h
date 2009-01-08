@@ -43,11 +43,11 @@ protected:
     void verifyClean();
 
 public:
-    VmCodeGen(ShScope* iHostScope);
+    VmCodeGen(ShScope* idataScope);
     
     void clear();
     
-    ShScope* hostScope;
+    ShScope* dataScope;
 
     ShType* resultTypeHint; // used by the parser for vector/array constructors
 
@@ -82,6 +82,7 @@ public:
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
     offs genCopyToTempVec();
+    void genCopyToVec(ShVariable*);
     void genVecCat(offs tempVar);
     void genVecElemCat(offs tempVar);
     void genIntToStr();

@@ -194,6 +194,8 @@ public:
     void addTypeAlias(const string&, ShType*, ShBlockScope*);
     void addDefinition(ShDefinition*, ShBlockScope*);
     virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*) = 0;
+    ShVariable* addTempVar(ShType* type, ShBlockScope* blockScope, VmCodeGen* codegen)
+        { return addVariable("", type, blockScope, codegen); }
     void dump(string indent) const;
 };
 
@@ -583,6 +585,8 @@ public:
 
 
 // --- MODULE --- //
+
+typedef ShModule* PModule;
 
 class ShModule: public ShStateBase
 {

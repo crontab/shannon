@@ -658,7 +658,7 @@ ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
     ShBlockScope* blockScope, VmCodeGen* codegen)
 {
     offs offset = 0;
-    if (codegen != NULL)
+    if (codegen != NULL) // function args set up their addresses differently
         offset = codegen->genReserveLocalVar(type);
     ShVariable* var = new ShVariable(ident, type, this, offset);
     vars.add(var);
