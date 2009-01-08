@@ -30,6 +30,9 @@ static void show_ptr(VmQuant* q) { printf("'%s'", pconst(q->ptr_)); }
 static void show_ShType(VmQuant* q) { printf("%s", PType(q->ptr_)->getDefinition().c_str()); }
 static void show_ShFunction(VmQuant* q) { printf("%s", PFunction(q->ptr_)->getDefinition().c_str()); }
 
+#ifdef PTR64
+static void show_large(VmQuant* q) { printf("%lld", q->large_); }
+#endif
 
 static OpInfo optable[] = 
 {
@@ -46,7 +49,11 @@ static OpInfo optable[] =
     OP(LoadOne),
     OP(LoadLargeOne),
     OP1(LoadIntConst, int),
+#ifdef PTR64
+    OP1(LoadLargeConst, large),
+#else
     OP2(LoadLargeConst, int, int),
+#endif
     OP(LoadFalse),
     OP(LoadTrue),
     OP(LoadNullVec),
@@ -97,7 +104,11 @@ static OpInfo optable[] =
     OP(CmpPodVec),
     OP(CmpTypeRef),
     OP1(CaseInt, int),
+#ifdef PTR64
+    OP1(CaseRange, large),
+#else
     OP2(CaseRange, int, int),
+#endif
     OP1(CaseStr, ptr),
     OP1(CaseTypeRef, ShType),
     OP(EQ),
