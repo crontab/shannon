@@ -47,7 +47,7 @@ assert not 'ab' == 'abc'
 assert 'ab' < 'abc'
 assert s1 == 'b'
 assert 'b' == s1
-echo 'typeof(a6) =', typeof(a6)
+echo 'typeof(a6) = ', typeof(a6)
 
 assert not 'abc' == 'a'
 assert 'b' != 'def'
@@ -173,11 +173,11 @@ begin:
     assert w1 == 1
     def int g[]
     var g h = []
-    echo 'Hello, nested block!', str(w1), v1
+    echo 'Hello, nested block! ', str(w1), ' ', v1
     begin:
         const w1 = 2L
         assert w1 == 2L
-        echo 'Hello, nested nested block!', typeof(w1), str(w1)
+        echo 'Hello, nested nested block! ', typeof(w1), ' ', str(w1)
         var a = 'a' | 'b'
 begin:
     var w1 = 3
@@ -304,6 +304,7 @@ case ct:
     'b', 'c'..'e', 'g': assert true
     else: assert false
 
+#{
 var ct2 = 'abc'
 case ct2:
     'a': assert false
@@ -315,15 +316,15 @@ case 'cat' | 'dog':
     'catdog': ;
     'dogcat': assert false
     'catcat': assert false
+}#
 
 
 # -------------------------------------------------------------------------
 
 def int inc(int a):
     var i = 10
-    # var s = 'Hello' | ', function?'
-    # echo 'Hello, ' | 'function!'
-    ;
+    var s = 'Hello' | ', function?'
+    echo 'Hello, ' | 'function!'
 
 inc(0)
 inc(1)

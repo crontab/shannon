@@ -25,7 +25,7 @@ struct OpInfo
 #define OP2(o,a,b) {op##o, #o, show_##a, show_##b}
 
 static void show_int(VmQuant* q) { printf("%d", q->int_); }
-static void show_offs(VmQuant* q) { printf("%d", q->offs_); }
+static void show_offs(VmQuant* q) { printf("*%d", q->offs_); }
 static void show_ptr(VmQuant* q) { printf("'%s'", pconst(q->ptr_)); }
 static void show_ShType(VmQuant* q) { printf("%s", PType(q->ptr_)->getDefinition().c_str()); }
 static void show_ShFunction(VmQuant* q) { printf("%s", PFunction(q->ptr_)->getDefinition().c_str()); }
@@ -85,7 +85,8 @@ static OpInfo optable[] =
     OP(PopLarge),
     OP(PopPtr),
     OP1(PopVec, ShType),
-    OP1(CopyToTmpVec, offs),
+    OP1(CopyToLocVec, offs),
+    OP1(CopyToThisVec, offs),
     OP2(ElemToVec, ShType, offs),
     OP2(VecCat, ShType, offs),
     OP2(VecElemCat, ShType, offs),
@@ -142,7 +143,6 @@ static OpInfo optable[] =
     OP1(Jump, offs),
     OP1(CallThis, ShFunction),
     OP1(Echo, ShType),
-    OP(EchoSp),
     OP(EchoLn),
     OP2(Assert, ptr, int),
     OP(Linenum),

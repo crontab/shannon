@@ -498,7 +498,7 @@ offs VmCodeGen::genCopyToTempVec()
     if (!type->isVector())
         internal(63);
     offs tmpOffset = genReserveTempVar(type);
-    codeseg.addOp(opCopyToTmpVec);
+    codeseg.addOp(opCopyToLocVec);
     codeseg.addOffs(tmpOffset);
     return tmpOffset;
 }
