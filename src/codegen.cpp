@@ -11,9 +11,9 @@ void noRuntimeContext()
     { throw ENoContext(); }
 
 
-VmCodeGen::VmCodeGen(ShScope* iHostScope)
+VmCodeGen::VmCodeGen(ShScope* iDataScope)
     : codeseg(), finseg(), genStack(), genStackSize(0),
-      hostScope(iHostScope), resultTypeHint(NULL)  { }
+      dataScope(iDataScope), resultTypeHint(NULL)  { }
 
 void VmCodeGen::clear()
 {
@@ -503,6 +503,15 @@ offs VmCodeGen::genCopyToTempVec()
     return tmpOffset;
 }
 
+void VmCodeGen::genCopyToVec(ShVariable* var)
+{
+    verifyContext(var);
+    if (!var->type->isVector())
+        internal(63);
+    codeseg.addOp(var->isLocal() ? opCopyToLocVec : opCopyToThisVec);
+    codeseg.addOffs(var->dataOffset);
+}
+
 void VmCodeGen::genVecCat(offs tempVar)
 {
     genPop();
@@ -569,7 +578,7 @@ void VmCodeGen::genReturn()
 
 void VmCodeGen::genCall(ShFunction* func)
 {
-    if (hostScope == NULL)
+    if (dataScope == NULL)
         noRuntimeContext();
     for (int i = func->args.size() - 1; i >= 0; i--)
         genPop();
@@ -606,8 +615,8 @@ VmCodeSegment VmCodeGen::getCodeSeg()
 
 void VmCodeGen::verifyContext(ShVariable* var)
 {
-    if (hostScope == NULL)
+    if (dataScope == NULL)
         noRuntimeContext();
-    if (var->ownerScope != hostScope && var->ownerScope != hostScope->parent)
+    if (var->ownerScope != dataScope && var->ownerScope != dataScope->parent)
         internal(70);
 }
