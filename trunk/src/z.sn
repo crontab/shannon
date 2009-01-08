@@ -329,6 +329,4 @@ def int inc(int a):
 inc(0)
 inc(1)
 
-var typeref ttt = int[]
-echo ttt
 

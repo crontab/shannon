@@ -283,7 +283,7 @@ public:
     
     pchar execute(pchar thisseg, ptr retval);
 
-    void print(); // in vmdebug.cpp
+    void print(const string& name); // in vmdebug.cpp
 };
 
 
