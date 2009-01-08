@@ -111,6 +111,7 @@ class ShCompiler: public Base
     void parseBlock();
     void enterBlock();
     void parseFunctionBody(ShFunction* funcType);
+    void parseReturn();
 
 public:
     ShCompiler(Parser& iParser, ShModule& iModule);
@@ -1138,6 +1139,8 @@ void ShCompiler::parseBlock()
             parseBreakCont(false);
         else if (parser.skipIf(tokCase))
             parseCase();
+        else if (parser.skipIf(tokReturn))
+            parseReturn();
         else
             parseOtherStatement();
         codegen->genFinalizeTemps();
@@ -1157,8 +1160,13 @@ void ShCompiler::enterBlock()
         currentBlockScope = &tempScope;
         if (topLoop != NULL)
             topLoop->blockScopes.push(currentBlockScope);
+        if (topFunction != NULL)
+            topFunction->blockScopes.push(currentBlockScope);
         parser.skipBlockBegin();
         parseBlock();
+        if (topFunction != NULL)
+            if (topFunction->blockScopes.pop() != currentBlockScope)
+                internal(150);
         if (topLoop != NULL)
             if (topLoop->blockScopes.pop() != currentBlockScope)
                 internal(150);
@@ -1190,13 +1198,25 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     if (topFunction != NULL)
         internal(155);
 
+    // set up the scopes: for ordinary functions the codegen's data scope
+    // is the function's stack-local one, because we allocate everything on
+    // the stack (which will be different in states)
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     ShBlockScope* saveScope = currentBlockScope;
     currentBlockScope = &funcType->localScope;
 
+    // set up the 'return' information
+    FunctionInfo thisFunc;
+    FunctionInfo* saveTopFunc = replaceTopFunction(&thisFunc);
+
     parser.skipBlockBegin();
     parseBlock();
+
+    // resolve all 'return' jumps to this point where we finalize locals
+    while (!thisFunc.returnJumps.empty())
+        codegen->genResolveJump(thisFunc.returnJumps.pop());
+    replaceTopFunction(saveTopFunc);
 
     funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
@@ -1204,8 +1224,14 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     replaceCodeGen(saveCodeGen);
 
 #ifdef DEBUG
-    funcType->code.print();
+    funcType->code.print(funcType->name.c_str());
 #endif
+}
+
+
+void ShCompiler::parseReturn()
+{
+    notImpl();
 }
 
 
@@ -1246,7 +1272,7 @@ bool ShCompiler::compile()
 #ifdef DEBUG
 //    queenBee->dump("");
 //    module.dump("");
-    module.codeseg.print();
+    module.codeseg.print("PROGRAM");
 #endif
 
     return true;

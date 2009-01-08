@@ -1,11 +1,9 @@
 
-* case control variable probably needs a temp storage for proper finalization
-
 * functions
 
 * combined assignment operators
 
-* arrays: static and associative (stoDblPtr storage model?)
+* arrays: static, associative and sets (stoDblPtr storage model?)
 
 * vector item selection, only R-value to start with
 
@@ -17,7 +15,8 @@
 
 * the yield operator?
 
-* procedures (pipes)
+* procedures and pipes: pipe is a linked list of procedures, each coupled with
+  one connector?
 
 * string table and type table; binary code should contain only indexes
 

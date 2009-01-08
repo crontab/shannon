@@ -178,9 +178,12 @@ static struct vmdebuginit
 } _vmdebuginit;
 
 
-void VmCodeSegment::print()
+void VmCodeSegment::print(const string& name)
 {
-    printf("  $locals(%d)  $pop(%d)\n", reserveLocals, popOnReturn);
+    printf("; ------------------------------------------\n");
+    if (!name.empty())
+        printf("%s:\n", name.c_str());
+    printf(";  locals=%d  pop=%d\n", reserveLocals, popOnReturn);
     for (int i = 0; i < size(); i++)
     {
         OpCode op = at(i)->op_;

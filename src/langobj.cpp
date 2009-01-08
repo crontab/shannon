@@ -222,7 +222,8 @@ void ShScope::addTypeAlias(const string& ident, ShType* type, ShBlockScope* bloc
     ShDefinition* obj = new ShDefinition(ident, queenBee->defaultTypeRef, type);
     defs.add(obj);
     blockScope->registerObject(obj);
-    type->setNamePleaseThisIsWrongIKnow(ident);
+    if (type->isFunction())
+        type->setNamePleaseThisIsWrongIKnow(ident);
 }
 
 void ShScope::addDefinition(ShDefinition* obj, ShBlockScope* blockScope)
