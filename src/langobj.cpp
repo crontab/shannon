@@ -42,7 +42,7 @@ static StorageModel typeToSto[_typeMax] =
     stoVec, stoVec, stoPtr, stoLarge,
 //  typeReference,
     stoPtr,
-//  typeSymScope, typeLocalScope, typeModule, typeFunction,
+//  typeBlockScope, typeLocalScope, typeModule, typeFunction,
     stoVoid, stoVoid, stoVoid, stoVoid,
 //  typeVoid,
     stoVoid
@@ -159,29 +159,26 @@ ShReference* ShType::deriveRefType()
     return derivedRefType;
 }
 
-// --- SYMBOLS-ONLY SCOPE --- //
+// --- BLOCK_LOCAL SCOPE --- //
 
-ShSymScope::ShSymScope(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
+ShBlockScope::ShBlockScope(const string& iName, ShTypeId iTypeId, ShBlockScope* iParent)
         : ShType(iName, iTypeId), parent(iParent)  { }
 
-void ShSymScope::addSymbol(ShBase* obj)
+void ShBlockScope::registerObject(ShBase* obj)
 {
-    if (obj->name.empty())
-        internal(4);
-    symbols.addUnique(obj);
+    if (!obj->name.empty())
+        symbols.addUnique(obj);
+    if (obj->isVariable())
+        localVars.add(PVariable(obj));
 }
 
-void ShSymScope::finalizeVars(VmCodeGen* codegen)
+void ShBlockScope::finalizeVars(VmCodeGen* codegen)
 {
-    for (int i = symbols.size() - 1; i >= 0; i--)
-    {
-        ShBase* obj = symbols[i];
-        if (obj->isVariable())
-            codegen->genFinVar((ShVariable*)obj);
-    }
+    for (int i = localVars.size() - 1; i >= 0; i--)
+        codegen->genFinVar(localVars[i]);
 }
 
-ShBase* ShSymScope::deepFind(const string& ident) const
+ShBase* ShBlockScope::deepFind(const string& ident) const
 {
     ShBase* obj = find(ident);
     if (obj != NULL)
@@ -197,14 +194,14 @@ ShBase* ShSymScope::deepFind(const string& ident) const
     return NULL;
 }
 
-void ShSymScope::addUses(ShModule* obj)
-        { uses.add(obj); addSymbol(obj); }
+void ShBlockScope::addUses(ShModule* obj)
+        { uses.add(obj); registerObject(obj); }
 
 
 // --- SCOPE --- //
 
-ShScope::ShScope(const string& iName, ShTypeId iTypeId, ShSymScope* iParent)
-        : ShSymScope(iName, iTypeId, iParent)  { }
+ShScope::ShScope(const string& iName, ShTypeId iTypeId, ShBlockScope* iParent)
+        : ShBlockScope(iName, iTypeId, iParent)  { }
 
 ShScope::~ShScope()
 {
@@ -220,17 +217,18 @@ void ShScope::addAnonType(ShType* obj)
     obj->setOwner(this);
 }
 
-void ShScope::addTypeAlias(const string& ident, ShType* type, ShSymScope* symScope)
+void ShScope::addTypeAlias(const string& ident, ShType* type, ShBlockScope* blockScope)
 {
     ShDefinition* obj = new ShDefinition(ident, queenBee->defaultTypeRef, type);
     defs.add(obj);
-    symScope->addSymbol(obj);
+    blockScope->registerObject(obj);
+    type->setNamePleaseThisIsWrongIKnow(ident);
 }
 
-void ShScope::addDefinition(ShDefinition* obj, ShSymScope* symScope)
+void ShScope::addDefinition(ShDefinition* obj, ShBlockScope* blockScope)
 {
     defs.add(obj);
-    symScope->addSymbol(obj);
+    blockScope->registerObject(obj);
 }
 
 #ifdef DEBUG
@@ -650,21 +648,21 @@ ShDefinition::ShDefinition(const string& iName, ShTypeRef* typeref, ShType* iVal
 
 // --- LOCAL SCOPE --- //
 
-ShLocalScope::ShLocalScope(const string& iName, ShSymScope* iParent)
+ShLocalScope::ShLocalScope(const string& iName, ShBlockScope* iParent)
     : ShScope(iName, typeLocalScope, iParent)  { }
 
 string ShLocalScope::getFullDefinition(const string& objName) const
     { return "@localscope"; }
 
 ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
-    ShSymScope* symScope, VmCodeGen* codegen)
+    ShBlockScope* blockScope, VmCodeGen* codegen)
 {
     offs offset = 0;
     if (codegen != NULL)
         offset = codegen->genReserveLocalVar(type);
     ShVariable* var = new ShVariable(ident, type, this, offset);
     vars.add(var);
-    symScope->addSymbol(var);
+    blockScope->registerObject(var);
     return var;
 }
 
@@ -672,13 +670,13 @@ ShVariable* ShLocalScope::addVariable(const string& ident, ShType* type,
 // --- STATE BASE --- //
 
 ShStateBase::ShStateBase(const string& iName, ShTypeId iTypeId,
-        ShSymScope* iParent, ShSymScope* iLocalParent)
+        ShBlockScope* iParent, ShBlockScope* iLocalParent)
     : ShScope(iName, iTypeId, iParent), localScope("", iLocalParent)  { }
 
 
 // --- FUNCTION --- //
 
-ShFunction::ShFunction(ShType* iReturnType, ShSymScope* iParent)
+ShFunction::ShFunction(ShType* iReturnType, ShBlockScope* iParent)
     : ShStateBase("", typeFunction, iParent, iParent),
       returnVar(new ShVariable("@result", iReturnType, &localScope, 0)),
       argsSize(0)  { }
@@ -687,9 +685,9 @@ ShFunction::~ShFunction()
     { delete returnVar; }
 
 ShVariable* ShFunction::addVariable(const string& ident, ShType* type,
-        ShSymScope* symScope, VmCodeGen* codegen)
+        ShBlockScope* blockScope, VmCodeGen* codegen)
 {
-    return localScope.addVariable(ident, type, symScope, codegen);
+    return localScope.addVariable(ident, type, blockScope, codegen);
 }
 
 void ShFunction::addArgument(const string& ident, ShType* type)
@@ -746,11 +744,11 @@ ShModule::~ShModule()
 }
 
 ShVariable* ShModule::addVariable(const string& ident, ShType* type,
-    ShSymScope* symScope, VmCodeGen* codegen)
+    ShBlockScope* blockScope, VmCodeGen* codegen)
 {
     ShVariable* var = new ShVariable(ident, type, this, dataSize);
     vars.add(var);
-    symScope->addSymbol(var);
+    blockScope->registerObject(var);
     dataSize += var->type->staticSizeAligned;
     return var;
 }

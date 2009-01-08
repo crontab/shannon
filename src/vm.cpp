@@ -348,8 +348,11 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
 
         // --- SOME VECTOR MAGIC ------------------------------------------- //
 
-        case opCopyToTmpVec:
+        case opCopyToLocVec:
             *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr());
+            break;
+        case opCopyToThisVec:
+            *pptr(thisseg + (p++)->offs_) = string::_initialize(stk.topPtr());
             break;
         case opElemToVec:
             {
@@ -515,7 +518,6 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
         // --- MISC. ------------------------------------------------------- //
 
         case opEcho: doEcho((ShType*)(p++)->ptr_); break;
-        case opEchoSp: putc(' ', echostm); break;
         case opEchoLn: fputs("\n", echostm); break;
         case opAssert: { pconst fn = pconst((p++)->ptr_); doAssert(fn, (p++)->int_); } break;
         case opLinenum: { pconst fn = pconst((p++)->ptr_); doLinenum(fn, (p++)->int_); } break;

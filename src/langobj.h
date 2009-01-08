@@ -19,7 +19,7 @@ class ShVector;
 class ShSet;
 class ShArray;
 class ShReference;
-class ShSymScope;
+class ShBlockScope;
 class ShScope;
 class ShFunction;
 class ShModule;
@@ -66,7 +66,7 @@ enum ShTypeId
     typeInt8, typeInt32, typeInt64, typeChar, typeEnum, typeBool,
     typeVector, typeArray, typeTypeRef, typeRange,
     typeReference,
-    typeSymScope, typeLocalScope, typeModule, typeFunction,
+    typeBlockScope, typeLocalScope, typeModule, typeFunction,
     typeVoid,
     _typeMax
 };
@@ -147,21 +147,22 @@ public:
 typedef ShType* PType;
 
 
-// --- SYMBOLS-ONLY SCOPE --- //
+// --- BLOCK-LOCAL SCOPE --- //
 
-class ShSymScope: public ShType
+class ShBlockScope: public ShType
 {
 protected:
     BaseTable<ShModule> uses; // not owned
+    BaseTable<ShVariable> localVars; // to be finalized; not owned
     BaseTable<ShBase> symbols;
 
     virtual string getFullDefinition(const string& objName) const
             { return "*undefined*"; }
 
 public:
-    ShSymScope* const parent;
+    ShBlockScope* const parent;
 
-    ShSymScope(const string&, ShTypeId, ShSymScope* iParent);
+    ShBlockScope(const string&, ShTypeId, ShBlockScope* iParent);
 
     virtual string displayValue(const ShValue&) const
             { return "*undefined*"; }
@@ -169,7 +170,7 @@ public:
             { return false; }
 
     void addUses(ShModule*);
-    void addSymbol(ShBase*);
+    void registerObject(ShBase*);
     void finalizeVars(VmCodeGen*);
     ShBase* find(const string& ident) const
             { return symbols.find(ident); }
@@ -179,7 +180,7 @@ public:
 
 // --- SCOPE --- //
 
-class ShScope: public ShSymScope
+class ShScope: public ShBlockScope
 {
 protected:
     BaseList<ShType> types;
@@ -187,12 +188,12 @@ protected:
     BaseList<ShDefinition> defs;
     
 public:
-    ShScope(const string&, ShTypeId, ShSymScope* iParent);
+    ShScope(const string&, ShTypeId, ShBlockScope* iParent);
     ~ShScope();
     void addAnonType(ShType*);
-    void addTypeAlias(const string&, ShType*, ShSymScope*);
-    void addDefinition(ShDefinition*, ShSymScope*);
-    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*) = 0;
+    void addTypeAlias(const string&, ShType*, ShBlockScope*);
+    void addDefinition(ShDefinition*, ShBlockScope*);
+    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*) = 0;
     void dump(string indent) const;
 };
 
@@ -535,8 +536,8 @@ class ShLocalScope: public ShScope
 protected:
     virtual string getFullDefinition(const string& objName) const;
 public:
-    ShLocalScope(const string& iName, ShSymScope* iParent);
-    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
+    ShLocalScope(const string& iName, ShBlockScope* iParent);
+    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*);
 };
 
 
@@ -547,8 +548,8 @@ class ShStateBase: public ShScope
     // basis for modules, functions and states
 public:
     ShLocalScope localScope;
-    ShStateBase(const string&, ShTypeId, ShSymScope* iParent,
-        ShSymScope* iLocalParent);
+    ShStateBase(const string&, ShTypeId, ShBlockScope* iParent,
+        ShBlockScope* iLocalParent);
 };
 
 
@@ -567,10 +568,10 @@ public:
     offs argsSize;
     VmCodeSegment code;
 
-    ShFunction(ShType* iReturnType, ShSymScope* iParent);
+    ShFunction(ShType* iReturnType, ShBlockScope* iParent);
     ~ShFunction();
 
-    virtual ShVariable* addVariable(const string&, ShType*, ShSymScope*, VmCodeGen*);
+    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*);
     void addArgument(const string&, ShType*);
     void finishArguments();
     // equal() must check also that the parent context is the same, too
@@ -589,7 +590,7 @@ protected:
     StringTable stringTable;
     virtual string getFullDefinition(const string& objName) const;
     virtual ShVariable* addVariable(const string&, ShType* type,
-                ShSymScope*, VmCodeGen*);
+                ShBlockScope*, VmCodeGen*);
 
 public:
     offs dataSize;

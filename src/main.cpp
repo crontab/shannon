@@ -33,16 +33,16 @@ class ShCompiler: public Base
         offs continueTarget;
         // unresolved forward jumps produced by 'break'
         PodStack<offs> breakJumps;
-        // nested symbol scopes to be finalized in case of 'break' or 'continue'
-        PodStack<ShSymScope*> symScopes;
+        // nested block scopes to be finalized in case of 'break' or 'continue'
+        PodStack<ShBlockScope*> blockScopes;
     };
     
     struct FunctionInfo
     {
         // unresolved forward jumps produced by 'return'
         PodStack<offs> returnJumps;
-        // nested symbol scopes to be finalized in case of 'return'
-        PodStack<ShSymScope*> symScopes;
+        // nested block scopes to be finalized in case of 'return'
+        PodStack<ShBlockScope*> blockScopes;
     };
 
     Parser& parser;
@@ -52,7 +52,7 @@ class ShCompiler: public Base
     VmCodeGen nullCode;
     CompilerOptions options;
 
-    ShSymScope* currentSymbolScope; // for symbols only; replaced for every nested block
+    ShBlockScope* currentBlockScope; // replaced for every nested block
     ShStateBase* currentStateScope; // module or state
     LoopInfo* topLoop;
     FunctionInfo* topFunction;
@@ -121,7 +121,7 @@ public:
 
 ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
     : parser(iParser), module(iModule), mainCodeGen(&module),
-      nullCode(&module), currentSymbolScope(NULL), 
+      nullCode(&module), currentBlockScope(NULL), 
       currentStateScope(NULL), topLoop(NULL), topFunction(NULL),
       codegen(&mainCodeGen)  { }
 
@@ -161,7 +161,7 @@ void ShCompiler::error(EDuplicate& e)
 ShBase* ShCompiler::getQualifiedName()
 {
     string ident = parser.getIdent();
-    ShBase* obj = currentSymbolScope->deepFind(ident);
+    ShBase* obj = currentBlockScope->deepFind(ident);
     if (obj == NULL)
         errorNotFound(ident);
     string errIdent = ident;
@@ -774,9 +774,9 @@ ShType* ShCompiler::getDerivators(ShType* type)
     // functions
     else if (parser.skipIf(tokLParen))
     {
-        if (currentSymbolScope != &module)
+        if (currentBlockScope != &module)
             error("Functions/states can be defined only at module level");
-        ShFunction* funcType = new ShFunction(type, currentSymbolScope);
+        ShFunction* funcType = new ShFunction(type, currentBlockScope);
         codegen->hostScope->addAnonType(funcType);
         if (!parser.skipIf(tokRParen))
         {
@@ -805,7 +805,7 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
     if (parser.token == tokIdent)
     {
         *ident = parser.strValue;
-        ShBase* obj = currentSymbolScope->deepFind(*ident);
+        ShBase* obj = currentBlockScope->deepFind(*ident);
         // In one of the previous attempts to implement this guessing we were calling
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
@@ -846,7 +846,7 @@ ShEnum* ShCompiler::parseEnumType(const string& enumName)
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShDefinition* value = new ShDefinition(ident, type, nextVal);
-        codegen->hostScope->addDefinition(value, currentSymbolScope);
+        codegen->hostScope->addDefinition(value, currentBlockScope);
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -874,7 +874,7 @@ void ShCompiler::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    codegen->hostScope->addTypeAlias(ident, type, currentSymbolScope);
+    codegen->hostScope->addTypeAlias(ident, type, currentBlockScope);
     if (!type->isFunction())
         parser.skipSep();
 }
@@ -912,7 +912,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization: " + typeVsType(type, exprType));
         ShVariable* var = codegen->hostScope->addVariable(ident, type,
-            currentSymbolScope, codegen);
+            currentBlockScope, codegen);
         codegen->genInitVar(var);
     }
     else
@@ -923,7 +923,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         if (type == NULL) // auto
             type = value.type;
         codegen->hostScope->addDefinition(new ShDefinition(ident, value),
-            currentSymbolScope);
+            currentBlockScope);
     }
 }
 
@@ -1038,8 +1038,8 @@ void ShCompiler::parseBreakCont(bool isBreak)
 {
     if (topLoop == NULL)
         error(string(isBreak ? "'break'" : "'continue'") + " not inside loop");
-    for (int i = -1; i >= -topLoop->symScopes.size(); i--)
-        topLoop->symScopes.at(i)->finalizeVars(codegen);
+    for (int i = -1; i >= -topLoop->blockScopes.size(); i--)
+        topLoop->blockScopes.at(i)->finalizeVars(codegen);
     if (isBreak)
         topLoop->breakJumps.push(codegen->genForwardJump(opJump));
     else
@@ -1050,8 +1050,8 @@ void ShCompiler::parseBreakCont(bool isBreak)
 void ShCompiler::parseCase()
 {
     ShType* caseCtlType = parseExpr();
-    if (!caseCtlType->isOrdinal() && !caseCtlType->isString() && !caseCtlType->isTypeRef())
-        error("Case control expression must be ordinal, string or typeref");
+    if (!caseCtlType->isOrdinal() && !caseCtlType->isTypeRef())
+        error("Case control expression must be ordinal or typeref");
     if (caseCtlType->isLargeInt())
         error("Large ints are not supported with the 'case' operator");
     codegen->genFinalizeTemps();
@@ -1143,21 +1143,21 @@ void ShCompiler::enterBlock()
 {
     if (codegen->hostScope->isLocalScope())
     {
-        // The tempSymScope object is temporary; the real objects (types, vars,
+        // The tempScope object is temporary; the real objects (types, vars,
         // etc) are registered with the outer scope: either module or state. 
-        // Through the temp symbol scope however, we know which vars to 
+        // Through the temp block scope however, we know which vars to 
         // finalize when exiting the block.
-        ShSymScope tempSymScope("", typeSymScope, currentSymbolScope);
-        currentSymbolScope = &tempSymScope;
+        ShBlockScope tempScope("", typeBlockScope, currentBlockScope);
+        currentBlockScope = &tempScope;
         if (topLoop != NULL)
-            topLoop->symScopes.push(currentSymbolScope);
+            topLoop->blockScopes.push(currentBlockScope);
         parser.skipBlockBegin();
         parseBlock();
         if (topLoop != NULL)
-            if (topLoop->symScopes.pop() != currentSymbolScope)
+            if (topLoop->blockScopes.pop() != currentBlockScope)
                 internal(150);
-        currentSymbolScope = currentSymbolScope->parent;
-        tempSymScope.finalizeVars(codegen);
+        currentBlockScope = currentBlockScope->parent;
+        tempScope.finalizeVars(codegen);
     }
     else
     {
@@ -1186,15 +1186,15 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
 
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
-    ShSymScope* saveSymScope = currentSymbolScope;
-    currentSymbolScope = &funcType->localScope;
+    ShBlockScope* saveScope = currentBlockScope;
+    currentBlockScope = &funcType->localScope;
 
     parser.skipBlockBegin();
     parseBlock();
 
     funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
-    currentSymbolScope = saveSymScope;
+    currentBlockScope = saveScope;
     replaceCodeGen(saveCodeGen);
 
 #ifdef DEBUG
@@ -1212,7 +1212,7 @@ bool ShCompiler::compile()
     {
         codegen = &mainCodeGen;
         currentStateScope = &module;
-        currentSymbolScope = &module;
+        currentBlockScope = &module;
 
         parser.next();
         if (parser.skipIf(tokModule))
@@ -1222,7 +1222,7 @@ bool ShCompiler::compile()
 
         parser.skip(tokEof, "<EOF>");
 
-        currentSymbolScope->finalizeVars(codegen);
+        currentBlockScope->finalizeVars(codegen);
     }
     catch (EDuplicate& e)
     {
