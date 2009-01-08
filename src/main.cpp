@@ -1049,10 +1049,17 @@ void ShCompiler::parseBreakCont(bool isBreak)
 void ShCompiler::parseCase()
 {
     ShType* caseCtlType = parseExpr();
-    if (!caseCtlType->isOrdinal() && !caseCtlType->isTypeRef())
-        error("Case control expression must be ordinal or typeref");
+    if (!caseCtlType->isOrdinal() && !caseCtlType->isTypeRef() && !caseCtlType->isString())
+        error("'case' control expression can only be ordinal, string or typeref");
     if (caseCtlType->isLargeInt())
         error("Large ints are not supported with the 'case' operator");
+
+    if (caseCtlType->isString())
+    {
+        ShVariable* strTemp = codegen->dataScope->addTempVar(caseCtlType, currentBlockScope, codegen);
+        codegen->genCopyToVec(strTemp);
+    }
+
     codegen->genFinalizeTemps();
     parser.skipBlockBegin();
 
