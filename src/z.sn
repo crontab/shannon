@@ -164,6 +164,7 @@ assert 'a' | 'bc' | 'd' | ['e', 'f'] | v1 | v2 == 'abcdefghi'
 v1 = 'h'
 v6 = 'klm'
 v7 = 2
+
 begin:
     assert v1 == 'h' and v6 == 'klm' and v7 == [2]
 
@@ -179,6 +180,7 @@ begin:
         assert w1 == 2L
         echo 'Hello, nested nested block! ', typeof(w1), ' ', str(w1)
         var a = 'a' | 'b'
+
 begin:
     var w1 = 3
 
@@ -322,11 +324,8 @@ assert ct2 == 'mouse'
 # -------------------------------------------------------------------------
 
 def int inc(int a):
-    var i = 10
     var s = 'Hello' | ', function?'
-    echo 'Hello, ' | 'function!'
+    echo 'Hello, ' | 'function #', a, '!'
 
 inc(0)
 inc(1)
-
-

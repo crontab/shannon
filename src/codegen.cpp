@@ -506,9 +506,9 @@ offs VmCodeGen::genCopyToTempVec()
 void VmCodeGen::genCopyToVec(ShVariable* var)
 {
     verifyContext(var);
-    if (!var->type->isVector())
+    if (!var->type->isVector() || !var->isLocal())
         internal(63);
-    codeseg.addOp(var->isLocal() ? opCopyToLocVec : opCopyToThisVec);
+    codeseg.addOp(opCopyToLocVec);
     codeseg.addOffs(var->dataOffset);
 }
 
