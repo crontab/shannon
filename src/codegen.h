@@ -22,7 +22,6 @@ protected:
     };
 
     VmCodeSegment codeseg;
-    VmCodeSegment finseg;
     PodStack<GenStackInfo> genStack;
     int genStackSize;
     
@@ -67,7 +66,7 @@ public:
             { codeseg.addOp(opBoolNot); }
     void genBitNot(ShInteger* type)
             { codeseg.addOp(OpCode(opBitNot + type->isLargeInt())); }
-    offs genElemToVec(ShVector*);
+    void genElemToVec(ShVariable* tempVar);
     offs genForwardBoolJump(OpCode op);
     offs genForwardJump(OpCode op = opJump);
     void genResolveJump(offs jumpOffset);
@@ -81,11 +80,10 @@ public:
     void genPopValue(bool finalize);
     void genInitVar(ShVariable*);
     void genFinVar(ShVariable*);
-    offs genCopyToTempVec();
     void genCopyToVec(ShVariable*);
-    void genVecCat(offs tempVar);
-    void genVecElemCat(offs tempVar);
-    void genIntToStr();
+    void genVecCat(ShVariable* tempVar);
+    void genVecElemCat(ShVariable* tempVar);
+    void genIntToStr(ShVariable* tempVar);
     void genEcho()
             { codeseg.addOp(opEcho); codeseg.addPtr(genPopType()); }
     void genAssert(Parser& parser);
@@ -108,11 +106,9 @@ public:
             { return genPop().type; }
     ptr genTopPtrValue();
     offs genReserveLocalVar(ShType*);
-    offs genReserveTempVar(ShType*);
 
     void runConstExpr(ShValue& result);
     ShType* runTypeExpr(bool anyObj);
-    void genFinalizeTemps();
 
     VmCodeSegment getCodeSeg();
 };

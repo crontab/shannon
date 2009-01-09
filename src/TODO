@@ -1,4 +1,10 @@
 
+* eliminate 0-offset jumps
+
+* new opcode: CatConstVec
+
+* the linenum opcode should be generated from the codegen automatically
+
 * keep track of variable usage; report if a value is not returned from a 
   function
 

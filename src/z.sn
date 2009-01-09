@@ -1,6 +1,8 @@
 module Z
 
+var str s = 'a'
 
+#{
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8
 assert typeof(0) == int and typeof('a') == char and typeof('abc') == str
 
@@ -94,15 +96,16 @@ const f5 = not 1 and 3
 assert typeof(f5) == int and f5 == 2
 assert (not 0L and 0x7f00000000000000L) == 0x7f00000000000000L
 
-def enum days(Mon, Tue, Wed)
-var int aa[] = 1
-var aa3 = aa | 2 | 3
-var days aa4[] = Mon | Tue | Wed
-
 const u2 = 'abc' | 'def'
 const u3 = '@' | 'abc' | 'def' | 'g'
 const u4 = 'x' | 'y' | 'z!'
 const u5 = ''
+
+
+def enum days(Mon, Tue, Wed)
+var int aa[] = 1
+var aa3 = aa | 2 | 3
+var days aa4[] = Mon | Tue | Wed
 
 const int u6[] = []
 assert u6 == []
@@ -335,3 +338,12 @@ def void voidfunc():
     return
 
 voidfunc()
+
+def str strfunc(str v):
+    return 'Give me your ' | v | ' baby'
+    # return v
+
+echo strfunc('string')
+strfunc('nothing')
+
+}#

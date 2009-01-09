@@ -12,13 +12,16 @@ void noRuntimeContext()
 
 
 VmCodeGen::VmCodeGen(ShScope* iDataScope)
-    : codeseg(), finseg(), genStack(), genStackSize(0),
-      dataScope(iDataScope), resultTypeHint(NULL)  { }
+    : codeseg(), genStack(), genStackSize(0),
+      dataScope(iDataScope), resultTypeHint(NULL)
+{
+    if (dataScope == NULL)
+        internal(79);
+}
 
 void VmCodeGen::clear()
 {
     codeseg.clear();
-    finseg.clear();
     genStack.clear();
 }
 
@@ -45,7 +48,6 @@ void VmCodeGen::runConstExpr(ShValue& result)
     result.type = genTopType();
 
     genReturn();
-    genFinalizeTemps();
     genEnd();
     codeseg.execute(NULL, &result.value);
 
@@ -300,16 +302,16 @@ void VmCodeGen::genUnArithm(OpCode op, ShInteger* resultType)
     codeseg.addOp(OpCode(op + resultType->isLargeInt()));
 }
 
-offs VmCodeGen::genElemToVec(ShVector* vecType)
+void VmCodeGen::genElemToVec(ShVariable* tempVar)
 {
+    verifyContext(tempVar);
     genPop();
-    genPush(vecType);
-    offs tmpOffset = genReserveTempVar(vecType);
+    if (!tempVar->type->isVector())
+        internal(77);
+    genPush(tempVar->type);
     codeseg.addOp(opElemToVec);
-    codeseg.addPtr(vecType->elementType);
-    // stores a copy of the pointer to be finalized later
-    codeseg.addOffs(tmpOffset);
-    return tmpOffset;
+    codeseg.addPtr(PVector(tempVar->type)->elementType);
+    codeseg.addOffs(tempVar->dataOffset);
 }
 
 offs VmCodeGen::genForwardBoolJump(OpCode op)
@@ -389,6 +391,7 @@ ShType* VmCodeGen::genUndoTypeRef()
 
 void VmCodeGen::genStoreVar(ShVariable* var)
 {
+    verifyContext(var);
     genFinVar(var);
     genInitVar(var);
 }
@@ -449,6 +452,7 @@ void VmCodeGen::genPopValue(bool finalize)
 
 void VmCodeGen::genInitVar(ShVariable* var)
 {
+    verifyContext(var);
     genPop();
     OpCode op = OpCode(opStoreThisFirst + int(var->type->storageModel));
     if (var->isLocal())
@@ -483,26 +487,6 @@ void VmCodeGen::genFinVar(ShVariable* var)
     genFin(codeseg, var->type, var->dataOffset, var->isLocal());
 }
 
-offs VmCodeGen::genReserveTempVar(ShType* type)
-{
-    // note that we are not setting needsRuntimeContext, as this can be
-    // executed when evaluating, e.g., const string concatenation
-    offs offset = codeseg.reserveLocalVar(type->staticSizeAligned);
-    genFin(finseg, type, offset, true);
-    return offset;
-}
-
-offs VmCodeGen::genCopyToTempVec()
-{
-    ShType* type = genTopType();
-    if (!type->isVector())
-        internal(63);
-    offs tmpOffset = genReserveTempVar(type);
-    codeseg.addOp(opCopyToLocVec);
-    codeseg.addOffs(tmpOffset);
-    return tmpOffset;
-}
-
 void VmCodeGen::genCopyToVec(ShVariable* var)
 {
     verifyContext(var);
@@ -512,39 +496,38 @@ void VmCodeGen::genCopyToVec(ShVariable* var)
     codeseg.addOffs(var->dataOffset);
 }
 
-void VmCodeGen::genVecCat(offs tempVar)
+void VmCodeGen::genVecCat(ShVariable* tempVar)
 {
+    verifyContext(tempVar);
     genPop();
-    ShType* vecType = genPopType();
-    if (!vecType->isVector())
+    if (!genPopType()->isVector() || !tempVar->type->isVector())
         internal(64);
-    genPush(vecType);
+    genPush(tempVar->type);
     codeseg.addOp(opVecCat);
-    codeseg.addPtr(PVector(vecType)->elementType);
-    codeseg.addOffs(tempVar);
+    codeseg.addPtr(PVector(tempVar->type)->elementType);
+    codeseg.addOffs(tempVar->dataOffset);
 }
 
-void VmCodeGen::genVecElemCat(offs tempVar)
+void VmCodeGen::genVecElemCat(ShVariable* tempVar)
 {
+    verifyContext(tempVar);
     genPop();
-    ShType* vecType = genPopType();
-    if (!vecType->isVector())
+    if (!genPopType()->isVector() || !tempVar->type->isVector())
         internal(64);
-    genPush(vecType);
+    genPush(tempVar->type);
     codeseg.addOp(opVecElemCat);
-    codeseg.addPtr(PVector(vecType)->elementType);
-    codeseg.addOffs(tempVar);
+    codeseg.addPtr(PVector(tempVar->type)->elementType);
+    codeseg.addOffs(tempVar->dataOffset);
 }
 
-void VmCodeGen::genIntToStr()
+void VmCodeGen::genIntToStr(ShVariable* tempVar)
 {
-    ShType* type = genPopType();
-    if (!type->isOrdinal())
+    verifyContext(tempVar);
+    if (!genPopType()->isOrdinal() || !tempVar->type->isString())
         internal(68);
-    genPush(queenBee->defaultStr);
-    offs tmpOffset = genReserveTempVar(queenBee->defaultStr);
-    codeseg.addOp(type->isLargeInt() ? opLargeToStr : opIntToStr);
-    codeseg.addOffs(tmpOffset);
+    genPush(tempVar->type);
+    codeseg.addOp(tempVar->type->isLargeInt() ? opLargeToStr : opIntToStr);
+    codeseg.addOffs(tempVar->dataOffset);
 }
 
 offs VmCodeGen::genReserveLocalVar(ShType* type)
@@ -579,6 +562,8 @@ void VmCodeGen::genReturn()
 void VmCodeGen::genCall(ShFunction* func)
 {
     if (dataScope == NULL)
+        internal(78);
+    if (func->parent != dataScope) // TODO:
         noRuntimeContext();
     for (int i = func->args.size() - 1; i >= 0; i--)
         genPop();
@@ -597,18 +582,8 @@ void VmCodeGen::genEnd()
     codeseg.addOp(opEnd);
 }
 
-void VmCodeGen::genFinalizeTemps()
-{
-    if (!finseg.empty())
-    {
-        codeseg.append(finseg);
-        finseg.clear();
-    }
-}
-
 VmCodeSegment VmCodeGen::getCodeSeg()
 {
-    genFinalizeTemps();
     genEnd();
     return codeseg;
 }
@@ -616,7 +591,7 @@ VmCodeSegment VmCodeGen::getCodeSeg()
 void VmCodeGen::verifyContext(ShVariable* var)
 {
     if (dataScope == NULL)
-        noRuntimeContext();
-    if (var->ownerScope != dataScope && var->ownerScope != dataScope->parent)
         internal(70);
+    if (var->ownerScope != dataScope)
+        noRuntimeContext();
 }

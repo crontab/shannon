@@ -464,7 +464,7 @@ public:
     {
         end -= len;
 #ifdef DEBUG
-        if (begin == NULL || end < begin) invstackop();
+        if (len < 0 || (len > 0 && begin == NULL) || (begin != NULL && end < begin)) invstackop();
 #endif
         return end;
     }
