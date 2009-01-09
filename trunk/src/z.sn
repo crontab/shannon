@@ -326,6 +326,12 @@ assert ct2 == 'mouse'
 def int inc(int a):
     var s = 'Hello' | ', function?'
     echo 'Hello, ' | 'function #', a, '!'
+    return a + 1
 
-inc(0)
-inc(1)
+assert inc(0) == 1
+assert inc(1) == 2
+
+def void voidfunc():
+    return
+
+voidfunc()
