@@ -161,6 +161,9 @@ ShReference* ShType::deriveRefType()
 
 // --- BLOCK_LOCAL SCOPE --- //
 
+ShBlockScope::ShBlockScope(ShBlockScope* iParent)
+        : ShType(typeBlockScope), parent(iParent)  { }
+
 ShBlockScope::ShBlockScope(const string& iName, ShTypeId iTypeId, ShBlockScope* iParent)
         : ShType(iName, iTypeId), parent(iParent)  { }
 

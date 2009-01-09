@@ -27,22 +27,29 @@ struct CompilerOptions
 
 class ShCompiler: public Base
 {
+    friend class AutoScope;
+
     struct LoopInfo
     {
+        // block scopes to be finalized in case of 'break' or 'continue'
+        int blockLevel;
         // jump target for 'continue'
         offs continueTarget;
         // unresolved forward jumps produced by 'break'
         PodStack<offs> breakJumps;
-        // nested block scopes to be finalized in case of 'break' or 'continue'
-        PodStack<ShBlockScope*> blockScopes;
+        
+        LoopInfo(int iLevel, offs iTarget)
+            : blockLevel(iLevel), continueTarget(iTarget)  { }
     };
     
-    struct FunctionInfo
+    struct FuncInfo
     {
+        // block scopes to be finalized in case of 'return'
+        int blockLevel;
         // unresolved forward jumps produced by 'return'
         PodStack<offs> returnJumps;
-        // nested block scopes to be finalized in case of 'return'
-        PodStack<ShBlockScope*> blockScopes;
+    
+        FuncInfo(int iLevel): blockLevel(iLevel)  { }
     };
 
     Parser& parser;
@@ -52,17 +59,15 @@ class ShCompiler: public Base
     VmCodeGen nullCode;
     CompilerOptions options;
 
-    ShBlockScope* currentBlockScope; // replaced for every nested block
+    PodStack<ShBlockScope*> blockStack;
     LoopInfo* topLoop;
-    FunctionInfo* topFunction;
+    FuncInfo* topFunc;
+
     VmCodeGen* codegen;
 
-    VmCodeGen* replaceCodeGen(VmCodeGen* c)
-            { VmCodeGen* t = codegen; codegen = c; return t; }
-    LoopInfo* replaceTopLoop(LoopInfo* l)
-            { LoopInfo* t = topLoop; topLoop = l; return t; }
-    FunctionInfo* replaceTopFunction(FunctionInfo* f)
-            { FunctionInfo* t = topFunction; topFunction = f; return t; }
+    VmCodeGen* replaceCodeGen(VmCodeGen* c)  { VmCodeGen* t = codegen; codegen = c; return t; }
+    LoopInfo* replaceTopLoop(LoopInfo* l)    { LoopInfo* t = topLoop; topLoop = l; return t; }
+    FuncInfo* replaceTopFunc(FuncInfo* f)    { FuncInfo* t = topFunc; topFunc = f; return t; }
 
     void error(const string& msg)           { parser.error(msg); }
     void error(EDuplicate& e);
@@ -121,9 +126,41 @@ public:
 
 ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
     : parser(iParser), module(iModule), mainCodeGen(&module),
-      nullCode(&module), currentBlockScope(NULL), 
-      topLoop(NULL), topFunction(NULL),
+      nullCode(&module), topLoop(NULL), topFunc(NULL),
       codegen(&mainCodeGen)  { }
+
+
+class AutoScope: public ShBlockScope
+{
+    ShCompiler& compiler;
+    ShScope* saveDataScope;
+public:
+    AutoScope(ShCompiler&);
+    ~AutoScope();
+};
+
+
+AutoScope::AutoScope(ShCompiler& iCompiler)
+    : ShBlockScope(iCompiler.blockStack.top()), compiler(iCompiler)
+{
+    saveDataScope = compiler.codegen->dataScope;
+    // We replace the current "data" scope if it's a module-static or a 
+    // state-static one with a local scope, so that objects defined in any 
+    // nested block are allocated on the stack rather than statically. This
+    // can happen only at top-level in modules and states, but not ordinary
+    // functions or nested blocks.
+    if (saveDataScope->isModule())
+        compiler.codegen->dataScope = &PModule(saveDataScope)->localScope;
+    compiler.blockStack.push(this);
+}
+
+AutoScope::~AutoScope()
+{
+    finalizeVars(compiler.codegen);
+    compiler.codegen->dataScope = saveDataScope;
+    if (compiler.blockStack.pop() != this)
+        internal(152);
+}
 
 
 string typeVsType(ShType* a, ShType* b)
@@ -161,7 +198,7 @@ void ShCompiler::error(EDuplicate& e)
 ShBase* ShCompiler::getQualifiedName()
 {
     string ident = parser.getIdent();
-    ShBase* obj = currentBlockScope->deepFind(ident);
+    ShBase* obj = blockStack.top()->deepFind(ident);
     if (obj == NULL)
         errorNotFound(ident);
     string errIdent = ident;
@@ -774,9 +811,9 @@ ShType* ShCompiler::getDerivators(ShType* type)
     // functions
     else if (parser.skipIf(tokLParen))
     {
-        if (currentBlockScope != &module)
+        if (blockStack.top() != &module)
             error("Functions/states can be defined only at module level");
-        ShFunction* funcType = new ShFunction(type, currentBlockScope);
+        ShFunction* funcType = new ShFunction(type, blockStack.top());
         codegen->dataScope->addAnonType(funcType);
         if (!parser.skipIf(tokRParen))
         {
@@ -805,7 +842,7 @@ ShType* ShCompiler::getTypeOrNewIdent(string* ident)
     if (parser.token == tokIdent)
     {
         *ident = parser.strValue;
-        ShBase* obj = currentBlockScope->deepFind(*ident);
+        ShBase* obj = blockStack.top()->deepFind(*ident);
         // In one of the previous attempts to implement this guessing we were calling
         // full expression parsing just to catch any exceptions and analyze them.
         // Unfortunately excpetion throwing/catching in C++ is too expensive, so we'd
@@ -846,7 +883,7 @@ ShEnum* ShCompiler::parseEnumType(const string& enumName)
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShDefinition* value = new ShDefinition(ident, type, nextVal);
-        codegen->dataScope->addDefinition(value, currentBlockScope);
+        codegen->dataScope->addDefinition(value, blockStack.top());
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -874,7 +911,7 @@ void ShCompiler::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    codegen->dataScope->addTypeAlias(ident, type, currentBlockScope);
+    codegen->dataScope->addTypeAlias(ident, type, blockStack.top());
     if (!type->isFunction())
         parser.skipSep();
 }
@@ -912,7 +949,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization: " + typeVsType(type, exprType));
         ShVariable* var = codegen->dataScope->addVariable(ident, type,
-            currentBlockScope, codegen);
+            blockStack.top(), codegen);
         codegen->genInitVar(var);
     }
     else
@@ -923,7 +960,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         if (type == NULL) // auto
             type = value.type;
         codegen->dataScope->addDefinition(new ShDefinition(ident, value),
-            currentBlockScope);
+            blockStack.top());
     }
 }
 
@@ -1014,10 +1051,9 @@ void ShCompiler::parseIf(Token tok)
 
 void ShCompiler::parseWhile()
 {
-    LoopInfo thisLoop;
+    LoopInfo thisLoop(blockStack.size(), codegen->genOffset());
     LoopInfo* saveTopLoop = replaceTopLoop(&thisLoop);
 
-    thisLoop.continueTarget = codegen->genOffset();
     ShType* type = parseExpr(queenBee->defaultBool);
     if (!type->isBool())
         error("Boolean expression expected");
@@ -1038,8 +1074,8 @@ void ShCompiler::parseBreakCont(bool isBreak)
 {
     if (topLoop == NULL)
         error(string(isBreak ? "'break'" : "'continue'") + " not inside loop");
-    for (int i = -1; i >= -topLoop->blockScopes.size(); i--)
-        topLoop->blockScopes.at(i)->finalizeVars(codegen);
+    for (int i = -1; i >= topLoop->blockLevel - blockStack.size(); i--)
+        blockStack.at(i)->finalizeVars(codegen);
     if (isBreak)
         topLoop->breakJumps.push(codegen->genForwardJump(opJump));
     else
@@ -1049,6 +1085,8 @@ void ShCompiler::parseBreakCont(bool isBreak)
 
 void ShCompiler::parseCase()
 {
+    AutoScope tempScope(*this);
+
     ShType* caseCtlType = parseExpr();
     if (!caseCtlType->isOrdinal() && !caseCtlType->isTypeRef() && !caseCtlType->isString())
         error("'case' control expression can only be ordinal, string or typeref");
@@ -1057,7 +1095,8 @@ void ShCompiler::parseCase()
 
     if (caseCtlType->isString())
     {
-        ShVariable* strTemp = codegen->dataScope->addTempVar(caseCtlType, currentBlockScope, codegen);
+        ShVariable* strTemp = codegen->dataScope->addTempVar(caseCtlType,
+            blockStack.top(), codegen);
         codegen->genCopyToVec(strTemp);
     }
 
@@ -1150,42 +1189,13 @@ void ShCompiler::parseBlock()
 
 void ShCompiler::enterBlock()
 {
-    if (codegen->dataScope->isLocalScope())
-    {
-        // The tempScope object is temporary; the real objects (types, vars,
-        // etc) are registered with the outer scope: either module or state. 
-        // Through the temp block scope however, we know which vars to 
-        // finalize when exiting the block.
-        ShBlockScope tempScope("", typeBlockScope, currentBlockScope);
-        currentBlockScope = &tempScope;
-        if (topLoop != NULL)
-            topLoop->blockScopes.push(currentBlockScope);
-        if (topFunction != NULL)
-            topFunction->blockScopes.push(currentBlockScope);
-        parser.skipBlockBegin();
-        parseBlock();
-        if (topFunction != NULL)
-            if (topFunction->blockScopes.pop() != currentBlockScope)
-                internal(150);
-        if (topLoop != NULL)
-            if (topLoop->blockScopes.pop() != currentBlockScope)
-                internal(150);
-        currentBlockScope = currentBlockScope->parent;
-        tempScope.finalizeVars(codegen);
-    }
-    else
-    {
-        // We replace the current "data" scope if it's a module-static or a 
-        // state-static one with a local scope, so that objects defined in any 
-        // nested block are allocated on the stack rather than statically. This
-        // can happen only at top-level in modules and states, but not ordinary
-        // functions or nested blocks.
-        if (!codegen->dataScope->isModule())
-            internal(151);
-        codegen->dataScope = &PModule(codegen->dataScope)->localScope;
-        enterBlock();
-        codegen->dataScope = (ShScope*)codegen->dataScope->parent;
-    }
+    // The tempScope object is temporary; the real objects (types, vars,
+    // etc) are registered with the outer scope: either module or state. 
+    // Through the temp block scope however, we know which vars to 
+    // finalize when exiting the block.
+    AutoScope tempScope(*this);
+    parser.skipBlockBegin();
+    parseBlock();
 }
 
 
@@ -1195,7 +1205,7 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
         internal(153);
     if (topLoop != NULL)
         internal(154);
-    if (topFunction != NULL)
+    if (topFunc != NULL)
         internal(155);
 
     // set up the scopes: for ordinary functions the codegen's data scope
@@ -1203,12 +1213,11 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     // the stack (which will be different in states)
     VmCodeGen tcode(&funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
-    ShBlockScope* saveScope = currentBlockScope;
-    currentBlockScope = &funcType->localScope;
+    blockStack.push(&funcType->localScope);
 
     // set up the 'return' information
-    FunctionInfo thisFunc;
-    FunctionInfo* saveTopFunc = replaceTopFunction(&thisFunc);
+    FuncInfo thisFunc(blockStack.size());
+    FuncInfo* saveTopFunc = replaceTopFunc(&thisFunc);
 
     parser.skipBlockBegin();
     parseBlock();
@@ -1216,11 +1225,11 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     // resolve all 'return' jumps to this point where we finalize locals
     while (!thisFunc.returnJumps.empty())
         codegen->genResolveJump(thisFunc.returnJumps.pop());
-    replaceTopFunction(saveTopFunc);
+    replaceTopFunc(saveTopFunc);
 
     funcType->localScope.finalizeVars(&tcode);
     funcType->setCodeSeg(tcode.getCodeSeg());
-    currentBlockScope = saveScope;
+    blockStack.pop();
     replaceCodeGen(saveCodeGen);
 
 #ifdef DEBUG
@@ -1243,7 +1252,7 @@ bool ShCompiler::compile()
     try
     {
         codegen = &mainCodeGen;
-        currentBlockScope = &module;
+        blockStack.push(&module);
 
         parser.next();
         if (parser.skipIf(tokModule))
@@ -1253,7 +1262,7 @@ bool ShCompiler::compile()
 
         parser.skip(tokEof, "<EOF>");
 
-        currentBlockScope->finalizeVars(codegen);
+        blockStack.top()->finalizeVars(codegen);
     }
     catch (EDuplicate& e)
     {

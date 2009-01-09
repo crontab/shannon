@@ -149,7 +149,7 @@ public:
     int  _unlock()
         {
 #ifdef DEBUG
-            if (STR_REFCOUNT(data) <= 0)
+            if (STR_LENGTH(data) > 0 && STR_REFCOUNT(data) <= 0)
                 stringoverflow();
 #endif
             return pdecrement(&STR_REFCOUNT(data));

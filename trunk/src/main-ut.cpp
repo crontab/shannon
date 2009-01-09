@@ -292,7 +292,11 @@ void testInText()
     const charset specials = "`!\"$%^&*()_+=:@;'#<>?,./|\\~-~~";
     const charset wschars = "\t ";
 
+#ifdef XCODE
+    InFile in("../../src/tests/intext.txt");
+#else
     InFile in("tests/intext.txt");
+#endif
     try
     {
         assert('T' == in.preview());
@@ -323,7 +327,11 @@ void testInText()
 
 void testParser()
 {
+#ifdef XCODE
+    Parser parser("../../src/tests/parser.txt");
+#else
     Parser parser("tests/parser.txt");
+#endif
     try
     {
         static Token expect[] = {

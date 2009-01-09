@@ -93,7 +93,6 @@ static OpInfo optable[] =
     OP(PopPtr),
     OP1(PopVec, ShType),
     OP1(CopyToLocVec, offs),
-    OP1(CopyToThisVec, offs),
     OP2(ElemToVec, ShType, offs),
     OP2(VecCat, ShType, offs),
     OP2(VecElemCat, ShType, offs),

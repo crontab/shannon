@@ -83,7 +83,6 @@ enum OpCode
 
     // vector concatenation
     opCopyToLocVec,     // [offs]
-    opCopyToThisVec,    // [offs]
     opElemToVec,        // [ShType*, offs]  -1  +1
     opVecCat,           // [ShType*, offs]  -2  +1
     opVecElemCat,       // [ShType*, offs]  -2  +1

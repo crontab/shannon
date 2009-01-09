@@ -162,6 +162,7 @@ protected:
 public:
     ShBlockScope* const parent;
 
+    ShBlockScope(ShBlockScope* iParent);
     ShBlockScope(const string&, ShTypeId, ShBlockScope* iParent);
 
     virtual string displayValue(const ShValue&) const

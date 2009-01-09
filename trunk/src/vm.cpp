@@ -351,9 +351,6 @@ void VmCodeSegment::run(VmQuant* p, pchar thisseg, pchar stkbase, ptr retval)
         case opCopyToLocVec:
             *pptr(stkbase + (p++)->offs_) = string::_initialize(stk.topPtr());
             break;
-        case opCopyToThisVec:
-            *pptr(thisseg + (p++)->offs_) = string::_initialize(stk.topPtr());
-            break;
         case opElemToVec:
             {
                 ShType* type = PType((p++)->ptr_);
