@@ -195,8 +195,6 @@ public:
     void addTypeAlias(const string&, ShType*, ShBlockScope*);
     void addDefinition(ShDefinition*, ShBlockScope*);
     virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*) = 0;
-    ShVariable* addTempVar(ShType* type, ShBlockScope* blockScope, VmCodeGen* codegen)
-        { return addVariable("", type, blockScope, codegen); }
     void dump(string indent) const;
 };
 
@@ -539,6 +537,7 @@ class ShLocalScope: public ShScope
 protected:
     virtual string getFullDefinition(const string& objName) const;
 public:
+    ShLocalScope(ShBlockScope* iParent); // for compile-time evaluation
     ShLocalScope(const string& iName, ShBlockScope* iParent);
     virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*);
 };

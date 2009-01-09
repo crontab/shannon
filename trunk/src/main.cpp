@@ -28,6 +28,7 @@ struct CompilerOptions
 class ShCompiler: public Base
 {
     friend class AutoScope;
+    friend class ConstScope;
 
     struct LoopInfo
     {
@@ -70,6 +71,8 @@ class ShCompiler: public Base
     VmCodeGen* replaceCodeGen(VmCodeGen* c)  { VmCodeGen* t = codegen; codegen = c; return t; }
     LoopInfo* replaceTopLoop(LoopInfo* l)    { LoopInfo* t = topLoop; topLoop = l; return t; }
     FuncInfo* replaceTopFunc(FuncInfo* f)    { FuncInfo* t = topFunc; topFunc = f; return t; }
+    ShVariable* createTempVar(ShType*);
+    void finalizeBlocks(int downToLevel);
 
     void error(const string& msg)           { parser.error(msg); }
     void error(EDuplicate& e);
@@ -131,6 +134,17 @@ ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
       nullCode(&module), topLoop(NULL), topFunc(NULL),
       codegen(&mainCodeGen)  { }
 
+ShVariable* ShCompiler::createTempVar(ShType* type)
+{
+    return codegen->dataScope->addVariable(nullstring, type, blockStack.top(), codegen);
+}
+
+void ShCompiler::finalizeBlocks(int downToLevel)
+{
+    for (int i = -1; i >= downToLevel - blockStack.size(); i--)
+        blockStack.at(i)->finalizeVars(codegen);
+}
+
 
 class AutoScope: public ShBlockScope
 {
@@ -160,6 +174,29 @@ AutoScope::~AutoScope()
 {
     finalizeVars(compiler.codegen);
     compiler.codegen->dataScope = saveDataScope;
+    if (compiler.blockStack.pop() != this)
+        internal(152);
+}
+
+
+class ConstScope: public ShLocalScope
+{
+    ShCompiler& compiler;
+public:
+    ConstScope(ShCompiler&);
+    ~ConstScope();
+};
+
+
+ConstScope::ConstScope(ShCompiler& iCompiler)
+    : ShLocalScope(iCompiler.blockStack.top()), compiler(iCompiler)
+{
+    compiler.blockStack.push(this);
+}
+
+ConstScope::~ConstScope()
+{
+    finalizeVars(compiler.codegen);
     if (compiler.blockStack.pop() != this)
         internal(152);
 }
@@ -222,10 +259,15 @@ ShBase* ShCompiler::getQualifiedName()
 
 ShType* ShCompiler::getTypeExpr(bool anyObj)
 {
-    VmCodeGen tcode(NULL);
-    VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
-    parseExpr();
-    ShType* type = tcode.runTypeExpr(anyObj);
+    ShType* type = NULL;
+    VmCodeGen* saveCodeGen = codegen;
+    {
+        ConstScope block(*this);
+        VmCodeGen tcode(&block);
+        replaceCodeGen(&tcode);
+        parseExpr();
+        type = tcode.runTypeExpr(anyObj);
+    }
     replaceCodeGen(saveCodeGen);
     return type;
 }
@@ -369,7 +411,7 @@ ShType* ShCompiler::parseStaticCast(ShType* toType)
     parser.skip(tokRParen, ")");
     ShType* fromType = codegen->genTopType();
     if (fromType->isOrdinal() && toType->isString())
-        codegen->genIntToStr();
+        codegen->genIntToStr(createTempVar(queenBee->defaultStr));
     else if (fromType->canStaticCastTo(toType))
         codegen->genStaticCast(toType);
     else
@@ -504,13 +546,14 @@ ShType* ShCompiler::parseSimpleExpr()
     {
         parser.next();
 
-        offs tmpOffset = 0;
+        ShVariable* tempVar = NULL;
         if (left->isVector())
-            tmpOffset = codegen->genCopyToTempVec();
+            tempVar = createTempVar(left);
         else if (left->canBeArrayElement())
         {
             left = left->deriveVectorType();
-            tmpOffset = codegen->genElemToVec(PVector(left));
+            tempVar = createTempVar(left);
+            codegen->genElemToVec(tempVar);
         }
         else
             error("Invalid vector element type");
@@ -518,9 +561,9 @@ ShType* ShCompiler::parseSimpleExpr()
         {
             ShType* right = parseArithmExpr();
             if (left->equals(right))
-                codegen->genVecCat(tmpOffset);
+                codegen->genVecCat(tempVar);
             else if (PVector(left)->elementEquals(right))
-                codegen->genVecElemCat(tmpOffset);
+                codegen->genVecElemCat(tempVar);
             else
                 error("Operands of vector concatenation are incompatible");
         }
@@ -549,8 +592,7 @@ ShType* ShCompiler::parseCompoundCtor()
         //   var str a[] = ['abc'] | b
         ShType* elemType = typeHint != NULL && typeHint->isVector() ?
             PVector(typeHint)->elementType : NULL;
-        ShVector* vecType = NULL;
-        offs tmpOffset = 0;
+        ShVariable* tempVar = NULL;
         while (1)
         {
             ShType* gotType = parseExpr(elemType);
@@ -558,18 +600,18 @@ ShType* ShCompiler::parseCompoundCtor()
                 elemType = gotType;
             if (!elemType->canAssign(gotType))
                 errorWithLoc("Type mismatch in vector constructor");
-            if (vecType == NULL) // first item?
+            if (tempVar == NULL) // first item?
             {
-                vecType = elemType->deriveVectorType();
-                tmpOffset = codegen->genElemToVec(vecType);
+                tempVar = createTempVar(elemType->deriveVectorType());
+                codegen->genElemToVec(tempVar);
             }
             else
-                codegen->genVecElemCat(tmpOffset);
+                codegen->genVecElemCat(tempVar);
             if (parser.skipIf(tokRSquare))
                 break;
             parser.skip(tokComma, "]");
         }
-        return vecType;
+        return tempVar->type;
     }
 }
 
@@ -722,7 +764,7 @@ ShType* ShCompiler::parseExpr(ShType* typeHint)
     {
         if (typeHint->isVector() && typeHint->canAssign(topType)
                 && PVector(typeHint)->elementEquals(topType))
-            codegen->genElemToVec(PVector(typeHint));
+            codegen->genElemToVec(createTempVar(typeHint));
 
         // ordinal typecast, if necessary, so that a constant has a proper type
         else if (typeHint->isOrdinal() && !typeHint->equals(topType)
@@ -736,11 +778,15 @@ ShType* ShCompiler::parseExpr(ShType* typeHint)
 
 void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange)
 {
-    VmCodeGen tcode(NULL);
-    VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
-
-    parseExpr(typeHint);
-    tcode.runConstExpr(result);
+    VmCodeGen* saveCodeGen = codegen;
+    {
+        ConstScope block(*this);
+        VmCodeGen tcode(&block);
+        replaceCodeGen(&tcode);
+        parseExpr(typeHint);
+        tcode.runConstExpr(result);
+    }
+    replaceCodeGen(saveCodeGen);
 
     if (result.type == NULL)
         error("Expression can't be evaluated at compile time");
@@ -772,7 +818,6 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange
     else if (result.type->isRange() && result.rangeMin() >= result.rangeMax())
         error("Invalid range");
 
-    replaceCodeGen(saveCodeGen);
 }
 
 
@@ -976,7 +1021,6 @@ void ShCompiler::parseEcho(VmCodeGen* tcode)
         {
             parseExpr();
             codegen->genEcho();
-            codegen->genFinalizeTemps();
         }
         while (parser.skipIf(tokComma));
     }
@@ -993,7 +1037,6 @@ void ShCompiler::parseAssert(VmCodeGen* tcode)
     if (!type->isBool())
         error("Boolean expression expected for assertion");
     codegen->genAssert(parser);
-    codegen->genFinalizeTemps();
     replaceCodeGen(saveCodeGen);
     parser.skipSep();
 }
@@ -1004,7 +1047,7 @@ void ShCompiler::parseOtherStatement()
     ShType* type = parseDesignator(true);
     if (codegen->genTopIsFuncCall())
     {
-        codegen->genPopValue(true);
+        codegen->genPopValue(false);
     }
     else if (parser.skipIf(tokAssign))
     {
@@ -1030,7 +1073,6 @@ void ShCompiler::parseIf(Token tok)
         ShType* type = parseExpr(queenBee->defaultBool);
         if (!type->isBool())
             error("Boolean expression expected");
-        codegen->genFinalizeTemps();
         endJump = codegen->genForwardJump(opJumpFalse);
     }
 
@@ -1059,7 +1101,6 @@ void ShCompiler::parseWhile()
     ShType* type = parseExpr(queenBee->defaultBool);
     if (!type->isBool())
         error("Boolean expression expected");
-    codegen->genFinalizeTemps();
     offs endJump = codegen->genForwardJump(opJumpFalse);
 
     enterBlock();
@@ -1076,8 +1117,7 @@ void ShCompiler::parseBreakCont(bool isBreak)
 {
     if (topLoop == NULL)
         error(string(isBreak ? "'break'" : "'continue'") + " not inside loop");
-    for (int i = -1; i >= topLoop->blockLevel - blockStack.size(); i--)
-        blockStack.at(i)->finalizeVars(codegen);
+    finalizeBlocks(topLoop->blockLevel);
     if (isBreak)
         topLoop->breakJumps.push(codegen->genForwardJump(opJump));
     else
@@ -1096,13 +1136,8 @@ void ShCompiler::parseCase()
         error("Large ints are not supported with the 'case' operator");
 
     if (caseCtlType->isString())
-    {
-        ShVariable* strTemp = codegen->dataScope->addTempVar(caseCtlType,
-            blockStack.top(), codegen);
-        codegen->genCopyToVec(strTemp);
-    }
+        codegen->genCopyToVec(createTempVar(caseCtlType));
 
-    codegen->genFinalizeTemps();
     parser.skipBlockBegin();
 
     PodStack<offs> endJumps;
@@ -1184,7 +1219,6 @@ void ShCompiler::parseBlock()
             parseReturn();
         else
             parseOtherStatement();
-        codegen->genFinalizeTemps();
     }
 }
 
@@ -1252,6 +1286,7 @@ void ShCompiler::parseReturn()
             error("Function return type mismatch");
         codegen->genReturn();
     }
+    finalizeBlocks(topFunc->blockLevel);
     topFunc->returnJumps.push(codegen->genForwardJump(opJump));
     parser.skipSep();
 }

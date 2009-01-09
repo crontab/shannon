@@ -178,7 +178,11 @@ void ShBlockScope::registerObject(ShBase* obj)
 void ShBlockScope::finalizeVars(VmCodeGen* codegen)
 {
     for (int i = localVars.size() - 1; i >= 0; i--)
-        codegen->genFinVar(localVars[i]);
+    {
+        ShVariable* var = localVars[i];
+        if (var->dataOffset >= 0) // don't finalize func args
+            codegen->genFinVar(var);
+    }
 }
 
 ShBase* ShBlockScope::deepFind(const string& ident) const
@@ -651,6 +655,9 @@ ShDefinition::ShDefinition(const string& iName, ShTypeRef* typeref, ShType* iVal
 
 
 // --- LOCAL SCOPE --- //
+
+ShLocalScope::ShLocalScope(ShBlockScope* iParent)
+    : ShScope(nullstring, typeLocalScope, iParent)  { }
 
 ShLocalScope::ShLocalScope(const string& iName, ShBlockScope* iParent)
     : ShScope(iName, typeLocalScope, iParent)  { }
