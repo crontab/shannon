@@ -1,5 +1,6 @@
 
-* functions
+* keep track of variable usage; report if a value is not returned from a 
+  function
 
 * combined assignment operators
 

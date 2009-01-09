@@ -44,12 +44,14 @@ class ShCompiler: public Base
     
     struct FuncInfo
     {
+        ShFunction* funcType;
         // block scopes to be finalized in case of 'return'
         int blockLevel;
         // unresolved forward jumps produced by 'return'
         PodStack<offs> returnJumps;
     
-        FuncInfo(int iLevel): blockLevel(iLevel)  { }
+        FuncInfo(ShFunction* iType, int iLevel)
+            : funcType(iType), blockLevel(iLevel)  { }
     };
 
     Parser& parser;
@@ -1216,7 +1218,7 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
     blockStack.push(&funcType->localScope);
 
     // set up the 'return' information
-    FuncInfo thisFunc(blockStack.size());
+    FuncInfo thisFunc(funcType, blockStack.size());
     FuncInfo* saveTopFunc = replaceTopFunc(&thisFunc);
 
     parser.skipBlockBegin();
@@ -1240,7 +1242,18 @@ void ShCompiler::parseFunctionBody(ShFunction* funcType)
 
 void ShCompiler::parseReturn()
 {
-    notImpl();
+    if (topFunc == NULL)
+        error("'return' not inside function");
+    ShType* returnType = topFunc->funcType->returnVar->type;
+    if (!returnType->isVoid())
+    {
+        ShType* exprType = parseExpr(returnType);
+        if (!returnType->canAssign(exprType))
+            error("Function return type mismatch");
+        codegen->genReturn();
+    }
+    topFunc->returnJumps.push(codegen->genForwardJump(opJump));
+    parser.skipSep();
 }
 
 
