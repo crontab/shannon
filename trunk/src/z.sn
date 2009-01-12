@@ -1,6 +1,8 @@
 module Z
 
-var str s = 'a'
+# begin:
+var str s = 'a' | 'bc'
+var str t = 'def'
 
 #{
 assert sizeof(0..2) == 1 and sizeof(-1..1) == 4 and sizeof(large) == 8

@@ -210,14 +210,6 @@ void ShBlockScope::addUses(ShModule* obj)
 ShScope::ShScope(const string& iName, ShTypeId iTypeId, ShBlockScope* iParent)
         : ShBlockScope(iName, iTypeId, iParent)  { }
 
-ShScope::~ShScope()
-{
-    // Order is important
-    defs.clear();
-    vars.clear();
-    types.clear();
-}
-
 void ShScope::addAnonType(ShType* obj)
 {
     types.add(obj);
@@ -752,6 +744,10 @@ ShModule::ShModule(const string& iName)
 
 ShModule::~ShModule()
 {
+    // Order is important
+    defs.clear();
+    vars.clear();
+    types.clear();
 }
 
 ShVariable* ShModule::addVariable(const string& ident, ShType* type,

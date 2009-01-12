@@ -147,58 +147,6 @@ public:
 typedef ShType* PType;
 
 
-// --- BLOCK-LOCAL SCOPE --- //
-
-class ShBlockScope: public ShType
-{
-protected:
-    BaseTable<ShModule> uses; // not owned
-    BaseTable<ShVariable> localVars; // to be finalized; not owned
-    BaseTable<ShBase> symbols;
-
-    virtual string getFullDefinition(const string& objName) const
-            { return "*undefined*"; }
-
-public:
-    ShBlockScope* const parent;
-
-    ShBlockScope(ShBlockScope* iParent);
-    ShBlockScope(const string&, ShTypeId, ShBlockScope* iParent);
-
-    virtual string displayValue(const ShValue&) const
-            { return "*undefined*"; }
-    virtual bool equals(ShType* type) const
-            { return false; }
-
-    void addUses(ShModule*);
-    void registerObject(ShBase*);
-    void finalizeVars(VmCodeGen*);
-    ShBase* find(const string& ident) const
-            { return symbols.find(ident); }
-    ShBase* deepFind(const string&) const;
-};
-
-
-// --- SCOPE --- //
-
-class ShScope: public ShBlockScope
-{
-protected:
-    BaseList<ShType> types;
-    BaseList<ShVariable> vars;
-    BaseList<ShDefinition> defs;
-    
-public:
-    ShScope(const string&, ShTypeId, ShBlockScope* iParent);
-    ~ShScope();
-    void addAnonType(ShType*);
-    void addTypeAlias(const string&, ShType*, ShBlockScope*);
-    void addDefinition(ShDefinition*, ShBlockScope*);
-    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*) = 0;
-    void dump(string indent) const;
-};
-
-
 typedef ShVariable* PVariable;
 
 class ShVariable: public ShBase
@@ -209,7 +157,7 @@ public:
     offs dataOffset;
 
     ShVariable(const string&, ShType*, ShScope*, offs);
-    bool isLocal() const { return ownerScope->isLocalScope(); }
+    bool isLocal() const { return PType(ownerScope)->isLocalScope(); }
 };
 
 
@@ -530,26 +478,59 @@ public:
 // ------------------------------------------------------------------------ //
 
 
-class ShLocalScope: public ShScope
+// --- BLOCK-LOCAL SCOPE --- //
+
+class ShBlockScope: public ShType
 {
-    // Usually belongs to a function/state, plus modules can create local
-    // scopes for nested blocks to avoid pollution of the static space.
+protected:
+    BaseTable<ShModule> uses; // not owned
+    BaseTable<ShVariable> localVars; // to be finalized; not owned
+    BaseTable<ShBase> symbols; // sorted symbol table for lookups
+
+    virtual string getFullDefinition(const string& objName) const
+            { return "*undefined*"; }
+    virtual void registerObject(ShBase*);
+
+public:
+    ShBlockScope* const parent;
+
+    ShBlockScope(ShBlockScope* iParent);
+    ShBlockScope(const string&, ShTypeId, ShBlockScope* iParent);
+
+    virtual string displayValue(const ShValue&) const
+            { return "*undefined*"; }
+    virtual bool equals(ShType* type) const
+            { return false; }
+
+    void addUses(ShModule*);
+    void finalizeVars(VmCodeGen*);
+    ShBase* find(const string& ident) const
+            { return symbols.find(ident); }
+    ShBase* deepFind(const string&) const;
+};
+
+
+class ShLocalScope: public ShBlockScope
+{
 protected:
     virtual string getFullDefinition(const string& objName) const;
 public:
+    offs dataSize;
+
     ShLocalScope(ShBlockScope* iParent); // for compile-time evaluation
     ShLocalScope(const string& iName, ShBlockScope* iParent);
-    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*);
 };
 
 
 // --- STATE --- //
 
-class ShStateBase: public ShScope
+class ShStateBase: public ShBlockScope
 {
     // basis for modules, functions and states
 public:
     ShLocalScope localScope;
+    offs dataSize;
+
     ShStateBase(const string&, ShTypeId, ShBlockScope* iParent,
         ShBlockScope* iLocalParent);
 };
@@ -573,7 +554,6 @@ public:
     ShFunction(ShType* iReturnType, ShBlockScope* iParent);
     ~ShFunction();
 
-    virtual ShVariable* addVariable(const string&, ShType*, ShBlockScope*, VmCodeGen*);
     void addArgument(const string&, ShType*);
     void finishArguments();
     // equal() must check also that the parent context is the same, too
@@ -591,13 +571,14 @@ typedef ShModule* PModule;
 class ShModule: public ShStateBase
 {
 protected:
+    BaseList<ShType> types;
+    BaseList<ShVariable> vars;
+    BaseList<ShDefinition> defs;
+    
     StringTable stringTable;
     virtual string getFullDefinition(const string& objName) const;
-    virtual ShVariable* addVariable(const string&, ShType* type,
-                ShBlockScope*, VmCodeGen*);
 
 public:
-    offs dataSize;
     VmCodeSegment codeseg;
     
     ShModule(const string&);
@@ -606,6 +587,10 @@ public:
     string registerString(const string& s)
         { return stringTable.addUnique(s); }
 
+    ShVariable* addVariable(const string&, ShType* type, ShBlockScope*, VmCodeGen*);
+    void addAnonType(ShType*);
+    void addTypeAlias(const string&, ShType*, ShBlockScope*);
+    void addDefinition(ShDefinition*, ShBlockScope*);
     void dump(string indent) const;
 
     void execute();
