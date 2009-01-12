@@ -42,11 +42,12 @@ protected:
     void verifyClean();
 
 public:
-    VmCodeGen(ShScope* idataScope);
+    VmCodeGen(ShScope* iThisScope, ShLocalScope* iLocalScope);
     
     void clear();
     
-    ShScope* dataScope;
+    ShScope* thisScope;
+    ShLocalScope* localScope;
 
     ShType* resultTypeHint; // used by the parser for vector/array constructors
 

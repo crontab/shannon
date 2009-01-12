@@ -4,19 +4,18 @@
 
 
 ENoContext::ENoContext()
-    : Exception("Expression can't be evaluated at compile time")  { }
+    : Exception("Object can't be used int this context")  { }
 
 
-void noRuntimeContext()
+void badContext()
     { throw ENoContext(); }
 
 
-VmCodeGen::VmCodeGen(ShScope* iDataScope)
+VmCodeGen::VmCodeGen(ShScope* iThisScope, ShLocalScope* iLocalScope)
     : codeseg(), genStack(), genStackSize(0),
-      dataScope(iDataScope), resultTypeHint(NULL)
+      thisScope(iThisScope), localScope(iLocalScope),
+      resultTypeHint(NULL)
 {
-    if (dataScope == NULL)
-        internal(79);
 }
 
 void VmCodeGen::clear()
@@ -306,7 +305,7 @@ void VmCodeGen::genElemToVec(ShVariable* tempVar)
 {
     verifyContext(tempVar);
     genPop();
-    if (!tempVar->type->isVector())
+    if (!tempVar->type->isVector() || !tempVar->isLocal())
         internal(77);
     genPush(tempVar->type);
     codeseg.addOp(opElemToVec);
@@ -500,7 +499,7 @@ void VmCodeGen::genVecCat(ShVariable* tempVar)
 {
     verifyContext(tempVar);
     genPop();
-    if (!genPopType()->isVector() || !tempVar->type->isVector())
+    if (!genPopType()->isVector() || !tempVar->type->isVector() || !tempVar->isLocal())
         internal(64);
     genPush(tempVar->type);
     codeseg.addOp(opVecCat);
@@ -512,7 +511,7 @@ void VmCodeGen::genVecElemCat(ShVariable* tempVar)
 {
     verifyContext(tempVar);
     genPop();
-    if (!genPopType()->isVector() || !tempVar->type->isVector())
+    if (!genPopType()->isVector() || !tempVar->type->isVector() || !tempVar->isLocal())
         internal(64);
     genPush(tempVar->type);
     codeseg.addOp(opVecElemCat);
@@ -523,7 +522,7 @@ void VmCodeGen::genVecElemCat(ShVariable* tempVar)
 void VmCodeGen::genIntToStr(ShVariable* tempVar)
 {
     verifyContext(tempVar);
-    if (!genPopType()->isOrdinal() || !tempVar->type->isString())
+    if (!genPopType()->isOrdinal() || !tempVar->type->isString() || !tempVar->isLocal())
         internal(68);
     genPush(tempVar->type);
     codeseg.addOp(tempVar->type->isLargeInt() ? opLargeToStr : opIntToStr);
@@ -561,10 +560,8 @@ void VmCodeGen::genReturn()
 
 void VmCodeGen::genCall(ShFunction* func)
 {
-    if (dataScope == NULL)
-        internal(78);
-    if (func->parent != dataScope) // TODO:
-        noRuntimeContext();
+    if (func->parent != thisScope) // TODO:
+        badContext();
     for (int i = func->args.size() - 1; i >= 0; i--)
         genPop();
     genPushFuncCall(func);
@@ -590,8 +587,6 @@ VmCodeSegment VmCodeGen::getCodeSeg()
 
 void VmCodeGen::verifyContext(ShVariable* var)
 {
-    if (dataScope == NULL)
-        internal(70);
-    if (var->ownerScope != dataScope)
-        noRuntimeContext();
+    if (var->ownerScope != thisScope && var->ownerScope != localScope)
+        badContext();
 }

@@ -130,13 +130,13 @@ public:
 
 
 ShCompiler::ShCompiler(Parser& iParser, ShModule& iModule)
-    : parser(iParser), module(iModule), mainCodeGen(&module),
-      nullCode(&module), topLoop(NULL), topFunc(NULL),
+    : parser(iParser), module(iModule), mainCodeGen(&module, &module.localScope),
+      nullCode(&module, &module.localScope), topLoop(NULL), topFunc(NULL),
       codegen(&mainCodeGen)  { }
 
 ShVariable* ShCompiler::createTempVar(ShType* type)
 {
-    return codegen->dataScope->addVariable(nullstring, type, blockStack.top(), codegen);
+    return codegen->localScope->addVariable(nullstring, type, blockStack.top(), codegen);
 }
 
 void ShCompiler::finalizeBlocks(int downToLevel)
@@ -149,7 +149,6 @@ void ShCompiler::finalizeBlocks(int downToLevel)
 class AutoScope: public ShBlockScope
 {
     ShCompiler& compiler;
-    ShScope* saveDataScope;
 public:
     AutoScope(ShCompiler&);
     ~AutoScope();
@@ -159,21 +158,12 @@ public:
 AutoScope::AutoScope(ShCompiler& iCompiler)
     : ShBlockScope(iCompiler.blockStack.top()), compiler(iCompiler)
 {
-    saveDataScope = compiler.codegen->dataScope;
-    // We replace the current "data" scope if it's a module-static or a 
-    // state-static one with a local scope, so that objects defined in any 
-    // nested block are allocated on the stack rather than statically. This
-    // can happen only at top-level in modules and states, but not ordinary
-    // functions or nested blocks.
-    if (saveDataScope->isModule())
-        compiler.codegen->dataScope = &PModule(saveDataScope)->localScope;
     compiler.blockStack.push(this);
 }
 
 AutoScope::~AutoScope()
 {
     finalizeVars(compiler.codegen);
-    compiler.codegen->dataScope = saveDataScope;
     if (compiler.blockStack.pop() != this)
         internal(152);
 }
@@ -263,7 +253,7 @@ ShType* ShCompiler::getTypeExpr(bool anyObj)
     VmCodeGen* saveCodeGen = codegen;
     {
         ConstScope block(*this);
-        VmCodeGen tcode(&block);
+        VmCodeGen tcode(NULL, &block);
         replaceCodeGen(&tcode);
         parseExpr();
         type = tcode.runTypeExpr(anyObj);
@@ -781,7 +771,7 @@ void ShCompiler::getConstExpr(ShType* typeHint, ShValue& result, bool allowRange
     VmCodeGen* saveCodeGen = codegen;
     {
         ConstScope block(*this);
-        VmCodeGen tcode(&block);
+        VmCodeGen tcode(NULL, &block);
         replaceCodeGen(&tcode);
         parseExpr(typeHint);
         tcode.runConstExpr(result);
@@ -861,7 +851,7 @@ ShType* ShCompiler::getDerivators(ShType* type)
         if (blockStack.top() != &module)
             error("Functions/states can be defined only at module level");
         ShFunction* funcType = new ShFunction(type, blockStack.top());
-        codegen->dataScope->addAnonType(funcType);
+        codegen->thisScope->addAnonType(funcType);
         if (!parser.skipIf(tokRParen))
         {
             while (1)
@@ -921,7 +911,7 @@ void ShCompiler::parseModuleHeader()
 ShEnum* ShCompiler::parseEnumType(const string& enumName)
 {
     ShEnum* type = new ShEnum(enumName); // the name is for diag. purposes
-    codegen->dataScope->addAnonType(type);
+    codegen->thisScope->addAnonType(type);
     parser.skip(tokLParen, "(");
     while (1)
     {
@@ -930,7 +920,7 @@ ShEnum* ShCompiler::parseEnumType(const string& enumName)
         if (nextVal == 256)
             error("Enum constant has just hit the ceilinig, man.");
         ShDefinition* value = new ShDefinition(ident, type, nextVal);
-        codegen->dataScope->addDefinition(value, blockStack.top());
+        codegen->thisScope->addDefinition(value, blockStack.top());
         type->registerConst(value);
         if (parser.skipIf(tokRParen))
             break;
@@ -958,7 +948,7 @@ void ShCompiler::parseTypeDef()
         ident = parser.getIdent();
         type = getDerivators(type);
     }
-    codegen->dataScope->addTypeAlias(ident, type, blockStack.top());
+    codegen->thisScope->addTypeAlias(ident, type, blockStack.top());
     if (!type->isFunction())
         parser.skipSep();
 }
@@ -995,8 +985,8 @@ void ShCompiler::parseVarConstDef(bool isVar)
             type = exprType;
         else if (!type->canAssign(exprType))
             error("Type mismatch in variable initialization: " + typeVsType(type, exprType));
-        ShVariable* var = codegen->dataScope->addVariable(ident, type,
-            blockStack.top(), codegen);
+        ShScope* host = blockStack.top()->isModule() ? codegen->thisScope : codegen->localScope;
+        ShVariable* var = host->addVariable(ident, type, blockStack.top(), codegen);
         codegen->genInitVar(var);
     }
     else
@@ -1006,7 +996,7 @@ void ShCompiler::parseVarConstDef(bool isVar)
         parser.skipSep();
         if (type == NULL) // auto
             type = value.type;
-        codegen->dataScope->addDefinition(new ShDefinition(ident, value),
+        codegen->thisScope->addDefinition(new ShDefinition(ident, value),
             blockStack.top());
     }
 }
@@ -1237,17 +1227,14 @@ void ShCompiler::enterBlock()
 
 void ShCompiler::parseFunctionBody(ShFunction* funcType)
 {
-    if (funcType->parent != codegen->dataScope)
+    if (funcType->parent != codegen->thisScope)
         internal(153);
     if (topLoop != NULL)
         internal(154);
     if (topFunc != NULL)
         internal(155);
 
-    // set up the scopes: for ordinary functions the codegen's data scope
-    // is the function's stack-local one, because we allocate everything on
-    // the stack (which will be different in states)
-    VmCodeGen tcode(&funcType->localScope);
+    VmCodeGen tcode(codegen->thisScope, &funcType->localScope);
     VmCodeGen* saveCodeGen = replaceCodeGen(&tcode);
     blockStack.push(&funcType->localScope);
 
@@ -1299,7 +1286,6 @@ bool ShCompiler::compile()
 {
     try
     {
-        codegen = &mainCodeGen;
         blockStack.push(&module);
 
         parser.next();
@@ -1310,7 +1296,7 @@ bool ShCompiler::compile()
 
         parser.skip(tokEof, "<EOF>");
 
-        blockStack.top()->finalizeVars(codegen);
+        module.finalizeVars(codegen);
     }
     catch (EDuplicate& e)
     {
