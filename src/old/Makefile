@@ -7,11 +7,14 @@ CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -DNDEBUG
 # LDLIBS =
 
-OBJS = obj/portatom.o obj/portmem.o
+OBJS = obj/portatom.o obj/portmem.o obj/strbase.o obj/except.o obj/charset.o obj/strconv.o \
+    obj/contain.o obj/baseobj.o obj/source.o obj/langobj.o obj/vm.o obj/vmdebug.o obj/codegen.o
 
-SRCS = portatom.cpp portmem.cpp main.cpp main-ut.cpp
+SRCS = portatom.cpp portmem.cpp strbase.cpp strconv.cpp except.cpp charset.cpp \
+    contain.cpp baseobj.cpp source.cpp langobj.cpp vm.cpp vmdebug.cpp codegen.cpp \
+    main.cpp main-ut.cpp
 
-HDRS = port.h
+HDRS = port.h common.h baseobj.h source.h langobj.h vm.h codegen.h
 
 all: dirs shannon shannon-ut
 

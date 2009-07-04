@@ -55,7 +55,7 @@ mute-derivator ::= "^"
 
 range-derivator ::= "[" ".." "]"
 
-enum-spec ::= "(" ident { "," ident ")"
+enum-spec ::= "(" ident { "," ident } ")"
 
 func-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")" function-body
 
