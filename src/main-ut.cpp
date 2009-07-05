@@ -4,7 +4,11 @@
 #  undef NDEBUG
 #endif
 
-#include <assert.h>
+#define __STDC_LIMIT_MACROS
+
+#include <stdint.h>
+#include <stdio.h>
+#include <limits.h>
 
 #include <iostream>
 
@@ -12,79 +16,64 @@
 
 using namespace std;
 
-#define assert_throw(e,...) { bool __t = false; try { __VA_ARGS__; } catch(e) { __t = true; } assert(__t); }
-#define assert_nothrow(...) { bool __t = false; try { __VA_ARGS__; } catch(...) { __t = true; } assert(!__t); }
+#define fail(e) \
+    (printf("%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), exit(200))
 
+#define check(e) \
+    { if (!(e)) fail(#e); }
+
+#define check_throw(e,...) \
+    { bool chk_throw = false; try { __VA_ARGS__; } catch(e&) { chk_throw = true; } check(chk_throw); }
+
+#define check_nothrow(...) \
+    { try { __VA_ARGS__; } catch(...) { fail("exception thrown"); } }
+
+
+void test_variant()
+{
+    variant v1 = none;              check(v1.is_none());
+    variant v2 = 0;                 check(v2.is_int());     check(v2.as_int() == 0);
+    variant v3 = 1;                 check(v3.is_int());     check(v3.as_int() == 1);
+    variant v4 = INT64_MAX;         check(v4.is_int());     check(v4.as_int() == INT64_MAX);
+    variant v5 = INT64_MIN;         check(v5.is_int());     check(v5.as_int() == INT64_MIN);
+    variant v6 = 1.1;               check(v6.is_real());    check(v6.as_real() == 1.1);
+    variant v7 = false;             check(v7.is_bool());    check(!v7.as_bool());
+    variant v8 = true;              check(v8.is_bool());    check(v8.as_bool());
+    variant v9 = "";                check(v9.is_str());     check(v9.as_str().empty());
+    variant v10 = "abc";            check(v10.is_str());    check(v10.as_str() == "abc");
+    string s1 = "def";
+    variant v11 = s1;               check(v11.is_str());    check(v11.as_str() == s1);
+    variant v12 = 'x';              check(v12.is_char());   check(v12.as_char() == 'x');
+    variant v13 = new_tuple();      check(v13.is_tuple());  check(&v13.as_tuple() == &null_tuple);
+    variant v14 = new_dict();       check(v14.is_dict());   check(&v14.as_dict() == &null_dict);
+    variant v15 = new_set();        check(v15.is_set());    check(&v15.as_set() == &null_set);
+    object* o = new object();
+    variant v16 = o;                check(v16.is_object()); check(v16.as_object() == o);
+
+    check_throw(evarianttype, v1.as_int());
+    check_throw(evarianttype, v1.as_real());
+    check_throw(evarianttype, v1.as_bool());
+    check_throw(evarianttype, v1.as_char());
+    check_throw(evarianttype, v1.as_str());
+    check_throw(evarianttype, v1.as_tuple());
+    check_throw(evarianttype, v1.as_dict());
+    check_throw(evarianttype, v1.as_set());
+    check_throw(evarianttype, v1.as_object());
+}
 
 
 int main()
 {
+    try
     {
-        variant v1 = none;
-        variant v2 = new_tuple();
-        variant v3 = "abc";
-        variant v4 = 1;
-        variant v5 = 1.1;
-        variant v6 = new_dict();
-        variant v7 = new_set();
-        variant v8 = v3;
-
-        v7 = new_dict();
-        v6 = new_tuple();
-        v5 = none;
-        v4 = new_set();
-        v3 = "def";
-        v2 = 2;
-        v1 = 2.2;
-        v8 = v3;
-
-        v2.as_signed<int>();
-        v3.cat("ghi");
-        
-        v4.add("abc");
-        v4.ins("sed");
-        v4.del("sed");
-
-        v6.add(2);
-        v6.add("xyz");
-        v6.ins(2, "ert");
-        v6.ins("qwe");
-        v6.del(2);
-
-        v7.put("one", 1);
-        v7.put("two", "TWO");
-        v7.put("three", 3.3);
-        v7.put("four", true);
-        v7.put("five", new_dict());
-        v7.del("one");
-        v7.put("two", none);
-
-        variant v7i = v7.get("some");
-
-        cout << "v1: " << v1 << endl;
-        cout << "v2: " << v2 << endl;
-        cout << "v3: " << v3 << endl;
-        cout << "v4: " << v4 << endl;
-        cout << "v5: " << v5 << endl;
-        cout << "v6: " << v6 << endl;
-        cout << "v7: " << v7 << endl;
-        cout << "v7i: " << v7i << endl;
-        cout << "v8: " << v8 << endl;
-        cout << "substr: " << v3.sub(2) << endl;
-        cout << "substr: " << v3.sub(2, 2) << endl;
-
-        const dict& d = v7.as_dict();
-        dict::iterator i = d.begin();
-        while (i != d.end())
-        {
-            cout << "elem: " << i->first << ": " << i->second << endl;
-            i++;
-        }
+        test_variant();
+    }
+    catch (exception& e)
+    {
+        fail(e.what());
     }
 
+    check(object::alloc == 0);
 
-#ifdef RT_DEBUG
-    cout << "object::alloc: " << object::alloc << endl;
-#endif
     return 0;
 }

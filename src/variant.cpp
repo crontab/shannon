@@ -14,6 +14,7 @@
 #include <sstream>
 #include <iostream>
 
+#include "common.h"
 #include "variant.h"
 
 const variant none;
@@ -22,31 +23,25 @@ const dict null_dict;
 const set null_set;
 
 
-void internal(const str& msg)   { std::cerr << "Internal: " << msg << std::endl; abort(); }
-void internal(const char* msg)  { internal(str(msg)); }
-
-
-#ifdef VM_DEBUG
-int object::alloc = 0;
+#ifdef DEBUG
+int object::alloc = -3; // compensate the three static objects null_xxx above
 #endif
 
 
 object::object()
     : refcount(0)
 {
-#ifdef VM_DEBUG
-    object::alloc++;
+#ifdef DEBUG
+    pincrement(&object::alloc);
 #endif
 }
 
 
 object::~object()
 {
-#ifdef VM_DEBUG
-    if (refcount != 0)
-        internal("[001]");
-    if (--object::alloc < 0)
-        internal("[002]");
+#ifdef DEBUG
+    pdecrement(&object::alloc);
+    assert(refcount == 0);
 #endif
 }
 
@@ -67,11 +62,10 @@ void release(object*& o)
 {
     if (!o)
         return;
-#ifdef VM_DEBUG
-    if (o->refcount < 1)
-        internal("[003]");
+#ifdef DEBUG
+    assert(o->refcount >= 1);
 #endif
-    if (--o->refcount == 0)
+    if (pdecrement(&o->refcount) == 0)
         delete o;
     o = NULL;
 }
@@ -136,6 +130,7 @@ void variant::_init(const variant& other)
     case INT:
     case REAL:
     case BOOL:
+    case CHAR:
         val = other.val;
         break;
     case STR:
@@ -148,7 +143,7 @@ void variant::_init(const variant& other)
 }
 
 
-#ifdef VM_RANGE_CHECKING
+#ifdef RANGE_CHECKING
 
 #define CHK_SIGNED(t) { if (val._int < t##_MIN && val._int > t##_MAX) _range_err(); }
 #define CHK_UNSIGNED(t) { if (val._int < 0 && val._int > t##_MAX) _range_err(); }
@@ -176,7 +171,7 @@ integer variant::_in_unsigned(size_t s) const
     return val._int;
 }
 
-#endif // VM_RANGE_CHECKING
+#endif // RANGE_CHECKING
 
 
 void variant::_fin2()
@@ -187,6 +182,7 @@ void variant::_fin2()
     case INT:
     case REAL:
     case BOOL:
+    case CHAR:
         break;
     case STR:
         _str_impl().~str();
@@ -213,6 +209,9 @@ void variant::dump(std::ostream& s) const
         break;
     case BOOL:
         s << (val._bool ? "true" : "false");
+        break;
+    case CHAR:
+        s << '\'' << val._char << '\'';
         break;
     case STR:
         s << '"' << _str_impl() << '"';
@@ -244,6 +243,7 @@ bool variant::operator< (const variant& other) const
     case INT: return val._int < other.val._int;
     case REAL: return val._real < other.val._real;
     case BOOL: return val._bool < other.val._bool;
+    case CHAR: return val._char < other.val._char;
     case STR: return _str_impl() < other._str_impl();
     default:    // containers and objects
         if (val._obj == NULL)
@@ -255,9 +255,9 @@ bool variant::operator< (const variant& other) const
 }
 
 
-void variant::_type_err() { internal("Variant type mismatch"); }
-void variant::_range_err() { internal("Integer type out of range"); }
-void variant::_index_err() { internal("Array index out of range"); }
+void variant::_type_err() { throw evarianttype(); }
+void variant::_range_err() { throw evariantrange(); }
+void variant::_index_err() { throw evariantindex(); }
 
 
 const char* variant::_type_name(Type type)
