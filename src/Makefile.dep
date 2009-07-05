@@ -1,4 +1,6 @@
 # DO NOT DELETE
 
-obj/portatom.o: port.h
-obj/portmem.o: port.h
+obj/portatom.o: common.h
+obj/portmem.o: common.h
+obj/variant.o: variant.h
+obj/main-ut.o: variant.h
