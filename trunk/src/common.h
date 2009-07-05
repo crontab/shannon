@@ -1,17 +1,17 @@
-#ifndef __PORT_H
-#define __PORT_H
+#ifndef __COMMON_H
+#define __COMMON_H
 
 
-#include <string.h>
-
-#define SINGLE_THREADED
-
-
-#ifdef DEBUG
-#  define CHECK_BOUNDS 
+#if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
+#  define SINGLE_THREADED
 #endif
 
 
+#if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
+#  define RANGE_CHECKING
+#endif
+
+/*
 typedef unsigned char       uchar;
 typedef unsigned int        uint;
 typedef void*               ptr;
@@ -21,13 +21,13 @@ typedef unsigned long long  ularge;
 typedef const char*         pconst;
 typedef char*               pchar;
 typedef uchar*              puchar;
-typedef int*                pint;  // while (pint(guinness)) dump(euro(5));
+typedef int*                pint;
 typedef uint*               puint;
 typedef ptr*                pptr;
 typedef pptr*               ppptr;
 typedef large*              plarge;
 typedef ularge*             pularge;
-
+*/
 
 #if defined __x86_64__
 #  define PTR64
@@ -53,43 +53,17 @@ int pdecrement(int* target);
 #endif
 
 
-// --- MEMORY ALLOCATION -------------------------------------------------- //
-
-void* memalloc(uint a);
-void* memcalloc(uint a);
-void* memrealloc(void* p, uint a);
-void  memfree(void* p);
-int   memquantize(int);
-
-
-
-// Default placement versions of operator new.
-inline void* operator new(size_t, void* p) throw() { return p; }
-inline void* operator new[](size_t, void* p) throw() { return p; }
-
-// Default placement versions of operator delete.
-inline void  operator delete  (void*, void*) throw() { }
-inline void  operator delete[](void*, void*) throw() { }
-
-
-
-// Disable all new/delete by default; redefine where necessary
-void* operator new(size_t) throw();
-void* operator new[](size_t) throw();
-void  operator delete  (void*) throw();
-void  operator delete[](void*) throw();
-
-
 // --- MISC --------------------------------------------------------------- //
-
-#define CRIT_FIRST 0x10000
 
 void fatal(int code, const char* msg);
 
-inline int   imax(int x, int y)       { return (x > y) ? x : y; }
-inline int   imin(int x, int y)       { return (x < y) ? x : y; }
-inline large lmax(large x, large y)   { return (x > y) ? x : y; }
-inline large lmin(large x, large y)   { return (x < y) ? x : y; }
+template<class T>
+    inline T imax(T x, T y)  { return (x > y) ? x : y; }
+template<class T>
+    inline T imin(T x, T y)  { return (x < y) ? x : y; }
+
+
+int memquantize(int a);
 
 
 class noncopyable 
@@ -103,4 +77,9 @@ public:
 };
 
 
-#endif
+#define DEF_EXCEPTION(name,msg) \
+    struct name: public std::exception \
+        { virtual const char* what() const throw() { return msg; } };
+
+
+#endif // __COMMON_H

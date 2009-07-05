@@ -1,19 +1,17 @@
 #ifndef __VARIANT_H
 #define __VARIANT_H
 
+#include <exception>
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
 #include <iostream>
 
+#include "common.h"
 
-#if !defined(VM_DEBUG) && (defined(_DEBUG) || defined(DEBUG))
-#  define VM_DEBUG
-#endif
-
-#if defined(VM_DEBUG) && !defined(VM_RANGE_CHECKING)
-#  define VM_RANGE_CHECKING
+#if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
+#  define RANGE_CHECKING
 #endif
 
 
@@ -40,6 +38,11 @@ typedef std::map<variant, variant> dict_impl;
 typedef std::set<variant> set_impl;
 
 
+DEF_EXCEPTION(evarianttype, "Variant type mismatch")
+DEF_EXCEPTION(evariantrange, "Variant range check error")
+DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
+
+
 class None { int dummy; };
 
 
@@ -47,7 +50,7 @@ class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, INT, REAL, BOOL, STR, TUPLE, DICT, SET, OBJECT,
+    enum Type { NONE, INT, REAL, BOOL, CHAR, STR, TUPLE, DICT, SET, OBJECT,
         NONPOD = STR, REFCNT = TUPLE, ANYOBJ = OBJECT };
 
 protected:
@@ -57,6 +60,7 @@ protected:
         integer _int;
         real    _real;
         bool    _bool;
+        char    _char;
         char    _str[sizeof(str)];
         object* _obj;
         tuple*  _tuple;
@@ -76,6 +80,7 @@ protected:
         void _init(T i)             { type = INT; val._int = i; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(bool b)              { type = BOOL; val._bool = b; }
+    void _init(char c)              { type = CHAR; val._char = c; }
     void _init(const str&);
     void _init(const char*);
     void _init(tuple*);
@@ -95,7 +100,7 @@ protected:
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
     // Range checking
-#ifdef VM_RANGE_CHECKING
+#ifdef RANGE_CHECKING
     integer _in_signed(size_t) const;
     integer _in_unsigned(size_t) const;
 #else
@@ -121,8 +126,16 @@ public:
     bool operator< (const variant& v) const;
 
     bool is_none()            const { return type == NONE; }
-    bool is_nonpod()          const { return type >= NONPOD; }
+    bool is_int()             const { return type == INT; }
+    bool is_real()            const { return type == REAL; }
+    bool is_bool()            const { return type == BOOL; }
+    bool is_char()            const { return type == CHAR; }
+    bool is_str()             const { return type == STR; }
+    bool is_tuple()           const { return type == TUPLE; }
+    bool is_dict()            const { return type == DICT; }
+    bool is_set()             const { return type == SET; }
     bool is_object()          const { return type >= ANYOBJ; }
+    bool is_nonpod()          const { return type >= NONPOD; }
 
     // Type conversions
     integer as_int()          const { _req(INT); return val._int; }
@@ -132,6 +145,7 @@ public:
         T as_unsigned()       const { _req(INT); return (T)_in_unsigned(sizeof(T)); }
     real as_real()            const { _req(REAL); return val._real; }
     bool as_bool()            const { _req(BOOL); return val._bool; }
+    char as_char()            const { _req(CHAR); return val._char; }
     const str& as_str()       const { _req(STR); return _str_impl(); }
     const tuple& as_tuple() const;
     const dict& as_dict() const;
@@ -178,23 +192,25 @@ class object
     friend object* _grab(object*);
 
 public:
-#ifdef VM_DEBUG
+#ifdef DEBUG
     static int alloc;
 #endif
 
 protected:
     int refcount;
     
-    object();
-    virtual ~object();
-    
     virtual void dump(std::ostream&) const;
     virtual bool less_than(object* o) const;
+
+public:
+    object();
+    virtual ~object();
+    int get_refcount() const  { return refcount; }
 };
 
 
 void release(object*&);
-inline object* _grab(object* o) { if (o) o->refcount++; return o; }
+inline object* _grab(object* o) { if (o) pincrement(&o->refcount); return o; }
 template<class T>
     T* grab(T* o) { return (T*)_grab(o); }
 
@@ -254,9 +270,6 @@ public:
     iterator end() const  { return impl.end(); }
 };
 
-
-void internal(const str& msg);
-void internal(const char* msg);
 
 extern const variant none;
 extern const tuple null_tuple;
