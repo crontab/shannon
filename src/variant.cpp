@@ -17,7 +17,7 @@
 #include "common.h"
 #include "variant.h"
 
-const variant none;
+const variant null;
 const tuple null_tuple;
 const dict null_dict;
 const set null_set;
@@ -48,7 +48,7 @@ object::~object()
 
 void object::dump(std::ostream& s) const
 {
-    s << "<object>";
+    s << "object";
 }
 
 
@@ -71,8 +71,34 @@ void release(object*& o)
 }
 
 
+#define CLONE(t) \
+    object* t::clone() const { return new t(*this); }
+
+CLONE(tuple)
+CLONE(dict)
+CLONE(set)
+
+
+object* _clone(object* o)
+{
+    object* p = grab(o->clone());
+    release(o);
+    return p;
+}
+
+
+
 tuple::tuple()  { }
 tuple::~tuple() { }
+
+
+void tuple::erase(int i)                        { impl.erase(impl.begin() + i); }
+void tuple::erase(int i, int count)             { impl.erase(impl.begin() + i,
+                                                    impl.begin() + i + count - 1); }
+const variant& tuple::operator[] (int i) const  { return impl[i]; }
+void tuple::push_back(const variant& v)         { impl.push_back(v); }
+void tuple::insert(int i, const variant& v)     { impl.insert(impl.begin() + i, v); }
+
 
 void tuple::dump(std::ostream& s) const
 {
@@ -88,6 +114,10 @@ void tuple::dump(std::ostream& s) const
 dict::dict()    { }
 dict::~dict()   { }
 
+variant& dict::operator[] (const variant& v)        { return impl[v]; }
+dict::iterator dict::find(const variant& v) const   { return impl.find(v); }
+void dict::erase(const variant& v)                  { impl.erase(v); }
+
 void dict::dump(std::ostream& s) const
 {
     foreach(dict_impl::const_iterator, i, impl)
@@ -101,6 +131,10 @@ void dict::dump(std::ostream& s) const
 set::set()      { }
 set::~set()     { }
 
+void set::erase(const variant& v)               { impl.erase(v); }
+set::iterator set::find(const variant& v) const { return impl.find(v); }
+void set::insert(const variant& v)              { impl.insert(v); }
+
 void set::dump(std::ostream& s) const
 {
     foreach(set_impl::const_iterator, i, impl)
@@ -112,8 +146,8 @@ void set::dump(std::ostream& s) const
 }
 
 
-void variant::_init(const str& s)   { type = STR; ::new(&_str_impl()) str(s); }
-void variant::_init(const char* s)  { type = STR; ::new(&_str_impl()) str(s); }
+void variant::_init(const str& s)   { type = STR; ::new(&_str_write()) str(s); }
+void variant::_init(const char* s)  { type = STR; ::new(&_str_write()) str(s); }
 void variant::_init(tuple* t)       { type = TUPLE; val._obj = grab(t); }
 void variant::_init(dict* d)        { type = DICT; val._obj = grab(d); }
 void variant::_init(set* s)         { type = SET; val._obj = grab(s); }
@@ -134,7 +168,7 @@ void variant::_init(const variant& other)
         val = other.val;
         break;
     case STR:
-        ::new(&_str_impl()) str(other._str_impl());
+        ::new(&_str_write()) str(other._str_read());
         break;
     default:    // containers and objects
         val._obj = grab(other.val._obj);
@@ -185,7 +219,7 @@ void variant::_fin2()
     case CHAR:
         break;
     case STR:
-        _str_impl().~str();
+        _str_write().~str();
         break;
     default:    // containers and objects
         release(val._obj);
@@ -199,7 +233,7 @@ void variant::dump(std::ostream& s) const
     switch (type)
     {
     case NONE:
-        s << "none";
+        s << "null";
         break;
     case INT:
         s << val._int;
@@ -214,7 +248,7 @@ void variant::dump(std::ostream& s) const
         s << '\'' << val._char << '\'';
         break;
     case STR:
-        s << '"' << _str_impl() << '"';
+        s << '"' << _str_read() << '"';
         break;
     default:    // containers and objects
         s << "[";
@@ -234,17 +268,33 @@ str variant::to_string() const
 }
 
 
+bool variant::operator== (const variant& other) const
+{
+    _req(other.type);
+    switch (type)
+    {
+    case NONE: return true;
+    case INT:  return val._int == other.val._int;
+    case REAL: return val._real == other.val._real;
+    case BOOL: return val._bool == other.val._bool;
+    case CHAR: return val._char == other.val._char;
+    case STR:  return _str_read() == other._str_read();
+    default:   return val._obj == other.val._obj;
+    }
+}
+
+
 bool variant::operator< (const variant& other) const
 {
     _req(other.type);
     switch (type)
     {
     case NONE: return false;
-    case INT: return val._int < other.val._int;
+    case INT:  return val._int < other.val._int;
     case REAL: return val._real < other.val._real;
     case BOOL: return val._bool < other.val._bool;
     case CHAR: return val._char < other.val._char;
-    case STR: return _str_impl() < other._str_impl();
+    case STR:  return _str_read() < other._str_read();
     default:    // containers and objects
         if (val._obj == NULL)
             return other.val._obj != NULL;
@@ -262,7 +312,7 @@ void variant::_index_err() { throw evariantindex(); }
 
 const char* variant::_type_name(Type type)
 {
-    static const char* names[] = {"none", "integer", "real", "boolean",
+    static const char* names[] = {"null", "integer", "real", "boolean",
         "string", "tuple", "dict", "set", "object"};
     if (type > OBJECT)
         type = OBJECT;
@@ -281,10 +331,14 @@ ASX(dict, DICT)
 ASX(set, SET)
 
 
-// _xxx_impl(): return a container implementation, create if necessary
+// _xxx_write(): return a unique container implementation, create if necessary
 
-#define XIMPL(t) t##_impl& variant::_##t##_impl() \
-    { if (val._##t == NULL) val._##t = grab(new t()); return val._##t->impl; }
+#define XIMPL(t) t& variant::_##t##_write() \
+    { if (val._##t == NULL) \
+          val._##t = grab(new t()); \
+      else \
+          val._##t = unique(val._##t); \
+      return *val._##t; }
 
 XIMPL(tuple)
 XIMPL(dict)
@@ -293,13 +347,12 @@ XIMPL(set)
 
 int variant::size() const
 {
-    if (type == STR)
-        return _str_impl().size();
     switch (type)
     {
-    case TUPLE: if (val._tuple == NULL) return 0; return val._tuple->impl.size();
-    case DICT:  if (val._dict == NULL) return 0; return val._dict->impl.size();
-    case SET:   if (val._set == NULL) return 0; return val._set->impl.size();
+    case STR:   return _str_read().size();
+    case TUPLE: if (val._tuple == NULL) return 0; return _tuple_read().size();
+    case DICT:  if (val._dict == NULL) return 0; return _dict_read().size();
+    case SET:   if (val._set == NULL) return 0; return _set_read().size();
     default: _type_err(); return 0;
     }
 }
@@ -307,154 +360,112 @@ int variant::size() const
 
 bool variant::empty() const
 {
-    if (type == STR)
-        return _str_impl().empty();
     switch (type)
     {
-    case TUPLE: if (val._tuple == NULL) return true; return val._tuple->impl.empty();
-    case DICT:  if (val._dict == NULL) return true; return val._dict->impl.empty();
-    case SET:   if (val._set == NULL) return true; return val._set->impl.empty();
+    case STR:   return _str_read().empty();
+    case TUPLE: if (val._tuple == NULL) return true; return _tuple_read().empty();
+    case DICT:  if (val._dict == NULL) return true; return _dict_read().empty();
+    case SET:   if (val._set == NULL) return true; return _set_read().empty();
     default: _type_err(); return false;
     }
 }
 
 
-void variant::cat(const str& s)     { _req(STR); _str_impl().append(s); }
-void variant::cat(const char* s)    { _req(STR); _str_impl().append(s); }
-void variant::cat(char c)           { _req(STR); _str_impl().push_back(c); }
-void variant::cat(const variant& v) { _req(STR); _str_impl().append(v.as_str()); }
+char variant::getch(int i) const            { _req(STR); return _str_read()[i]; }
+void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
+void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
+void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
+void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
+void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_back(v); }
+void variant::insert(const variant& v)      { _req(SET); _set_write().insert(v); }
 
 
-str variant::sub(int index, int count) const
+str variant::substr(int index, int count) const
 {
     _req(STR);
     if (count == -1)
         count = str::npos;
-    return _str_impl().substr(index, count);
+    return _str_read().substr(index, count);
 }
 
 
-void variant::add(const variant& v)
+void variant::insert(int index, const variant& v)
 {
-    switch (type)
-    {
-    case TUPLE: _tuple_impl().push_back(v);  break;
-    case SET: _set_impl().insert(v); break;
-    default: _type_err(); break;
-    }
-}
-
-
-void variant::ins(const variant& v)
-{
-    switch (type)
-    {
-    case TUPLE:
-        {
-            tuple_impl& t = _tuple_impl();
-            t.insert(t.begin(), v);
-        }
-        break;
-    case SET: _set_impl().insert(v); break;
-    default: _type_err(); break;
-    }
-}
-
-
-void variant::ins(int index, const variant& v)
-{
-    tuple_impl& t = _tuple_impl();
+    _req(TUPLE);
+    tuple& t = _tuple_write();
     if (index < 0 || index > int(t.size()))
         _index_err();
-    t.insert(t.begin() + index, v);
+    t.insert(index, v);
 }
 
 
 void variant::put(const variant& key, const variant& value)
 {
     _req(DICT);
-    dict_impl& d = _dict_impl();
-    if (value.is_none())
+    dict& d = _dict_write();
+    if (value.is_null())
         d.erase(key);
     else
         d[key] = value;
 }
 
 
-void variant::del(int index)
+void variant::erase(int index)
 {
     switch (type)
     {
-    case TUPLE:
-        {
-            tuple_impl& t = _tuple_impl();
-            t.erase(t.begin() + index);
-        }
-        break;
-    case STR:
-        {
-            str& s = _str_impl();
-            s.erase(s.begin() + index);
-        }
-        break;
+    case STR: _str_write().erase(index, 1); break;
+    case TUPLE: _tuple_write().erase(index); break;
+    case DICT: _dict_write().erase(index); break;
+    case SET: _set_write().erase(index); break;
     default: _type_err(); break;
     }
 }
 
 
-void variant::del(int index, int count)
+void variant::erase(int index, int count)
 {
     switch (type)
     {
-    case TUPLE:
-        {
-            tuple_impl& t = _tuple_impl();
-            t.erase(t.begin() + index, t.begin() + count - 1);
-        }
-        break;
-    case STR:
-        {
-            str& s = _str_impl();
-            s.erase(s.begin() + index, s.begin() + count - 1);
-        }
-        break;
+    case STR: _str_write().erase(index, count); break;
+    case TUPLE: _tuple_write().erase(index, count); break;
     default: _type_err(); break;
     }
 }
 
 
-void variant::del(const variant& key)
+void variant::erase(const variant& key)
 {
     switch (type)
     {
-    case DICT: _dict_impl().erase(key); break;
-    case SET: _set_impl().erase(key); break;
+    case DICT: _dict_write().erase(key); break;
+    case SET: _set_write().erase(key); break;
     default: _type_err(); break;
     }
 }
 
 
-const variant& variant::get(int index) const
+const variant& variant::operator[] (int index) const
 {
+    if (type == DICT)
+        return this->operator[] (variant(index));
     _req(TUPLE);
     if (val._tuple == NULL)
         _index_err();
-    const tuple_impl& t = val._tuple->impl;
-    if (index < 0 || index >= int(t.size()))
+    if (index < 0 || index >= int(_tuple_read().size()))
         _index_err();
-    return t[index];
+    return _tuple_read()[index];
 }
 
 
-const variant& variant::get(const variant& index) const
+const variant& variant::operator[] (const variant& index) const
 {
     _req(DICT);
     if (val._dict == NULL)
-        return none;
-    const dict_impl& d = val._dict->impl;
-    dict_impl::const_iterator it = d.find(index);
-    if (it == d.end())
-        return none;
+        return null;
+    dict::iterator it = _dict_read().find(index);
+    if (it == _dict_read().end())
+        return null;
     return it->second;
 }
 
@@ -467,16 +478,14 @@ bool variant::has(const variant& index) const
         {
             if (val._dict == NULL)
                 return false;
-            const dict_impl& d = val._dict->impl;
-            return d.find(index) != d.end();
+            return _dict_read().find(index) != _dict_read().end();
         }
         break;
     case SET:
         {
             if (val._set == NULL)
                 return false;
-            const set_impl& s = val._set->impl;
-            return s.find(index) != s.end();
+            return _set_read().find(index) != _set_read().end();
         }
     default: _type_err(); return false;
     }

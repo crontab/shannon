@@ -2,6 +2,10 @@
 #define __COMMON_H
 
 
+#include <stdint.h>
+
+#include <string>
+
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
 #endif
@@ -11,23 +15,11 @@
 #  define RANGE_CHECKING
 #endif
 
-/*
-typedef unsigned char       uchar;
-typedef unsigned int        uint;
-typedef void*               ptr;
-typedef long long           large;
-typedef unsigned long long  ularge;
 
-typedef const char*         pconst;
-typedef char*               pchar;
-typedef uchar*              puchar;
-typedef int*                pint;
-typedef uint*               puint;
-typedef ptr*                pptr;
-typedef pptr*               ppptr;
-typedef large*              plarge;
-typedef ularge*             pularge;
-*/
+typedef std::string str;
+typedef int64_t integer;
+typedef double real;
+
 
 #if defined __x86_64__
 #  define PTR64

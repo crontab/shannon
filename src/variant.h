@@ -21,11 +21,6 @@
 #endif
 
 
-typedef std::string str;
-typedef int64_t integer;
-typedef double real;
-
-
 class variant;
 class object;
 class tuple;
@@ -33,12 +28,7 @@ class dict;
 class set;
 
 
-typedef std::vector<variant> tuple_impl;
-typedef std::map<variant, variant> dict_impl;
-typedef std::set<variant> set_impl;
-
-
-DEF_EXCEPTION(evarianttype, "Variant type mismatch")
+DEF_EXCEPTION(evarianttype,  "Variant type mismatch")
 DEF_EXCEPTION(evariantrange, "Variant range check error")
 DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
 
@@ -68,11 +58,14 @@ protected:
         set*    _set;
     } val;
 
-    str& _str_impl()                { return *(str*)val._str; }
-    const str& _str_impl()    const { return *(str*)val._str; }
-    tuple_impl& _tuple_impl();
-    dict_impl& _dict_impl();
-    set_impl& _set_impl();
+    str& _str_write()                   { return *(str*)val._str; }
+    const str& _str_read()      const { return *(str*)val._str; }
+    tuple& _tuple_write();
+    const tuple& _tuple_read()  const { return *val._tuple; }
+    dict& _dict_write();
+    const dict& _dict_read()    const { return *val._dict; }
+    set& _set_write();
+    const set& _set_read()      const { return *val._set; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
@@ -119,13 +112,16 @@ public:
     void operator=(None)            { _fin(); _init(); }
     template<class T>
     void operator= (const T& v)     { _fin(); _init(v); }
-    void operator= (const variant& v)  { _fin(); _init(v); }
+    void operator= (const variant& v)   { _fin(); _init(v); }
+    bool operator== (const variant& v) const;
+    bool operator!= (const variant& v)
+                              const { return !(this->operator==(v)); }
 
     void dump(std::ostream&) const;
     str  to_string() const;
     bool operator< (const variant& v) const;
 
-    bool is_none()            const { return type == NONE; }
+    bool is_null()            const { return type == NONE; }
     bool is_int()             const { return type == INT; }
     bool is_real()            const { return type == REAL; }
     bool is_bool()            const { return type == BOOL; }
@@ -146,7 +142,7 @@ public:
     real as_real()            const { _req(REAL); return val._real; }
     bool as_bool()            const { _req(BOOL); return val._bool; }
     char as_char()            const { _req(CHAR); return val._char; }
-    const str& as_str()       const { _req(STR); return _str_impl(); }
+    const str& as_str()       const { _req(STR); return _str_read(); }
     const tuple& as_tuple() const;
     const dict& as_dict() const;
     const set& as_set() const;
@@ -155,24 +151,22 @@ public:
     // Container operations
     int  size() const;                                  // str, tuple, dict, set
     bool empty() const;                                 // str, tuple, dict, set
-    void cat(const variant& v);                         // str
-    void cat(const str&);                               // str
-    void cat(const char*);                              // str
-    void cat(char c);                                   // str
-    str  sub(int start, int count = -1) const;          // str
-    void add(const variant&);                           // tuple, set
-    void ins(const variant&);                           // tuple, set
-    void ins(int index, const variant&);                // tuple
+    void append(const variant& v);                      // str
+    void append(const str&);                            // str
+    void append(const char*);                           // str
+    void append(char c);                                // str
+    str  substr(int start, int count = -1) const;       // str
+    char getch(int) const;                              // str
+    void push_back(const variant&);                     // tuple
+    void insert(const variant&);                        // set
+    void insert(int index, const variant&);             // tuple
     void put(const variant& key, const variant&);       // dict
-    void del(int index);                                // str, tuple
-    void del(int index, int count);                     // str, tuple
-    void del(const variant& key);                       // dict, set
-    const variant& get(int index) const;                // tuple
-    const variant& get(const variant& key) const;       // dict
+    void erase(int index);                              // str, tuple, dict[int], set[int]
+    void erase(int index, int count);                   // str, tuple
+    void erase(const variant& key);                     // dict, set
     bool has(const variant& index) const;               // dict, set
-    
-    const variant& operator[] (int index) const { return get(index); }          // tuple
-    const variant& operator[] (const variant& key) const { return get(key); }   // dict
+    const variant& operator[] (int index) const;        // tuple, dict[int]
+    const variant& operator[] (const variant& key) const;   // dict
 };
 
 
@@ -190,6 +184,7 @@ class object
     friend class variant;
     friend void release(object*&);
     friend object* _grab(object*);
+    friend object* _clone(object*);
 
 public:
 #ifdef DEBUG
@@ -198,55 +193,72 @@ public:
 
 protected:
     int refcount;
-    
-    virtual void dump(std::ostream&) const;
-    virtual bool less_than(object* o) const;
-
+    virtual object* clone() const = 0;
 public:
     object();
     virtual ~object();
-    int get_refcount() const  { return refcount; }
+    bool is_unique() const  { return refcount == 1; }
+    virtual void dump(std::ostream&) const;
+    virtual bool less_than(object* o) const;
 };
 
 
 void release(object*&);
-inline object* _grab(object* o) { if (o) pincrement(&o->refcount); return o; }
+
+inline object* _grab(object* o)     { if (o) pincrement(&o->refcount); return o; }
 template<class T>
     T* grab(T* o) { return (T*)_grab(o); }
+
+object* _clone(object*);
+template<class T>
+    T* unique(T* o) { if (o->is_unique()) return (T*)o; return (T*)_clone(o); }
 
 
 class tuple: public object
 {
-    friend class variant;
-
-    tuple(const tuple&);
-    void operator= (const tuple&);
 protected:
+    typedef std::vector<variant> tuple_impl;
+
     tuple_impl impl;
-    virtual void dump(std::ostream&) const;
+
+    tuple(const tuple& other): impl(other.impl)  { }
+    void operator= (const tuple&);
+    virtual object* clone() const;
 public:
     tuple();
     ~tuple();
-
-    typedef tuple_impl::const_iterator iterator;
-    iterator begin() const  { return impl.begin(); }
-    iterator end() const  { return impl.end(); }
+    int size() const { return impl.size(); }
+    bool empty() const { return impl.empty(); }
+    void push_back(const variant&);
+    void insert(int, const variant&);
+    void erase(int);
+    void erase(int index, int count);
+    const variant& operator[] (int) const;
+    virtual void dump(std::ostream&) const;
 };
 
 
 class dict: public object
 {
-    friend class variant;
-
-    dict(const dict&);
-    void operator= (const dict&);
 protected:
+    typedef std::map<variant, variant> dict_impl;
+
     dict_impl impl;
-    virtual void dump(std::ostream&) const;
+
+    dict(const dict& other): impl(other.impl)  { }
+    void operator= (const dict&);
+    virtual object* clone() const;
 public:
+    typedef dict_impl::const_iterator iterator;
+
     dict();
     ~dict();
-    typedef dict_impl::const_iterator iterator;
+    int size() const { return impl.size(); }
+    bool empty() const { return impl.empty(); }
+    void erase(const variant&);
+    variant& operator[] (const variant&);
+    iterator find(const variant&) const;
+    virtual void dump(std::ostream&) const;
     iterator begin() const  { return impl.begin(); }
     iterator end() const  { return impl.end(); }
 };
@@ -254,24 +266,31 @@ public:
 
 class set: public object
 {
-public:
-    friend class variant;
-
-    set(const set&);
-    void operator= (const set&);
 protected:
+    typedef std::set<variant> set_impl;
+
     set_impl impl;
-    virtual void dump(std::ostream&) const;
+
+    set(const set& other): impl(other.impl)  { }
+    void operator= (const set&);
+    virtual object* clone() const;
 public:
+    typedef set_impl::const_iterator iterator;
+
     set();
     ~set();
-    typedef set_impl::const_iterator iterator;
+    int size() const { return impl.size(); }
+    bool empty() const { return impl.empty(); }
+    void insert(const variant&);
+    void erase(const variant&);
+    iterator find(const variant&) const;
+    virtual void dump(std::ostream&) const;
     iterator begin() const  { return impl.begin(); }
     iterator end() const  { return impl.end(); }
 };
 
 
-extern const variant none;
+extern const variant null;
 extern const tuple null_tuple;
 extern const dict null_dict;
 extern const set null_set;
