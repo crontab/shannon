@@ -7,11 +7,11 @@ CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -DNDEBUG
 # LDLIBS =
 
-OBJS = obj/portatom.o obj/portmem.o
+OBJS = obj/portatom.o obj/portmem.o obj/variant.o
 
-SRCS = portatom.cpp portmem.cpp main.cpp main-ut.cpp
+SRCS = portatom.cpp portmem.cpp variant.cpp main.cpp main-ut.cpp
 
-HDRS = port.h
+HDRS = common.h variant.h
 
 all: dirs shannon shannon-ut
 

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		361AF94A1000DF4200E12EAE /* variant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 361AF9481000DF4200E12EAE /* variant.cpp */; };
+		361AF94B1000DF4200E12EAE /* variant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 361AF9481000DF4200E12EAE /* variant.cpp */; };
 		363C70F70EF70F4400866D2C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70ED0EF70F4400866D2C /* main.cpp */; };
 		363C70F80EF70F4400866D2C /* portatom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70EF0EF70F4400866D2C /* portatom.cpp */; };
 		363C70F90EF70F4400866D2C /* portmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70F00EF70F4400866D2C /* portmem.cpp */; };
@@ -37,11 +39,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		361AF9481000DF4200E12EAE /* variant.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = variant.cpp; path = src/variant.cpp; sourceTree = "<group>"; };
+		361AF9491000DF4200E12EAE /* variant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = variant.h; path = src/variant.h; sourceTree = "<group>"; };
+		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
 		362E251F0F0AC811005E05B4 /* shannon - Google Code.webloc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "shannon - Google Code.webloc"; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
 		363C70ED0EF70F4400866D2C /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = src/main.cpp; sourceTree = "<group>"; };
-		363C70EE0EF70F4400866D2C /* port.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = port.h; path = src/port.h; sourceTree = "<group>"; };
 		363C70EF0EF70F4400866D2C /* portatom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = portatom.cpp; path = src/portatom.cpp; sourceTree = "<group>"; };
 		363C70F00EF70F4400866D2C /* portmem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = portmem.cpp; path = src/portmem.cpp; sourceTree = "<group>"; };
 		363C710A0EF70F6000866D2C /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -81,9 +85,11 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				361AF9621000E38D00E12EAE /* common.h */,
+				361AF9481000DF4200E12EAE /* variant.cpp */,
+				361AF9491000DF4200E12EAE /* variant.h */,
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				363C70ED0EF70F4400866D2C /* main.cpp */,
-				363C70EE0EF70F4400866D2C /* port.h */,
 				363C70EF0EF70F4400866D2C /* portatom.cpp */,
 				363C70F00EF70F4400866D2C /* portmem.cpp */,
 			);
@@ -175,6 +181,7 @@
 				363C71010EF70F6000866D2C /* portatom.cpp in Sources */,
 				363C71020EF70F6000866D2C /* portmem.cpp in Sources */,
 				363C710D0EF70FBE00866D2C /* main-ut.cpp in Sources */,
+				361AF94B1000DF4200E12EAE /* variant.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +192,7 @@
 				363C70F70EF70F4400866D2C /* main.cpp in Sources */,
 				363C70F80EF70F4400866D2C /* portatom.cpp in Sources */,
 				363C70F90EF70F4400866D2C /* portmem.cpp in Sources */,
+				361AF94A1000DF4200E12EAE /* variant.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
