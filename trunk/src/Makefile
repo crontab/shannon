@@ -7,11 +7,11 @@ CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -DNDEBUG
 # LDLIBS =
 
-OBJS = obj/common.o obj/variant.o obj/symbols.o
+OBJS = obj/common.o obj/charset.o obj/variant.o obj/symbols.o
 
-SRCS = common.cpp variant.cpp symbols.cpp main.cpp main-ut.cpp
+SRCS = common.cpp charset.cpp variant.cpp symbols.cpp main.cpp main-ut.cpp
 
-HDRS = common.h variant.h symbols.h
+HDRS = common.h charset.h variant.h symbols.h
 
 all: dirs shannon shannon-ut
 

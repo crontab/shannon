@@ -1,7 +1,8 @@
 # DO NOT DELETE
 
 obj/common.o: common.h
-obj/variant.o: common.h variant.h
+obj/charset.o: charset.h
+obj/variant.o: common.h charset.h variant.h
 obj/symbols.o: symbols.h variant.h common.h
 obj/main.o: symbols.h variant.h common.h
 obj/main-ut.o: common.h variant.h symbols.h
