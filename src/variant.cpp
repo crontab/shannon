@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include "common.h"
+#include "charset.h"
 #include "variant.h"
 
 const variant null;
