@@ -15,9 +15,14 @@
 #endif
 
 
-#if !defined(foreach)
-# define foreach(type,var,cont) \
-    for (type var = (cont).begin(); var != (cont).end(); var++)
+#define foreach(type,iter,cont) \
+    for (type iter = (cont).begin(); iter != (cont).end(); iter++)
+
+#define vforeach(type,iter,cont) \
+    for (type##_iterator iter = (cont).type##_begin(); iter != (cont).type##_end(); iter++)
+
+#ifdef BOOL
+#  error "BOOL defined somewhere conflicts with internal definitions in variant class"
 #endif
 
 
@@ -26,6 +31,13 @@ class object;
 class tuple;
 class dict;
 class set;
+
+
+typedef std::vector<variant> tuple_impl;
+typedef std::map<variant, variant> dict_impl;
+typedef dict_impl::const_iterator dict_iterator;
+typedef std::set<variant> set_impl;
+typedef set_impl::const_iterator set_iterator;
 
 
 DEF_EXCEPTION(evarianttype,  "Variant type mismatch")
@@ -58,14 +70,14 @@ protected:
         set*    _set;
     } val;
 
-    str& _str_write()                   { return *(str*)val._str; }
-    const str& _str_read()      const { return *(str*)val._str; }
+    str& _str_write()               { return *(str*)val._str; }
+    const str& _str_read()    const { return *(str*)val._str; }
     tuple& _tuple_write();
-    const tuple& _tuple_read()  const { return *val._tuple; }
+    const tuple& _tuple_read() const { return *val._tuple; }
     dict& _dict_write();
-    const dict& _dict_read()    const { return *val._dict; }
+    const dict& _dict_read()  const { return *val._dict; }
     set& _set_write();
-    const set& _set_read()      const { return *val._set; }
+    const set& _set_read()    const { return *val._set; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
@@ -84,7 +96,7 @@ protected:
     void _fin()                     { if (is_nonpod()) _fin2(); }
     void _fin2();
 
-    // Unrecoverable errors: type mismatch, out of INT range
+    // Errors: type mismatch, out of INT range
     static const char* _type_name(Type);
     static void _type_err();
     static void _range_err();
@@ -167,6 +179,11 @@ public:
     bool has(const variant& index) const;               // dict, set
     const variant& operator[] (int index) const;        // tuple, dict[int]
     const variant& operator[] (const variant& key) const;   // dict
+
+    dict_iterator dict_begin() const;
+    dict_iterator dict_end() const;
+    set_iterator set_begin() const;
+    set_iterator set_end() const;
 };
 
 
@@ -205,28 +222,26 @@ public:
 
 void release(object*&);
 
-inline object* _grab(object* o)     { if (o) pincrement(&o->refcount); return o; }
+inline object* _grab(object* o)  { if (o) pincrement(&o->refcount); return o; }
 template<class T>
-    T* grab(T* o) { return (T*)_grab(o); }
+    T* grab(T* o)  { return (T*)_grab(o); }
 
 object* _clone(object*);
 template<class T>
-    T* unique(T* o) { if (o->is_unique()) return (T*)o; return (T*)_clone(o); }
+    T* unique(T* o)  { if (o->is_unique()) return (T*)o; return (T*)_clone(o); }
 
 
 class tuple: public object
 {
-protected:
-    typedef std::vector<variant> tuple_impl;
+    friend class variant;
 
     tuple_impl impl;
 
+protected:
     tuple(const tuple& other): impl(other.impl)  { }
+
     void operator= (const tuple&);
     virtual object* clone() const;
-public:
-    tuple();
-    ~tuple();
     int size() const { return impl.size(); }
     bool empty() const { return impl.empty(); }
     void push_back(const variant&);
@@ -235,60 +250,83 @@ public:
     void erase(int index, int count);
     const variant& operator[] (int) const;
     virtual void dump(std::ostream&) const;
+
+public:
+    tuple();
+    ~tuple();
 };
 
 
 class dict: public object
 {
-protected:
-    typedef std::map<variant, variant> dict_impl;
+    friend class variant;
 
     dict_impl impl;
 
+protected:
     dict(const dict& other): impl(other.impl)  { }
+
     void operator= (const dict&);
     virtual object* clone() const;
-public:
-    typedef dict_impl::const_iterator iterator;
-
-    dict();
-    ~dict();
     int size() const { return impl.size(); }
     bool empty() const { return impl.empty(); }
     void erase(const variant&);
     variant& operator[] (const variant&);
-    iterator find(const variant&) const;
+    dict_iterator find(const variant&) const;
     virtual void dump(std::ostream&) const;
-    iterator begin() const  { return impl.begin(); }
-    iterator end() const  { return impl.end(); }
+    dict_iterator begin() const  { return impl.begin(); }
+    dict_iterator end() const    { return impl.end(); }
+
+public:
+    dict();
+    ~dict();
 };
 
 
 class set: public object
 {
-protected:
-    typedef std::set<variant> set_impl;
+    friend class variant;
 
     set_impl impl;
 
+protected:
     set(const set& other): impl(other.impl)  { }
+
     void operator= (const set&);
     virtual object* clone() const;
-public:
-    typedef set_impl::const_iterator iterator;
-
-    set();
-    ~set();
     int size() const { return impl.size(); }
     bool empty() const { return impl.empty(); }
     void insert(const variant&);
     void erase(const variant&);
-    iterator find(const variant&) const;
+    set_iterator find(const variant&) const;
     virtual void dump(std::ostream&) const;
-    iterator begin() const  { return impl.begin(); }
-    iterator end() const  { return impl.end(); }
+    set_iterator begin() const  { return impl.begin(); }
+    set_iterator end() const    { return impl.end(); }
+
+public:
+    set();
+    ~set();
 };
 
+
+class varstack: protected tuple_impl
+{
+    varstack(const varstack&);
+    void operator=(const varstack&);
+public:
+    varstack() { }
+    ~varstack() { }
+    void push(const variant& v)  { push_back(v); }
+    variant& top()   { return back(); }
+    void pop()       { pop_back(); }
+};
+
+
+inline dict_iterator variant::dict_begin() const  { _req(DICT); return _dict_read().begin(); }
+inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_read().end(); }
+
+inline set_iterator variant::set_begin() const    { _req(SET); return _set_read().begin(); }
+inline set_iterator variant::set_end() const      { _req(SET); return _set_read().end(); }
 
 extern const variant null;
 extern const tuple null_tuple;
@@ -296,3 +334,4 @@ extern const dict null_dict;
 extern const set null_set;
 
 #endif // __VARIANT_H
+

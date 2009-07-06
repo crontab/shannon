@@ -115,7 +115,7 @@ dict::dict()    { }
 dict::~dict()   { }
 
 variant& dict::operator[] (const variant& v)        { return impl[v]; }
-dict::iterator dict::find(const variant& v) const   { return impl.find(v); }
+dict_iterator dict::find(const variant& v) const    { return impl.find(v); }
 void dict::erase(const variant& v)                  { impl.erase(v); }
 
 void dict::dump(std::ostream& s) const
@@ -132,7 +132,7 @@ set::set()      { }
 set::~set()     { }
 
 void set::erase(const variant& v)               { impl.erase(v); }
-set::iterator set::find(const variant& v) const { return impl.find(v); }
+set_iterator set::find(const variant& v)  const { return impl.find(v); }
 void set::insert(const variant& v)              { impl.insert(v); }
 
 void set::dump(std::ostream& s) const
@@ -270,7 +270,10 @@ str variant::to_string() const
 
 bool variant::operator== (const variant& other) const
 {
-    _req(other.type);
+    if (type == NONE || other.type == NONE)
+        return type == other.type;
+    if (type != other.type)
+        return false;
     switch (type)
     {
     case NONE: return true;
@@ -463,7 +466,7 @@ const variant& variant::operator[] (const variant& index) const
     _req(DICT);
     if (val._dict == NULL)
         return null;
-    dict::iterator it = _dict_read().find(index);
+    dict_iterator it = _dict_read().find(index);
     if (it == _dict_read().end())
         return null;
     return it->second;
