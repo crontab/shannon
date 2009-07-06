@@ -29,10 +29,10 @@ using namespace std;
 class test_obj: public object
 {
 protected:
-    void dump(std::ostream& s) const
-        { s << "test_obj"; }
     virtual object* clone() const { fail("Can't clone test object"); }
 public:
+    void dump(std::ostream& s) const
+        { s << "test_obj"; }
     test_obj()  { }
 };
 
@@ -47,14 +47,14 @@ void test_variant()
     variant v6 = 1.1;               check(v6.is_real());    check(v6.as_real() == 1.1);
     variant v7 = false;             check(v7.is_bool());    check(!v7.as_bool());
     variant v8 = true;              check(v8.is_bool());    check(v8.as_bool());
+    variant v12 = 'x';              check(v12.is_char());   check(v12.as_char() == 'x');
     variant v9 = "";                check(v9.is_str());     check(v9.as_str().empty());
     variant v10 = "abc";            check(v10.is_str());    check(v10.as_str() == "abc");
     string s1 = "def";
     variant vst = s1;               check(vst.is_str());    check(vst.as_str() == s1);
-    variant v12 = 'x';              check(v12.is_char());   check(v12.as_char() == 'x');
-    variant vt = new_tuple();       check(vt.is_tuple());   check(&vt.as_tuple() == &null_tuple);
-    variant vd = new_dict();        check(vd.is_dict());    check(&vd.as_dict() == &null_dict);
-    variant vs = new_set();         check(vs.is_set());     check(&vs.as_set() == &null_set);
+    variant vt = new_tuple();       check(vt.is_tuple());   check(vt.is_null_ptr());
+    variant vd = new_dict();        check(vd.is_dict());    check(vd.is_null_ptr());
+    variant vs = new_set();         check(vs.is_set());     check(vs.is_null_ptr());
     object* o = new test_obj();
     variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
@@ -97,16 +97,28 @@ void test_variant()
     v = 1.1;               check(v.as_real() == 1.1);           check(v == 1.1);
     v = false;             check(!v.as_bool());                 check(v == false);
     v = true;              check(v.as_bool());                  check(v == true);
+    v = 'x';               check(v.as_char() == 'x');           check(v == 'x');    check(v != 'z');
     v = "";                check(v.as_str().empty());           check(v == "");
     v = "abc";             check(v.as_str() == "abc");          check(v == "abc");
     v = s1;                check(v.as_str() == s1);             check(v == s1);
-    v = 'x';               check(v.as_char() == 'x');           check(v == 'x');    check(v != 'z');
-    v = new_tuple();       check(&v.as_tuple() == &null_tuple);
-    v = new_dict();        check(&v.as_dict() == &null_dict);
-    v = new_set();         check(&v.as_set() == &null_set);
+    v = new_tuple();       check(v.is_null_ptr());
+    v = new_dict();        check(v.is_null_ptr());
+    v = new_set();         check(v.is_null_ptr());
     v = o;                 check(v.as_object() == o);
     check(v != null);
-    
+    check(!v.is_null());
+    check(!v.is_int());
+    check(!v.is_real());
+    check(!v.is_bool());
+    check(!v.is_int());
+    check(!v.is_char());
+    check(!v.is_str());
+    check(!v.is_tuple());
+    check(!v.is_dict());
+    check(!v.is_set());
+    v = null;
+    check(!v.is_object());
+
     // str
     vst = "";
     check(vst.empty()); check(vst.size() == 0);
@@ -243,6 +255,10 @@ void test_variant()
     check(vs.to_string() == "[0, 1]");
     check(vss.to_string() == "[0]");
     
+    // object
+    // vo = vo; // this doesn't work at the moment
+    // cout << vo.as_object() << endl;
+    
     int save_alloc = object::alloc;
     {
         objptr<test_obj> p1 = new test_obj();
@@ -253,6 +269,7 @@ void test_variant()
         check(p1 == p2);
         objptr<test_obj> p3 = new test_obj();
         check(p1 != p3);
+        p3 = p3; // see if it doesn't core dump
     }
     check(object::alloc == save_alloc);
 }
