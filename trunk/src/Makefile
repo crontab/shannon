@@ -15,7 +15,7 @@ HDRS = common.h variant.h
 
 all: dirs shannon shannon-ut
 
-ut: dirs shannon-ut
+ut unit-test: dirs shannon-ut
 	@echo
 	@if ./shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
 	@echo

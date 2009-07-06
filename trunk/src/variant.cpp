@@ -91,14 +91,10 @@ object* _clone(object* o)
 tuple::tuple()  { }
 tuple::~tuple() { }
 
-
-void tuple::erase(int i)                        { impl.erase(impl.begin() + i); }
-void tuple::erase(int i, int count)             { impl.erase(impl.begin() + i,
-                                                    impl.begin() + i + count - 1); }
-const variant& tuple::operator[] (int i) const  { return impl[i]; }
-void tuple::push_back(const variant& v)         { impl.push_back(v); }
-void tuple::insert(int i, const variant& v)     { impl.insert(impl.begin() + i, v); }
-
+void tuple::erase(int i, int count)
+{
+    impl.erase(impl.begin() + i, impl.begin() + i + count - 1);
+}
 
 void tuple::dump(std::ostream& s) const
 {
@@ -114,10 +110,6 @@ void tuple::dump(std::ostream& s) const
 dict::dict()    { }
 dict::~dict()   { }
 
-variant& dict::operator[] (const variant& v)        { return impl[v]; }
-dict_iterator dict::find(const variant& v) const    { return impl.find(v); }
-void dict::erase(const variant& v)                  { impl.erase(v); }
-
 void dict::dump(std::ostream& s) const
 {
     foreach(dict_impl::const_iterator, i, impl)
@@ -130,10 +122,6 @@ void dict::dump(std::ostream& s) const
 
 set::set()      { }
 set::~set()     { }
-
-void set::erase(const variant& v)               { impl.erase(v); }
-set_iterator set::find(const variant& v)  const { return impl.find(v); }
-void set::insert(const variant& v)              { impl.insert(v); }
 
 void set::dump(std::ostream& s) const
 {
@@ -374,6 +362,18 @@ bool variant::empty() const
 }
 
 
+void variant::resize(int new_size)
+{
+    switch (type)
+    {
+    case STR:   _str_write().resize(new_size); break;
+    case TUPLE: _tuple_write().resize(new_size); break;
+    default: _type_err(); break;
+    }
+}
+
+
+void variant::resize(int n, char c)         { _req(STR); _str_write().resize(n, c); }
 char variant::getch(int i) const            { _req(STR); return _str_read()[i]; }
 void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
 void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
@@ -386,9 +386,7 @@ void variant::insert(const variant& v)      { _req(SET); _set_write().insert(v);
 str variant::substr(int index, int count) const
 {
     _req(STR);
-    if (count == -1)
-        count = str::npos;
-    return _str_read().substr(index, count);
+    return _str_read().substr(index, count == -1 ? str::npos : count);
 }
 
 
@@ -399,6 +397,20 @@ void variant::insert(int index, const variant& v)
     if (index < 0 || index > int(t.size()))
         _index_err();
     t.insert(index, v);
+}
+
+
+void variant::put(int index, const variant& value)
+{
+    if (type == DICT)
+    {
+        put(variant(index), value);
+        return;
+    }
+    _req(TUPLE);
+    if (index < 0 || index >= int(_tuple_read().size()))
+        _index_err();
+    _tuple_write().put(index, value);
 }
 
 
