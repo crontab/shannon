@@ -1,17 +1,11 @@
 
-#include "common.h"
-#include "variant.h"
 
-
-class namedobj: public object
-{
-public:
-    const str name;
-    namedobj(const str& name): name(name)  { }
-};
+#include "symbols.h"
 
 
 int main()
 {
+    SymbolTable<Symbol> t;
+    List<Symbol> l;
     return 0;
 }

@@ -207,7 +207,7 @@ inline std::ostream& operator<< (std::ostream& s, const variant& v)
 class object: public noncopyable
 {
     friend class variant;
-    friend void _release(object*&);
+    friend void _release(object*);
     friend void _replace(object*&);
     friend object* _grab(object*);
     friend void _unique(object*&);
@@ -219,7 +219,7 @@ public:
 
 protected:
     int refcount;
-    virtual object* clone() const = 0;
+    virtual object* clone() const; // calls fatal()
 public:
     object();
     virtual ~object();
@@ -233,9 +233,9 @@ inline object* _grab(object* o)  { if (o) pincrement(&o->refcount); return o; }
 template<class T>
     T* grab(T* o)  { return (T*)_grab(o); }
 
-void _release(object*&);
+void _release(object*);
 template<class T>
-    void release(T*& o)  { _release((object*&)o); }
+    void release(T* o)  { _release(o); }
 
 void _replace(object*&, object*);
 template<class T>
@@ -346,8 +346,12 @@ public:
     T* operator* () const               { return obj; }
     T* operator-> () const              { return obj; }
     operator T*() const                 { return obj; }
-    bool operator== (T* p) const        { return obj == p; }
+    bool operator== (T* o) const        { return obj == o; }
+    bool operator== (const objptr<T>& p) const { return obj == p.obj; }
     bool operator!= (T* p) const        { return obj != p; }
+
+    friend inline
+    bool operator== (T* o, const objptr<T>& p) { return o == p.obj; }
 };
 
 
