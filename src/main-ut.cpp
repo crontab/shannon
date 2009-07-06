@@ -250,7 +250,9 @@ void test_variant()
         objptr<test_obj> p2 = p1;
         check(!p1->is_unique());
         check(!p2->is_unique());
+        check(p1 == p2);
         objptr<test_obj> p3 = new test_obj();
+        check(p1 != p3);
     }
     check(object::alloc == save_alloc);
 }
