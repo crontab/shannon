@@ -4,6 +4,9 @@
 
 int main()
 {
-    variant v;
+    varstack s;
+    s.push(1);
+//    variant v = s.top();
+//    s.pop();
     return 0;
 }

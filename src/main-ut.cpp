@@ -92,6 +92,7 @@ void test_variant()
     check(v2 < v3);
     
     variant v;
+    check(v == null);
     v = 0;                 check(v.as_int() == 0);              check(v == 0);
     v = 1;                 check(v.as_int() == 1);              check(v == 1);
     v = INT64_MAX;         check(v.as_int() == INT64_MAX);      check(v == INT64_MAX);
@@ -107,7 +108,7 @@ void test_variant()
     v = new_dict();        check(&v.as_dict() == &null_dict);
     v = new_set();         check(&v.as_set() == &null_set);
     v = o;                 check(v.as_object() == o);
-    check_throw(evarianttype, v == 0);
+    check(v != null);
     
     // str
     vst = "";
@@ -154,6 +155,10 @@ void test_variant()
     check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
     vd.put("kz", null);
     check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
+    stringstream vds;
+    vforeach(dict, i, vd)
+        vds << ' ' << i->first << ": " << i->second;
+    check(vds.str() == " \"k1\": \"abc\" \"k3\": []");
     vd.erase("k2");
     check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
     vd.erase("k3");
@@ -171,6 +176,10 @@ void test_variant()
     vs.insert(127);
     check_throw(evarianttype, vs.insert("abc"));
     check(vs.to_string() == "[5, 26, 127]");
+    stringstream vdss;
+    vforeach(set, i, vs)
+        vdss << ' ' << *i;
+    check(vdss.str() == " 5 26 127");
     check(!vs.empty()); check(vs.size() == 3);
     vs.erase(26);
     vs.erase(226);
