@@ -8,7 +8,8 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <limits.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <iostream>
 #include <sstream>
@@ -126,7 +127,12 @@ void test_variant()
     vst.erase(3, 4);
     check(vst.as_str() == "acdijkl");
     check(vst.getch(2) == 'd');
-    
+    vst.resize(10, '-');
+    check(vst.as_str() == "acdijkl---");
+    check(vst.size() == 10);
+    vst.resize(5, '-');
+    check(vst.as_str() == "acdij");
+
     // tuple
     check(vt.empty()); check(vt.size() == 0);
     check_throw(evariantindex, vt.insert(1, 0));
@@ -142,7 +148,15 @@ void test_variant()
     vt.erase(2);
     check(vt.to_string() == "[0, true, 'd', []]");
     check(vt[2] == 'd');
-    
+    vt.put(2, "asd");
+    check(vt.to_string() == "[0, true, \"asd\", []]");
+    check_throw(evariantindex, vt.put(4, 0));
+    vt.resize(2);
+    check(vt.to_string() == "[0, true]");
+    vt.resize(4);
+    check(vt.to_string() == "[0, true, null, null]");
+    check(vt.size() == 4);
+
     // dict
     check(vd.empty()); check(vd.size() == 0);
     vd.put("k1", "abc");
@@ -168,6 +182,12 @@ void test_variant()
     check(vd["kz"] == null);
     check(vd.has("k1"));
     check(!vd.has("k2"));
+
+    // dict[int]
+    vd = new_dict();
+    vd.put(100, 'a');
+    // vd.put(10000000000ll, 'b'); TODO: make this work
+    check(vd.to_string() == "[100: 'a']");    
     
     // set
     check(vs.empty()); check(vs.size() == 0);
