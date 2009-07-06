@@ -199,7 +199,7 @@ inline std::ostream& operator<< (std::ostream& s, const variant& v)
     { v.dump(s); return s; }
 
 
-class object
+class object: public noncopyable
 {
     friend class variant;
     friend void release(object*&);
@@ -243,7 +243,6 @@ class tuple: public object
 protected:
     tuple(const tuple& other): impl(other.impl)  { }
 
-    void operator= (const tuple&);
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
@@ -271,7 +270,6 @@ class dict: public object
 protected:
     dict(const dict& other): impl(other.impl)  { }
 
-    void operator= (const dict&);
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
@@ -297,7 +295,6 @@ class set: public object
 protected:
     set(const set& other): impl(other.impl)  { }
 
-    void operator= (const set&);
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
@@ -314,16 +311,17 @@ public:
 };
 
 
-class varstack: protected tuple_impl
+class varstack: protected tuple_impl, public noncopyable
 {
-    varstack(const varstack&);
-    void operator=(const varstack&);
 public:
     varstack() { }
     ~varstack() { }
-    void push(const variant& v)  { push_back(v); }
-    variant& top()   { return back(); }
-    void pop()       { pop_back(); }
+    void push(const variant& v)     { push_back(v); }
+    void pushn(int n)               { resize(size() + n); }
+    variant& top()                  { return back(); }
+    variant& top(int n)             { return *(end() - n); }
+    void pop()                      { pop_back(); }
+    void popn(int n)                { resize(size() - n); }
 };
 
 
