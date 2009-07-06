@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <exception>
 
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
@@ -72,6 +73,15 @@ public:
 #define DEF_EXCEPTION(name,msg) \
     struct name: public std::exception \
         { virtual const char* what() const throw() { return msg; } };
+
+
+struct emessage: public std::exception
+{
+    const str message;
+    emessage(const str& message): message(message) { }
+    ~emessage() throw();
+    virtual const char* what() const throw();
+};
 
 
 #endif // __COMMON_H

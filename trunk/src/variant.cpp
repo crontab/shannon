@@ -46,19 +46,13 @@ object::~object()
 }
 
 
-void object::dump(std::ostream& s) const
-{
-    s << "object";
-}
+object* object::clone() const
+    { fatal(0x1001, "object::clone() is not implemented"); return NULL; }
+void object::dump(std::ostream& s) const { s << "object"; }
+bool object::less_than(object* other) const { return this < other; }
 
 
-bool object::less_than(object* other) const
-{
-    return this < other;
-}
-
-
-void _release(object*& o)
+void _release(object* o)
 {
     if (o == NULL)
         return;
@@ -67,7 +61,6 @@ void _release(object*& o)
 #endif
     if (pdecrement(&o->refcount) == 0)
         delete o;
-    o = NULL;
 }
 
 
@@ -472,7 +465,7 @@ void variant::erase(const variant& key)
 const variant& variant::operator[] (int index) const
 {
     if (type == DICT)
-        return this->operator[] (variant(index));
+        return operator[] (variant(index));
     _req(TUPLE);
     if (val._tuple == NULL)
         _index_err();

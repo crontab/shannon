@@ -27,6 +27,11 @@ int memquantize(int a)
 }
 
 
+emessage::~emessage() throw() { }
+
+const char* emessage::what() const throw()  { return message.c_str(); }
+
+
 
 #ifndef SINGLE_THREADED
 
@@ -57,4 +62,5 @@ int pdecrement(int* target)
 #endif
 
 #endif
+
 
