@@ -1,7 +1,7 @@
 # DO NOT DELETE
 
 obj/portatom.o: common.h
-obj/portmem.o: common.h
+obj/common.o: common.h
 obj/variant.o: common.h variant.h
 obj/main.o: common.h variant.h
 obj/main-ut.o: variant.h common.h

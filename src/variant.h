@@ -202,9 +202,10 @@ inline std::ostream& operator<< (std::ostream& s, const variant& v)
 class object: public noncopyable
 {
     friend class variant;
-    friend void release(object*&);
+    friend void _release(object*&);
+    friend void _replace(object*&);
     friend object* _grab(object*);
-    friend object* _clone(object*);
+    friend void _unique(object*&);
 
 public:
 #ifdef DEBUG
@@ -223,15 +224,21 @@ public:
 };
 
 
-void release(object*&);
-
 inline object* _grab(object* o)  { if (o) pincrement(&o->refcount); return o; }
 template<class T>
     T* grab(T* o)  { return (T*)_grab(o); }
 
-object* _clone(object*);
+void _release(object*&);
 template<class T>
-    T* unique(T* o)  { if (o->is_unique()) return (T*)o; return (T*)_clone(o); }
+    void release(T*& o)  { _release((object*&)o); }
+
+void _replace(object*&, object*);
+template<class T>
+    void replace(T*& p, T* o)  { _replace((object*&)p, o); }
+
+void _unique(object*&);
+template<class T>
+    void unique(T*& o)  { if (!o->is_unique()) _unique((object*&)o); }
 
 
 class tuple: public object
@@ -322,6 +329,26 @@ public:
     variant& top(int n)             { return *(end() - n); }
     void pop()                      { pop_back(); }
     void popn(int n)                { resize(size() - n); }
+};
+
+
+template<class T>
+class objptr
+{
+protected:
+    T* obj;
+public:
+    objptr(): obj(NULL)                 { }
+    objptr(const objptr<T>& p)          { obj = grab(p.obj); }
+    objptr(T* o)                        { obj = grab(o); }
+    ~objptr()                           { release(obj); }
+    void operator= (const objptr<T>& p) { replace(obj, p.obj); }
+    void operator= (T* o)               { replace(obj, o); }
+    T* operator* () const               { return obj; }
+    T* operator-> () const              { return obj; }
+    operator T*() const                 { return obj; }
+    bool operator== (T* p) const        { return obj == p; }
+    bool operator!= (T* p) const        { return obj != p; }
 };
 
 

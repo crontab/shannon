@@ -58,9 +58,9 @@ bool object::less_than(object* other) const
 }
 
 
-void release(object*& o)
+void _release(object*& o)
 {
-    if (!o)
+    if (o == NULL)
         return;
 #ifdef DEBUG
     assert(o->refcount >= 1);
@@ -71,21 +71,27 @@ void release(object*& o)
 }
 
 
+void _replace(object*& p, object* o)
+{
+    release(p);
+    p = grab(o);
+}
+
+
+void _unique(object*& o)
+{
+    object* p = grab(o->clone());
+    release(o);
+    o = p;
+}
+
+
 #define CLONE(t) \
     object* t::clone() const { return new t(*this); }
 
 CLONE(tuple)
 CLONE(dict)
 CLONE(set)
-
-
-object* _clone(object* o)
-{
-    object* p = grab(o->clone());
-    release(o);
-    return p;
-}
-
 
 
 tuple::tuple()  { }
@@ -328,7 +334,7 @@ ASX(set, SET)
     { if (val._##t == NULL) \
           val._##t = grab(new t()); \
       else \
-          val._##t = unique(val._##t); \
+          unique(val._##t); \
       return *val._##t; }
 
 XIMPL(tuple)
