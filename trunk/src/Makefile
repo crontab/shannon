@@ -7,9 +7,9 @@ CXXDEBUG = -DDEBUG -g
 # CXXDEBUG = -DNDEBUG
 # LDLIBS =
 
-OBJS = obj/portatom.o obj/portmem.o obj/variant.o
+OBJS = obj/portatom.o obj/common.o obj/variant.o
 
-SRCS = portatom.cpp portmem.cpp variant.cpp main.cpp main-ut.cpp
+SRCS = portatom.cpp common.cpp variant.cpp main.cpp main-ut.cpp
 
 HDRS = common.h variant.h
 

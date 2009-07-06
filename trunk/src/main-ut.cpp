@@ -1,9 +1,4 @@
 
-// We rely on assert(), so make sure it is turned on for this program
-#ifdef NDEBUG
-#  undef NDEBUG
-#endif
-
 #define __STDC_LIMIT_MACROS
 
 #include <stdint.h>
@@ -38,6 +33,7 @@ protected:
         { s << "test_obj"; }
     virtual object* clone() const { fail("Can't clone test object"); }
 public:
+    test_obj()  { }
 };
 
 
@@ -246,6 +242,17 @@ void test_variant()
     check(vss.as_set().is_unique());
     check(vs.to_string() == "[0, 1]");
     check(vss.to_string() == "[0]");
+    
+    int save_alloc = object::alloc;
+    {
+        objptr<test_obj> p1 = new test_obj();
+        check(p1->is_unique());
+        objptr<test_obj> p2 = p1;
+        check(!p1->is_unique());
+        check(!p2->is_unique());
+        objptr<test_obj> p3 = new test_obj();
+    }
+    check(object::alloc == save_alloc);
 }
 
 
