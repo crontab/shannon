@@ -18,9 +18,9 @@
 #include "variant.h"
 
 const variant null;
-const tuple null_tuple;
-const dict null_dict;
-const set null_set;
+const class _null_tuple: public tuple { } null_tuple;
+const class _null_dict: public dict { } null_dict;
+const class _null_set: public set { } null_set;
 
 
 #ifdef DEBUG
@@ -73,8 +73,11 @@ void _release(object*& o)
 
 void _replace(object*& p, object* o)
 {
-    release(p);
-    p = grab(o);
+    if (p != o)
+    {
+        release(p);
+        p = grab(o);
+    }
 }
 
 

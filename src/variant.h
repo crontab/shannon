@@ -123,6 +123,7 @@ public:
 
     void operator=(None)            { _fin(); _init(); }
     template<class T>
+    // TODO: check cases when the same value is assigned (e.g. v = v)
     void operator= (const T& v)     { _fin(); _init(v); }
     void operator= (const variant& v)   { _fin(); _init(v); }
     bool operator== (const variant& v) const;
@@ -142,8 +143,9 @@ public:
     bool is_tuple()           const { return type == TUPLE; }
     bool is_dict()            const { return type == DICT; }
     bool is_set()             const { return type == SET; }
-    bool is_object()          const { return type >= ANYOBJ; }
     bool is_nonpod()          const { return type >= NONPOD; }
+    bool is_refcnt()          const { return type >= REFCNT; }
+    bool is_object()          const { return type >= ANYOBJ; }
 
     // Type conversions
     integer as_int()          const { _req(INT); return val._int; }
@@ -187,6 +189,9 @@ public:
     dict_iterator dict_end() const;
     set_iterator set_begin() const;
     set_iterator set_end() const;
+    
+    // for unit tests
+    bool is_null_ptr() const { return val._obj == NULL; }
 };
 
 
@@ -248,7 +253,9 @@ class tuple: public object
     tuple_impl impl;
 
 protected:
+    tuple();
     tuple(const tuple& other): impl(other.impl)  { }
+    ~tuple();
 
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
@@ -261,10 +268,6 @@ protected:
     void erase(int index, int count);
     const variant& operator[] (int i)   const { return impl[i]; }
     virtual void dump(std::ostream&) const;
-
-public:
-    tuple();
-    ~tuple();
 };
 
 
@@ -275,7 +278,9 @@ class dict: public object
     dict_impl impl;
 
 protected:
+    dict();
     dict(const dict& other): impl(other.impl)  { }
+    ~dict();
 
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
@@ -286,10 +291,6 @@ protected:
     virtual void dump(std::ostream&) const;
     dict_iterator begin()               const { return impl.begin(); }
     dict_iterator end()                 const { return impl.end(); }
-
-public:
-    dict();
-    ~dict();
 };
 
 
@@ -300,7 +301,9 @@ class set: public object
     set_impl impl;
 
 protected:
+    set();
     set(const set& other): impl(other.impl)  { }
+    ~set();
 
     virtual object* clone() const;
     int size()                          const { return impl.size(); }
@@ -311,10 +314,6 @@ protected:
     virtual void dump(std::ostream&) const;
     set_iterator begin()                const { return impl.begin(); }
     set_iterator end()                  const { return impl.end(); }
-
-public:
-    set();
-    ~set();
 };
 
 
@@ -359,9 +358,6 @@ inline set_iterator variant::set_begin() const    { _req(SET); return _set_read(
 inline set_iterator variant::set_end() const      { _req(SET); return _set_read().end(); }
 
 extern const variant null;
-extern const tuple null_tuple;
-extern const dict null_dict;
-extern const set null_set;
 
 #endif // __VARIANT_H
 
