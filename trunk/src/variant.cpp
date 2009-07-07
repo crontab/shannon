@@ -15,17 +15,17 @@
 #include <iostream>
 
 #include "common.h"
-#include "charset.h"
 #include "variant.h"
 
 const variant null;
 const class _null_tuple: public tuple { } null_tuple;
 const class _null_dict: public dict { } null_dict;
 const class _null_set: public set { } null_set;
+const class _null_range: public range { } null_range;
 
 
 #ifdef DEBUG
-int object::alloc = -3; // compensate the three static objects null_xxx above
+int object::alloc = -4; // compensate the three static objects null_xxx above
 #endif
 
 
@@ -83,12 +83,47 @@ void _unique(object*& o)
 }
 
 
-#define CLONE(t) \
+#define XCLONE(t) \
     object* t::clone() const { return new t(*this); }
 
-CLONE(tuple)
-CLONE(dict)
-CLONE(set)
+XCLONE(range)
+XCLONE(tuple)
+XCLONE(dict)
+XCLONE(set)
+
+
+range::~range()  { }
+
+bool range::equals(const range& other) const
+{
+    return (empty() && other.empty())
+        || (left == other.left && right == other.right);
+}
+
+bool range::less_than(object* o) const
+{
+    const range& other = *(range*)o;
+    if (empty() && other.empty())
+        return false;
+    if (left < other.left)
+        return true;
+    if (left > other.left)
+        return false;
+    return right < other.right;
+}
+
+void range::dump(std::ostream& s) const
+{
+    if (!empty())
+        s << left << ".." << right;
+}
+
+range* new_range(integer l, integer r)
+{
+    if (l > r)
+        return NULL;
+    return new range(l, r);
+}
 
 
 tuple::tuple()  { }
@@ -139,9 +174,11 @@ void set::dump(std::ostream& s) const
 
 void variant::_init(const str& s)   { type = STR; ::new(&_str_write()) str(s); }
 void variant::_init(const char* s)  { type = STR; ::new(&_str_write()) str(s); }
-void variant::_init(tuple* t)       { type = TUPLE; val._obj = grab(t); }
-void variant::_init(dict* d)        { type = DICT; val._obj = grab(d); }
-void variant::_init(set* s)         { type = SET; val._obj = grab(s); }
+void variant::_init(range* r)       { type = RANGE; val._range = grab(r); }
+void variant::_init(integer l, integer r) { type = RANGE; val._range = grab(new_range(l, r)); }
+void variant::_init(tuple* t)       { type = TUPLE; val._tuple = grab(t); }
+void variant::_init(dict* d)        { type = DICT; val._dict = grab(d); }
+void variant::_init(set* s)         { type = SET; val._set = grab(s); }
 void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
 
 
@@ -273,6 +310,14 @@ bool variant::operator== (const variant& other) const
     case BOOL: return val._bool == other.val._bool;
     case CHAR: return val._char == other.val._char;
     case STR:  return _str_read() == other._str_read();
+    case RANGE:
+    {
+        if (val._range == NULL)
+            return other.val._range == NULL;
+        if (other.val._range == NULL)
+            return false;
+        return _range_read().equals(other._range_read());
+    }
     default:   return val._obj == other.val._obj;
     }
 }
@@ -304,22 +349,13 @@ void variant::_range_err() { throw evariantrange(); }
 void variant::_index_err() { throw evariantindex(); }
 
 
-const char* variant::_type_name(Type type)
-{
-    static const char* names[] = {"null", "integer", "real", "boolean",
-        "string", "tuple", "dict", "set", "object"};
-    if (type > OBJECT)
-        type = OBJECT;
-    return names[type];
-}
-
-
 // as_xxx(): return a const implementation of a container, may be one of the
 // statuc null_xxx objects
 
 #define ASX(t,n) const t& variant::as_##t() const \
     { _req(n); if (val._##t == NULL) return null_##t; return *val._##t; }
     
+ASX(range, RANGE)
 ASX(tuple, TUPLE)
 ASX(dict, DICT)
 ASX(set, SET)
@@ -334,6 +370,7 @@ ASX(set, SET)
           unique(val._##t); \
       return *val._##t; }
 
+XIMPL(range)
 XIMPL(tuple)
 XIMPL(dict)
 XIMPL(set)
@@ -357,6 +394,7 @@ bool variant::empty() const
     switch (type)
     {
     case STR:   return _str_read().empty();
+    case RANGE: if (val._range == NULL) return true; return _range_read().empty();
     case TUPLE: if (val._tuple == NULL) return true; return _tuple_read().empty();
     case DICT:  if (val._dict == NULL) return true; return _dict_read().empty();
     case SET:   if (val._set == NULL) return true; return _set_read().empty();
@@ -428,6 +466,13 @@ void variant::put(const variant& key, const variant& value)
 }
 
 
+void variant::assign(integer left, integer right)
+{
+    _fin();
+    _init(left, right);
+}
+
+
 void variant::erase(int index)
 {
     switch (type)
@@ -492,6 +537,13 @@ bool variant::has(const variant& index) const
 {
     switch (type)
     {
+    case RANGE:
+        {
+            if (val._range == NULL)
+                return false;
+            return _range_read().has(index.as_int());
+        }
+        break;
     case DICT:
         {
             if (val._dict == NULL)
@@ -510,4 +562,9 @@ bool variant::has(const variant& index) const
 }
 
 
+integer variant::left()   const
+    { _req(RANGE); if (val._range == NULL) return 0; return _range_read().left; }
+
+integer variant::right()  const
+    { _req(RANGE); if (val._range == NULL) return -1; return _range_read().right; }
 

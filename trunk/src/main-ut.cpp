@@ -58,6 +58,10 @@ void test_variant()
         variant v10 = "abc";            check(v10.is_str());    check(v10.as_str() == "abc");
         string s1 = "def";
         variant vst = s1;               check(vst.is_str());    check(vst.as_str() == s1);
+        variant vr = new_range();       check(vr.is_range());   check(vr.is_null_ptr());
+        variant vr1 = new_range(1, 5);  check(vr1.is_range());  check(!vr1.is_null_ptr());
+        variant vr2(6, 7);              check(vr2.is_range());  check(!vr2.is_null_ptr());
+        variant vr3(6, 5);              check(vr3.is_range());  check(vr3.is_null_ptr());
         variant vt = new_tuple();       check(vt.is_tuple());   check(vt.is_null_ptr());
         variant vd = new_dict();        check(vd.is_dict());    check(vd.is_null_ptr());
         variant vs = new_set();         check(vs.is_set());     check(vs.is_null_ptr());
@@ -69,6 +73,7 @@ void test_variant()
         check_throw(evarianttype, v1.as_bool());
         check_throw(evarianttype, v1.as_char());
         check_throw(evarianttype, v1.as_str());
+        check_throw(evarianttype, v1.as_range());
         check_throw(evarianttype, v1.as_tuple());
         check_throw(evarianttype, v1.as_dict());
         check_throw(evarianttype, v1.as_set());
@@ -86,6 +91,10 @@ void test_variant()
         check(v10.to_string() == "\"abc\"");
         check(vst.to_string() == "\"def\"");
         check(v12.to_string() == "'x'");
+        check(vr.to_string() == "[]");
+        check(vr1.to_string() == "[1..5]");
+        check(vr2.to_string() == "[6..7]");
+        check(vr3.to_string() == "[]");
         check(vt.to_string() == "[]");
         check(vd.to_string() == "[]");
         check(vs.to_string() == "[]");
@@ -107,6 +116,7 @@ void test_variant()
         v = "";                check(v.as_str().empty());           check(v == "");
         v = "abc";             check(v.as_str() == "abc");          check(v == "abc");
         v = s1;                check(v.as_str() == s1);             check(v == s1);
+        v = new_range();       check(v.is_null_ptr());              check(v.left() == 0 && v.right() == -1);
         v = new_tuple();       check(v.is_null_ptr());
         v = new_dict();        check(v.is_null_ptr());
         v = new_set();         check(v.is_null_ptr());
@@ -119,6 +129,7 @@ void test_variant()
         check(!v.is_int());
         check(!v.is_char());
         check(!v.is_str());
+        check(!v.is_range());
         check(!v.is_tuple());
         check(!v.is_dict());
         check(!v.is_set());
@@ -146,6 +157,21 @@ void test_variant()
         check(vst.size() == 10);
         vst.resize(5, '-');
         check(vst.as_str() == "acdij");
+
+        // range
+        vr = new_range();
+        check(vr.empty());
+        vr = new_range(-1, 1);
+        check(vr.left() == -1 && vr.right() == 1);
+        check(vr.has(0));
+        check(!vr.has(-2));
+        vr = new_range(5, 2);
+        check(vr.left() == 0 && vr.right() == -1);
+        check(!vr.has(-2));
+        variant vr4 = 0;
+        vr4.assign(0, 5);
+        check(vr4.left() == 0 && vr4.right() == 5);
+        check_throw(evarianttype, vr4.has("abc"));
 
         // tuple
         check(vt.empty()); check(vt.size() == 0);
@@ -202,6 +228,14 @@ void test_variant()
         vd.put(100, 'a');
         // vd.put(10000000000ll, 'b'); TODO: make this work
         check(vd.to_string() == "[100: 'a']");    
+        
+        // dict[range]
+        vd = new_dict();
+        vd.put(new_range(0, 4), new_range(0, 1));
+        vd.put(new_range(5, 6), "abc");
+        check(vd.has(new_range(5, 6)));
+        check(!vd.has(new_range()));
+        check(!vd.has(new_range(0, 6)));
         
         // set
         check(vs.empty()); check(vs.size() == 0);
