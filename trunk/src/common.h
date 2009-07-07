@@ -7,6 +7,7 @@
 #include <string>
 #include <exception>
 
+
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
 #endif
@@ -17,13 +18,30 @@
 #endif
 
 
-typedef std::string str;
+#if defined __x86_64__
+#  define PTR64
+#elif defined __i386__
+#  define PTR32
+#else
+#  error Unknown architecure.
+#endif
+
+
+// --- BASIC DATA TYPES --------------------------------------------------- //
+
+
+// Default fundamental types: string, integer, real and memory size
+// Normally the "integer" type should be 64 bit, unless a port is needed
+// to a 16-bit system.
 typedef long long integer;
 typedef unsigned long long uinteger;
-typedef double real;
 
 #define INTEGER_MIN LLONG_MIN
 #define INTEGER_MAX LLONG_MAX
+
+typedef size_t mem;
+typedef std::string str;
+typedef double real;
 
 
 // --- MISC --------------------------------------------------------------- //
@@ -70,7 +88,7 @@ struct emessage: public std::exception
 
 struct esyserr: public emessage
 {
-    esyserr(int icode, const str& iArg);
+    esyserr(int icode, const str& iArg = "");
 };
 
 

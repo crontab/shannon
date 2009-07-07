@@ -173,29 +173,29 @@ public:
     object* as_object()       const { _req_obj(); return val._obj; }
 
     // Container operations
-    int  size() const;                                      // str, tuple, dict, set
+    mem  size() const;                                      // str, tuple, dict, set
     bool empty() const;                                     // str, tuple, dict, set
-    void resize(int);                                       // str, tuple
-    void resize(int, char);                                 // str
+    void resize(mem);                                       // str, tuple
+    void resize(mem, char);                                 // str
     void append(const variant& v);                          // str
     void append(const str&);                                // str
     void append(const char*);                               // str
     void append(char c);                                    // str
-    str  substr(int start, int count = -1) const;           // str
-    char getch(int) const;                                  // str
+    str  substr(mem start, mem count = mem(-1)) const;      // str
+    char getch(mem) const;                                  // str
     void push_back(const variant&);                         // tuple
     void insert(const variant&);                            // set
-    void insert(int index, const variant&);                 // tuple
-    void put(int index, const variant&);                    // tuple
+    void insert(mem index, const variant&);                 // tuple
+    void put(mem index, const variant&);                    // tuple
     void assign(integer left, integer right);               // range
     void put(const variant& key, const variant&);           // dict
-    void erase(int index);                                  // str, tuple, dict[int], set[int]
-    void erase(int index, int count);                       // str, tuple
+    void erase(mem index);                                  // str, tuple, dict[int], set[int]
+    void erase(mem index, mem count);                       // str, tuple
     void erase(const variant& key);                         // dict, set
     bool has(const variant& index) const;                   // dict, set
     integer left() const;                                   // range
     integer right() const;                                  // range
-    const variant& operator[] (int index) const;            // tuple, dict[int]
+    const variant& operator[] (mem index) const;            // tuple, dict[int]
     const variant& operator[] (const variant& key) const;   // dict
 
     dict_iterator dict_begin() const;
@@ -288,15 +288,15 @@ protected:
     ~tuple();
 
     virtual object* clone() const;
-    int size()                          const { return impl.size(); }
+    mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
-    void resize(int n)                        { impl.resize(n); }
+    void resize(mem n)                        { impl.resize(n); }
     void push_back(const variant& v)          { impl.push_back(v); }
-    void insert(int i, const variant& v)      { impl.insert(impl.begin() + i, v); }
-    void put(int i, const variant& v)         { impl[i] = v; }
-    void erase(int i)                         { impl.erase(impl.begin() + i); }
-    void erase(int index, int count);
-    const variant& operator[] (int i)   const { return impl[i]; }
+    void insert(mem i, const variant& v)      { impl.insert(impl.begin() + i, v); }
+    void put(mem i, const variant& v)         { impl[i] = v; }
+    void erase(mem i)                         { impl.erase(impl.begin() + i); }
+    void erase(mem index, mem count);
+    const variant& operator[] (mem i)   const { return impl[i]; }
     virtual void dump(std::ostream&) const;
 };
 
@@ -313,7 +313,7 @@ protected:
     ~dict();
 
     virtual object* clone() const;
-    int size()                          const { return impl.size(); }
+    mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void erase(const variant& v)              { impl.erase(v); }
     variant& operator[] (const variant& v)    { return impl[v]; }
@@ -337,7 +337,7 @@ protected:
     ~set();
 
     virtual object* clone() const;
-    int size()                          const { return impl.size(); }
+    mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void insert(const variant& v)             { impl.insert(v); }
     void erase(const variant& v)              { impl.erase(v); }
@@ -354,11 +354,11 @@ public:
     varstack() { }
     ~varstack() { }
     void push(const variant& v)     { push_back(v); }
-    void pushn(int n)               { resize(size() + n); }
+    void pushn(mem n)               { resize(size() + n); }
     variant& top()                  { return back(); }
-    variant& top(int n)             { return *(end() - n); }
+    variant& top(mem n)             { return *(end() - n); }
     void pop()                      { pop_back(); }
-    void popn(int n)                { resize(size() - n); }
+    void popn(mem n)                { resize(size() - n); }
 };
 
 

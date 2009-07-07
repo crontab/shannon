@@ -129,7 +129,7 @@ range* new_range(integer l, integer r)
 tuple::tuple()  { }
 tuple::~tuple() { }
 
-void tuple::erase(int i, int count)
+void tuple::erase(mem i, mem count)
 {
     impl.erase(impl.begin() + i, impl.begin() + i + count - 1);
 }
@@ -376,7 +376,7 @@ XIMPL(dict)
 XIMPL(set)
 
 
-int variant::size() const
+mem variant::size() const
 {
     switch (type)
     {
@@ -403,7 +403,7 @@ bool variant::empty() const
 }
 
 
-void variant::resize(int new_size)
+void variant::resize(mem new_size)
 {
     switch (type)
     {
@@ -414,8 +414,8 @@ void variant::resize(int new_size)
 }
 
 
-void variant::resize(int n, char c)         { _req(STR); _str_write().resize(n, c); }
-char variant::getch(int i) const            { _req(STR); return _str_read()[i]; }
+void variant::resize(mem n, char c)         { _req(STR); _str_write().resize(n, c); }
+char variant::getch(mem i) const            { _req(STR); return _str_read()[i]; }
 void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
 void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
 void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
@@ -424,24 +424,24 @@ void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_b
 void variant::insert(const variant& v)      { _req(SET); _set_write().insert(v); }
 
 
-str variant::substr(int index, int count) const
+str variant::substr(mem index, mem count) const
 {
     _req(STR);
-    return _str_read().substr(index, count == -1 ? str::npos : count);
+    return _str_read().substr(index, count == mem(-1) ? str::npos : count);
 }
 
 
-void variant::insert(int index, const variant& v)
+void variant::insert(mem index, const variant& v)
 {
     _req(TUPLE);
     tuple& t = _tuple_write();
-    if (index < 0 || index > int(t.size()))
+    if (index < 0 || index > t.size())
         _index_err();
     t.insert(index, v);
 }
 
 
-void variant::put(int index, const variant& value)
+void variant::put(mem index, const variant& value)
 {
     if (type == DICT)
     {
@@ -449,7 +449,7 @@ void variant::put(int index, const variant& value)
         return;
     }
     _req(TUPLE);
-    if (index < 0 || index >= int(_tuple_read().size()))
+    if (index < 0 || index >= _tuple_read().size())
         _index_err();
     _tuple_write().put(index, value);
 }
@@ -473,7 +473,7 @@ void variant::assign(integer left, integer right)
 }
 
 
-void variant::erase(int index)
+void variant::erase(mem index)
 {
     switch (type)
     {
@@ -486,7 +486,7 @@ void variant::erase(int index)
 }
 
 
-void variant::erase(int index, int count)
+void variant::erase(mem index, mem count)
 {
     switch (type)
     {
@@ -508,14 +508,14 @@ void variant::erase(const variant& key)
 }
 
 
-const variant& variant::operator[] (int index) const
+const variant& variant::operator[] (mem index) const
 {
     if (type == DICT)
         return operator[] (variant(index));
     _req(TUPLE);
     if (val._tuple == NULL)
         _index_err();
-    if (index < 0 || index >= int(_tuple_read().size()))
+    if (index < 0 || index >= _tuple_read().size())
         _index_err();
     return _tuple_read()[index];
 }
