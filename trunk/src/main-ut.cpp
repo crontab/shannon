@@ -12,6 +12,7 @@
 #include "common.h"
 #include "variant.h"
 #include "symbols.h"
+#include "source.h"
 
 
 using namespace std;
@@ -381,6 +382,13 @@ void test_symbols()
 }
 
 
+void test_source()
+{
+    InFile file("nonexistent");
+    check_throw(esyserr, file.get());
+}
+
+
 int main()
 {
     check(sizeof(int) == 4);
@@ -397,6 +405,7 @@ int main()
         test_common();
         test_variant();
         test_symbols();
+        test_source();
     }
     catch (exception& e)
     {
