@@ -3,6 +3,7 @@
 obj/common.o: common.h
 obj/charset.o: charset.h
 obj/variant.o: common.h variant.h
+obj/source.o: source.h charset.h common.h variant.h bsearch.h
 obj/symbols.o: symbols.h variant.h common.h
 obj/main.o: symbols.h variant.h common.h
 obj/main-ut.o: common.h variant.h symbols.h

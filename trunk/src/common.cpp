@@ -2,6 +2,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+#include <sstream>
 
 #include "common.h"
 
@@ -13,23 +16,82 @@ void fatal(int code, const char* msg)
 }
 
 
-const int quant = 64;
-const int quant2 = 4096;
+str to_string(integer value)
+    { std::stringstream s; s << value; return s.str(); }
 
-int memquantize(int a)
+
+uinteger from_string(const char* p, bool* error, bool* overflow, int base)
 {
-    if (a <= 32)
-        return 32;
-    else if (a <= 1024)
-        return (a + quant - 1) & ~(quant - 1);
-    else
-        return (a + quant2 - 1) & ~(quant2 - 1);
+    *error = false;
+    *overflow = false;
+
+    if (p == 0 || *p == 0 || base < 2 || base > 64)
+        { *error = true; return 0; }
+
+    uinteger result = 0;
+
+    do 
+    {
+        int c = *p++;
+
+        if (c >= 'a')
+        {
+            // for the numeration bases that use '.', '/', digits and
+            // uppercase letters the letter case is insignificant.
+            if (base <= 38)
+                c -= 'a' - '9' - 1;
+            else  // others use both upper and lower case letters
+                c -= ('a' - 'Z' - 1) + ('A' - '9' - 1);
+        }
+        else if (c > 'Z')
+            { *error = true; return 0; }
+        else if (c >= 'A')
+            c -= 'A' - '9' - 1;
+        else if (c > '9')
+            { *error = true; return 0; }
+
+        c -= (base > 36) ? '.' : '0';
+        if (c < 0 || c >= base)
+            { *error = true; return 0; }
+
+        uinteger t = result * unsigned(base);
+        if (t / base != result)
+            { *overflow = true; return 0; }
+        result = t;
+        t = result + unsigned(c);
+        if (t < result)
+            { *overflow = true; return 0; }
+        result = t;
+
+    }
+    while (*p != 0);
+
+    return result;
 }
+
 
 
 emessage::~emessage() throw() { }
 
 const char* emessage::what() const throw()  { return message.c_str(); }
+
+
+static str sysErrorStr(int code, const str& arg)
+{
+    // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
+    // not the only strange thing about this computer and OS. Could be me, could be hardware
+    // or could be Linux. Or all.
+//    char buf[1024];
+//    strerror_r(code, buf, sizeof(buf));
+    str result = strerror(code);
+    if (!arg.empty())
+        result += " (" + arg + ")";
+    return result;
+}
+
+
+esyserr::esyserr(int code, const str& arg)
+    : emessage(sysErrorStr(code, arg))  { }
 
 
 
