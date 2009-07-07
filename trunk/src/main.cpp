@@ -8,6 +8,6 @@
 int main()
 {
     variant v;
-    Parser parser("x");
+    Parser parser(new InFile("x"));
     List<Symbol> list;
 }

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <sstream>
+#include <iomanip>
 
 #include "common.h"
 
@@ -17,7 +18,19 @@ void fatal(int code, const char* msg)
 
 
 str to_string(integer value)
-    { std::stringstream s; s << value; return s.str(); }
+{
+    std::stringstream s;
+    s << value;
+    return s.str();
+}
+
+str to_string(integer value, int base, int width, char fill)
+{
+    using namespace std;
+    stringstream s;
+    s << setbase(base) << setw(width) << setfill(fill) << value;
+    return s.str();
+}
 
 
 uinteger from_string(const char* p, bool* error, bool* overflow, int base)

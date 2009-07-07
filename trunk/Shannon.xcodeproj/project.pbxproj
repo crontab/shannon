@@ -17,6 +17,7 @@
 		365B4B011002A2EE0023D0FD /* symbols.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4AFE1002A2EE0023D0FD /* symbols.cpp */; };
 		365B4B871002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
 		365B4B881002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
+		36668F561003CD8600FF0C90 /* source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36668F541003CD8600FF0C90 /* source.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,6 +56,9 @@
 		365B4AFF1002A2EE0023D0FD /* symbols.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = symbols.h; path = src/symbols.h; sourceTree = "<group>"; };
 		365B4B861002B01D0023D0FD /* charset.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = charset.cpp; path = src/charset.cpp; sourceTree = "<group>"; };
 		365B4B891002B0390023D0FD /* charset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = charset.h; path = src/charset.h; sourceTree = "<group>"; };
+		36668F531003CD8600FF0C90 /* bsearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bsearch.h; path = src/bsearch.h; sourceTree = "<group>"; };
+		36668F541003CD8600FF0C90 /* source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = source.cpp; path = src/source.cpp; sourceTree = "<group>"; };
+		36668F551003CD8600FF0C90 /* source.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = source.h; path = src/source.h; sourceTree = "<group>"; };
 		36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "The Shannon Project, Draft 1.2 - Google Docs.webloc"; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -90,6 +94,9 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				36668F531003CD8600FF0C90 /* bsearch.h */,
+				36668F541003CD8600FF0C90 /* source.cpp */,
+				36668F551003CD8600FF0C90 /* source.h */,
 				365B4B861002B01D0023D0FD /* charset.cpp */,
 				365B4AFE1002A2EE0023D0FD /* symbols.cpp */,
 				365B4AFF1002A2EE0023D0FD /* symbols.h */,
@@ -191,6 +198,7 @@
 				365B4A72100283E40023D0FD /* common.cpp in Sources */,
 				365B4B011002A2EE0023D0FD /* symbols.cpp in Sources */,
 				365B4B881002B01D0023D0FD /* charset.cpp in Sources */,
+				36668F561003CD8600FF0C90 /* source.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
