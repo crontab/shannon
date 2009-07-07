@@ -23,7 +23,7 @@ protected:
     int   column;
     bool  eof;
     int   tabsize;
-    
+
     void error(int code) throw(esyserr);
     virtual void validateBuffer() = 0;
     void doSkipEol();
@@ -54,7 +54,7 @@ public:
 class InFile: public InText
 {
 protected:
-    str filename;
+    str  filename;
     int  fd;
 
     virtual void validateBuffer();

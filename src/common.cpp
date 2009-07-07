@@ -81,6 +81,8 @@ static str sysErrorStr(int code, const str& arg)
     // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
     // not the only strange thing about this computer and OS. Could be me, could be hardware
     // or could be Linux. Or all.
+    // Upd: so I updated both hardware and OS, still grabage on 64 bit, but OK on 32-bit.
+    // What am I doing wrong?
 //    char buf[1024];
 //    strerror_r(code, buf, sizeof(buf));
     str result = strerror(code);

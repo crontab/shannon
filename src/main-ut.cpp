@@ -30,6 +30,36 @@ using namespace std;
     { try { __VA_ARGS__; } catch(...) { fail("exception thrown"); } }
 
 
+void test_common()
+{
+    // make sure the assembly code for atomic ops is sane
+    int i = 1;
+    check(pincrement(&i) == 2);
+    check(pdecrement(&i) == 1);
+
+    // string conversion
+    check(to_string(0) == "0");
+    check(to_string(-1) == "-1");
+    check(to_string(INTEGER_MAX) == "9223372036854775807");
+    check(to_string(INTEGER_MIN) == "-9223372036854775808");
+    bool e = true, o = true;
+    check(from_string("0", &e, &o) == 0);
+    check(!o); check(!e);
+    check(from_string("9223372036854775807", &e, &o) == INTEGER_MAX);
+    check(from_string("9223372036854775808", &e, &o) == uinteger(INTEGER_MAX) + 1);
+    check(from_string("92233720368547758080", &e, &o) == 0 ); check(o);
+    check(from_string("-1", &e, &o) == 0 ); check(e);
+    check(from_string("89abcdef", &e, &o, 16) == 0x89abcdef);
+    check(from_string("ffffffffffffffff", &e, &o, 16) == uinteger(-1));
+    check(from_string("fffffffffffffffff", &e, &o, 16) == 0); check(o);
+    check(from_string("afg", &e, &o, 16) == 0); check(e);
+    
+    // syserror
+    check(str(esyserr(2, "arg").what()) == "No such file or directory (arg)");
+    check(str(esyserr(2).what()) == "No such file or directory");
+}
+
+
 class test_obj: public object
 {
 protected:
@@ -353,10 +383,18 @@ void test_symbols()
 
 int main()
 {
-    check(sizeof(int) != 8);
+    check(sizeof(int) == 4);
+    check(sizeof(integer) == 8);
+    check(sizeof(mem) >= 4);
+#if defined(PTR32)
+    check(sizeof(variant) == 12);
+#else
+    check(sizeof(variant) == 16);
+#endif
 
     try
     {
+        test_common();
         test_variant();
         test_symbols();
     }
