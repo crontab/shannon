@@ -16,8 +16,7 @@ HDRS = common.h charset.h variant.h bsearch.h source.h symbols.h
 all: dirs shannon shannon-ut
 
 ut unit-test: dirs shannon-ut
-	@echo
-	@if ./shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
+	@if ./shannon-ut ; then echo ; echo "Unit tests succeeded." ; else echo; echo "***** Unit tests failed *****" ; fi
 	@echo
 
 dirs:
