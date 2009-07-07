@@ -3,9 +3,6 @@
 #include "charset.h"
 
 
-typedef int* pint;
-
-
 static unsigned char lbitmask[8] = {0xff, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80};
 static unsigned char rbitmask[8] = {0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
 
@@ -91,28 +88,28 @@ void charset::assign(const char* p)
 void charset::unite(const charset& s) 
 {
     for(int i = 0; i < charsetwords; i++) 
-        *(pint(data) + i) |= *(pint(s.data) + i);
+        *((unsigned*)(data) + i) |= *((unsigned*)(s.data) + i);
 }
 
 
 void charset::subtract(const charset& s) 
 {
     for(int i = 0; i < charsetwords; i++) 
-        *(pint(data) + i) &= ~(*(pint(s.data) + i));
+        *((unsigned*)(data) + i) &= ~(*((unsigned*)(s.data) + i));
 }
 
 
 void charset::intersect(const charset& s) 
 {
     for(int i = 0; i < charsetwords; i++) 
-        *(pint(data) + i) &= *(pint(s.data) + i);
+        *((unsigned*)(data) + i) &= *((unsigned*)(s.data) + i);
 }
 
 
 void charset::invert() 
 {
     for(int i = 0; i < charsetwords; i++) 
-        *(pint(data) + i) = ~(*(pint(data) + i));
+        *((unsigned*)(data) + i) = ~(*((unsigned*)(data) + i));
 }
 
 
@@ -120,8 +117,8 @@ bool charset::le(const charset& s) const
 {
     for (int i = 0; i < charsetwords; i++) 
     {
-        int w1 = *(pint(data) + i);
-        int w2 = *(pint(s.data) + i);
+        int w1 = *((unsigned*)(data) + i);
+        int w2 = *((unsigned*)(s.data) + i);
         if ((w2 | w1) != w2)
             return false;
     }
