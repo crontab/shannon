@@ -131,14 +131,6 @@ void InText::skip(const charset& chars)
 }
 
 
-void InText::skipLine()
-{
-    static const charset noneol = ~charset("\r\n");
-    skip(noneol);
-    skipEol();
-}
-
-
 InFile::InFile(const str& ifilename)
     : InText(), filename(ifilename), fd(-1)
 {
@@ -303,7 +295,7 @@ str mkPrintable(char c)
     else if (printableChars[c])
         return str(1, c);
     else
-        return '#' + to_string(unsigned(c));
+        return "\\x" + to_string(unsigned(c), 16, 2, '0');
 }
 
 
@@ -318,8 +310,8 @@ str mkPrintable(const str& s)
 }
 
 
-Parser::Parser(const str& filename)
-    : input(new InFile(filename)), blankLine(true),
+Parser::Parser(InText* input)
+    : input(input), blankLine(true),
       indentStack(), linenum(0),
       singleLineBlock(false), token(tokUndefined), strValue(),
       intValue(0)
@@ -330,7 +322,6 @@ Parser::Parser(const str& filename)
 
 Parser::~Parser()
 {
-    delete input;
 }
 
 
@@ -387,7 +378,7 @@ void Parser::parseStringLiteral()
                     strValue += char(value);
                 }
                 else
-                    error("Malformed hex sequence");
+                    error("Bad hex sequence");
             }
             else
                 strValue += c;
@@ -549,17 +540,13 @@ restart:
     
     else if (digits[c])  // numeric
     {
+        // TODO: floating point
         bool e, o;
         strValue = input->token(identRest);
         str s = strValue;
-        bool isHex = s.size() >= 2 && s[0] == '0' && s[1] == 'x';
+        bool isHex = s.size() > 2 && s[0] == '0' && s[1] == 'x';
         if (isHex)
             s.erase(0, 2);
-/*
-        bool isLarge = !s.empty() && s[s.size() - 1] == 'L';
-        if (isLarge)
-            s.resize(s.size() - 1);
-*/
         uinteger v = from_string(s.c_str(), &e, &o, isHex ? 16 : 10);
         if (e)
             error("'" + strValue + "' is not a valid number");

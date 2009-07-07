@@ -217,7 +217,7 @@ void test_variant()
         check(vt.to_string() == "[0, true, \"abc\", 'd', []]");
         check(!vt.empty()); check(vt.size() == 5);
         check_throw(evariantindex, vt.insert(10, 0));
-        check_throw(evariantindex, vt.insert(-1, 0));
+        check_throw(evariantindex, vt.insert(mem(-1), 0));
         vt.erase(2);
         check(vt.to_string() == "[0, true, 'd', []]");
         check(vt[2] == 'd');
@@ -382,10 +382,98 @@ void test_symbols()
 }
 
 
+class InMem: public InText
+{
+protected:
+    string sbuffer;
+    virtual void validateBuffer()   { eof = true; }
+public:
+    InMem(const str& buf): sbuffer(buf)
+        { buffer = (char*)buf.data(); bufsize = buf.size(); linenum = 1; }
+    virtual str getFileName()       { return "<memory>"; }
+};
+
+
 void test_source()
 {
-    InFile file("nonexistent");
-    check_throw(esyserr, file.get());
+    {
+        InFile file("nonexistent");
+        check_throw(esyserr, file.get());
+    }
+    {
+        InMem m("one\t two\n567");
+        check(m.preview() == 'o');
+        check(m.get() == 'o');
+        check(m.token(identRest) == "ne");
+        m.skip(wsChars);
+        check(m.token(identRest) == "two");
+        check(m.getEol());
+        check(!m.getEof());
+        check(m.getColumn() == 12);
+        m.skipEol();
+        check(m.getLineNum() == 2);
+        check(m.token(digits) == "567");
+        check(m.getEol());
+        check(m.getEof());
+    }
+    {
+#ifdef XCODE
+        const char* fn = "../../src/tests/parser.txt";
+#else
+        const char* fn = "tests/parser.txt";
+#endif
+        Parser p(new InFile(fn));
+        static Token expect[] = {
+            tokIdent, tokComma, tokSep,
+            tokIndent, tokModule, tokSep,
+            tokIndent, tokIdent, tokIdent, tokIdent, tokSep,
+            tokIdent, tokIdent, tokConst, tokPeriod, tokSep,
+            tokBlockEnd,
+            tokIntValue, tokSep,
+            tokIndent, tokStrValue, tokSep,
+            tokIdent, tokComma, tokSep,
+            tokIdent, tokSep,
+            tokBlockEnd, tokBlockEnd,
+            tokIdent, tokBlockBegin, tokIdent, tokBlockEnd,
+            tokIdent, tokBlockBegin, tokIdent, tokSep, 
+            tokIdent, tokSep, tokBlockEnd,
+            tokBlockEnd,
+            tokEof
+        };
+        int i = 0;
+        while (p.next() != tokEof && expect[i] != tokEof)
+        {
+            check(expect[i] == p.token);
+            switch (i)
+            {
+            case 0: check(p.strValue == "Thunder") break;
+            case 1: check(p.strValue == ","); break;
+            case 17: check(p.intValue == 42); break;
+            case 20: check(p.strValue == "Thunder, 'thunder',\tthunder, Thundercats"); break;
+            }
+            i++;
+        }
+        check(expect[i] == tokEof && p.token == tokEof);
+    }
+    {
+        Parser p(new InMem("9223372036854775807\n  9223372036854775808\n  null\n aaa"
+            " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
+        check(p.next() == tokIntValue);
+        check(p.intValue == INTEGER_MAX);
+        check(p.next() == tokSep);
+        check(p.next() == tokIndent);
+        check_throw(EParser, p.next()); // integer overflow
+        check(p.next() == tokSep);
+        check(p.next() == tokNull);
+        check(p.next() == tokSep);
+        check_throw(EParser, p.next()); // unmatched unindent
+        check(p.next() == tokIndent);
+        check(p.next() == tokIdent);
+        check_throw(EParser, p.next()); // unexpected end of line
+        check(p.next() == tokStrValue);
+        check(p.strValue == "[\t\r\nA\\]");
+        check_throw(EParser, p.next()); // bad hex sequence
+    }
 }
 
 
@@ -396,8 +484,10 @@ int main()
     check(sizeof(mem) >= 4);
 #if defined(PTR32)
     check(sizeof(variant) == 12);
+    cout << "Pointers are 32 bit" << endl;
 #else
     check(sizeof(variant) == 16);
+    cout << "Pointers are 64 bit" << endl;
 #endif
 
     try

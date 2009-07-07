@@ -44,7 +44,6 @@ public:
     char get();
     bool getIf(char);
     void skipEol();
-    void skipLine();
     str token(const charset& chars);
     void skip(const charset& chars);
 };
@@ -124,10 +123,11 @@ enum SyntaxMode { syntaxIndent, syntaxCurly };
 class Parser
 {
 protected:
-    InText* input;
+    objptr<InText> input;
     bool blankLine;
     std::stack<int> indentStack;
     int linenum;
+    bool singleLineBlock; // if a: b = c
 
     str errorLocation() const;
     void parseStringLiteral();
@@ -135,12 +135,11 @@ protected:
     void skipSinglelineComment();
 
 public:
-    bool singleLineBlock; // if a: b = c
     Token token;
     str strValue;
     uinteger intValue;
     
-    Parser(const str& filename);
+    Parser(InText*);
     ~Parser();
     
     Token next();
@@ -168,6 +167,15 @@ public:
 str extractFileName(str filepath);
 str mkPrintable(char c);
 str mkPrintable(const str&);
+
+// Exposed for unit tests
+extern const charset wsChars;
+extern const charset identFirst;
+extern const charset identRest;
+extern const charset digits;
+extern const charset hexDigits;
+extern const charset printableChars;
+
 
 #endif
 
