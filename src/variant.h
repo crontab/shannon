@@ -140,6 +140,7 @@ public:
     str  to_string() const;
     bool operator< (const variant& v) const;
 
+    // TODO: is_int(int), is_real(real) ... or operator == maybe?
     bool is_null()            const { return type == NONE; }
     bool is_int()             const { return type == INT; }
     bool is_real()            const { return type == REAL; }
@@ -155,6 +156,7 @@ public:
     bool is_object()          const { return type >= ANYOBJ; }
 
     // Type conversions
+    // TODO: as_xxx(defualt)
     integer as_int()          const { _req(INT); return val._int; }
     template<class T>
         T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }

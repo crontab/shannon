@@ -106,6 +106,7 @@ void test_variant()
         variant v;
         check(v == null);
         v = 0;                 check(v.as_int() == 0);              check(v == 0);
+        check(v != null);      check(v != true);                    check(v != "abc");
         v = 1;                 check(v.as_int() == 1);              check(v == 1);
         v = INT64_MAX;         check(v.as_int() == INT64_MAX);      check(v == INT64_MAX);
         v = INT64_MIN;         check(v.as_int() == INT64_MIN);      check(v == INT64_MIN);
@@ -135,6 +136,7 @@ void test_variant()
         check(!v.is_set());
         v = null;
         check(!v.is_object());
+        check(v == null);
 
         // str
         vst = "";
