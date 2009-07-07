@@ -31,6 +31,7 @@ class object;
 class tuple;
 class dict;
 class set;
+class range;
 
 
 typedef std::vector<variant> tuple_impl;
@@ -52,8 +53,8 @@ class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, INT, REAL, BOOL, CHAR, STR, TUPLE, DICT, SET, OBJECT,
-        NONPOD = STR, REFCNT = TUPLE, ANYOBJ = OBJECT };
+    enum Type { NONE, INT, REAL, BOOL, CHAR, STR, RANGE, TUPLE, DICT, SET, OBJECT,
+        NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
     Type type;
@@ -68,10 +69,13 @@ protected:
         tuple*  _tuple;
         dict*   _dict;
         set*    _set;
+        range*  _range;
     } val;
 
     str& _str_write()               { return *(str*)val._str; }
     const str& _str_read()    const { return *(str*)val._str; }
+    range& _range_write();
+    const range& _range_read() const { return *val._range; }
     tuple& _tuple_write();
     const tuple& _tuple_read() const { return *val._tuple; }
     dict& _dict_write();
@@ -88,6 +92,8 @@ protected:
     void _init(char c)              { type = CHAR; val._char = c; }
     void _init(const str&);
     void _init(const char*);
+    void _init(integer left, integer right);
+    void _init(range*);
     void _init(tuple*);
     void _init(dict*);
     void _init(set*);
@@ -97,7 +103,6 @@ protected:
     void _fin2();
 
     // Errors: type mismatch, out of INT range
-    static const char* _type_name(Type);
     static void _type_err();
     static void _range_err();
     static void _index_err();
@@ -118,6 +123,7 @@ public:
     variant(None)                   { _init(); }
     template<class T>
         variant(const T& v)         { _init(v); }
+    variant(integer l, integer r)   { _init(l, r); }
     variant(const variant& v)       { _init(v); }
     ~variant()                      { _fin(); }
 
@@ -140,6 +146,7 @@ public:
     bool is_bool()            const { return type == BOOL; }
     bool is_char()            const { return type == CHAR; }
     bool is_str()             const { return type == STR; }
+    bool is_range()           const { return type == RANGE; }
     bool is_tuple()           const { return type == TUPLE; }
     bool is_dict()            const { return type == DICT; }
     bool is_set()             const { return type == SET; }
@@ -157,6 +164,7 @@ public:
     bool as_bool()            const { _req(BOOL); return val._bool; }
     char as_char()            const { _req(CHAR); return val._char; }
     const str& as_str()       const { _req(STR); return _str_read(); }
+    const range& as_range() const;
     const tuple& as_tuple() const;
     const dict& as_dict() const;
     const set& as_set() const;
@@ -177,11 +185,14 @@ public:
     void insert(const variant&);                            // set
     void insert(int index, const variant&);                 // tuple
     void put(int index, const variant&);                    // tuple
+    void assign(integer left, integer right);               // range
     void put(const variant& key, const variant&);           // dict
     void erase(int index);                                  // str, tuple, dict[int], set[int]
     void erase(int index, int count);                       // str, tuple
     void erase(const variant& key);                         // dict, set
     bool has(const variant& index) const;                   // dict, set
+    integer left() const;                                   // range
+    integer right() const;                                  // range
     const variant& operator[] (int index) const;            // tuple, dict[int]
     const variant& operator[] (const variant& key) const;   // dict
 
@@ -193,11 +204,6 @@ public:
     // for unit tests
     bool is_null_ptr() const { return val._obj == NULL; }
 };
-
-
-inline tuple* new_tuple()   { return NULL; }
-inline dict* new_dict()     { return NULL; }
-inline set* new_set()       { return NULL; }
 
 
 inline std::ostream& operator<< (std::ostream& s, const variant& v)
@@ -244,6 +250,28 @@ template<class T>
 void _unique(object*&);
 template<class T>
     void unique(T*& o)  { if (!o->is_unique()) _unique((object*&)o); }
+
+
+class range: public object
+{
+    friend class variant;
+    friend range* new_range(integer, integer);
+protected:
+    integer left;
+    integer right;
+
+    range(): left(0), right(-1)  { }
+    range(integer l, integer r): left(l), right(r)  { }
+    range(const range& other): left(other.left), right(other.right)  { }
+    ~range();
+    virtual object* clone() const;
+    void assign(integer l, integer r)  { left = l; right = r; }
+    bool empty() const  { return left > right; }
+    bool has(integer i) const  { return i >= left && i <= right; }
+    virtual void dump(std::ostream&) const;
+    bool equals(const range& other) const;
+    virtual bool less_than(object* o) const;
+};
 
 
 class tuple: public object
@@ -294,6 +322,7 @@ protected:
 };
 
 
+// TODO: optimize implementation of set for ordinals within 0..63 and 0..255
 class set: public object
 {
     friend class variant;
@@ -354,6 +383,12 @@ public:
     bool operator== (T* o, const objptr<T>& p) { return o == p.obj; }
 };
 
+
+inline range* new_range()   { return NULL; }
+inline tuple* new_tuple()   { return NULL; }
+inline dict* new_dict()     { return NULL; }
+inline set* new_set()       { return NULL; }
+range* new_range(integer l, integer r);
 
 inline dict_iterator variant::dict_begin() const  { _req(DICT); return _dict_read().begin(); }
 inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_read().end(); }
