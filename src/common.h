@@ -2,7 +2,7 @@
 #define __COMMON_H
 
 
-#include <stdint.h>
+#include <limits.h>
 
 #include <string>
 #include <exception>
@@ -18,37 +18,19 @@
 
 
 typedef std::string str;
-typedef int64_t integer;
+typedef long long integer;
+typedef unsigned long long uinteger;
 typedef double real;
 
-
-#if defined __x86_64__
-#  define PTR64
-#elif defined __i386__
-#  define PTR32
-#else
-#  error Unknown architecure.
-#endif
-
-
-// --- ATOMIC OPERATIONS -------------------------------------------------- //
-
-#ifdef SINGLE_THREADED
-
-inline int pincrement(int* target)  { return ++(*target); }
-inline int pdecrement(int* target)  { return --(*target); }
-
-#else
-
-int pincrement(int* target);
-int pdecrement(int* target);
-
-#endif
+#define INTEGER_MIN LLONG_MIN
+#define INTEGER_MAX LLONG_MAX
 
 
 // --- MISC --------------------------------------------------------------- //
 
+
 void fatal(int code, const char* msg);
+
 
 template<class T>
     inline T imax(T x, T y)  { return (x > y) ? x : y; }
@@ -56,7 +38,9 @@ template<class T>
     inline T imin(T x, T y)  { return (x < y) ? x : y; }
 
 
-int memquantize(int a);
+// The eternal int-to-string problem in C++
+str to_string(integer value);
+uinteger from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 
 class noncopyable 
@@ -82,6 +66,28 @@ struct emessage: public std::exception
     ~emessage() throw();
     virtual const char* what() const throw();
 };
+
+
+struct esyserr: public emessage
+{
+    esyserr(int icode, const str& iArg);
+};
+
+
+// --- ATOMIC OPERATIONS -------------------------------------------------- //
+
+#ifdef SINGLE_THREADED
+
+inline int pincrement(int* target)  { return ++(*target); }
+inline int pdecrement(int* target)  { return --(*target); }
+
+#else
+
+int pincrement(int* target);
+int pdecrement(int* target);
+
+#endif
+
 
 
 #endif // __COMMON_H

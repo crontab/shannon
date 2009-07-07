@@ -23,9 +23,9 @@ ident ::= ( letter | "_" ) ## { letter | digit | "_" }
 
 number ::= decimal | hexadecimal
 
-decimal ::= digit ## { digit } [ ## "L" ]
+decimal ::= digit ## { digit }
 
-hexadecimal ::= "0x" ## hexdigit ## { hexdigit } [ ## "L" ]
+hexadecimal ::= "0x" ## hexdigit ## { hexdigit }
 
 string-literal ::= "'" ## { string-element } ## "'"
 
