@@ -53,17 +53,17 @@ class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, INT, REAL, BOOL, CHAR, STR, RANGE, TUPLE, DICT, SET, OBJECT,
+    enum Type { NONE, BOOL, CHAR, INT, REAL, STR, RANGE, TUPLE, DICT, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
     Type type;
     union
     {
-        integer _int;
-        real    _real;
         bool    _bool;
         char    _char;
+        integer _int;
+        real    _real;
         char    _str[sizeof(str)];
         object* _obj;
         tuple*  _tuple;
@@ -85,11 +85,11 @@ protected:
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
+    void _init(bool b)              { type = BOOL; val._bool = b; }
+    void _init(char c)              { type = CHAR; val._char = c; }
     template<class T>
         void _init(T i)             { type = INT; val._int = i; }
     void _init(double r)            { type = REAL; val._real = r; }
-    void _init(bool b)              { type = BOOL; val._bool = b; }
-    void _init(char c)              { type = CHAR; val._char = c; }
     void _init(const str&);
     void _init(const char*);
     void _init(integer left, integer right);
@@ -142,10 +142,10 @@ public:
 
     // TODO: is_int(int), is_real(real) ... or operator == maybe?
     bool is_null()            const { return type == NONE; }
-    bool is_int()             const { return type == INT; }
-    bool is_real()            const { return type == REAL; }
     bool is_bool()            const { return type == BOOL; }
     bool is_char()            const { return type == CHAR; }
+    bool is_int()             const { return type == INT; }
+    bool is_real()            const { return type == REAL; }
     bool is_str()             const { return type == STR; }
     bool is_range()           const { return type == RANGE; }
     bool is_tuple()           const { return type == TUPLE; }
@@ -157,14 +157,14 @@ public:
 
     // Type conversions
     // TODO: as_xxx(defualt)
+    bool as_bool()            const { _req(BOOL); return val._bool; }
+    char as_char()            const { _req(CHAR); return val._char; }
     integer as_int()          const { _req(INT); return val._int; }
     template<class T>
         T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }
     template<class T>
         T as_unsigned()       const { _req(INT); return (T)_in_unsigned(sizeof(T)); }
     real as_real()            const { _req(REAL); return val._real; }
-    bool as_bool()            const { _req(BOOL); return val._bool; }
-    char as_char()            const { _req(CHAR); return val._char; }
     const str& as_str()       const { _req(STR); return _str_read(); }
     const range& as_range() const;
     const tuple& as_tuple() const;
@@ -184,14 +184,14 @@ public:
     str  substr(mem start, mem count = mem(-1)) const;      // str
     char getch(mem) const;                                  // str
     void push_back(const variant&);                         // tuple
-    void insert(const variant&);                            // set
     void insert(mem index, const variant&);                 // tuple
     void put(mem index, const variant&);                    // tuple
+    void tie(const variant& key, const variant&);           // dict
+    void tie(const variant&);                               // set
     void assign(integer left, integer right);               // range
-    void put(const variant& key, const variant&);           // dict
     void erase(mem index);                                  // str, tuple, dict[int], set[int]
     void erase(mem index, mem count);                       // str, tuple
-    void erase(const variant& key);                         // dict, set
+    void untie(const variant& key);                         // set, dict
     bool has(const variant& index) const;                   // dict, set
     integer left() const;                                   // range
     integer right() const;                                  // range

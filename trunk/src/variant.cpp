@@ -189,12 +189,10 @@ void variant::_init(const variant& other)
     {
     case NONE:
         break;
-    case INT:
-    case REAL:
-    case BOOL:
-    case CHAR:
-        val = other.val;
-        break;
+    case BOOL: val._bool = other.val._bool; break;
+    case CHAR: val._char = other.val._char; break;
+    case INT:  val._int = other.val._int; break;
+    case REAL: val._real = other.val._real; break;
     case STR:
         ::new(&_str_write()) str(other._str_read());
         break;
@@ -241,10 +239,10 @@ void variant::_fin2()
     switch (type)
     {
     case NONE:
-    case INT:
-    case REAL:
     case BOOL:
     case CHAR:
+    case INT:
+    case REAL:
         break;
     case STR:
         _str_write().~str();
@@ -260,24 +258,12 @@ void variant::dump(std::ostream& s) const
 {
     switch (type)
     {
-    case NONE:
-        s << "null";
-        break;
-    case INT:
-        s << val._int;
-        break;
-    case REAL:
-        s << val._real;
-        break;
-    case BOOL:
-        s << (val._bool ? "true" : "false");
-        break;
-    case CHAR:
-        s << '\'' << val._char << '\'';
-        break;
-    case STR:
-        s << '"' << _str_read() << '"';
-        break;
+    case NONE: s << "null"; break;
+    case BOOL: s << (val._bool ? "true" : "false"); break;
+    case CHAR: s << '\'' << val._char << '\''; break;
+    case INT:  s << val._int; break;
+    case REAL: s << val._real; break;
+    case STR:  s << '"' << _str_read() << '"'; break;
     default:    // containers and objects
         s << "[";
         if (val._obj != NULL)
@@ -298,17 +284,15 @@ str variant::to_string() const
 
 bool variant::operator== (const variant& other) const
 {
-    if (type == NONE || other.type == NONE)
-        return type == other.type;
     if (type != other.type)
         return false;
     switch (type)
     {
     case NONE: return true;
-    case INT:  return val._int == other.val._int;
-    case REAL: return val._real == other.val._real;
     case BOOL: return val._bool == other.val._bool;
     case CHAR: return val._char == other.val._char;
+    case INT:  return val._int == other.val._int;
+    case REAL: return val._real == other.val._real;
     case STR:  return _str_read() == other._str_read();
     case RANGE:
     {
@@ -325,14 +309,15 @@ bool variant::operator== (const variant& other) const
 
 bool variant::operator< (const variant& other) const
 {
-    _req(other.type);
+    if (type != other.type)
+        return type < other.type;
     switch (type)
     {
     case NONE: return false;
-    case INT:  return val._int < other.val._int;
-    case REAL: return val._real < other.val._real;
     case BOOL: return val._bool < other.val._bool;
     case CHAR: return val._char < other.val._char;
+    case INT:  return val._int < other.val._int;
+    case REAL: return val._real < other.val._real;
     case STR:  return _str_read() < other._str_read();
     default:    // containers and objects
         if (val._obj == NULL)
@@ -421,7 +406,7 @@ void variant::append(const char* s)         { _req(STR); _str_write().append(s);
 void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
 void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
 void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_back(v); }
-void variant::insert(const variant& v)      { _req(SET); _set_write().insert(v); }
+
 
 
 str variant::substr(mem index, mem count) const
@@ -443,11 +428,6 @@ void variant::insert(mem index, const variant& v)
 
 void variant::put(mem index, const variant& value)
 {
-    if (type == DICT)
-    {
-        put(variant(index), value);
-        return;
-    }
     _req(TUPLE);
     if (index < 0 || index >= _tuple_read().size())
         _index_err();
@@ -455,7 +435,7 @@ void variant::put(mem index, const variant& value)
 }
 
 
-void variant::put(const variant& key, const variant& value)
+void variant::tie(const variant& key, const variant& value)
 {
     _req(DICT);
     dict& d = _dict_write();
@@ -463,6 +443,13 @@ void variant::put(const variant& key, const variant& value)
         d.erase(key);
     else
         d[key] = value;
+}
+
+
+void variant::tie(const variant& v)
+{
+    _req(SET);
+    _set_write().insert(v);
 }
 
 
@@ -479,8 +466,6 @@ void variant::erase(mem index)
     {
     case STR: _str_write().erase(index, 1); break;
     case TUPLE: _tuple_write().erase(index); break;
-    case DICT: _dict_write().erase(index); break;
-    case SET: _set_write().erase(index); break;
     default: _type_err(); break;
     }
 }
@@ -497,7 +482,7 @@ void variant::erase(mem index, mem count)
 }
 
 
-void variant::erase(const variant& key)
+void variant::untie(const variant& key)
 {
     switch (type)
     {
@@ -538,33 +523,25 @@ bool variant::has(const variant& index) const
     switch (type)
     {
     case RANGE:
-        {
-            if (val._range == NULL)
-                return false;
-            return _range_read().has(index.as_int());
-        }
-        break;
+        if (val._range == NULL)
+            return false;
+        return _range_read().has(index.as_int());
     case DICT:
-        {
-            if (val._dict == NULL)
-                return false;
-            return _dict_read().find(index) != _dict_read().end();
-        }
-        break;
+        if (val._dict == NULL)
+            return false;
+        return _dict_read().find(index) != _dict_read().end();
     case SET:
-        {
-            if (val._set == NULL)
-                return false;
-            return _set_read().find(index) != _set_read().end();
-        }
+        if (val._set == NULL)
+            return false;
+        return _set_read().find(index) != _set_read().end();
     default: _type_err(); return false;
     }
 }
 
 
-integer variant::left()   const
+integer variant::left() const
     { _req(RANGE); if (val._range == NULL) return 0; return _range_read().left; }
 
-integer variant::right()  const
+integer variant::right() const
     { _req(RANGE); if (val._range == NULL) return -1; return _range_read().right; }
 

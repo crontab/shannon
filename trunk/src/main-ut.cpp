@@ -131,8 +131,9 @@ void test_variant()
         check(vs.to_string() == "[]");
         check(vo.to_string() == "[test_obj]");
 
-        check_throw(evarianttype, v1 < v2);
+        check(v1 < v2); check(!(v2 < v1));
         check(v2 < v3);
+        check(v3 != v6); check(v3 < v6); check(!(v6 < v3));
         
         variant v;
         check(v == null);
@@ -232,23 +233,22 @@ void test_variant()
 
         // dict
         check(vd.empty()); check(vd.size() == 0);
-        vd.put("k1", "abc");
-        vd.put("k2", true);
-        vd.put("k3", new_set());
-        check_throw(evarianttype, vd.put(0, 0));
+        vd.tie("k1", "abc");
+        vd.tie("k2", true);
+        vd.tie("k3", new_set());
         check(vd.to_string() == "[\"k1\": \"abc\", \"k2\": true, \"k3\": []]");
         check(!vd.empty()); check(vd.size() == 3);
-        vd.put("k2", null);
+        vd.tie("k2", null);
         check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
-        vd.put("kz", null);
+        vd.tie("kz", null);
         check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
         stringstream vds;
         vforeach(dict, i, vd)
             vds << ' ' << i->first << ": " << i->second;
         check(vds.str() == " \"k1\": \"abc\" \"k3\": []");
-        vd.erase("k2");
+        vd.untie("k2");
         check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
-        vd.erase("k3");
+        vd.untie("k3");
         check(vd.to_string() == "[\"k1\": \"abc\"]");
         check(vd["k1"] == "abc");
         check(vd["k2"] == null);
@@ -256,65 +256,67 @@ void test_variant()
         check(vd.has("k1"));
         check(!vd.has("k2"));
 
+        vd = new_dict();
+        vd.tie(new_dict(), 6);
+        vd.tie("abc", 5);
+        vd.tie(1.1, 4);
+        vd.tie(10, 3);
+        vd.tie('a', 2);
+        vd.tie(false, 1);
+        vd.tie(null, 0);
+        check(vd.to_string() == "[null: 0, false: 1, 'a': 2, 10: 3, 1.1: 4, \"abc\": 5, []: 6]");
+        
         // dict[int]
         vd = new_dict();
-        vd.put(100, 'a');
-        // vd.put(10000000000ll, 'b'); TODO: make this work
-        check(vd.to_string() == "[100: 'a']");    
+        vd.tie(100, 'a');
+        vd.tie(10000000000ll, 'b');
+        check(vd.to_string() == "[100: 'a', 10000000000: 'b']");    
         
         // dict[range]
         vd = new_dict();
-        vd.put(new_range(0, 4), new_range(0, 1));
-        vd.put(new_range(5, 6), "abc");
+        vd.tie(new_range(0, 4), new_range(0, 1));
+        vd.tie(new_range(5, 6), "abc");
         check(vd.has(new_range(5, 6)));
         check(!vd.has(new_range()));
         check(!vd.has(new_range(0, 6)));
         
         // set
         check(vs.empty()); check(vs.size() == 0);
-        vs.insert(5);
-        vs.insert(26);
-        vs.insert(127);
-        check_throw(evarianttype, vs.insert("abc"));
+        vs.tie(5);
+        vs.tie(26);
+        vs.tie(127);
         check(vs.to_string() == "[5, 26, 127]");
         stringstream vdss;
         vforeach(set, i, vs)
             vdss << ' ' << *i;
         check(vdss.str() == " 5 26 127");
         check(!vs.empty()); check(vs.size() == 3);
-        vs.erase(26);
-        vs.erase(226);
+        vs.untie(26);
+        vs.untie(226);
         check(vs.to_string() == "[5, 127]");
         check(vs.has(5));
         check(vs.has(127));
         check(!vs.has(26));
         
-        // various sets
-        vs = new_set();
-        vs.insert("abc");
-        vs.insert("abc");
-        vs.insert("def");
-        check(vs.to_string() == "[\"abc\", \"def\"]")
+        vs.tie("abc");
+        vs.tie("abc");
+        vs.tie("def");
+        check(vs.to_string() == "[5, 127, \"abc\", \"def\"]")
         check(vs.has("abc"));
-
-        vs = new_set();
-        vs.insert(1.1);
-        vs.insert(2.2);
-        check(vs.to_string() == "[1.1, 2.2]")
+        vs.tie(1.1);
+        vs.tie(2.2);
+        vs.tie(true);
+        vs.tie(null);
+        check(vs.to_string() == "[null, true, 5, 127, 1.1, 2.2, \"abc\", \"def\"]")
         check(vs.has(1.1));
 
-        vs = new_set();
-        vs.insert(null);
-        check(vs.to_string() == "[null]")
-        check(vs.has(null));
-        
         stringstream ss;
         ss << vs;
-        check(ss.str() == "[null]");
+        check(ss.str() == "[null, true, 5, 127, 1.1, 2.2, \"abc\", \"def\"]");
         
         // ref counting
         vs = new_set();
-        vs.insert(0);
+        vs.tie(0);
         check(vs.as_set().is_unique());
         variant vss = vs;
         check(vss.has(0));
@@ -322,7 +324,7 @@ void test_variant()
         check(!vss.as_set().is_unique());
         check(vs.to_string() == "[0]");
         check(vss.to_string() == "[0]");
-        vs.insert(1);
+        vs.tie(1);
         check(vs.as_set().is_unique());
         check(vss.as_set().is_unique());
         check(vs.to_string() == "[0, 1]");
