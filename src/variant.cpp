@@ -208,25 +208,31 @@ void variant::_init(const variant& other)
 #define CHK_SIGNED(t) { if (val._int < t##_MIN && val._int > t##_MAX) _range_err(); }
 #define CHK_UNSIGNED(t) { if (val._int < 0 && val._int > t##_MAX) _range_err(); }
 
-integer variant::_in_signed(size_t s) const
+integer variant::_in_signed(integer s) const
 {
     switch (s)
     {
     case 1: CHK_SIGNED(INT8); break;
     case 2: CHK_SIGNED(INT16); break;
+#ifndef SH64
     case 4: CHK_SIGNED(INT32); break;
+#endif
     }
     return val._int;
 }
 
-integer variant::_in_unsigned(size_t s) const
+integer variant::_in_unsigned(integer s) const
 {
     switch (s)
     {
     case 1: CHK_UNSIGNED(UINT8); break;
     case 2: CHK_UNSIGNED(UINT16); break;
+#ifdef SH64
     case 4: CHK_UNSIGNED(UINT32); break;
     case 8: CHK_UNSIGNED(INT64); break; // we don't support unsigned 64-bit
+#else
+    case 4: CHK_UNSIGNED(INT32); break;
+#endif
     }
     return val._int;
 }

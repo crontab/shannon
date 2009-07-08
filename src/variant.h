@@ -111,11 +111,11 @@ protected:
 
     // Range checking
 #ifdef RANGE_CHECKING
-    integer _in_signed(size_t) const;
-    integer _in_unsigned(size_t) const;
+    integer _in_signed(integer) const;
+    integer _in_unsigned(integer) const;
 #else
-    integer _in_signed(size_t) const { return val._int; }
-    integer _in_unsigned(size_t) const { return val._int; }
+    integer _in_signed(integer)     const { return val._int; }
+    integer _in_unsigned(integer)   const { return val._int; }
 #endif
 
 public:
