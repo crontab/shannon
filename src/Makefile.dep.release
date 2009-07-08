@@ -1,0 +1,9 @@
+# DO NOT DELETE
+
+release/common.o: common.h
+release/charset.o: charset.h
+release/variant.o: common.h variant.h
+release/source.o: source.h charset.h common.h variant.h bsearch.h
+release/symbols.o: symbols.h variant.h common.h
+release/main.o: variant.h common.h symbols.h source.h charset.h
+release/main-ut.o: common.h variant.h symbols.h source.h charset.h

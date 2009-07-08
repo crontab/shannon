@@ -10,7 +10,9 @@ SRCS = common.cpp charset.cpp variant.cpp source.cpp symbols.cpp main.cpp main-u
 
 HDRS = common.h charset.h variant.h bsearch.h source.h symbols.h
 
-all: dirs shannon shannon-ut shn
+all: dirs shannon shannon-ut
+
+release: dirs shn
 
 ut unit-test: dirs shannon-ut
 	@if ./shannon-ut ; then echo ; echo "Unit tests succeeded." ; else echo; echo "***** Unit tests failed *****" ; fi
@@ -19,15 +21,26 @@ ut unit-test: dirs shannon-ut
 dirs:
 	@mkdir -p debug release
 
-depend: Makefile.dep
+depend: Makefile.dep.debug Makefile.dep.release
 
-Makefile.dep: $(SRCS) $(HDRS)
+
+Makefile.dep.debug: $(SRCS) $(HDRS)
 	@touch $@
-	makedepend $(CXXDEFS) -pobj/ -f$@ -Y $(SRCS) 2>/dev/null
-	@if diff $@.bak $@ > /dev/null ; then echo ; else echo "****** Dependecies have changed" ; fi
+	@makedepend -pdebug/ -f$@ -Y $(SRCS) 2>/dev/null
+	@if diff $@.bak $@ > /dev/null ; then echo ; else echo "****** DEBUG dependecies have changed" ; fi
 	@rm -f $@.bak
 
-include Makefile.dep
+include Makefile.dep.debug
+
+
+Makefile.dep.release: $(SRCS) $(HDRS)
+	@touch $@
+	@makedepend -prelease/ -f$@ -Y $(SRCS) 2>/dev/null
+	@if diff $@.bak $@ > /dev/null ; then echo ; else echo "****** RELEASE dependecies have changed" ; fi
+	@rm -f $@.bak
+
+include Makefile.dep.release
+
 
 shannon: $(DOBJS) debug/main.o
 	$(CXX) $(CXXDOPTS) $(LDLIBS) $^ -o $@

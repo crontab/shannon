@@ -1,0 +1,9 @@
+# DO NOT DELETE
+
+debug/common.o: common.h
+debug/charset.o: charset.h
+debug/variant.o: common.h variant.h
+debug/source.o: source.h charset.h common.h variant.h bsearch.h
+debug/symbols.o: symbols.h variant.h common.h
+debug/main.o: variant.h common.h symbols.h source.h charset.h
+debug/main-ut.o: common.h variant.h symbols.h source.h charset.h
