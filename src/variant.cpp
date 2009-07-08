@@ -18,6 +18,7 @@
 #include "variant.h"
 
 const variant null;
+const str null_str;
 const class _null_tuple: public tuple { } null_tuple;
 const class _null_dict: public dict { } null_dict;
 const class _null_set: public set { } null_set;
@@ -202,7 +203,7 @@ void variant::_init(const variant& other)
     }
 }
 
-
+/*
 #ifdef RANGE_CHECKING
 
 #define CHK_SIGNED(t) { if (val._int < t##_MIN && val._int > t##_MAX) _range_err(); }
@@ -238,6 +239,7 @@ integer variant::_in_unsigned(integer s) const
 }
 
 #endif // RANGE_CHECKING
+*/
 
 
 void variant::_fin2()
