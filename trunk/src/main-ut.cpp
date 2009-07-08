@@ -30,6 +30,18 @@ using namespace std;
 #define check_nothrow(...) \
     { try { __VA_ARGS__; } catch(...) { fail("exception thrown"); } }
 
+#define XSTR(s) _STR(s)
+#define _STR(s) #s
+
+#ifdef SH64
+#  define INTEGER_MAX_STR "9223372036854775807"
+#  define INTEGER_MAX_STR_PLUS "9223372036854775808"
+#  define INTEGER_MIN_STR "-9223372036854775808"
+#else
+#  define INTEGER_MAX_STR "2147483647"
+#  define INTEGER_MAX_STR_PLUS "2147483648"
+#  define INTEGER_MIN_STR "-2147483648"
+#endif
 
 void test_common()
 {
@@ -41,18 +53,16 @@ void test_common()
     // string conversion
     check(to_string(0) == "0");
     check(to_string(-1) == "-1");
-    check(to_string(INTEGER_MAX) == "9223372036854775807");
-    check(to_string(INTEGER_MIN) == "-9223372036854775808");
+    check(to_string(INTEGER_MAX) == INTEGER_MAX_STR);
+    check(to_string(INTEGER_MIN) == INTEGER_MIN_STR);
     bool e = true, o = true;
     check(from_string("0", &e, &o) == 0);
     check(!o); check(!e);
-    check(from_string("9223372036854775807", &e, &o) == INTEGER_MAX);
-    check(from_string("9223372036854775808", &e, &o) == uinteger(INTEGER_MAX) + 1);
-    check(from_string("92233720368547758080", &e, &o) == 0 ); check(o);
+    check(from_string(INTEGER_MAX_STR, &e, &o) == INTEGER_MAX);
+    check(from_string(INTEGER_MAX_STR_PLUS, &e, &o) == uinteger(INTEGER_MAX) + 1);
+    check(from_string(INTEGER_MAX_STR "0", &e, &o) == 0 ); check(o);
     check(from_string("-1", &e, &o) == 0 ); check(e);
     check(from_string("89abcdef", &e, &o, 16) == 0x89abcdef);
-    check(from_string("ffffffffffffffff", &e, &o, 16) == uinteger(-1));
-    check(from_string("fffffffffffffffff", &e, &o, 16) == 0); check(o);
     check(from_string("afg", &e, &o, 16) == 0); check(e);
     
     // syserror
@@ -79,9 +89,9 @@ void test_variant()
         variant v1 = null;              check(v1.is_null());
         variant v2 = 0;                 check(v2.is_int());     check(v2.as_int() == 0);
         variant v3 = 1;                 check(v3.is_int());     check(v3.as_int() == 1);
-        variant v4 = INT64_MAX;         check(v4.is_int());     check(v4.as_int() == INT64_MAX);
-        variant v5 = INT64_MIN;         check(v5.is_int());     check(v5.as_int() == INT64_MIN);
-        variant v6 = 1.1;               check(v6.is_real());    check(v6.as_real() == 1.1);
+        variant v4 = INTEGER_MAX;       check(v4.is_int());     check(v4.as_int() == INTEGER_MAX);
+        variant v5 = INTEGER_MIN;       check(v5.is_int());     check(v5.as_int() == INTEGER_MIN);
+        variant v6 = 1.1;               check(v6.is_real());    check(v6.as_real() == real(1.1));
         variant v7 = false;             check(v7.is_bool());    check(!v7.as_bool());
         variant v8 = true;              check(v8.is_bool());    check(v8.as_bool());
         variant v12 = 'x';              check(v12.is_char());   check(v12.as_char() == 'x');
@@ -113,8 +123,8 @@ void test_variant()
         check(v1.to_string() == "null");
         check(v2.to_string() == "0");
         check(v3.to_string() == "1");
-        check(v4.to_string() == "9223372036854775807");
-        check(v5.to_string() == "-9223372036854775808");
+        check(v4.to_string() == INTEGER_MAX_STR);
+        check(v5.to_string() == INTEGER_MIN_STR);
         check(v6.to_string() == "1.1");
         check(v7.to_string() == "false");
         check(v8.to_string() == "true");
@@ -140,9 +150,9 @@ void test_variant()
         v = 0;                 check(v.as_int() == 0);              check(v == 0);
         check(v != null);      check(v != true);                    check(v != "abc");
         v = 1;                 check(v.as_int() == 1);              check(v == 1);
-        v = INT64_MAX;         check(v.as_int() == INT64_MAX);      check(v == INT64_MAX);
-        v = INT64_MIN;         check(v.as_int() == INT64_MIN);      check(v == INT64_MIN);
-        v = 1.1;               check(v.as_real() == 1.1);           check(v == 1.1);
+        v = INTEGER_MAX;       check(v.as_int() == INTEGER_MAX);    check(v == INTEGER_MAX);
+        v = INTEGER_MIN;       check(v.as_int() == INTEGER_MIN);    check(v == INTEGER_MIN);
+        v = 1.1;               check(v.as_real() == real(1.1));     check(v == 1.1);
         v = false;             check(!v.as_bool());                 check(v == false);
         v = true;              check(v.as_bool());                  check(v == true);
         v = 'x';               check(v.as_char() == 'x');           check(v == 'x');    check(v != 'z');
@@ -265,12 +275,6 @@ void test_variant()
         vd.tie(false, 1);
         vd.tie(null, 0);
         check(vd.to_string() == "[null: 0, false: 1, 'a': 2, 10: 3, 1.1: 4, \"abc\": 5, []: 6]");
-        
-        // dict[int]
-        vd = new_dict();
-        vd.tie(100, 'a');
-        vd.tie(10000000000ll, 'b');
-        check(vd.to_string() == "[100: 'a', 10000000000: 'b']");    
         
         // dict[range]
         vd = new_dict();
@@ -458,7 +462,7 @@ void test_source()
         check(expect[i] == tokEof && p.token == tokEof);
     }
     {
-        Parser p(new InMem("9223372036854775807\n  9223372036854775808\n  null\n aaa"
+        Parser p(new InMem(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  null\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
@@ -481,11 +485,21 @@ void test_source()
 
 int main()
 {
+    cout << "short: " << sizeof(short) << "  long: " << sizeof(long) << "  long long: "
+        << sizeof(long long) << "  int: " << sizeof(int) << "  void*: " << sizeof(void*)
+        << "  float: " << sizeof(float) << "  double: " << sizeof(double) << endl;
+    cout << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
+        << "  real: " << sizeof(real) << "  variant: " << sizeof(variant) << endl;
+
     check(sizeof(int) == 4);
+#ifdef SH64
     check(sizeof(integer) == 8);
+#else
+    check(sizeof(integer) == 4);
+#endif
     check(sizeof(mem) >= 4);
 #if defined(PTR32)
-    check(sizeof(variant) == 12);
+    check(sizeof(variant) == 8);
     cout << "Pointers are 32 bit" << endl;
 #else
     check(sizeof(variant) == 16);

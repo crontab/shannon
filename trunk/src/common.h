@@ -26,22 +26,34 @@
 #  error Unknown architecure.
 #endif
 
+// On my Mac:
+// short: 2  long: 4  long long: 8  int: 4  void*: 4  float: 4  double: 8
+// integer: 4  mem: 4  real: 4  variant: 8
+
+// #define SH64
 
 // --- BASIC DATA TYPES --------------------------------------------------- //
 
 
-// Default fundamental types: string, integer, real and memory size
-// Normally the "integer" type should be 64 bit, unless a port is needed
-// to a 16-bit system.
-typedef long long integer;
-typedef unsigned long long uinteger;
+// Default fundamental types: string, integer, real and memory size.
 
-#define INTEGER_MIN LLONG_MIN
-#define INTEGER_MAX LLONG_MAX
+#ifdef SH64
+    typedef long long integer;
+    typedef unsigned long long uinteger;
+    typedef double real;
+#   define INTEGER_MIN LLONG_MIN
+#   define INTEGER_MAX LLONG_MAX
+#else
+    typedef long integer;
+    typedef unsigned long uinteger;
+    typedef float real;
+#   define INTEGER_MIN LONG_MIN
+#   define INTEGER_MAX LONG_MAX
+#endif
+
 
 typedef size_t mem;
 typedef std::string str;
-typedef double real;
 
 
 // --- MISC --------------------------------------------------------------- //
