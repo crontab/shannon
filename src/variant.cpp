@@ -440,7 +440,7 @@ void variant::tie(const variant& key, const variant& value)
     _req(DICT);
     dict& d = _dict_write();
     if (value.is_null())
-        d.erase(key);
+        d.untie(key);
     else
         d[key] = value;
 }
@@ -449,7 +449,7 @@ void variant::tie(const variant& key, const variant& value)
 void variant::tie(const variant& v)
 {
     _req(SET);
-    _set_write().insert(v);
+    _set_write().tie(v);
 }
 
 
@@ -486,8 +486,8 @@ void variant::untie(const variant& key)
 {
     switch (type)
     {
-    case DICT: _dict_write().erase(key); break;
-    case SET: _set_write().erase(key); break;
+    case DICT: _dict_write().untie(key); break;
+    case SET: _set_write().untie(key); break;
     default: _type_err(); break;
     }
 }
