@@ -151,6 +151,7 @@ public:
     bool is_tuple()           const { return type == TUPLE; }
     bool is_dict()            const { return type == DICT; }
     bool is_set()             const { return type == SET; }
+    bool is_ordinal()         const { return type >= BOOL && type <= INT; }
     bool is_nonpod()          const { return type >= NONPOD; }
     bool is_refcnt()          const { return type >= REFCNT; }
     bool is_object()          const { return type >= ANYOBJ; }
@@ -315,7 +316,7 @@ protected:
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
-    void erase(const variant& v)              { impl.erase(v); }
+    void untie(const variant& v)              { impl.erase(v); }
     variant& operator[] (const variant& v)    { return impl[v]; }
     dict_iterator find(const variant& v)const { return impl.find(v); }
     virtual void dump(std::ostream&) const;
@@ -339,8 +340,8 @@ protected:
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
-    void insert(const variant& v)             { impl.insert(v); }
-    void erase(const variant& v)              { impl.erase(v); }
+    void tie(const variant& v)                { impl.insert(v); }
+    void untie(const variant& v)              { impl.erase(v); }
     set_iterator find(const variant& v) const { return impl.find(v); }
     virtual void dump(std::ostream&) const;
     set_iterator begin()                const { return impl.begin(); }

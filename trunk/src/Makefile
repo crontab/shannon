@@ -1,14 +1,22 @@
 
+
 CXXDOPTS = -Wall -Werror -DDEBUG -g
 CXXROPTS = -Wall -Werror -O2
 
-DOBJS = debug/common.o debug/charset.o debug/variant.o debug/source.o debug/symbols.o
 
-ROBJS = release/common.o release/charset.o release/variant.o release/source.o release/symbols.o
+DOBJS = debug/common.o debug/charset.o debug/variant.o debug/source.o \
+	debug/symbols.o debug/typesys.o
 
-SRCS = common.cpp charset.cpp variant.cpp source.cpp symbols.cpp main.cpp main-ut.cpp
+ROBJS = release/common.o release/charset.o release/variant.o release/source.o \
+	release/symbols.o release/typesys.o
 
-HDRS = common.h charset.h variant.h bsearch.h source.h symbols.h
+SRCS = common.cpp charset.cpp variant.cpp source.cpp \
+	symbols.cpp typesys.cpp \
+	main.cpp main-ut.cpp
+
+HDRS = common.h charset.h variant.h bsearch.h source.h \
+	symbols.h typesys.h
+
 
 all: dirs shannon shannon-ut
 
@@ -27,7 +35,7 @@ depend: Makefile.dep.debug Makefile.dep.release
 Makefile.dep.debug: $(SRCS) $(HDRS)
 	@touch $@
 	@makedepend -pdebug/ -f$@ -Y $(SRCS) 2>/dev/null
-	@if diff $@.bak $@ > /dev/null ; then echo ; else echo "****** DEBUG dependecies have changed" ; fi
+	@if diff $@.bak $@ > /dev/null ; then echo "Dependencies unchanged" ; else echo "****** DEBUG dependecies have changed" ; fi
 	@rm -f $@.bak
 
 include Makefile.dep.debug
@@ -36,7 +44,7 @@ include Makefile.dep.debug
 Makefile.dep.release: $(SRCS) $(HDRS)
 	@touch $@
 	@makedepend -prelease/ -f$@ -Y $(SRCS) 2>/dev/null
-	@if diff $@.bak $@ > /dev/null ; then echo ; else echo "****** RELEASE dependecies have changed" ; fi
+	@if diff $@.bak $@ > /dev/null ; then echo "Dependencies unchanged" ; else echo "****** RELEASE dependecies have changed" ; fi
 	@rm -f $@.bak
 
 include Makefile.dep.release
