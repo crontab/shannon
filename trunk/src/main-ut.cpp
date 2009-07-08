@@ -500,10 +500,8 @@ int main()
     check(sizeof(mem) >= 4);
 #if defined(PTR32)
     check(sizeof(variant) == 8);
-    cout << "Pointers are 32 bit" << endl;
 #else
     check(sizeof(variant) == 16);
-    cout << "Pointers are 64 bit" << endl;
 #endif
 
     try

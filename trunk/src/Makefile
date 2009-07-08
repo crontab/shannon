@@ -1,7 +1,7 @@
 
 
-CXXDOPTS = -Wall -Werror -DDEBUG -g
-CXXROPTS = -Wall -Werror -O2
+CXXDOPTS = -Wall -Werror -fno-rtti -DDEBUG -g
+CXXROPTS = -Wall -Werror -fno-rtti -O2
 
 
 DOBJS = debug/common.o debug/charset.o debug/variant.o debug/source.o \

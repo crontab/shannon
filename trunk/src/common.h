@@ -44,8 +44,8 @@
 #   define INTEGER_MIN LLONG_MIN
 #   define INTEGER_MAX LLONG_MAX
 #else
-    typedef long integer;
-    typedef unsigned long uinteger;
+    typedef int integer;
+    typedef unsigned int uinteger;
     typedef float real;
 #   define INTEGER_MIN LONG_MIN
 #   define INTEGER_MAX LONG_MAX

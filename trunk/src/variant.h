@@ -109,6 +109,7 @@ protected:
     void _req(Type t) const         { if (type != t) _type_err(); }
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
+/*
     // Range checking
 #ifdef RANGE_CHECKING
     integer _in_signed(integer) const;
@@ -117,6 +118,7 @@ protected:
     integer _in_signed(integer)     const { return val._int; }
     integer _in_unsigned(integer)   const { return val._int; }
 #endif
+*/
 
 public:
     variant()                       { _init(); }
@@ -161,10 +163,12 @@ public:
     bool as_bool()            const { _req(BOOL); return val._bool; }
     char as_char()            const { _req(CHAR); return val._char; }
     integer as_int()          const { _req(INT); return val._int; }
+/*
     template<class T>
         T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }
     template<class T>
         T as_unsigned()       const { _req(INT); return (T)_in_unsigned(sizeof(T)); }
+*/
     real as_real()            const { _req(REAL); return val._real; }
     const str& as_str()       const { _req(STR); return _str_read(); }
     const range& as_range() const;
@@ -400,6 +404,7 @@ inline set_iterator variant::set_begin() const    { _req(SET); return _set_read(
 inline set_iterator variant::set_end() const      { _req(SET); return _set_read().end(); }
 
 extern const variant null;
+extern const str null_str;
 
 #endif // __VARIANT_H
 
