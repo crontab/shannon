@@ -6,5 +6,5 @@ debug/variant.o: common.h variant.h
 debug/source.o: source.h charset.h common.h variant.h bsearch.h
 debug/symbols.o: symbols.h variant.h common.h
 debug/typesys.o: typesys.h common.h variant.h symbols.h
-debug/main.o: typesys.h common.h variant.h symbols.h source.h charset.h
+debug/main.o: charset.h typesys.h common.h variant.h symbols.h source.h
 debug/main-ut.o: common.h variant.h symbols.h source.h charset.h

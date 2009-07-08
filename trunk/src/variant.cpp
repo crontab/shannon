@@ -193,6 +193,7 @@ void variant::_init(const variant& other)
     case BOOL: val._bool = other.val._bool; break;
     case CHAR: val._char = other.val._char; break;
     case INT:  val._int = other.val._int; break;
+    case TINYSET: val._tset = other.val._tset; break;
     case REAL: val._real = other.val._real; break;
     case STR:
         ::new(&_str_write()) str(other._str_read());
@@ -250,6 +251,7 @@ void variant::_fin2()
     case BOOL:
     case CHAR:
     case INT:
+    case TINYSET:
     case REAL:
         break;
     case STR:
@@ -270,13 +272,27 @@ void variant::dump(std::ostream& s) const
     case BOOL: s << (val._bool ? "true" : "false"); break;
     case CHAR: s << '\'' << val._char << '\''; break;
     case INT:  s << val._int; break;
+    case TINYSET:
+        {
+            s << '[';
+            int cnt = 0;
+            for (int i = 0; i < TINYSET_BITS; i++)
+                if (val._tset & (uinteger(1) << i))
+                {
+                    if (++cnt > 1)
+                        s << ", ";
+                    s << i;
+                }
+            s << ']';
+        }
+        break;
     case REAL: s << val._real; break;
     case STR:  s << '"' << _str_read() << '"'; break;
     default:    // containers and objects
-        s << "[";
+        s << '[';
         if (val._obj != NULL)
             val._obj->dump(s);
-        s << "]";
+        s << ']';
         break;
     }
 }
@@ -300,6 +316,7 @@ bool variant::operator== (const variant& other) const
     case BOOL: return val._bool == other.val._bool;
     case CHAR: return val._char == other.val._char;
     case INT:  return val._int == other.val._int;
+    case TINYSET: return val._tset == other.val._tset;
     case REAL: return val._real == other.val._real;
     case STR:  return _str_read() == other._str_read();
     case RANGE:
@@ -325,6 +342,7 @@ bool variant::operator< (const variant& other) const
     case BOOL: return val._bool < other.val._bool;
     case CHAR: return val._char < other.val._char;
     case INT:  return val._int < other.val._int;
+    case TINYSET: return val._tset < other.val._tset;
     case REAL: return val._real < other.val._real;
     case STR:  return _str_read() < other._str_read();
     default:    // containers and objects
@@ -340,6 +358,27 @@ bool variant::operator< (const variant& other) const
 void variant::_type_err() { throw evarianttype(); }
 void variant::_range_err() { throw evariantrange(); }
 void variant::_index_err() { throw evariantindex(); }
+
+
+integer variant::as_ordinal() const
+{
+    switch (type)
+    {
+    case BOOL: return val._bool;
+    case CHAR: return unsigned(val._char);
+    case INT: return val._int;
+    default: _type_err(); return 0;
+    }
+}
+
+
+unsigned variant::as_tiny_int() const
+{
+    integer i = as_ordinal();
+    if (i < 0 || i >= TINYSET_BITS)
+        _range_err();
+    return i;
+}
 
 
 // as_xxx(): return a const implementation of a container, may be one of the
@@ -376,7 +415,6 @@ mem variant::size() const
     case STR:   return _str_read().size();
     case TUPLE: if (val._tuple == NULL) return 0; return _tuple_read().size();
     case DICT:  if (val._dict == NULL) return 0; return _dict_read().size();
-    case SET:   if (val._set == NULL) return 0; return _set_read().size();
     default: _type_err(); return 0;
     }
 }
@@ -386,6 +424,7 @@ bool variant::empty() const
 {
     switch (type)
     {
+    case TINYSET: return val._tset == 0;
     case STR:   return _str_read().empty();
     case RANGE: if (val._range == NULL) return true; return _range_read().empty();
     case TUPLE: if (val._tuple == NULL) return true; return _tuple_read().empty();
@@ -414,7 +453,6 @@ void variant::append(const char* s)         { _req(STR); _str_write().append(s);
 void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
 void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
 void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_back(v); }
-
 
 
 str variant::substr(mem index, mem count) const
@@ -456,8 +494,12 @@ void variant::tie(const variant& key, const variant& value)
 
 void variant::tie(const variant& v)
 {
-    _req(SET);
-    _set_write().tie(v);
+    switch (type)
+    {
+    case TINYSET: val._tset |= uinteger(1) << v.as_tiny_int(); break;
+    case SET: _set_write().tie(v); break;
+    default: _type_err(); break;
+    }
 }
 
 
@@ -494,6 +536,7 @@ void variant::untie(const variant& key)
 {
     switch (type)
     {
+    case TINYSET: val._tset &= ~(uinteger(1) << key.as_tiny_int()); break;
     case DICT: _dict_write().untie(key); break;
     case SET: _set_write().untie(key); break;
     default: _type_err(); break;
@@ -530,6 +573,8 @@ bool variant::has(const variant& index) const
 {
     switch (type)
     {
+    case TINYSET:
+        return val._tset & (uinteger(1) << index.as_tiny_int());
     case RANGE:
         if (val._range == NULL)
             return false;
