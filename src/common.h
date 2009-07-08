@@ -30,12 +30,16 @@
 // short: 2  long: 4  long long: 8  int: 4  void*: 4  float: 4  double: 8
 // integer: 4  mem: 4  real: 4  variant: 8
 
-// #define SH64
+// SH64 can be enabled both on 64 and 32-bit systems
+#ifdef PTR64
+#  define SH64
+#endif
+
 
 // --- BASIC DATA TYPES --------------------------------------------------- //
 
 
-// Default fundamental types: string, integer, real and memory size.
+// Default fundamental types
 
 #ifdef SH64
     typedef long long integer;
@@ -43,12 +47,14 @@
     typedef double real;
 #   define INTEGER_MIN LLONG_MIN
 #   define INTEGER_MAX LLONG_MAX
+#   define TINYSET_BITS 64
 #else
     typedef int integer;
     typedef unsigned int uinteger;
     typedef float real;
-#   define INTEGER_MIN LONG_MIN
-#   define INTEGER_MAX LONG_MAX
+#   define INTEGER_MIN INT_MIN
+#   define INTEGER_MAX INT_MAX
+#   define TINYSET_BITS 32
 #endif
 
 

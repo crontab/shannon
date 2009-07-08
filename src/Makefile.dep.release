@@ -6,5 +6,5 @@ release/variant.o: common.h variant.h
 release/source.o: source.h charset.h common.h variant.h bsearch.h
 release/symbols.o: symbols.h variant.h common.h
 release/typesys.o: typesys.h common.h variant.h symbols.h
-release/main.o: typesys.h common.h variant.h symbols.h source.h charset.h
+release/main.o: charset.h typesys.h common.h variant.h symbols.h source.h
 release/main-ut.o: common.h variant.h symbols.h source.h charset.h

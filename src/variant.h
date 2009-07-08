@@ -48,28 +48,37 @@ DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
 
 class None { int dummy; };
 
+struct tinyset
+{
+    uinteger val;
+    tinyset(): val(0) { }
+    tinyset(uinteger v): val(v) { }
+    bool operator == (const tinyset& other) const { return val == other.val; }
+};
+
 
 class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, BOOL, CHAR, INT, REAL, STR, RANGE, TUPLE, DICT, SET, OBJECT,
+    enum Type { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE, TUPLE, DICT, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
     Type type;
     union
     {
-        bool    _bool;
-        char    _char;
-        integer _int;
-        real    _real;
-        char    _str[sizeof(str)];
-        object* _obj;
-        tuple*  _tuple;
-        dict*   _dict;
-        set*    _set;
-        range*  _range;
+        bool     _bool;
+        char     _char;
+        integer  _int;
+        uinteger _tset;
+        real     _real;
+        char     _str[sizeof(str)];
+        object*  _obj;
+        tuple*   _tuple;
+        dict*    _dict;
+        set*     _set;
+        range*   _range;
     } val;
 
     str& _str_write()               { return *(str*)val._str; }
@@ -89,6 +98,7 @@ protected:
     void _init(char c)              { type = CHAR; val._char = c; }
     template<class T>
         void _init(T i)             { type = INT; val._int = i; }
+    void _init(tinyset s)           { type = TINYSET; val._tset = s.val; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(const str&);
     void _init(const char*);
@@ -109,6 +119,7 @@ protected:
     void _req(Type t) const         { if (type != t) _type_err(); }
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
+    unsigned as_tiny_int() const;
 /*
     // Range checking
 #ifdef RANGE_CHECKING
@@ -147,6 +158,7 @@ public:
     bool is_bool()            const { return type == BOOL; }
     bool is_char()            const { return type == CHAR; }
     bool is_int()             const { return type == INT; }
+    bool is_tinyset()         const { return type == TINYSET; }
     bool is_real()            const { return type == REAL; }
     bool is_str()             const { return type == STR; }
     bool is_range()           const { return type == RANGE; }
@@ -163,6 +175,8 @@ public:
     bool as_bool()            const { _req(BOOL); return val._bool; }
     char as_char()            const { _req(CHAR); return val._char; }
     integer as_int()          const { _req(INT); return val._int; }
+    integer as_ordinal()      const;
+    tinyset as_tinyset()      const { _req(TINYSET); return val._tset; }
 /*
     template<class T>
         T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }
@@ -178,8 +192,8 @@ public:
     object* as_object()       const { _req_obj(); return val._obj; }
 
     // Container operations
-    mem  size() const;                                      // str, tuple, dict, set
-    bool empty() const;                                     // str, tuple, dict, set
+    mem  size() const;                                      // str, tuple, dict
+    bool empty() const;                                     // str, tuple, dict, set, tinyset
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
     void append(const variant& v);                          // str
@@ -192,12 +206,12 @@ public:
     void insert(mem index, const variant&);                 // tuple
     void put(mem index, const variant&);                    // tuple
     void tie(const variant& key, const variant&);           // dict
-    void tie(const variant&);                               // set
+    void tie(const variant&);                               // set, tinyset
     void assign(integer left, integer right);               // range
-    void erase(mem index);                                  // str, tuple, dict[int], set[int]
+    void erase(mem index);                                  // str, tuple
     void erase(mem index, mem count);                       // str, tuple
-    void untie(const variant& key);                         // set, dict
-    bool has(const variant& index) const;                   // dict, set
+    void untie(const variant& key);                         // set, dict, tinyset
+    bool has(const variant& index) const;                   // dict, set, tinyset
     integer left() const;                                   // range
     integer right() const;                                  // range
     const variant& operator[] (mem index) const;            // tuple, dict[int]
@@ -329,7 +343,6 @@ protected:
 };
 
 
-// TODO: optimize implementation of set for ordinals within 0..63 and 0..255
 class set: public object
 {
     friend class variant;
@@ -342,7 +355,7 @@ protected:
     ~set();
 
     virtual object* clone() const;
-    mem size()                          const { return impl.size(); }
+    // mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void tie(const variant& v)                { impl.insert(v); }
     void untie(const variant& v)              { impl.erase(v); }
@@ -396,6 +409,7 @@ inline tuple* new_tuple()   { return NULL; }
 inline dict* new_dict()     { return NULL; }
 inline set* new_set()       { return NULL; }
 range* new_range(integer l, integer r);
+inline tinyset new_tinyset()       { return 0; }
 
 inline dict_iterator variant::dict_begin() const  { _req(DICT); return _dict_read().begin(); }
 inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_read().end(); }

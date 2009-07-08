@@ -106,6 +106,7 @@ void test_variant()
         variant vt = new_tuple();       check(vt.is_tuple());   check(vt.is_null_ptr());
         variant vd = new_dict();        check(vd.is_dict());    check(vd.is_null_ptr());
         variant vs = new_set();         check(vs.is_set());     check(vs.is_null_ptr());
+        variant vts = new_tinyset();    check(vts.is_tinyset());  check(vts.as_tinyset() == 0);
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
@@ -118,6 +119,7 @@ void test_variant()
         check_throw(evarianttype, v1.as_tuple());
         check_throw(evarianttype, v1.as_dict());
         check_throw(evarianttype, v1.as_set());
+        check_throw(evarianttype, v1.as_tinyset());
         check_throw(evarianttype, v1.as_object());
         
         check(v1.to_string() == "null");
@@ -139,6 +141,7 @@ void test_variant()
         check(vt.to_string() == "[]");
         check(vd.to_string() == "[]");
         check(vs.to_string() == "[]");
+        check(vts.to_string() == "[]");
         check(vo.to_string() == "[test_obj]");
 
         check(v1 < v2); check(!(v2 < v1));
@@ -176,9 +179,36 @@ void test_variant()
         check(!v.is_tuple());
         check(!v.is_dict());
         check(!v.is_set());
+        check(!v.is_tinyset());
         v = null;
         check(!v.is_object());
         check(v == null);
+
+        // tinyset
+        check(vts.empty()); check_throw(evarianttype, vts.size());
+        vts.tie(5);
+        vts.tie(26);
+        vts.tie(31);
+#ifdef SH64
+        vts.tie(63);
+        vts.has(63);
+        vts.untie(63);
+#else
+        check_throw(evariantrange, vts.tie(63));
+#endif
+        check_throw(evariantrange, vts.tie(100));
+        check_throw(evariantrange, vts.tie(-1));
+        check_throw(evariantrange, vts.untie(100));
+        check_throw(evariantrange, vts.untie(-1));
+        check_throw(evarianttype, vts.tie("abc"));
+        check(vts.to_string() == "[5, 26, 31]");
+        check(!vts.empty());
+        vts.untie(26);
+        vts.untie(30);
+        check(vts.to_string() == "[5, 31]");
+        check(vts.has(5));
+        check(vts.has(31));
+        check(!vts.has(26));
 
         // str
         vst = "";
@@ -285,7 +315,7 @@ void test_variant()
         check(!vd.has(new_range(0, 6)));
         
         // set
-        check(vs.empty()); check(vs.size() == 0);
+        check(vs.empty()); check_throw(evarianttype, vs.size());
         vs.tie(5);
         vs.tie(26);
         vs.tie(127);
@@ -294,7 +324,7 @@ void test_variant()
         vforeach(set, i, vs)
             vdss << ' ' << *i;
         check(vdss.str() == " 5 26 127");
-        check(!vs.empty()); check(vs.size() == 3);
+        check(!vs.empty());
         vs.untie(26);
         vs.untie(226);
         check(vs.to_string() == "[5, 127]");
@@ -492,16 +522,18 @@ int main()
         << "  real: " << sizeof(real) << "  variant: " << sizeof(variant) << endl;
 
     check(sizeof(int) == 4);
+    check(sizeof(mem) >= 4);
+
 #ifdef SH64
     check(sizeof(integer) == 8);
+#  ifdef PTR64
+    check(sizeof(variant) == 16);
+#  else
+    check(sizeof(variant) == 12);
+#  endif
 #else
     check(sizeof(integer) == 4);
-#endif
-    check(sizeof(mem) >= 4);
-#if defined(PTR32)
     check(sizeof(variant) == 8);
-#else
-    check(sizeof(variant) == 16);
 #endif
 
     try
