@@ -27,6 +27,11 @@
 #endif
 
 
+// TODO: at least the implementation of tuple should be rewritten with
+// realloc(), because we always have a vector of variants and we never
+// hold pointers to tuple members, so the pedantic pointer keeping
+// of the STL's vector<> template is overkill for us.
+
 class variant;
 class object;
 class tuple;
