@@ -12,7 +12,7 @@
 class Base: public Symbol
 {
 public:
-    enum BaseId { TYPE, VARIABLE, DEFINITION };
+    enum BaseId { TYPE, VARIABLE, DEFINITION, SCOPE };
     const BaseId baseId;
 
     Base(BaseId);
@@ -21,6 +21,7 @@ public:
     bool isType() const       { return baseId == TYPE; }
     bool isVariable() const   { return baseId == VARIABLE; }
     bool isDefinition() const { return baseId == DEFINITION; }
+    bool isScope() const      { return baseId == SCOPE; }
 };
 
 
@@ -28,7 +29,7 @@ class Type: public Base
 {
 public:
     enum TypeId { VOID, BOOL, CHAR, INT, REAL, STR, RANGE,
-        ARRAY, DICT, SET, FIFO, STATE };
+        ARRAY, DICT, TINYSET, CHARSET, SET, FIFO, STATE };
 };
 
 
