@@ -8,6 +8,7 @@
 #include <set>
 #include <iostream>
 
+#include "charset.h"
 #include "common.h"
 
 #if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
@@ -30,6 +31,7 @@ class variant;
 class object;
 class tuple;
 class dict;
+class ordset;
 class set;
 class range;
 
@@ -61,7 +63,8 @@ class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE, TUPLE, DICT, SET, OBJECT,
+    enum Type { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
+        TUPLE, DICT, ORDSET, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
@@ -69,14 +72,15 @@ protected:
     union
     {
         bool     _bool;
-        char     _char;
+        uchar    _char;
         integer  _int;
-        uinteger _tset;
+        uinteger _tinyset;
         real     _real;
         char     _str[sizeof(str)];
         object*  _obj;
         tuple*   _tuple;
         dict*    _dict;
+        ordset*  _ordset;
         set*     _set;
         range*   _range;
     } val;
@@ -84,21 +88,24 @@ protected:
     str& _str_write()               { return *(str*)val._str; }
     const str& _str_read()    const { return *(str*)val._str; }
     range& _range_write();
-    const range& _range_read() const { return *val._range; }
+    const range& _range_read() const;
     tuple& _tuple_write();
-    const tuple& _tuple_read() const { return *val._tuple; }
+    const tuple& _tuple_read() const;
     dict& _dict_write();
-    const dict& _dict_read()  const { return *val._dict; }
+    const dict& _dict_read() const;
+    ordset& _ordset_write();
+    const ordset& _ordset_read() const;
     set& _set_write();
-    const set& _set_read()    const { return *val._set; }
+    const set& _set_read() const;
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
     void _init(bool b)              { type = BOOL; val._bool = b; }
     void _init(char c)              { type = CHAR; val._char = c; }
+    void _init(uchar c)             { type = CHAR; val._char = c; }
     template<class T>
         void _init(T i)             { type = INT; val._int = i; }
-    void _init(tinyset s)           { type = TINYSET; val._tset = s.val; }
+    void _init(tinyset s)           { type = TINYSET; val._tinyset = s.val; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(const str&);
     void _init(const char*);
@@ -106,6 +113,7 @@ protected:
     void _init(range*);
     void _init(tuple*);
     void _init(dict*);
+    void _init(ordset*);
     void _init(set*);
     void _init(object*);
     void _init(const variant&);
@@ -120,6 +128,7 @@ protected:
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
     unsigned as_tiny_int() const;
+    unsigned as_char_int() const;
 /*
     // Range checking
 #ifdef RANGE_CHECKING
@@ -164,6 +173,7 @@ public:
     bool is_range()           const { return type == RANGE; }
     bool is_tuple()           const { return type == TUPLE; }
     bool is_dict()            const { return type == DICT; }
+    bool is_ordset()          const { return type == ORDSET; }
     bool is_set()             const { return type == SET; }
     bool is_ordinal()         const { return type >= BOOL && type <= INT; }
     bool is_nonpod()          const { return type >= NONPOD; }
@@ -174,9 +184,10 @@ public:
     // TODO: as_xxx(defualt)
     bool as_bool()            const { _req(BOOL); return val._bool; }
     char as_char()            const { _req(CHAR); return val._char; }
+    uchar as_uchar()          const { _req(CHAR); return val._char; }
     integer as_int()          const { _req(INT); return val._int; }
     integer as_ordinal()      const;
-    tinyset as_tinyset()      const { _req(TINYSET); return val._tset; }
+    tinyset as_tinyset()      const { _req(TINYSET); return val._tinyset; }
 /*
     template<class T>
         T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }
@@ -185,15 +196,16 @@ public:
 */
     real as_real()            const { _req(REAL); return val._real; }
     const str& as_str()       const { _req(STR); return _str_read(); }
-    const range& as_range() const;
-    const tuple& as_tuple() const;
-    const dict& as_dict() const;
-    const set& as_set() const;
+    const range& as_range()   const { _req(RANGE); return _range_read(); }
+    const tuple& as_tuple()   const { _req(TUPLE); return _tuple_read(); }
+    const dict& as_dict()     const { _req(DICT); return _dict_read(); }
+    const ordset& as_ordset() const { _req(ORDSET); return _ordset_read(); }
+    const set& as_set()       const { _req(SET); return _set_read(); }
     object* as_object()       const { _req_obj(); return val._obj; }
 
     // Container operations
     mem  size() const;                                      // str, tuple, dict
-    bool empty() const;                                     // str, tuple, dict, set, tinyset
+    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
     void append(const variant& v);                          // str
@@ -206,12 +218,12 @@ public:
     void insert(mem index, const variant&);                 // tuple
     void put(mem index, const variant&);                    // tuple
     void tie(const variant& key, const variant&);           // dict
-    void tie(const variant&);                               // set, tinyset
+    void tie(const variant&);                               // set, ordset, tinyset
     void assign(integer left, integer right);               // range
     void erase(mem index);                                  // str, tuple
     void erase(mem index, mem count);                       // str, tuple
-    void untie(const variant& key);                         // set, dict, tinyset
-    bool has(const variant& index) const;                   // dict, set, tinyset
+    void untie(const variant& key);                         // dict, set, ordset, tinyset
+    bool has(const variant& index) const;                   // dict, set, ordset, tinyset
     integer left() const;                                   // range
     integer right() const;                                  // range
     const variant& operator[] (mem index) const;            // tuple, dict[int]
@@ -366,6 +378,27 @@ protected:
 };
 
 
+class ordset: public object
+{
+    friend class variant;
+
+    charset impl;
+
+protected:
+    ordset();
+    ordset(const ordset& other): impl(other.impl)  { }
+    ~ordset();
+
+    virtual object* clone() const;
+    bool empty()                        const { return impl.empty(); }
+    void tie(int v)                           { impl.include(v); }
+    void untie(int v)                         { impl.exclude(v); }
+    bool has(int v) const                     { return impl[v]; }
+    bool operator== (const ordset& other) const { return impl.eq(other.impl); }
+    virtual void dump(std::ostream&) const;
+};
+
+
 class varstack: protected tuple_impl, public noncopyable
 {
 public:
@@ -407,6 +440,7 @@ public:
 inline range* new_range()   { return NULL; }
 inline tuple* new_tuple()   { return NULL; }
 inline dict* new_dict()     { return NULL; }
+inline ordset* new_ordset() { return NULL; }
 inline set* new_set()       { return NULL; }
 range* new_range(integer l, integer r);
 inline tinyset new_tinyset()       { return 0; }

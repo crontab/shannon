@@ -106,6 +106,7 @@ void test_variant()
         variant vt = new_tuple();       check(vt.is_tuple());   check(vt.is_null_ptr());
         variant vd = new_dict();        check(vd.is_dict());    check(vd.is_null_ptr());
         variant vs = new_set();         check(vs.is_set());     check(vs.is_null_ptr());
+        variant vos = new_ordset();     check(vos.is_ordset());    check(vos.is_null_ptr());
         variant vts = new_tinyset();    check(vts.is_tinyset());  check(vts.as_tinyset() == 0);
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
@@ -119,6 +120,7 @@ void test_variant()
         check_throw(evarianttype, v1.as_tuple());
         check_throw(evarianttype, v1.as_dict());
         check_throw(evarianttype, v1.as_set());
+        check_throw(evarianttype, v1.as_ordset());
         check_throw(evarianttype, v1.as_tinyset());
         check_throw(evarianttype, v1.as_object());
         
@@ -141,6 +143,7 @@ void test_variant()
         check(vt.to_string() == "[]");
         check(vd.to_string() == "[]");
         check(vs.to_string() == "[]");
+        check(vos.to_string() == "[]");
         check(vts.to_string() == "[]");
         check(vo.to_string() == "[test_obj]");
 
@@ -166,6 +169,7 @@ void test_variant()
         v = new_tuple();       check(v.is_null_ptr());
         v = new_dict();        check(v.is_null_ptr());
         v = new_set();         check(v.is_null_ptr());
+        v = new_ordset();      check(v.is_null_ptr());
         v = o;                 check(v.as_object() == o);
         check(v != null);
         check(!v.is_null());
@@ -179,6 +183,7 @@ void test_variant()
         check(!v.is_tuple());
         check(!v.is_dict());
         check(!v.is_set());
+        check(!v.is_ordset());
         check(!v.is_tinyset());
         v = null;
         check(!v.is_object());
@@ -209,6 +214,26 @@ void test_variant()
         check(vts.has(5));
         check(vts.has(31));
         check(!vts.has(26));
+
+        // ordset
+        check(vos.empty()); check_throw(evarianttype, vos.size());
+        vos.tie(5);
+        vos.tie(131);
+        vos.tie(255);
+        check_throw(evariantrange, vos.tie(256));
+        check_throw(evariantrange, vos.tie(1000));
+        check_throw(evariantrange, vos.tie(-1));
+        check_throw(evariantrange, vos.untie(1000));
+        check_throw(evariantrange, vos.untie(-1));
+        check_throw(evarianttype, vos.tie("abc"));
+        check(vos.to_string() == "[5, 131, 255]");
+        check(!vos.empty());
+        vos.untie(131);
+        vos.untie(30);
+        check(vos.to_string() == "[5, 255]");
+        check(vos.has(5));
+        check(vos.has(char(255)));
+        check(!vos.has(26));
 
         // str
         vst = "";

@@ -21,12 +21,13 @@ const variant null;
 const str null_str;
 const class _null_tuple: public tuple { } null_tuple;
 const class _null_dict: public dict { } null_dict;
+const class _null_ordset: public ordset { } null_ordset;
 const class _null_set: public set { } null_set;
 const class _null_range: public range { } null_range;
 
 
 #ifdef DEBUG
-int object::alloc = -4; // compensate the three static objects null_xxx above
+int object::alloc = -5; // compensate the three static objects null_xxx above
 #endif
 
 
@@ -90,6 +91,7 @@ void _unique(object*& o)
 XCLONE(range)
 XCLONE(tuple)
 XCLONE(dict)
+XCLONE(ordset)
 XCLONE(set)
 
 
@@ -159,6 +161,23 @@ void dict::dump(std::ostream& s) const
     }
 }
 
+
+ordset::ordset()      { }
+ordset::~ordset()     { }
+
+void ordset::dump(std::ostream& s) const
+{
+    int cnt = 0;
+    for (int i = 0; i < charset::BITS; i++)
+        if (impl[i])
+        {
+            if (++cnt > 1)
+                s << ", ";
+            s << i;
+        }
+}
+
+
 set::set()      { }
 set::~set()     { }
 
@@ -179,6 +198,7 @@ void variant::_init(range* r)       { type = RANGE; val._range = grab(r); }
 void variant::_init(integer l, integer r) { type = RANGE; val._range = grab(new_range(l, r)); }
 void variant::_init(tuple* t)       { type = TUPLE; val._tuple = grab(t); }
 void variant::_init(dict* d)        { type = DICT; val._dict = grab(d); }
+void variant::_init(ordset* s)      { type = ORDSET; val._ordset = grab(s); }
 void variant::_init(set* s)         { type = SET; val._set = grab(s); }
 void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
 
@@ -193,7 +213,7 @@ void variant::_init(const variant& other)
     case BOOL: val._bool = other.val._bool; break;
     case CHAR: val._char = other.val._char; break;
     case INT:  val._int = other.val._int; break;
-    case TINYSET: val._tset = other.val._tset; break;
+    case TINYSET: val._tinyset = other.val._tinyset; break;
     case REAL: val._real = other.val._real; break;
     case STR:
         ::new(&_str_write()) str(other._str_read());
@@ -277,7 +297,7 @@ void variant::dump(std::ostream& s) const
             s << '[';
             int cnt = 0;
             for (int i = 0; i < TINYSET_BITS; i++)
-                if (val._tset & (uinteger(1) << i))
+                if (val._tinyset & (uinteger(1) << i))
                 {
                     if (++cnt > 1)
                         s << ", ";
@@ -312,22 +332,16 @@ bool variant::operator== (const variant& other) const
         return false;
     switch (type)
     {
-    case NONE: return true;
-    case BOOL: return val._bool == other.val._bool;
-    case CHAR: return val._char == other.val._char;
-    case INT:  return val._int == other.val._int;
-    case TINYSET: return val._tset == other.val._tset;
-    case REAL: return val._real == other.val._real;
-    case STR:  return _str_read() == other._str_read();
-    case RANGE:
-    {
-        if (val._range == NULL)
-            return other.val._range == NULL;
-        if (other.val._range == NULL)
-            return false;
-        return _range_read().equals(other._range_read());
-    }
-    default:   return val._obj == other.val._obj;
+    case NONE:      return true;
+    case BOOL:      return val._bool == other.val._bool;
+    case CHAR:      return val._char == other.val._char;
+    case INT:       return val._int == other.val._int;
+    case TINYSET:   return val._tinyset == other.val._tinyset;
+    case REAL:      return val._real == other.val._real;
+    case STR:       return _str_read() == other._str_read();
+    case RANGE:     return _range_read().equals(other._range_read());
+    case ORDSET:    return _ordset_read() == other._ordset_read();
+    default:        return val._obj == other.val._obj; // TODO: a virtual call?
     }
 }
 
@@ -342,7 +356,7 @@ bool variant::operator< (const variant& other) const
     case BOOL: return val._bool < other.val._bool;
     case CHAR: return val._char < other.val._char;
     case INT:  return val._int < other.val._int;
-    case TINYSET: return val._tset < other.val._tset;
+    case TINYSET: return val._tinyset < other.val._tinyset;
     case REAL: return val._real < other.val._real;
     case STR:  return _str_read() < other._str_read();
     default:    // containers and objects
@@ -381,30 +395,31 @@ unsigned variant::as_tiny_int() const
 }
 
 
-// as_xxx(): return a const implementation of a container, may be one of the
-// statuc null_xxx objects
-
-#define ASX(t,n) const t& variant::as_##t() const \
-    { _req(n); if (val._##t == NULL) return null_##t; return *val._##t; }
-    
-ASX(range, RANGE)
-ASX(tuple, TUPLE)
-ASX(dict, DICT)
-ASX(set, SET)
+unsigned variant::as_char_int() const
+{
+    integer i = as_ordinal();
+    if (i < 0 || i >= 256)
+        _range_err();
+    return i;
+}
 
 
 // _xxx_write(): return a unique container implementation, create if necessary
+// _xxx_read(): return a const ref to an object, possibly null_xxx if empty
 
-#define XIMPL(t) t& variant::_##t##_write() \
-    { if (val._##t == NULL) \
-          val._##t = grab(new t()); \
-      else \
-          unique(val._##t); \
-      return *val._##t; }
+#define XIMPL(t) \
+    t& variant::_##t##_write() \
+        { if (val._##t == NULL) val._##t = grab(new t()); \
+          else  unique(val._##t); \
+          return *val._##t; } \
+    const t& variant::_##t##_read() const \
+        { if (val._##t == NULL) return null_##t; \
+          return *val._##t; }
 
 XIMPL(range)
 XIMPL(tuple)
 XIMPL(dict)
+XIMPL(ordset)
 XIMPL(set)
 
 
@@ -413,8 +428,8 @@ mem variant::size() const
     switch (type)
     {
     case STR:   return _str_read().size();
-    case TUPLE: if (val._tuple == NULL) return 0; return _tuple_read().size();
-    case DICT:  if (val._dict == NULL) return 0; return _dict_read().size();
+    case TUPLE: return _tuple_read().size();
+    case DICT:  return _dict_read().size();
     default: _type_err(); return 0;
     }
 }
@@ -424,11 +439,12 @@ bool variant::empty() const
 {
     switch (type)
     {
-    case TINYSET: return val._tset == 0;
+    case TINYSET: return val._tinyset == 0;
     case STR:   return _str_read().empty();
     case RANGE: if (val._range == NULL) return true; return _range_read().empty();
     case TUPLE: if (val._tuple == NULL) return true; return _tuple_read().empty();
     case DICT:  if (val._dict == NULL) return true; return _dict_read().empty();
+    case ORDSET: if (val._ordset == NULL) return true; return _ordset_read().empty();
     case SET:   if (val._set == NULL) return true; return _set_read().empty();
     default: _type_err(); return false;
     }
@@ -492,12 +508,13 @@ void variant::tie(const variant& key, const variant& value)
 }
 
 
-void variant::tie(const variant& v)
+void variant::tie(const variant& key)
 {
     switch (type)
     {
-    case TINYSET: val._tset |= uinteger(1) << v.as_tiny_int(); break;
-    case SET: _set_write().tie(v); break;
+    case TINYSET: val._tinyset |= uinteger(1) << key.as_tiny_int(); break;
+    case ORDSET: _ordset_write().tie(key.as_char_int()); break;
+    case SET: _set_write().tie(key); break;
     default: _type_err(); break;
     }
 }
@@ -536,8 +553,9 @@ void variant::untie(const variant& key)
 {
     switch (type)
     {
-    case TINYSET: val._tset &= ~(uinteger(1) << key.as_tiny_int()); break;
+    case TINYSET: val._tinyset &= ~(uinteger(1) << key.as_tiny_int()); break;
     case DICT: _dict_write().untie(key); break;
+    case ORDSET: _ordset_write().untie(key.as_char_int()); break;
     case SET: _set_write().untie(key); break;
     default: _type_err(); break;
     }
@@ -549,8 +567,6 @@ const variant& variant::operator[] (mem index) const
     if (type == DICT)
         return operator[] (variant(index));
     _req(TUPLE);
-    if (val._tuple == NULL)
-        _index_err();
     if (index < 0 || index >= _tuple_read().size())
         _index_err();
     return _tuple_read()[index];
@@ -560,8 +576,6 @@ const variant& variant::operator[] (mem index) const
 const variant& variant::operator[] (const variant& index) const
 {
     _req(DICT);
-    if (val._dict == NULL)
-        return null;
     dict_iterator it = _dict_read().find(index);
     if (it == _dict_read().end())
         return null;
@@ -573,21 +587,12 @@ bool variant::has(const variant& index) const
 {
     switch (type)
     {
-    case TINYSET:
-        return val._tset & (uinteger(1) << index.as_tiny_int());
-    case RANGE:
-        if (val._range == NULL)
-            return false;
-        return _range_read().has(index.as_int());
-    case DICT:
-        if (val._dict == NULL)
-            return false;
-        return _dict_read().find(index) != _dict_read().end();
-    case SET:
-        if (val._set == NULL)
-            return false;
-        return _set_read().find(index) != _set_read().end();
-    default: _type_err(); return false;
+    case TINYSET:   return val._tinyset & (uinteger(1) << index.as_tiny_int());
+    case RANGE:     return _range_read().has(index.as_int());
+    case DICT:      return _dict_read().find(index) != _dict_read().end();
+    case ORDSET:    return _ordset_read().has(index.as_char_int());
+    case SET:       return _set_read().find(index) != _set_read().end();
+    default:        _type_err(); return false;
     }
 }
 

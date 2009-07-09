@@ -9,7 +9,7 @@ static unsigned char rbitmask[8] = {0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0x
 const char charsetesc = '~';
 
 
-void charset::include(char min, char max)
+void charset::include(int min, int max)
 {
     if (uchar(min) > uchar(max))
         return;
@@ -85,37 +85,46 @@ void charset::assign(const char* p)
 }
 
 
+bool charset::empty() const
+{
+    for(int i = 0; i < WORDS; i++) 
+        if (*((unsigned*)(data) + i) != 0)
+            return false;
+    return true;
+}
+
+
 void charset::unite(const charset& s) 
 {
-    for(int i = 0; i < charsetwords; i++) 
+    for(int i = 0; i < WORDS; i++) 
         *((unsigned*)(data) + i) |= *((unsigned*)(s.data) + i);
 }
 
 
 void charset::subtract(const charset& s) 
 {
-    for(int i = 0; i < charsetwords; i++) 
+    for(int i = 0; i < WORDS; i++) 
         *((unsigned*)(data) + i) &= ~(*((unsigned*)(s.data) + i));
 }
 
 
 void charset::intersect(const charset& s) 
 {
-    for(int i = 0; i < charsetwords; i++) 
+    for(int i = 0; i < WORDS; i++) 
         *((unsigned*)(data) + i) &= *((unsigned*)(s.data) + i);
 }
 
 
 void charset::invert() 
 {
-    for(int i = 0; i < charsetwords; i++) 
+    for(int i = 0; i < WORDS; i++) 
         *((unsigned*)(data) + i) = ~(*((unsigned*)(data) + i));
 }
 
 
 bool charset::le(const charset& s) const 
 {
-    for (int i = 0; i < charsetwords; i++) 
+    for (int i = 0; i < WORDS; i++) 
     {
         int w1 = *((unsigned*)(data) + i);
         int w2 = *((unsigned*)(s.data) + i);
