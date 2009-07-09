@@ -45,8 +45,8 @@ class pod_fifo: public fifo_intf
     
     chunk* first;   // in
     chunk* last;    // out
-    int head_offs;
-    int tail_offs;
+    int first_offs;
+    int last_offs;
     bool is_char;
 
     void internal() const;
@@ -58,9 +58,9 @@ class pod_fifo: public fifo_intf
     // virtual object* clone() const;
 public:
     pod_fifo(bool is_char);
-    ~pod_fifo();
+//    ~pod_fifo();
 
-    virtual bool empty() const { return tail == NULL; }
+    virtual bool empty() const;
 
     // virtual void dump(std::ostream&) const;
 };
@@ -71,14 +71,14 @@ public:
 
 
 pod_fifo::pod_fifo(bool is_char)
-    : head(NULL), tail(NULL), head_offs(0), tail_offs(0), is_char(is_char)  { }
+    : first(NULL), last(NULL), first_offs(0), last_offs(0), is_char(is_char)  { }
 
 
 void pod_fifo::internal() const
     { fatal(0x1002, "FIFO type mismatch"); }
 
 
-bool pod_fifo::empty() const { return tail == NULL; }
+bool pod_fifo::empty() const { return last == NULL; }
 
 
 int main()
