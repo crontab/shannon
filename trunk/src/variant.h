@@ -153,7 +153,8 @@ public:
     variant(integer l, integer r)   { _init(l, r); }
     variant(const variant& v)       { _init(v); }
     ~variant()                      { _fin(); }
-
+    
+    void clear()                    { _fin(); _init(); }
     void operator=(None)            { _fin(); _init(); }
     template<class T>
     // TODO: check cases when the same value is assigned (e.g. v = v)
