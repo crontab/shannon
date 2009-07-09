@@ -19,8 +19,8 @@ public:
 
 /*
     virtual bool is_char_fifo() const = 0;
-    virtual str  cdeq(int) = 0;
-    virtual void cenq(const str&, int) = 0;
+    virtual str  cdeq(mem) = 0;
+    virtual void cenq(const str&) = 0;
     virtual char cpreview() const = 0;
     virtual char get() = 0;
     virtual str  token(const cset&) = 0;
@@ -33,7 +33,7 @@ class pod_fifo: public fifo_intf
 {
     enum { CHUNK_SIZE = 256 };
 
-    struct chunk
+    struct chunk: noncopyable
     {
         char data[CHUNK_SIZE];
         chunk* next;
@@ -43,8 +43,8 @@ class pod_fifo: public fifo_intf
             : next(next), prev(prev)  { }
     };
     
-    chunk* head;
-    chunk* tail;
+    chunk* first;   // in
+    chunk* last;    // out
     int head_offs;
     int tail_offs;
     bool is_char;
@@ -53,10 +53,14 @@ class pod_fifo: public fifo_intf
     void enq_chunk();
     void deq_chunk();
 
+    mem get_avail() const;
+
     // virtual object* clone() const;
 public:
     pod_fifo(bool is_char);
     ~pod_fifo();
+
+    virtual bool empty() const { return tail == NULL; }
 
     // virtual void dump(std::ostream&) const;
 };
@@ -70,39 +74,11 @@ pod_fifo::pod_fifo(bool is_char)
     : head(NULL), tail(NULL), head_offs(0), tail_offs(0), is_char(is_char)  { }
 
 
-pod_fifo::~pod_fifo()
-{
-    while (tail != NULL)
-    {
-        tail_offs = 0;
-        deq_chunk();
-    }
-}
-
-
 void pod_fifo::internal() const
     { fatal(0x1002, "FIFO type mismatch"); }
 
 
-void pod_fifo::enq_chunk()
-{
-    assert(head_offs == 0);
-    head = new chunk(head, NULL);
-    head_offs = CHUNK_SIZE;
-}
-
-
-void pod_fifo::deq_chunk()
-{
-    assert(tail_offs == 0 && tail != NULL && tail->next == NULL);
-    chunk* c = tail;
-    tail = c->prev;
-    delete c;
-    if (tail != NULL)
-        tail_offs = CHUNK_SIZE;
-    else
-        head = NULL;
-}
+bool pod_fifo::empty() const { return tail == NULL; }
 
 
 int main()
