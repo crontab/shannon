@@ -79,6 +79,8 @@ template<class T>
 // The eternal int-to-string problem in C++
 str to_string(integer value);
 str to_string(integer value, int base, int width = 0, char fill = '0');
+str to_string(uinteger value);
+str to_string(mem value);
 uinteger from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 

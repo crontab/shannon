@@ -48,7 +48,7 @@ public:
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
 
-    virtual bool empty() = 0;
+    virtual bool empty();   // throws efifowronly
 
     // Variant FIFO operations
     void var_enq(const variant&);
@@ -66,11 +66,18 @@ public:
     mem  enq(const char* p, mem count)  { return enq_chars(p, count); }
     mem  enq(const str& s)              { return enq_chars(s.data(), s.size()); }
 
-    virtual void dump(std::ostream&) const; // just displays <fifo>
+    virtual void dump(fifo_intf&) const; // just displays <fifo>
 
-    // TODO: iostream-like << operators for everything to completely replace
-    // the std::iostream. Possibly only output methods are needed.
+    fifo_intf& operator<< (const char* s);
+    fifo_intf& operator<< (const str& s)    { enq(s); return *this; }
+    fifo_intf& operator<< (integer);
+    fifo_intf& operator<< (uinteger);
+    fifo_intf& operator<< (mem);
+    fifo_intf& operator<< (char c)          { enq(&c, 1); return *this; }
+    fifo_intf& operator<< (uchar c)         { enq((char*)&c, 1); return *this; }
 };
+
+const char endl = '\n';
 
 
 // The fifo class implements a linked list of "chunks" in memory, where
@@ -128,7 +135,7 @@ public:
     void clear();
 
     virtual bool empty();
-    // virtual void dump(std::ostream&) const;
+    // virtual void dump(fifo_intf&) const;
 };
 
 
@@ -173,9 +180,30 @@ public:
     str_fifo();
     str_fifo(const str&);
     ~str_fifo();
+
     bool empty();
     void flush();
+
+    str all() const;
 };
+
+
+// Non-buffered file output, suitable for standard out/err, should be static
+// in the program.
+class std_file: public fifo_intf
+{
+protected:
+    int _fd;
+    virtual mem enq_chars(const char*, mem);
+public:
+    std_file(int fd);
+    ~std_file();
+};
+
+
+extern std_file fout;
+extern std_file ferr;
+
 
 
 #endif // __FIFO_H

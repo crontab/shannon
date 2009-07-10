@@ -2,7 +2,7 @@
 
 debug/common.o: common.h
 debug/charset.o: charset.h
-debug/variant.o: variant.h charset.h common.h
+debug/variant.o: variant.h charset.h common.h fifo.h
 debug/source.o: source.h charset.h common.h variant.h bsearch.h
 debug/fifo.o: fifo.h common.h charset.h variant.h
 debug/symbols.o: symbols.h variant.h charset.h common.h
