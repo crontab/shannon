@@ -7,62 +7,7 @@
 #include "charset.h"
 #include "common.h"
 #include "variant.h"
-
-
-#define INFILE_BUFSIZE 8192
-#define DEFAULT_TAB_SIZE 8
-
-
-class InText: public object
-{
-protected:
-    char* buffer;
-    int   bufsize;
-    int   bufpos;
-    int   linenum;
-    int   column;
-    bool  eof;
-    int   tabsize;
-
-    void error(int code) throw(esyserr);
-    virtual void validateBuffer() = 0;
-    void doSkipEol();
-    void skipTo(char c);
-    void token(const charset& chars, str& result, bool skip);
-
-public:
-    InText();
-    virtual ~InText();
-    
-    virtual str getFileName() = 0;
-    int  getLineNum()       { return linenum; }
-    int  getColumn()        { return column; }
-    bool getEof()           { return eof; }
-    bool getEol();
-    bool isEolChar(char c)  { return c == '\r' || c == '\n'; }
-    char preview();
-    char get();
-    bool getIf(char);
-    void skipEol();
-    str token(const charset& chars);
-    void skip(const charset& chars);
-};
-
-
-
-class InFile: public InText
-{
-protected:
-    str  filename;
-    int  fd;
-
-    virtual void validateBuffer();
-
-public:
-    InFile(const str& filename);
-    virtual ~InFile();
-    virtual str getFileName();
-};
+#include "fifo.h"
 
 
 struct EParser: public emessage
@@ -123,10 +68,12 @@ enum SyntaxMode { syntaxIndent, syntaxCurly };
 class Parser
 {
 protected:
-    objptr<InText> input;
+    str fileName;
+    objptr<fifo_intf> input;
     bool blankLine;
     std::stack<int> indentStack;
     int linenum;
+    int indent;
     bool singleLineBlock; // if a: b = c
 
     str errorLocation() const;
@@ -139,7 +86,7 @@ public:
     str strValue;
     uinteger intValue;
     
-    Parser(InText*);
+    Parser(const str&, fifo_intf*);
     ~Parser();
     
     Token next();
@@ -159,8 +106,11 @@ public:
     void skipBlockEnd();
     str getIdent();
     
-    str getFileName() const { return input->getFileName(); }
+    str getFileName() const { return fileName; }
     int getLineNum() const { return linenum; }
+    int getIndent() const { return indent; }
+    
+    void skipEol();
 };
 
 
