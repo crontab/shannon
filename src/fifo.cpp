@@ -1,5 +1,4 @@
 
-#include <iostream>
 
 #include "fifo.h"
 
@@ -19,7 +18,8 @@ const char* fifo_intf::get_tail(mem*)       { throw efifowronly(); }
 void fifo_intf::deq_bytes(mem)              { throw efifowronly(); }
 variant* fifo_intf::enq_var()               { throw efifordonly(); }
 mem fifo_intf::enq_chars(const char*, mem)  { throw efifordonly(); }
-void fifo_intf::dump(std::ostream& s) const { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
+bool fifo_intf::empty()                     { throw efifowronly(); }
+void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
 fifo::fifo(bool _char)
@@ -128,6 +128,19 @@ void fifo_intf::_token(const charset& chars, str* result)
             break;
     }
 }
+
+
+fifo_intf& fifo_intf::operator<< (const char* s)
+{
+    if (s != NULL)
+        enq(s, strlen(s));
+    return *this;
+}
+
+
+fifo_intf& fifo_intf::operator<< (integer i)  { enq(to_string(i)); return *this; }
+fifo_intf& fifo_intf::operator<< (uinteger i) { enq(to_string(i)); return *this; }
+fifo_intf& fifo_intf::operator<< (mem i)      { enq(to_string(i)); return *this; }
 
 
 // --- fifo ---------------------------------------------------------------- //
@@ -263,7 +276,7 @@ mem fifo::enq_chars(const char* p, mem count)
 
 
 /*
-void fifo::dump(std::ostream& s) const
+void fifo::dump(fifo_intf& s) const
 {
     chunk* c = tail;
     int cnt = 0;
@@ -421,4 +434,40 @@ void str_fifo::flush()
     buffer = (char*)string.data();
     bufsize += fifo::CHUNK_SIZE;
 }
+
+
+str str_fifo::all() const
+{
+    if (string.empty() || buftail == bufhead)
+        return null_str;
+    return string.substr(buftail, bufhead - buftail);
+}
+
+
+// --- out_file ------------------------------------------------------------ //
+
+
+// *BSD/Darwin hack
+#ifndef O_LARGEFILE
+#  define O_LARGEFILE 0
+#endif
+
+
+std_file::std_file(int fd)
+    : fifo_intf(true), _fd(fd)
+{
+    pincrement(&refcount);  // prevent auto pointers from freeing this object,
+                            // as it is supposed to be static
+#ifdef DEBUG
+    object::alloc--;        // compensate static objects
+#endif
+}
+
+
+std_file::~std_file()                               { pdecrement(&refcount); }
+mem std_file::enq_chars(const char* p, mem count)   { return ::write(_fd, p, count); }
+
+
+std_file fout(STDIN_FILENO);
+std_file ferr(STDERR_FILENO);
 

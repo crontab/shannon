@@ -1,7 +1,7 @@
 
-#include <assert.h>
-
-#include <iostream>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "fifo.h"
 #include "typesys.h"
@@ -18,6 +18,8 @@ int main()
         Parser parser(new InFile("x"));
         List<Symbol> list;
         fifo f(true);
+        
+        fout << "Hello, world" << endl;
     }
 #ifdef DEBUG
     assert(object::alloc == 0);

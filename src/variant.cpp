@@ -1,9 +1,10 @@
 
 #define __STDC_LIMIT_MACROS
 
-#include <sstream>
 
 #include "variant.h"
+#include "fifo.h"
+
 
 const variant null;
 const str null_str;
@@ -38,7 +39,7 @@ object::~object()
 
 
 object* object::clone()                 const { throw evariantclone(); }
-void object::dump(std::ostream& s)      const { s << "object"; }
+void object::dump(fifo_intf& s)         const { s << "object"; }
 bool object::less_than(object* other)   const { return this < other; }
 
 
@@ -102,7 +103,7 @@ bool range::less_than(object* o) const
     return right < other.right;
 }
 
-void range::dump(std::ostream& s) const
+void range::dump(fifo_intf& s) const
 {
     if (!empty())
         s << left << ".." << right;
@@ -124,7 +125,7 @@ void tuple::erase(mem i, mem count)
     impl.erase(impl.begin() + i, impl.begin() + i + count - 1);
 }
 
-void tuple::dump(std::ostream& s) const
+void tuple::dump(fifo_intf& s) const
 {
     foreach(tuple_impl::const_iterator, i, impl)
     {
@@ -138,7 +139,7 @@ void tuple::dump(std::ostream& s) const
 dict::dict()    { }
 dict::~dict()   { }
 
-void dict::dump(std::ostream& s) const
+void dict::dump(fifo_intf& s) const
 {
     foreach(dict_impl::const_iterator, i, impl)
     {
@@ -152,7 +153,7 @@ void dict::dump(std::ostream& s) const
 ordset::ordset()      { }
 ordset::~ordset()     { }
 
-void ordset::dump(std::ostream& s) const
+void ordset::dump(fifo_intf& s) const
 {
     int cnt = 0;
     for (int i = 0; i < charset::BITS; i++)
@@ -168,7 +169,7 @@ void ordset::dump(std::ostream& s) const
 set::set()      { }
 set::~set()     { }
 
-void set::dump(std::ostream& s) const
+void set::dump(fifo_intf& s) const
 {
     foreach(set_impl::const_iterator, i, impl)
     {
@@ -271,7 +272,7 @@ void variant::_fin2()
 }
 
 
-void variant::dump(std::ostream& s) const
+void variant::dump(fifo_intf& s) const
 {
     switch (type)
     {
@@ -293,7 +294,7 @@ void variant::dump(std::ostream& s) const
             s << ']';
         }
         break;
-    case REAL: s << val._real; break;
+    case REAL: s << integer(val._real); break; // TODO: !!!
     case STR:  s << '"' << _str_read() << '"'; break;
     default:    // containers and objects
         s << '[';
@@ -307,9 +308,9 @@ void variant::dump(std::ostream& s) const
 
 str variant::to_string() const
 {
-    std::stringstream s;
+    str_fifo s;
     dump(s);
-    return s.str();
+    return s.all();
 }
 
 
@@ -595,4 +596,7 @@ integer variant::left() const
 
 integer variant::right() const
     { _req(RANGE); if (val._range == NULL) return -1; return _range_read().right; }
+
+
+fifo_intf& operator<< (fifo_intf& s, const variant& v)  { v.dump(s); return s; }
 

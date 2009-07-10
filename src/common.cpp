@@ -1,8 +1,5 @@
 
 
-#include <sstream>
-#include <iomanip>
-
 #include "common.h"
 
 
@@ -13,20 +10,132 @@ void fatal(int code, const char* msg)
 }
 
 
-str to_string(integer value)
+static const char* _itobase(integer value, char* buf, int base, int& len, bool _signed)
 {
-    std::stringstream s;
-    s << value;
-    return s.str();
+    // internal conversion routine: converts the value to a string 
+    // at the end of the buffer and returns a pointer to the first
+    // character. this is to get rid of copying the string to the 
+    // beginning of the buffer, since finally the string is supposed 
+    // to be copied to a dynamic string in itostring(). the buffer 
+    // must be at least 65 bytes long.
+
+    static char digits[65] = 
+        "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    char* pdigits;
+    if (base > 36)
+	pdigits = digits;       // start from '.'
+    else
+	pdigits = digits + 2;   // start from '0'
+    
+    int i = 64;
+    buf[i] = 0;
+
+    bool neg = false;
+    uinteger v = value;
+    if (_signed && base == 10 && value < 0)
+    {
+        v = -value;
+        // since we can't handle the lowest signed value, we just return a built-in string.
+        if (integer(v) < 0)   // an LLONG_MIN value negated results in the same value
+        {
+            if (sizeof(integer) == 8)
+            {
+                len = 20;
+                return "-9223372036854775808";
+            }
+            else if (sizeof(integer) == 4)
+            {
+                len = 11;
+                return "-2147483648";
+            }
+            else
+                abort();
+        }
+        neg = true;
+    }
+
+    do
+    {
+        buf[--i] = pdigits[unsigned(v % base)];
+        v /= base;
+    } while (v > 0);
+
+    if (neg)
+        buf[--i] = '-';
+
+    len = 64 - i;
+    return buf + i;
 }
 
 
-str to_string(integer value, int base, int width, char fill)
+static void _itobase2(str& result, integer value, int base, int width, char padchar, bool _signed)
 {
-    using namespace std;
-    stringstream s;
-    s << setbase(base) << setw(width) << setfill(fill) << value;
-    return s.str();
+    result.clear();
+
+    if (base < 2 || base > 64)
+        return;
+
+    char buf[65];   // the longest possible string is when base=2
+    int reslen;
+    const char* p = _itobase(value, buf, base, reslen, _signed);
+
+    if (width > reslen)
+    {
+        if (padchar == 0)
+        {
+            // default pad char
+            if (base == 10)
+                padchar = ' ';
+            else if (base > 36)
+                padchar = '.';
+            else
+                padchar = '0';
+        }
+
+        bool neg = *p == '-';
+        if (neg) { p++; reslen--; }
+        width -= reslen;
+        if (width > 0)
+            result.resize(width, padchar);
+        result.append(p, reslen);
+        if (neg)
+            result[0] = '-';
+    }
+    else 
+        result.assign(p, reslen);
+}
+
+
+str to_string(integer value, int base, int width, char padchar) 
+{
+    str result;
+    _itobase2(result, value, base, width, padchar, true);
+    return result;
+}
+
+
+str to_string(integer value)
+{
+    str result;
+    _itobase2(result, value, 10, 0, ' ', true);
+    return result;
+}
+
+
+str to_string(uinteger value)
+{
+    str result;
+    _itobase2(result, value, 10, 0, ' ', false);
+    return result;
+}
+
+
+str to_string(mem value)
+{
+    str result;
+    _itobase2(result, value, 10, 0, ' ', false);
+    return result;
 }
 
 

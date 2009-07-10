@@ -39,6 +39,7 @@ class ordset;
 class set;
 class range;
 
+class fifo_intf;
 
 typedef std::vector<variant> tuple_impl;
 typedef std::map<variant, variant> dict_impl;
@@ -166,7 +167,7 @@ public:
     bool operator!= (const variant& v)
                               const { return !(this->operator==(v)); }
 
-    void dump(std::ostream&) const;
+    void dump(fifo_intf&) const;
     str  to_string() const;
     bool operator< (const variant& v) const;
 
@@ -250,8 +251,7 @@ public:
 };
 
 
-inline std::ostream& operator<< (std::ostream& s, const variant& v)
-    { v.dump(s); return s; }
+fifo_intf& operator<< (fifo_intf&, const variant&);
 
 
 class object: public noncopyable
@@ -274,7 +274,7 @@ public:
     object();
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
 };
 
@@ -312,7 +312,7 @@ protected:
     void assign(integer l, integer r)  { left = l; right = r; }
     bool empty() const  { return left > right; }
     bool has(integer i) const  { return i >= left && i <= right; }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
     bool equals(const range& other) const;
     virtual bool less_than(object* o) const;
 };
@@ -339,7 +339,7 @@ protected:
     void erase(mem i)                         { impl.erase(impl.begin() + i); }
     void erase(mem index, mem count);
     const variant& operator[] (mem i)   const { return impl[i]; }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
 };
 
 
@@ -360,7 +360,7 @@ protected:
     void untie(const variant& v)              { impl.erase(v); }
     variant& operator[] (const variant& v)    { return impl[v]; }
     dict_iterator find(const variant& v)const { return impl.find(v); }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
     dict_iterator begin()               const { return impl.begin(); }
     dict_iterator end()                 const { return impl.end(); }
 };
@@ -383,7 +383,7 @@ protected:
     void tie(const variant& v)                { impl.insert(v); }
     void untie(const variant& v)              { impl.erase(v); }
     set_iterator find(const variant& v) const { return impl.find(v); }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
     set_iterator begin()                const { return impl.begin(); }
     set_iterator end()                  const { return impl.end(); }
 };
@@ -406,7 +406,7 @@ protected:
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
     bool equals (const ordset& other)   const { return impl.eq(other.impl); }
-    virtual void dump(std::ostream&) const;
+    virtual void dump(fifo_intf&) const;
 };
 
 
