@@ -6,7 +6,6 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <iostream>
 
 #include "charset.h"
 #include "common.h"

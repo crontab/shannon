@@ -2,9 +2,11 @@
 
 release/common.o: common.h
 release/charset.o: charset.h
-release/variant.o: common.h variant.h charset.h
+release/variant.o: variant.h charset.h common.h
 release/source.o: source.h charset.h common.h variant.h bsearch.h
+release/fifo.o: fifo.h common.h charset.h variant.h
 release/symbols.o: symbols.h variant.h charset.h common.h
 release/typesys.o: typesys.h common.h variant.h charset.h symbols.h
-release/main.o: charset.h typesys.h common.h variant.h symbols.h source.h
-release/main-ut.o: common.h variant.h charset.h symbols.h source.h
+release/main.o: fifo.h common.h charset.h variant.h typesys.h symbols.h
+release/main.o: source.h
+release/main-ut.o: common.h variant.h charset.h fifo.h symbols.h source.h

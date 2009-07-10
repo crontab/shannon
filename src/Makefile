@@ -5,16 +5,16 @@ CXXROPTS = -Wall -Werror -fno-rtti -O2
 
 
 DOBJS = debug/common.o debug/charset.o debug/variant.o debug/source.o \
-	debug/symbols.o debug/typesys.o
+	debug/fifo.o debug/symbols.o debug/typesys.o
 
 ROBJS = release/common.o release/charset.o release/variant.o release/source.o \
-	release/symbols.o release/typesys.o
+	release/fifo.o release/symbols.o release/typesys.o
 
 SRCS = common.cpp charset.cpp variant.cpp source.cpp \
-	symbols.cpp typesys.cpp \
+	fifo.cpp symbols.cpp typesys.cpp \
 	main.cpp main-ut.cpp
 
-HDRS = common.h charset.h variant.h bsearch.h source.h \
+HDRS = common.h charset.h variant.h fifo.h bsearch.h source.h \
 	symbols.h typesys.h
 
 

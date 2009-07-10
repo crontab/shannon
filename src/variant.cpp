@@ -1,20 +1,8 @@
 
 #define __STDC_LIMIT_MACROS
 
-#include <stdint.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <limits.h>
-
-#include <exception>
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
 #include <sstream>
-#include <iostream>
 
-#include "common.h"
 #include "variant.h"
 
 const variant null;
