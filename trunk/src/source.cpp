@@ -2,177 +2,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "source.h"
 #include "bsearch.h"
-
-
-InText::InText()
-    : buffer(NULL), bufsize(0), bufpos(0), linenum(0),
-      column(0), eof(false), tabsize(DEFAULT_TAB_SIZE)
-{
-}
-
-
-InText::~InText()  { }
-
-
-void InText::error(int code) throw(esyserr)
-{
-    eof = true;
-    throw esyserr(code, getFileName());
-}
-
-
-char InText::preview()
-{
-    if (bufpos == bufsize)
-        validateBuffer();
-    if (eof)
-        return 0;
-    return buffer[bufpos];
-}
-
-
-char InText::get()
-{
-    if (bufpos == bufsize)
-        validateBuffer();
-    if (eof)
-        return 0;
-    return buffer[bufpos++];
-}
-
-
-bool InText::getIf(char c)
-{
-    if (preview() == c)
-    {
-        get();
-        return true;
-    }
-    return false;
-}
-
-
-void InText::doSkipEol()
-{
-    linenum++;
-    column = 0;
-}
-
-
-void InText::skipEol()
-{
-    char c = preview();
-    if (c == '\r')
-    {
-        get();
-        c = preview();
-    }
-    if (c == '\n')
-    {
-        get();
-        doSkipEol();
-    }
-}
-
-
-bool InText::getEol()
-{
-    char c = preview();
-    return eof || isEolChar(c);
-}
-
-
-void InText::token(const charset& chars, str& result, bool noresult)
-{
-    do
-    {
-        if (bufpos == bufsize)
-            validateBuffer();
-        if (eof)
-            return;
-        const char* b = buffer + bufpos;
-        register const char* p = b;
-        register const char* e = buffer + bufsize;
-        while (p < e && chars[*p])
-        {
-            switch (*p)
-            {
-                case '\t': column = ((column / tabsize) + 1) * tabsize; break;
-                case '\n': doSkipEol(); break;
-                default: column++; break;
-            }
-            p++;
-        }
-        bufpos += p - b;
-        if (!noresult && p > b)
-            result.append(b, p - b);
-    }
-    while (bufpos == bufsize);
-}
-
-
-str InText::token(const charset& chars)
-{
-    str result;
-    token(chars, result, false);
-    return result;
-}
-
-
-void InText::skip(const charset& chars)
-{
-    str result;
-    token(chars, result, true);
-}
-
-
-InFile::InFile(const str& ifilename)
-    : InText(), filename(ifilename), fd(-1)
-{
-    buffer = new char[INFILE_BUFSIZE];
-}
-
-
-InFile::~InFile()
-{
-    if (fd >= 0)
-    {
-        close(fd);
-        eof = true;
-        fd = -1;
-    }
-    delete buffer;
-    buffer = NULL;
-}
-
-
-void InFile::validateBuffer()
-{
-    if (!eof && fd < 0)
-    {
-        fd = open(filename.c_str(), O_RDONLY);
-        if (fd < 0)
-            error(errno);
-        linenum = 1;
-    }
-    if (!eof && bufpos == bufsize)
-    {
-        int result = read(fd, buffer, INFILE_BUFSIZE);
-        if (result < 0)
-            error(errno);
-        bufpos = 0;
-        bufsize = result;
-        eof = result == 0;
-    }
-}
-
-
-str InFile::getFileName()
-{
-    return filename;
-}
+#include "source.h"
 
 
 // --- KEYWORDS ------------------------------------------------------------ //
@@ -307,9 +138,9 @@ str mkPrintable(const str& s)
 }
 
 
-Parser::Parser(InText* input)
-    : input(input), blankLine(true),
-      indentStack(), linenum(0),
+Parser::Parser(const str& fn, fifo_intf* input)
+    : fileName(fn), input(input), blankLine(true),
+      indentStack(), linenum(1), indent(0),
       singleLineBlock(false), token(tokUndefined), strValue(),
       intValue(0)
 {
@@ -323,7 +154,7 @@ Parser::~Parser()
 
 
 void Parser::error(const str& msg)
-    { throw EParser(input->getFileName(), getLineNum(), "Error: " + msg); }
+    { throw EParser(getFileName(), getLineNum(), "Error: " + msg); }
 
 void Parser::errorWithLoc(const str& msg)
     { error(msg + errorLocation()); }
@@ -335,7 +166,7 @@ void Parser::errorWithLoc(const char* msg)
     { errorWithLoc(str(msg)); }
 
 void Parser::errorNotFound(const str& ident)
-    { throw ENotFound(input->getFileName(), getLineNum(), ident); }
+    { throw ENotFound(getFileName(), getLineNum(), ident); }
 
 
 
@@ -346,10 +177,10 @@ void Parser::parseStringLiteral()
     while (true)
     {
         strValue += input->token(stringChars);
-        if (input->getEof())
+        if (input->eof())
             error("Unexpected end of file in string literal");
         char c = input->get();
-        if (input->isEolChar(c))
+        if (input->is_eol_char(c))
             error("Unexpected end of line in string literal");
         if (c == '\'')
             return;
@@ -392,12 +223,11 @@ void Parser::skipMultilineComment()
     while (true)
     {
         input->skip(commentChars);
-        if (input->getEol())
+        if (input->eol())
         {
-            if (input->getEof())
+            if (input->eof())
                 error("Unexpected end of file in comments");
-            input->skipEol();
-            linenum = input->getLineNum();
+            skipEol();
             continue;
         }
         char e = input->get();
@@ -413,7 +243,7 @@ void Parser::skipMultilineComment()
             error("Illegal character in comments '" + mkPrintable(e) + "'");
     }
     input->skip(wsChars);
-    if (!input->getEol())
+    if (!input->eol())
         error("Multiline comments must end with a new line");
 }
 
@@ -422,8 +252,17 @@ void Parser::skipSinglelineComment()
 {
     static const charset commentChars = printableChars + wsChars;
     input->skip(commentChars);
-    if (!input->getEol())
+    if (!input->eol())
         error("Illegal character in comments '" + mkPrintable(input->preview()) + "'");
+}
+
+
+void Parser::skipEol()
+{
+    input->skip_eol();
+    linenum++;
+    if (!input->eof())
+        indent = input->skip_indent();
 }
 
 
@@ -433,16 +272,12 @@ restart:
     strValue.clear();
     intValue = 0;
 
-    // Deferred linenum update; this helps to point to a better location
-    // in error messages.
-    linenum = input->getLineNum();
-
     input->skip(wsChars);
 
-    char c = input->preview();
+    int c = input->preview();
 
     // --- Handle EOF and EOL ---
-    if (input->getEof())
+    if (c == -1)
     {
         // finalize all indents at end of file
         if (indentStack.size() > 0)
@@ -455,9 +290,9 @@ restart:
         return token = tokEof;
     }
 
-    else if (input->getEol())
+    else if (input->eol())
     {
-        input->skipEol();
+        skipEol();
         if (blankLine)
             goto restart;
         blankLine = true; // start from a new line
@@ -492,7 +327,7 @@ restart:
         // this is a new line, blanks are skipped, so we are at the first 
         // non-blank, non-comment char:
         
-        int newIndent = input->getColumn();
+        int newIndent = getIndent();
         int oldIndent = indentStack.top();
         if (newIndent > oldIndent)
         {
@@ -560,17 +395,17 @@ restart:
         {
         case '\\':
             input->skip(wsChars);
-            if (!input->getEol())
+            if (!input->eol())
                 error("New line expected after '\\'");
-            input->skipEol();
+            skipEol();
             goto restart;
         case ',': return token = tokComma;
-        case '.': return token = (input->getIf('.') ? tokRange : tokPeriod);
+        case '.': return token = (input->get_if('.') ? tokRange : tokPeriod);
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
             input->skip(wsChars);
-            singleLineBlock = !input->getEol();
+            singleLineBlock = !input->eol();
             if (singleLineBlock)
                 return token = tokBlockBegin;
             else
@@ -589,10 +424,10 @@ restart:
         case ')': return token = tokRParen;
         // case '{': return token = tokLCurly;
         // case '}': return token = tokRCurly;
-        case '<': return token = (input->getIf('=') ? tokLessEq : tokLAngle);
-        case '>': return token = (input->getIf('=') ? tokGreaterEq : tokRAngle);
-        case '=': return token = (input->getIf('=') ? tokEqual : tokAssign);
-        case '!': return token = (input->getIf('=') ? tokNotEq : tokExclam);
+        case '<': return token = (input->get_if('=') ? tokLessEq : tokLAngle);
+        case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
+        case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
+        case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);
         case '|': return token = tokCat; break;
         }
     }

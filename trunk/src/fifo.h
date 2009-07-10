@@ -7,6 +7,12 @@
 #include "variant.h"
 
 
+// *BSD/Darwin hack
+#ifndef O_LARGEFILE
+#  define O_LARGEFILE 0
+#endif
+
+
 DEF_EXCEPTION(efifoempty, "Invalid FIFO operation");
 DEF_EXCEPTION(efifordonly, "FIFO is read-only");
 DEF_EXCEPTION(efifowronly, "FIFO is write-only");
@@ -22,6 +28,8 @@ DEF_EXCEPTION(efifowronly, "FIFO is write-only");
 class fifo_intf: public object
 {
 protected:
+    enum { TAB_SIZE = 8 };
+
     bool _char;
 
     void _empty_err() const;
@@ -58,11 +66,20 @@ public:
 
     // Character FIFO operations
     bool is_char_fifo() const           { return _char; }
-    char preview();
+    int preview(); // returns -1 on eof
     char get();
+    bool get_if(char c);
     str  deq(mem);  // CHAR_ALL, CHAR_SOME can be specified
     str  deq(const charset& c)          { str s; _token(c, &s); return s; }
+    str  token(const charset& c)        { return deq(c); } // alias
     void eat(const charset& c)          { _token(c, NULL); }
+    void skip(const charset& c)         { eat(c); } // alias
+    bool eol();
+    void skip_eol();
+    bool is_eol_char(char c)            { return c == '\r' || c == '\n'; }
+    int  skip_indent(); // spaces and tabs, tab lenghts are properly calculated
+    bool eof()                          { return empty(); }
+
     mem  enq(const char* p, mem count)  { return enq_chars(p, count); }
     mem  enq(const str& s)              { return enq_chars(s.data(), s.size()); }
 
@@ -203,6 +220,28 @@ public:
 
 extern std_file fout;
 extern std_file ferr;
+
+
+class in_text: public buf_fifo
+{
+protected:
+    enum { BUF_SIZE = 1024 * sizeof(integer) };
+
+    const str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _eof;
+
+    void error(int code); // throws esyserr
+
+public:
+    in_text(const str& fn);
+    ~in_text();
+    
+    bool empty(); //override
+    str  get_file_name() const { return file_name; }
+    void open()                { empty(); /* attempt to fill the buffer */ }
+};
 
 
 

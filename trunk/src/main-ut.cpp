@@ -498,39 +498,26 @@ void test_symbols()
 }
 
 
-class InMem: public InText
-{
-protected:
-    string sbuffer;
-    virtual void validateBuffer()   { eof = true; }
-public:
-    InMem(const str& buf): sbuffer(buf)
-        { buffer = (char*)buf.data(); bufsize = buf.size(); linenum = 1; }
-    virtual str getFileName()       { return "<memory>"; }
-};
-
-
 void test_source()
 {
     {
-        InFile file("nonexistent");
-        check_throw(esyserr, file.get());
+        in_text file("nonexistent");
+        check_throw(esyserr, file.open());
+        check_throw(efifoempty, file.get());
     }
     {
-        InMem m("one\t two\n567");
+        str_fifo m("one\t two\n567");
         check(m.preview() == 'o');
         check(m.get() == 'o');
         check(m.token(identRest) == "ne");
         m.skip(wsChars);
         check(m.token(identRest) == "two");
-        check(m.getEol());
-        check(!m.getEof());
-        check(m.getColumn() == 12);
-        m.skipEol();
-        check(m.getLineNum() == 2);
+        check(m.eol());
+        check(!m.eof());
+        m.skip_eol();
         check(m.token(digits) == "567");
-        check(m.getEol());
-        check(m.getEof());
+        check(m.eol());
+        check(m.eof());
     }
     {
 #ifdef XCODE
@@ -538,7 +525,7 @@ void test_source()
 #else
         const char* fn = "tests/parser.txt";
 #endif
-        Parser p(new InFile(fn));
+        Parser p(fn, new in_text(fn));
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
             tokIndent, tokModule, tokSep,
@@ -572,16 +559,20 @@ void test_source()
         check(expect[i] == tokEof && p.token == tokEof);
     }
     {
-        Parser p(new InMem(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  null\n aaa"
+        Parser p("mem", new str_fifo(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  null\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
         check(p.next() == tokSep);
+        check(p.getLineNum() == 2);
+        check(p.getIndent() == 2);
         check(p.next() == tokIndent);
         check_throw(EParser, p.next()); // integer overflow
         check(p.next() == tokSep);
+        check(p.getLineNum() == 3);
         check(p.next() == tokNull);
         check(p.next() == tokSep);
+        check(p.getLineNum() == 4);
         check_throw(EParser, p.next()); // unmatched unindent
         check(p.next() == tokIndent);
         check(p.next() == tokIdent);

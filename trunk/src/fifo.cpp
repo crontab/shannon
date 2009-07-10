@@ -1,4 +1,8 @@
 
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include "fifo.h"
 
@@ -34,21 +38,74 @@ void fifo_intf::_req_non_empty(bool _char)
 }
 
 
-char fifo_intf::preview()
+int fifo_intf::preview()
 {
     _req(true);
     const char* p = get_tail();
     if (p == NULL)
-        _empty_err();
+        return -1;
     return *p;
 }
 
 
 char fifo_intf::get()
 {
-    char c = preview();
+    int c = preview();
+    if (c == -1)
+        _empty_err();
     deq_bytes(1);
     return c;
+}
+
+
+bool fifo_intf::get_if(char c)
+{
+    int d = preview();
+    if (d != -1 && d == c)
+    {
+        deq_bytes(1);
+        return true;
+    }
+    return false;
+}
+
+
+bool fifo_intf::eol()
+{
+    _req(true);
+    const char* p = get_tail();
+    if (p == NULL)
+        return true;
+    return *p == '\r' || *p == '\n';
+}
+
+
+void fifo_intf::skip_eol()
+{
+    // Support all 3 models: DOS, UNIX and MacOS
+    int c = preview();
+    if (c == '\r')
+    {
+        get();
+        c = preview();
+    }
+    if (c == '\n')
+        get();
+}
+
+
+int fifo_intf::skip_indent()
+{
+    static const charset ws = " \t";
+    int result = 0;
+    str s = deq(ws);
+    for (str::const_iterator p = s.begin(); p != s.end(); p++)
+        switch (*p)
+        {
+        case ' ': result++; break;
+        case '\t': result = ((result / TAB_SIZE) + 1) * TAB_SIZE; break;
+        }
+    return result;
 }
 
 
@@ -107,7 +164,7 @@ str fifo_intf::deq(mem count)
 
 void fifo_intf::_token(const charset& chars, str* result)
 {
-    _req_non_empty(true);
+    _req(true);
     while (1)
     {
         mem avail;
@@ -447,12 +504,6 @@ str str_fifo::all() const
 // --- out_file ------------------------------------------------------------ //
 
 
-// *BSD/Darwin hack
-#ifndef O_LARGEFILE
-#  define O_LARGEFILE 0
-#endif
-
-
 std_file::std_file(int fd)
     : fifo_intf(true), _fd(fd)
 {
@@ -470,4 +521,39 @@ mem std_file::enq_chars(const char* p, mem count)   { return ::write(_fd, p, cou
 
 std_file fout(STDIN_FILENO);
 std_file ferr(STDERR_FILENO);
+
+
+// --- in_text ------------------------------------------------------------- //
+
+
+in_text::in_text(const str& fn)
+    : buf_fifo(true), file_name(fn), _fd(-1), _eof(false)  { }
+in_text::~in_text()             { if (_fd >= 0) ::close(_fd); }
+void in_text::error(int code)   { _eof = true; throw esyserr(code, file_name); }
+
+
+bool in_text::empty()
+{
+    if (_eof)
+        return true;
+    if (_fd < 0)
+    {
+        _fd = ::open(file_name.c_str(), O_RDONLY | O_LARGEFILE);
+        if (_fd < 0)
+            error(errno);
+        bufsize = bufhead = buftail = 0;
+    }
+    if (buftail == bufhead)
+    {
+        filebuf.resize(in_text::BUF_SIZE);
+        buffer = (char*)filebuf.data();
+        int result = ::read(_fd, buffer, in_text::BUF_SIZE);
+        if (result < 0)
+            error(errno);
+        buftail = 0;
+        bufsize = bufhead = result;
+        _eof = result == 0;
+    }
+    return _eof;
+}
 
