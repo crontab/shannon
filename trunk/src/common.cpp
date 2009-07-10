@@ -1,9 +1,5 @@
 
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
 #include <sstream>
 #include <iomanip>
 
@@ -23,6 +19,7 @@ str to_string(integer value)
     s << value;
     return s.str();
 }
+
 
 str to_string(integer value, int base, int width, char fill)
 {

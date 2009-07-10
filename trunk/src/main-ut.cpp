@@ -11,6 +11,7 @@
 
 #include "common.h"
 #include "variant.h"
+#include "fifo.h"
 #include "symbols.h"
 #include "source.h"
 
@@ -590,6 +591,62 @@ void test_source()
 }
 
 
+void test_bidir_char_fifo(fifo_intf& fc)
+{
+    check(fc.is_char_fifo());
+    fc.enq("0123456789abcdefghijklmnopqrstuvwxyz");
+    fc.enq("./");
+    check(fc.preview() == '0');
+    check(fc.get() == '0');
+    check(fc.get() == '1');
+    check(fc.deq(16) == "23456789abcdefgh");
+    check(fc.deq(fifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
+    check(fc.empty());
+
+    fc.enq("0123456789");
+    fc.enq("abcdefghijklmnopqrstuvwxyz");
+    check(fc.get() == '0');
+    while (!fc.empty())
+        fc.deq(fifo_intf::CHAR_SOME);
+
+    fc.enq("0123456789abcdefghijklmnopqrstuvwxyz");
+    check(fc.deq("0-9") == "0123456789");
+    check(fc.deq("a-z") == "abcdefghijklmnopqrstuvwxyz");
+    check(fc.empty());
+}
+
+
+void test_fifos()
+{
+#ifdef DEBUG
+    fifo::CHUNK_SIZE = 2 * sizeof(variant);
+#endif
+
+    fifo f(false);
+    variant v = new_tuple();
+    v.push_back(0);
+    f.var_enq(v);
+    f.var_enq("abc");
+    f.var_enq("def");
+    variant w = new_range(1, 2);
+    f.var_enq(w);
+    // f.dump(std::cout); std::cout << std::endl;
+    variant x;
+    f.var_deq(x);
+    check(x.is_tuple());
+    f.var_deq(w);
+    check(w.is_str());
+    f.var_eat();
+    check(f.var_preview().is_range());
+
+    fifo fc(true);
+    test_bidir_char_fifo(fc);
+    
+    str_fifo fs;
+    test_bidir_char_fifo(fs);
+}
+
+
 int main()
 {
     cout << "short: " << sizeof(short) << "  long: " << sizeof(long) << "  long long: "
@@ -619,6 +676,7 @@ int main()
         test_variant();
         test_symbols();
         test_source();
+        test_fifos();
     }
     catch (exception& e)
     {
