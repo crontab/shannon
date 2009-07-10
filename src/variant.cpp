@@ -49,10 +49,9 @@ object::~object()
 }
 
 
-object* object::clone() const
-    { fatal(0x1001, "object::clone() is not implemented"); return NULL; }
-void object::dump(std::ostream& s) const { s << "object"; }
-bool object::less_than(object* other) const { return this < other; }
+object* object::clone()                 const { throw evariantclone(); }
+void object::dump(std::ostream& s)      const { s << "object"; }
+bool object::less_than(object* other)   const { return this < other; }
 
 
 void _release(object* o)
@@ -340,7 +339,7 @@ bool variant::operator== (const variant& other) const
     case REAL:      return val._real == other.val._real;
     case STR:       return _str_read() == other._str_read();
     case RANGE:     return _range_read().equals(other._range_read());
-    case ORDSET:    return _ordset_read() == other._ordset_read();
+    case ORDSET:    return _ordset_read().equals(other._ordset_read());
     default:        return val._obj == other.val._obj; // TODO: a virtual call?
     }
 }
@@ -366,6 +365,12 @@ bool variant::operator< (const variant& other) const
             return false;
         return val._obj->less_than(other.val._obj);
     }
+}
+
+
+bool variant::is_unique() const
+{
+    return !is_refcnt() || val._obj == NULL || val._obj->is_unique();
 }
 
 
@@ -410,7 +415,7 @@ unsigned variant::as_char_int() const
 #define XIMPL(t) \
     t& variant::_##t##_write() \
         { if (val._##t == NULL) val._##t = grab(new t()); \
-          else  unique(val._##t); \
+          /* else  unique(val._##t); */ \
           return *val._##t; } \
     const t& variant::_##t##_read() const \
         { if (val._##t == NULL) return null_##t; \

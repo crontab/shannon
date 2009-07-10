@@ -51,6 +51,7 @@ typedef set_impl::const_iterator set_iterator;
 DEF_EXCEPTION(evarianttype,  "Variant type mismatch")
 DEF_EXCEPTION(evariantrange, "Variant range check error")
 DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
+DEF_EXCEPTION(evariantclone, "Can't clone")
 
 
 class None { int dummy; };
@@ -185,6 +186,9 @@ public:
     bool is_nonpod()          const { return type >= NONPOD; }
     bool is_refcnt()          const { return type >= REFCNT; }
     bool is_object()          const { return type >= ANYOBJ; }
+
+    bool is_unique() const;
+    void unique();
 
     // Type conversions
     // TODO: as_xxx(defualt)
@@ -400,7 +404,7 @@ protected:
     void tie(int v)                           { impl.include(v); }
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
-    bool operator== (const ordset& other) const { return impl.eq(other.impl); }
+    bool equals (const ordset& other)   const { return impl.eq(other.impl); }
     virtual void dump(std::ostream&) const;
 };
 
@@ -443,13 +447,15 @@ public:
 };
 
 
-inline range* new_range()   { return NULL; }
-inline tuple* new_tuple()   { return NULL; }
-inline dict* new_dict()     { return NULL; }
-inline ordset* new_ordset() { return NULL; }
-inline set* new_set()       { return NULL; }
+inline range* new_range()               { return NULL; }
+inline tuple* new_tuple()               { return NULL; }
+inline dict* new_dict()                 { return NULL; }
+inline ordset* new_ordset()             { return NULL; }
+inline set* new_set()                   { return NULL; }
 range* new_range(integer l, integer r);
-inline tinyset new_tinyset()       { return 0; }
+inline tinyset new_tinyset()            { return 0; }
+
+inline void variant::unique()                     { if (is_refcnt()) _unique(val._obj); }
 
 inline dict_iterator variant::dict_begin() const  { _req(DICT); return _dict_read().begin(); }
 inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_read().end(); }
