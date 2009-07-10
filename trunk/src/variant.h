@@ -69,7 +69,8 @@ class variant
 {
 public:
     // Note: the order is important, especially after STR
-    enum Type { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
+    enum Type
+      { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
         TUPLE, DICT, ORDSET, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
@@ -131,6 +132,7 @@ protected:
     static void _range_err();
     static void _index_err();
     void _req(Type t) const         { if (type != t) _type_err(); }
+    void _req_refcnt() const        { if (!is_refcnt()) _type_err(); }
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
     unsigned as_tiny_int() const;
@@ -245,7 +247,7 @@ public:
     set_iterator set_end() const;
     
     // for unit tests
-    bool is_null_ptr() const { return val._obj == NULL; }
+    bool is_null_ptr() const { _req_refcnt(); return val._obj == NULL; }
 };
 
 

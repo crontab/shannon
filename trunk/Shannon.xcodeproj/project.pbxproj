@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3600A4E410052B4D00EE555A /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3600A4E210052B4D00EE555A /* typesys.cpp */; };
+		3600A4E510052B6B00EE555A /* source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36668F541003CD8600FF0C90 /* source.cpp */; };
+		3600A4E610052B6E00EE555A /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3600A4E210052B4D00EE555A /* typesys.cpp */; };
 		361AF94A1000DF4200E12EAE /* variant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 361AF9481000DF4200E12EAE /* variant.cpp */; };
 		361AF94B1000DF4200E12EAE /* variant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 361AF9481000DF4200E12EAE /* variant.cpp */; };
 		363C70F70EF70F4400866D2C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 363C70ED0EF70F4400866D2C /* main.cpp */; };
@@ -42,6 +45,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3600A4E210052B4D00EE555A /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
+		3600A4E310052B4D00EE555A /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
 		361AF9481000DF4200E12EAE /* variant.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = variant.cpp; path = src/variant.cpp; sourceTree = "<group>"; };
 		361AF9491000DF4200E12EAE /* variant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = variant.h; path = src/variant.h; sourceTree = "<group>"; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
@@ -94,6 +99,8 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				3600A4E210052B4D00EE555A /* typesys.cpp */,
+				3600A4E310052B4D00EE555A /* typesys.h */,
 				36668F531003CD8600FF0C90 /* bsearch.h */,
 				36668F541003CD8600FF0C90 /* source.cpp */,
 				36668F551003CD8600FF0C90 /* source.h */,
@@ -199,6 +206,7 @@
 				365B4B011002A2EE0023D0FD /* symbols.cpp in Sources */,
 				365B4B881002B01D0023D0FD /* charset.cpp in Sources */,
 				36668F561003CD8600FF0C90 /* source.cpp in Sources */,
+				3600A4E410052B4D00EE555A /* typesys.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,6 +219,8 @@
 				365B4A71100283E40023D0FD /* common.cpp in Sources */,
 				365B4B001002A2EE0023D0FD /* symbols.cpp in Sources */,
 				365B4B871002B01D0023D0FD /* charset.cpp in Sources */,
+				3600A4E510052B6B00EE555A /* source.cpp in Sources */,
+				3600A4E610052B6E00EE555A /* typesys.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
