@@ -105,7 +105,6 @@ protected:
 
     mem enq_avail() const;
 
-    // virtual object* clone() const;
 public:
     fifo(bool is_char);
     ~fifo();
@@ -114,6 +113,19 @@ public:
 
     virtual bool empty() const;
     virtual void dump(std::ostream&) const;
+};
+
+
+class input_fifo: public fifo_intf
+{
+protected:
+    int   fd;
+    char* buffer;
+    int   bufsize;
+    int   bufpos;
+    bool  eof;
+
+public:
 };
 
 
