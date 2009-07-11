@@ -187,6 +187,7 @@ void variant::_init(tuple* t)       { type = TUPLE; val._tuple = grab(t); }
 void variant::_init(dict* d)        { type = DICT; val._dict = grab(d); }
 void variant::_init(ordset* s)      { type = ORDSET; val._ordset = grab(s); }
 void variant::_init(set* s)         { type = SET; val._set = grab(s); }
+void variant::_init(fifo_intf* f)   { type = FIFO; val._fifo = grab(f); }
 void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
 
 
@@ -433,12 +434,13 @@ bool variant::empty() const
     switch (type)
     {
     case TINYSET: return val._tinyset == 0;
-    case STR:   return _str_read().empty();
-    case RANGE: if (val._range == NULL) return true; return _range_read().empty();
-    case TUPLE: if (val._tuple == NULL) return true; return _tuple_read().empty();
-    case DICT:  if (val._dict == NULL) return true; return _dict_read().empty();
-    case ORDSET: if (val._ordset == NULL) return true; return _ordset_read().empty();
-    case SET:   if (val._set == NULL) return true; return _set_read().empty();
+    case STR:     return _str_read().empty();
+    case RANGE:   if (val._range == NULL) return true; return _range_read().empty();
+    case TUPLE:   if (val._tuple == NULL) return true; return _tuple_read().empty();
+    case DICT:    if (val._dict == NULL) return true; return _dict_read().empty();
+    case ORDSET:  if (val._ordset == NULL) return true; return _ordset_read().empty();
+    case SET:     if (val._set == NULL) return true; return _set_read().empty();
+    case FIFO:    if (val._fifo == NULL) return true; return _fifo()->empty();
     default: _type_err(); return false;
     }
 }

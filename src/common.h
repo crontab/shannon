@@ -67,7 +67,15 @@ typedef unsigned char uchar;
 // --- MISC --------------------------------------------------------------- //
 
 
-void fatal(int code, const char* msg);
+void _fatal(int code, const char* msg);
+void _fatal(int code);
+
+#ifdef DEBUG
+#  define fatal(code,msg)  _fatal(code, msg)
+#else
+#  define fatal(code,msg)  _fatal(code)
+#endif
+
 void notimpl();
 
 

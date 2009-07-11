@@ -4,11 +4,11 @@ CXXDOPTS = -Wall -Werror -fno-rtti -DDEBUG -g
 CXXROPTS = -Wall -Werror -fno-rtti -O2
 
 
-DOBJS = debug/common.o debug/charset.o debug/variant.o debug/source.o \
-	debug/fifo.o debug/symbols.o debug/typesys.o
+DOBJS = debug/common.o debug/charset.o debug/variant.o debug/fifo.o \
+	debug/source.o debug/symbols.o debug/typesys.o
 
-ROBJS = release/common.o release/charset.o release/variant.o release/source.o \
-	release/fifo.o release/symbols.o release/typesys.o
+ROBJS = release/common.o release/charset.o release/variant.o release/fifo.o \
+	release/source.o release/symbols.o release/typesys.o
 
 SRCS = common.cpp charset.cpp variant.cpp source.cpp \
 	fifo.cpp symbols.cpp typesys.cpp \
