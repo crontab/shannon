@@ -5,22 +5,20 @@
 #include <map>
 #include <vector>
 
-#include "variant.h"
+#include "runtime.h"
 
 
 class Symbol: public object
 {
 public:
-    const str name;
+    str const name;
     Symbol(const str& name);
     Symbol(const char* name);
 };
 
 
 struct EDuplicate: public emessage
-{
-    EDuplicate(const str& symbol) throw();
-};
+    { EDuplicate(const str& symbol) throw(); };
 
 
 class _SymbolTable: public noncopyable

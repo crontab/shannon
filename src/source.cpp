@@ -422,6 +422,8 @@ restart:
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;
         case ')': return token = tokRParen;
+        // TODO: support curly braces mode: once a "{" is seen, the mode is
+        // switched and only curly braces and colons are recognized.
         // case '{': return token = tokLCurly;
         // case '}': return token = tokRCurly;
         case '<': return token = (input->get_if('=') ? tokLessEq : tokLAngle);

@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "fifo.h"
+#include "runtime.h"
 
 
 // --- fifo_intf ----------------------------------------------------------- //

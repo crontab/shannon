@@ -10,6 +10,12 @@ void fatal(int code, const char* msg)
 }
 
 
+void notimpl()
+{
+    fatal(1, "Feature not implemented yet");
+}
+
+
 static const char* _itobase(integer value, char* buf, int base, int& len, bool _signed)
 {
     // internal conversion routine: converts the value to a string 

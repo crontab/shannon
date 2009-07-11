@@ -6,8 +6,7 @@
 
 #include "charset.h"
 #include "common.h"
-#include "variant.h"
-#include "fifo.h"
+#include "runtime.h"
 
 
 struct EParser: public emessage
