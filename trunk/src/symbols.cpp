@@ -34,11 +34,14 @@ _PtrList::_PtrList()  { }
 _PtrList::~_PtrList()  { }
 
 
-int _PtrList::push_back(void* p)
+int _PtrList::add(void* p)
 {
     impl.push_back(p);
     return size() - 1;
 }
+
+
+int _List::add(object* o)   { return _PtrList::add(grab(o)); }
 
 
 _List::~_List()
@@ -46,7 +49,4 @@ _List::~_List()
     for(int i = 0; i < size(); i++)
         release(operator[](i));
 }
-
-
-
 

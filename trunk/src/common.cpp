@@ -3,10 +3,17 @@
 #include "common.h"
 
 
-void fatal(int code, const char* msg) 
+void _fatal(int code, const char* msg) 
 {
     fprintf(stderr, "\nInternal [%04x]: %s\n", code, msg);
-    exit(code);
+    exit(100);
+}
+
+
+void _fatal(int code) 
+{
+    fprintf(stderr, "\nInternal error [%04x]\n", code);
+    exit(100);
 }
 
 

@@ -52,7 +52,7 @@ public:
     _PtrList();
     ~_PtrList();
 
-    int push_back(void*);
+    int add(void*);
     bool empty()             const { return impl.empty(); }
     int size()               const { return impl.size(); }
     void* operator[] (int i) const { return impl[i]; }
@@ -63,8 +63,8 @@ template<class T>
 class PtrList: public _PtrList
 {
 public:
-    int push_back(T* p)           { return _PtrList::push_back(p); }
-    T* operator[] (int i)   const { return (T*)_PtrList::operator[](i); }
+    int add(T* p)               { return _PtrList::add(p); }
+    T* operator[] (int i) const { return (T*)_PtrList::operator[](i); }
 };
 
 
@@ -72,7 +72,7 @@ class _List: public _PtrList  // responsible for freeing the objects
 {
 public:
     ~_List();
-    int push_back(object* o)      { return _PtrList::push_back(grab(o)); }
+    int add(object* o);
     object* operator[] (int i) const { return (object*)_PtrList::operator[](i); }
 };
 
@@ -81,8 +81,8 @@ template<class T>
 class List: public _List
 {
 public:
-    int push_back(T* p)           { return _List::push_back(p); }
-    T* operator[] (int i)   const { return (T*)_List::operator[](i); }
+    int add(T* p)               { return _List::add(p); }
+    T* operator[] (int i) const { return (T*)_List::operator[](i); }
 };
 
 

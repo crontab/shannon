@@ -67,11 +67,13 @@ struct tinyset
 
 class variant
 {
+    friend class fifo_intf;
+
 public:
     // Note: the order is important, especially after STR
     enum Type
       { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
-        TUPLE, DICT, ORDSET, SET, OBJECT,
+        TUPLE, DICT, ORDSET, SET, FIFO, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
@@ -85,11 +87,12 @@ protected:
         real     _real;
         char     _str[sizeof(str)];
         object*  _obj;
+        range*   _range;
         tuple*   _tuple;
         dict*    _dict;
         ordset*  _ordset;
         set*     _set;
-        range*   _range;
+        fifo_intf* _fifo;
     } val;
 
     str& _str_write()               { return *(str*)val._str; }
@@ -104,6 +107,7 @@ protected:
     const ordset& _ordset_read() const;
     set& _set_write();
     const set& _set_read() const;
+    fifo_intf* _fifo() const        { return val._fifo; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
@@ -122,8 +126,10 @@ protected:
     void _init(dict*);
     void _init(ordset*);
     void _init(set*);
+    void _init(fifo_intf*);
     void _init(object*);
     void _init(const variant&);
+
     void _fin()                     { if (is_nonpod()) _fin2(); }
     void _fin2();
 
@@ -184,6 +190,7 @@ public:
     bool is_dict()            const { return type == DICT; }
     bool is_ordset()          const { return type == ORDSET; }
     bool is_set()             const { return type == SET; }
+    bool is_fifo()            const { return type == FIFO; }
     bool is_ordinal()         const { return type >= BOOL && type <= INT; }
     bool is_nonpod()          const { return type >= NONPOD; }
     bool is_refcnt()          const { return type >= REFCNT; }
@@ -195,8 +202,7 @@ public:
     // Type conversions
     // TODO: as_xxx(defualt)
     bool as_bool()            const { _req(BOOL); return val._bool; }
-    char as_char()            const { _req(CHAR); return val._char; }
-    uchar as_uchar()          const { _req(CHAR); return val._char; }
+    uchar as_char()            const { _req(CHAR); return val._char; }
     integer as_int()          const { _req(INT); return val._int; }
     integer as_ordinal()      const;
     tinyset as_tinyset()      const { _req(TINYSET); return val._tinyset; }
@@ -213,11 +219,12 @@ public:
     const dict& as_dict()     const { _req(DICT); return _dict_read(); }
     const ordset& as_ordset() const { _req(ORDSET); return _ordset_read(); }
     const set& as_set()       const { _req(SET); return _set_read(); }
+    fifo_intf* as_fifo()      const { _req(FIFO); return _fifo(); }
     object* as_object()       const { _req_obj(); return val._obj; }
 
     // Container operations
     mem  size() const;                                      // str, tuple, dict
-    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset
+    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset, fifo
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
     void append(const variant& v);                          // str
@@ -410,6 +417,7 @@ protected:
 };
 
 
+// TODO: reimplement with a simple dynamic buffer
 class varstack: protected tuple_impl, public noncopyable
 {
 public:
@@ -455,6 +463,7 @@ inline ordset* new_ordset()             { return NULL; }
 inline set* new_set()                   { return NULL; }
 range* new_range(integer l, integer r);
 inline tinyset new_tinyset()            { return 0; }
+inline fifo_intf* new_fifo()            { return NULL; }
 
 inline void variant::unique()                     { if (is_refcnt()) _unique(val._obj); }
 
@@ -500,6 +509,7 @@ protected:
     void _fifo_type_err() const;
     // TODO: _req() can be empty in RELEASE build
     void _req(bool req_char) const      { if (req_char != _char) _fifo_type_err(); }
+    void _req_non_empty();
     void _req_non_empty(bool _char);
 
     // Minimal set of methods required for both character and variant FIFO
@@ -522,16 +532,16 @@ public:
 
     virtual bool empty();   // throws efifowronly
 
-    // Variant FIFO operations
+    // Main FIFO operations, work on both char and variant fifos
     void var_enq(const variant&);
-    const variant& var_preview();
+    void var_preview(variant&);
     void var_deq(variant&);
     void var_eat();
 
     // Character FIFO operations
     bool is_char_fifo() const           { return _char; }
     int preview(); // returns -1 on eof
-    char get();
+    uchar get();
     bool get_if(char c);
     str  deq(mem);  // CHAR_ALL, CHAR_SOME can be specified
     str  deq(const charset& c)          { str s; _token(c, &s); return s; }
@@ -546,6 +556,8 @@ public:
 
     mem  enq(const char* p, mem count)  { return enq_chars(p, count); }
     mem  enq(const str& s)              { return enq_chars(s.data(), s.size()); }
+    void enq(char c)                    { enq_chars(&c, 1); }
+    void enq(uchar c)                   { enq_chars((char*)&c, 1); }
 
     virtual void dump(fifo_intf&) const; // just displays <fifo>
 
@@ -554,8 +566,8 @@ public:
     fifo_intf& operator<< (integer);
     fifo_intf& operator<< (uinteger);
     fifo_intf& operator<< (mem);
-    fifo_intf& operator<< (char c)          { enq(&c, 1); return *this; }
-    fifo_intf& operator<< (uchar c)         { enq((char*)&c, 1); return *this; }
+    fifo_intf& operator<< (char c)          { enq(c); return *this; }
+    fifo_intf& operator<< (uchar c)         { enq(c); return *this; }
 };
 
 const char endl = '\n';
@@ -706,6 +718,32 @@ public:
     str  get_file_name() const { return file_name; }
     void open()                { empty(); /* attempt to fill the buffer */ }
 };
+
+
+// --- LANGUAGE OBJECT ----------------------------------------------------- //
+
+
+class State; // see typesys.h
+
+class langobj: public object
+{
+    friend class State;
+
+protected:
+    langobj(State* _type): type(_type) { }
+
+public:
+    State* const type;
+    variant vars[0];
+
+    ~langobj(); // TODO: finalize vars
+
+    void* operator new(size_t);
+    void operator delete (void *p);
+};
+
+
+langobj* new_langobj(State*);
 
 
 #endif // __RUNTIME_H

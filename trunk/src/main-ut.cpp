@@ -487,9 +487,9 @@ void test_symbols()
         List<Symbol> l;
         check(l.size() == 0);
         check(l.empty());
-        l.push_back(s1);
+        l.add(s1);
         check(!s1->is_unique());
-        l.push_back(new Symbol("ghi"));
+        l.add(new Symbol("ghi"));
         check(l.size() == 2);
         check(!l.empty());
     }
@@ -586,11 +586,17 @@ void test_source()
 void test_bidir_char_fifo(fifo_intf& fc)
 {
     check(fc.is_char_fifo());
-    fc.enq("0123456789abcdefghijklmnopqrstuvwxyz");
-    fc.enq("./");
+    fc.enq("0123456789abcdefghijklmnopqrstuvwxy");
+    fc.var_enq(variant('z'));
+    fc.var_enq(variant("./"));
     check(fc.preview() == '0');
     check(fc.get() == '0');
-    check(fc.get() == '1');
+    variant v;
+    fc.var_deq(v);
+    check(v.as_char() == '1');
+    v.clear();
+    fc.var_preview(v);
+    check(v.as_char() == '2');
     check(fc.deq(16) == "23456789abcdefgh");
     check(fc.deq(fifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
     check(fc.empty());
@@ -629,7 +635,9 @@ void test_fifos()
     f.var_deq(w);
     check(w.is_str());
     f.var_eat();
-    check(f.var_preview().is_range());
+    variant vr;
+    f.var_preview(vr);
+    check(vr.is_range());
 
     fifo fc(true);
     test_bidir_char_fifo(fc);

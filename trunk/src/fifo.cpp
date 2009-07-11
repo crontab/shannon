@@ -30,6 +30,13 @@ fifo::fifo(bool _char)
     : fifo_intf(_char), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
+void fifo_intf::_req_non_empty()
+{
+    if (empty())
+        _empty_err();
+}
+
+
 void fifo_intf::_req_non_empty(bool _char)
 {
     _req(_char);
@@ -48,7 +55,7 @@ int fifo_intf::preview()
 }
 
 
-char fifo_intf::get()
+uchar fifo_intf::get()
 {
     int c = preview();
     if (c == -1)
@@ -111,32 +118,53 @@ int fifo_intf::skip_indent()
 
 void fifo_intf::var_eat()
 {
-    _req_non_empty(false);
-    ((variant*)get_tail())->~variant();
-    deq_bytes(sizeof(variant));
+    if (is_char_fifo())
+        get();
+    else
+    {
+        _req_non_empty();
+        ((variant*)get_tail())->~variant();
+        deq_bytes(sizeof(variant));
+    }
 }
 
 
-const variant& fifo_intf::var_preview()
+void fifo_intf::var_preview(variant& v)
 {
-    _req_non_empty(false);
-    return *(variant*)get_tail();
+    if (empty())
+        v.clear();
+    else if (is_char_fifo())
+        v = *get_tail();
+    else
+        v = *(variant*)get_tail();
 }
 
 
 void fifo_intf::var_deq(variant& v)
 {
-    _req_non_empty(false);
-    v.clear();
-    memcpy((char*)&v, get_tail(), sizeof(variant));
-    deq_bytes(sizeof(variant));
+    if (is_char_fifo())
+        v = get();
+    else
+    {
+        _req_non_empty();
+        v._fin();
+        memcpy((char*)&v, get_tail(), sizeof(variant));
+        deq_bytes(sizeof(variant));
+    }
 }
 
 
 void fifo_intf::var_enq(const variant& v)
 {
-    _req(false);
-    ::new(enq_var()) variant(v);
+    if (is_char_fifo())
+    {
+        if (v.is_str())
+            enq(v.as_str());
+        else
+            enq(v.as_char());
+    }
+    else
+        ::new(enq_var()) variant(v);
 }
 
 
@@ -404,8 +432,8 @@ void buf_fifo::deq_bytes(mem count)
 
 variant* buf_fifo::enq_var()
 {
-    assert(buftail <= bufhead && bufhead <= bufsize);
     _req(false);
+    assert(buftail <= bufhead && bufhead <= bufsize);
     if (bufhead + sizeof(variant) > bufsize)
         flush();
     assert(bufhead + sizeof(variant) <= bufsize);
