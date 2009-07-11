@@ -2,8 +2,7 @@
 #define __STDC_LIMIT_MACROS
 
 
-#include "variant.h"
-#include "fifo.h"
+#include "runtime.h"
 
 
 const variant null;

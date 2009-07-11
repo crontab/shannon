@@ -68,6 +68,7 @@ typedef unsigned char uchar;
 
 
 void fatal(int code, const char* msg);
+void notimpl();
 
 
 template<class T>

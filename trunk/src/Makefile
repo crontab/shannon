@@ -14,7 +14,7 @@ SRCS = common.cpp charset.cpp variant.cpp source.cpp \
 	fifo.cpp symbols.cpp typesys.cpp \
 	main.cpp main-ut.cpp
 
-HDRS = common.h charset.h variant.h fifo.h bsearch.h source.h \
+HDRS = common.h charset.h runtime.h bsearch.h source.h \
 	symbols.h typesys.h
 
 

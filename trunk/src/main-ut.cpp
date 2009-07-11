@@ -7,8 +7,7 @@
 #include <stdio.h>
 
 #include "common.h"
-#include "variant.h"
-#include "fifo.h"
+#include "runtime.h"
 #include "symbols.h"
 #include "source.h"
 
