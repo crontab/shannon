@@ -29,7 +29,7 @@ enum Token
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
 
-    tokModule, tokConst, tokDef, tokVar, tokTypeOf, tokTrue, tokFalse, tokNull,
+    tokModule, tokConst, tokDef, tokTypeOf, tokTrue, tokFalse, tokNull,
     tokEnum, tokEcho, tokAssert, tokSizeOf, tokBegin, tokIf, tokElif, tokElse,
     tokWhile, tokBreak, tokContinue, tokCase, tokReturn,
     

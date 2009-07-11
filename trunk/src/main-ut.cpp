@@ -468,7 +468,7 @@ void test_symbols()
     int save_alloc = object::alloc;
     {
         objptr<Symbol> s = new Symbol("sym");
-        check(s->name == "sym");
+        check(s->getName() == "sym");
         SymbolTable<Symbol> t;
         check(t.empty());
         objptr<Symbol> s1 = new Symbol("abc");

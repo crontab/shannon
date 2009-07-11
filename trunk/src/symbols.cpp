@@ -15,9 +15,9 @@ _SymbolTable::~_SymbolTable()  { }
 
 void _SymbolTable::addUnique(Symbol* o)
 {
-    std::pair<Impl::iterator, bool> result = impl.insert(Impl::value_type(o->name, o));
+    std::pair<Impl::iterator, bool> result = impl.insert(Impl::value_type(o->getName(), o));
     if (!result.second)
-        throw EDuplicate(o->name);
+        throw EDuplicate(o->getName());
 }
 
 
@@ -34,19 +34,19 @@ _PtrList::_PtrList()  { }
 _PtrList::~_PtrList()  { }
 
 
-int _PtrList::add(void* p)
+mem _PtrList::add(void* p)
 {
     impl.push_back(p);
     return size() - 1;
 }
 
 
-int _List::add(object* o)   { return _PtrList::add(grab(o)); }
+mem _List::add(object* o)   { return _PtrList::add(grab(o)); }
 
 
 _List::~_List()
 {
-    for(int i = 0; i < size(); i++)
+    for(mem i = 0; i < size(); i++)
         release(operator[](i));
 }
 

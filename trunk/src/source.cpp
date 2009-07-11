@@ -76,7 +76,6 @@ Keywords::kwinfo Keywords::keywords[] =
         {"sizeof", tokSizeOf},
         {"true", tokTrue},
         {"typeof", tokTypeOf},
-        {"var", tokVar},
         {"while", tokWhile},
         {"xor", tokXor},
         {NULL, tokUndefined}

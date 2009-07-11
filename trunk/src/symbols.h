@@ -10,10 +10,13 @@
 
 class Symbol: public object
 {
+    str name;
 public:
-    str const name;
-    Symbol(const str& name);
-    Symbol(const char* name);
+    Symbol(const str&);
+    Symbol(const char*);
+    const str& getName() const { return name; }
+    void setName(const str& _name)  { name = _name; }
+    void setName(const char* _name)  { name = _name; }
 };
 
 
@@ -52,10 +55,10 @@ public:
     _PtrList();
     ~_PtrList();
 
-    int add(void*);
+    mem add(void*);
     bool empty()             const { return impl.empty(); }
-    int size()               const { return impl.size(); }
-    void* operator[] (int i) const { return impl[i]; }
+    mem size()               const { return impl.size(); }
+    void* operator[] (mem i) const { return impl[i]; }
 };
 
 
@@ -63,8 +66,8 @@ template<class T>
 class PtrList: public _PtrList
 {
 public:
-    int add(T* p)               { return _PtrList::add(p); }
-    T* operator[] (int i) const { return (T*)_PtrList::operator[](i); }
+    mem add(T* p)               { return _PtrList::add(p); }
+    T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
 };
 
 
@@ -72,8 +75,8 @@ class _List: public _PtrList  // responsible for freeing the objects
 {
 public:
     ~_List();
-    int add(object* o);
-    object* operator[] (int i) const { return (object*)_PtrList::operator[](i); }
+    mem add(object* o);
+    object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
 };
 
 
@@ -81,8 +84,8 @@ template<class T>
 class List: public _List
 {
 public:
-    int add(T* p)               { return _List::add(p); }
-    T* operator[] (int i) const { return (T*)_List::operator[](i); }
+    mem add(T* p)               { return _List::add(p); }
+    T* operator[] (mem i) const { return (T*)_List::operator[](i); }
 };
 
 
