@@ -61,7 +61,7 @@ func-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")" function-body
 
 const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
 
-var-def ::= "var" ( auto-object-spec | typed-object-spec ) "=" expr
+var-def ::= typed-object-spec "=" expr
 
 auto-object-spec ::= ident
 
