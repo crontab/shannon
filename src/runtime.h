@@ -419,21 +419,6 @@ protected:
 };
 
 
-// TODO: reimplement with a simple dynamic buffer
-class varstack: protected tuple_impl, public noncopyable
-{
-public:
-    varstack() { }
-    ~varstack() { }
-    void push(const variant& v)     { push_back(v); }
-    void pushn(mem n)               { resize(size() + n); }
-    variant& top()                  { return back(); }
-    variant& top(mem n)             { return *(end() - n); }
-    void pop()                      { pop_back(); }
-    void popn(mem n)                { resize(size() - n); }
-};
-
-
 template<class T>
 class objptr
 {

@@ -39,7 +39,7 @@ enum Token
     tokPlus, tokMinus,
     // cat level (simple expr)
     tokCat,
-    // Rel level: the order in this group is important: it's in sync with OpComparison
+    // Rel level: the order should be in sync with comparison opcodes
     tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
     // NOT level
     tokNot,
