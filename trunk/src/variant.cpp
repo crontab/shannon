@@ -392,7 +392,7 @@ unsigned variant::as_tiny_int() const
 unsigned variant::as_char_int() const
 {
     integer i = as_ordinal();
-    if (i < 0 || i >= 256)
+    if (i < 0 || i >= CHARSET_BITS)
         _range_err();
     return i;
 }

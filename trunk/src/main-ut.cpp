@@ -10,6 +10,7 @@
 #include "runtime.h"
 #include "symbols.h"
 #include "source.h"
+#include "typesys.h"
 
 
 using namespace std;
@@ -558,7 +559,7 @@ void test_source()
         check(expect[i] == tokEof && p.token == tokEof);
     }
     {
-        Parser p("mem", new str_fifo(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  null\n aaa"
+        Parser p("mem", new str_fifo(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
@@ -569,7 +570,7 @@ void test_source()
         check_throw(EParser, p.next()); // integer overflow
         check(p.next() == tokSep);
         check(p.getLineNum() == 3);
-        check(p.next() == tokNull);
+        check(p.next() == tokIf);
         check(p.next() == tokSep);
         check(p.getLineNum() == 4);
         check_throw(EParser, p.next()); // unmatched unindent
@@ -647,6 +648,50 @@ void test_fifos()
 }
 
 
+void test_typesys()
+{
+    initTypeSys();
+    check(queenBee->defaultTypeRef->isTypeRef());
+    check(queenBee->defaultVoid->isVoid());
+    check(queenBee->defaultInt->isInt());
+    check(queenBee->defaultInt->isOrdinal());
+    check(queenBee->defaultBool->isBool());
+    check(queenBee->defaultBool->isEnum());
+    check(queenBee->defaultBool->isOrdinal());
+    check(queenBee->defaultBool->rangeEq(0, 1));
+    check(queenBee->defaultChar->isChar());
+    check(queenBee->defaultChar->isOrdinal());
+    check(queenBee->defaultStr->isString());
+    check(queenBee->defaultStr->isContainer());
+    check(queenBee->defaultEmptyContainer->isEmptyCont());
+    check(queenBee->defaultEmptyContainer->isContainer());
+    check(queenBee->defaultEmptyContainer->canCastImplTo(queenBee->defaultStr));
+    check(queenBee->defaultChar->deriveVector() == queenBee->defaultStr);
+
+    Base* b = queenBee->deepFind("true");
+    check(b != NULL && b->isConstant());
+    check(PConst(b)->value.as_int() == 1);
+    check(PConst(b)->type->isBool());
+
+    {
+        State state("test", queenBee);
+        b = state.deepFind("true");
+        check(b != NULL && b->isConstant());
+        check(state.deepFind("untrue") == NULL);
+        state.addVariable("a", queenBee->defaultInt);
+        check_throw(EDuplicate, state.addVariable("a", queenBee->defaultInt));
+        check_nothrow(state.addVariable("true", queenBee->defaultInt));
+        state.addTypeAlias("ool", queenBee->defaultBool);
+        b = state.deepFind("ool");
+        check(b != NULL && b->isConstant());
+        check(PConst(b)->isTypeAlias());
+        check(PConst(b)->getAlias()->isBool());
+    }
+
+    doneTypeSys();
+}
+
+
 int main()
 {
     fout << "short: " << sizeof(short) << "  long: " << sizeof(long) << "  long long: "
@@ -677,6 +722,7 @@ int main()
         test_symbols();
         test_source();
         test_fifos();
+        test_typesys();
     }
     catch (exception& e)
     {
