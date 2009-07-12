@@ -42,7 +42,6 @@ class range;
 
 class fifo_intf;
 
-typedef std::vector<variant> tuple_impl;
 typedef std::map<variant, variant> dict_impl;
 typedef dict_impl::const_iterator dict_iterator;
 typedef std::set<variant> set_impl;
@@ -53,6 +52,7 @@ DEF_EXCEPTION(evarianttype,  "Variant type mismatch")
 DEF_EXCEPTION(evariantrange, "Variant range check error")
 DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
 DEF_EXCEPTION(evariantclone, "Can't clone")
+DEF_EXCEPTION(etupleindex,   "Tuple index out of range")
 
 
 class None { int dummy; };
@@ -242,6 +242,10 @@ public:
 };
 
 
+extern const variant null;
+extern const str null_str;
+
+
 fifo_intf& operator<< (fifo_intf&, const variant&);
 
 
@@ -291,7 +295,7 @@ class range: public object
 {
     friend class variant;
     friend range* new_range(integer, integer);
-protected:
+public:
     integer left;
     integer right;
 
@@ -309,28 +313,79 @@ protected:
 };
 
 
-class tuple: public object
+struct podvar { char data[sizeof(variant)]; };
+typedef std::vector<podvar> podvar_impl;
+
+// #define USE_STL_VECTOR
+
+#ifndef USE_STL_VECTOR
+
+class varlist
 {
-    friend class variant;
-
-    tuple_impl impl;
-
+protected:
+    podvar_impl impl;
 public:
-    tuple();
-    tuple(const tuple& other): impl(other.impl)  { }
-    ~tuple();
-
-    virtual object* clone() const;
+    varlist();
+    varlist(const varlist&);
+    void operator= (const varlist&); // not implemented
+    ~varlist()                                { clear(); }
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
-    void clear()                              { impl.clear(); }
-    void resize(mem n)                        { impl.resize(n); }
-    void push_back(const variant& v)          { impl.push_back(v); }
-    void insert(mem i, const variant& v)      { impl.insert(impl.begin() + i, v); }
-    void put(mem i, const variant& v)         { impl[i] = v; }
-    void erase(mem i)                         { impl.erase(impl.begin() + i); }
-    void erase(mem index, mem count);
-    const variant& operator[] (mem i)   const { return impl[i]; }
+    void resize(mem);
+    void clear()                              { resize(0); }
+    void push_back(variant v);
+    variant& back()                           { return (variant&)impl.back(); }
+    const variant& back()               const { return (variant&)impl.back(); }
+    void pop_back();
+    void insert(mem, const variant&);
+    void put(mem i, const variant& v)         { (variant&)impl[i] = v; }
+    void erase(mem i);
+    void erase(mem i, mem count);
+    const variant& operator[] (mem i)   const { return (variant&)(impl[i]); }
+};
+
+#else
+
+class varlist: public std::vector<variant>
+{
+protected:
+public:
+    varlist() { }
+    varlist(const varlist& v): std::vector<variant>(v) { }
+    void insert(mem i, const variant& v);
+    void put(mem i, const variant& v)         { (*this)[i] = v; }
+    void erase(mem i);
+    void erase(mem i, mem count);
+};
+
+#endif
+
+
+// Fast uninitialized storage for variants
+class varstack: protected podvar_impl
+{
+protected:
+    void _err();
+public:
+    varstack();
+    ~varstack();
+
+    variant* reserve(mem);  // for fast operation
+    void free(mem);
+    
+    void push(variant);
+};
+
+
+class tuple: public object, public varlist
+{
+    friend class variant;
+public:
+    tuple();
+    tuple(const tuple& other): varlist(other)  { }
+    void operator=(const tuple& other)  { varlist::operator=(other); }
+    ~tuple();
+    virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
 };
 
@@ -442,9 +497,6 @@ inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_rea
 
 inline set_iterator variant::set_begin() const    { _req(SET); return _set_read().begin(); }
 inline set_iterator variant::set_end() const      { _req(SET); return _set_read().end(); }
-
-extern const variant null;
-extern const str null_str;
 
 
 // --- FIFO ---------------------------------------------------------------- //
@@ -714,24 +766,6 @@ public:
 
 
 langobj* new_langobj(State*);
-
-
-// --- SIMPLE VARIANT COLLECTION ------------------------------------------- //
-
-
-// TODO: reimplement with a simple dynamic buffer
-class varstack: protected tuple_impl, public noncopyable
-{
-public:
-    varstack() { }
-    ~varstack() { }
-    void push(const variant& v)     { push_back(v); }
-    void pushn(mem n)               { resize(size() + n); }
-    variant& top()                  { return back(); }
-    variant& top(mem n)             { return *(end() - n); }
-    void pop()                      { pop_back(); }
-    void popn(mem n)                { resize(size() - n); }
-};
 
 
 #endif // __RUNTIME_H

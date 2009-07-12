@@ -109,7 +109,9 @@ public:
         { virtual const char* what() const throw() { return msg; } };
 
 
-struct emessage: public std::exception
+typedef std::exception exception;
+
+struct emessage: public exception
 {
     const str message;
     emessage(const str& message): message(message) { }

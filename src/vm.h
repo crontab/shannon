@@ -2,6 +2,12 @@
 #define __VM_H
 
 
+#include "common.h"
+
+
+DEF_EXCEPTION(EInvOpcode, "Invalid code")
+
+
 // TODO: "unsafe" versions for operations that expect particular types
 // TODO: implement safe typecasts from any type to any type (for opToXXX)
 

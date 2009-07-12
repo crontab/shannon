@@ -48,10 +48,10 @@ class CodeSeg: noncopyable
     friend class CodeGen;
 protected:
     str code;
-    varstack consts;
+    varlist consts;
     mem stksize;
     // These can't be refcounted as it will introduce circular references. Both
-    // can be NULL if a const expression is executed.
+    // can be NULL if this is a const expression executed at compile time.
     State* state;
     Context* context;
 
@@ -63,9 +63,10 @@ protected:
     void close(mem _stksize);
     bool empty() const
         { return code.empty(); }
+    void doRun(variant*& stk, const char* ip);
 public:
     CodeSeg(State*, Context*);
-    void run(varstack&);
+    void run(varstack&);    // defined in vm.cpp
 };
 
 
