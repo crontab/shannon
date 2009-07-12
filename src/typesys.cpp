@@ -35,7 +35,7 @@ bool Type::canBeArrayIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
 
 bool Type::canBeSmallSetIndex()
-    { return isOrdinal() && POrdinal(this)->rangeFits(variant::CHARSET_BITS); }
+    { return isOrdinal() && POrdinal(this)->rangeFits(charset::BITS); }
 
 
 Fifo* Type::deriveFifo()        { DERIVEX(Fifo) }
@@ -100,6 +100,8 @@ Base* Scope::deepFind(const str& ident) const
 
 Variable* Scope::addVariable(const str& name, Type* type)
 {
+    if (vars.size() == 255)
+        throw emessage("Maximum number of variables within one scope is reached");
     objptr<Variable> v = new Variable(name, type);
     addUnique(v);   // may throw
     vars.add(v);
@@ -252,7 +254,7 @@ TypeReference::TypeReference(): Type(TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module("system"),
+  : Module("system", -1),
     defaultTypeRef(registerType(new TypeReference())),
     defaultVoid(registerType(new Void())),
     defaultInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),

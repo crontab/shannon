@@ -198,8 +198,8 @@ void variant::_init(const variant& other)
     {
     case NONE:
         break;
-    case BOOL: val._bool = other.val._bool; break;
-    case CHAR: val._char = other.val._char; break;
+    case BOOL:
+    case CHAR:
     case INT:  val._int = other.val._int; break;
     case TINYSET: val._tinyset = other.val._tinyset; break;
     case REAL: val._real = other.val._real; break;
@@ -277,8 +277,8 @@ void variant::dump(fifo_intf& s) const
     switch (type)
     {
     case NONE: s << "null"; break;
-    case BOOL: s << (val._bool ? "true" : "false"); break;
-    case CHAR: s << '\'' << val._char << '\''; break;
+    case BOOL: s << (val._int ? "true" : "false"); break;
+    case CHAR: s << '\'' << uchar(val._int) << '\''; break;
     case INT:  s << val._int; break;
     case TINYSET:
         {
@@ -321,8 +321,8 @@ bool variant::operator== (const variant& other) const
     switch (type)
     {
     case NONE:      return true;
-    case BOOL:      return val._bool == other.val._bool;
-    case CHAR:      return val._char == other.val._char;
+    case BOOL:
+    case CHAR:
     case INT:       return val._int == other.val._int;
     case TINYSET:   return val._tinyset == other.val._tinyset;
     case REAL:      return val._real == other.val._real;
@@ -341,8 +341,8 @@ bool variant::operator< (const variant& other) const
     switch (type)
     {
     case NONE: return false;
-    case BOOL: return val._bool < other.val._bool;
-    case CHAR: return val._char < other.val._char;
+    case BOOL:
+    case CHAR:
     case INT:  return val._int < other.val._int;
     case TINYSET: return val._tinyset < other.val._tinyset;
     case REAL: return val._real < other.val._real;
@@ -368,18 +368,6 @@ void variant::_range_err() { throw evariantrange(); }
 void variant::_index_err() { throw evariantindex(); }
 
 
-integer variant::as_ordinal() const
-{
-    switch (type)
-    {
-    case BOOL: return val._bool;
-    case CHAR: return unsigned(val._char);
-    case INT: return val._int;
-    default: _type_err(); return 0;
-    }
-}
-
-
 unsigned variant::as_tiny_int() const
 {
     integer i = as_ordinal();
@@ -392,7 +380,7 @@ unsigned variant::as_tiny_int() const
 unsigned variant::as_char_int() const
 {
     integer i = as_ordinal();
-    if (i < 0 || i >= CHARSET_BITS)
+    if (i < 0 || i >= charset::BITS)
         _range_err();
     return i;
 }
@@ -401,20 +389,24 @@ unsigned variant::as_char_int() const
 // _xxx_write(): return a unique container implementation, create if necessary
 // _xxx_read(): return a const ref to an object, possibly null_xxx if empty
 
-#define XIMPL(t) \
+#define XIMPL(t,T) \
     t& variant::_##t##_write() \
-        { if (val._##t == NULL) val._##t = grab(new t()); \
+        { \
+          _dbg(T); \
+          if (val._##t == NULL) val._##t = grab(new t()); \
           /* else  unique(val._##t); */ \
           return *val._##t; } \
     const t& variant::_##t##_read() const \
-        { if (val._##t == NULL) return null_##t; \
+        { \
+          _dbg(T); \
+          if (val._##t == NULL) return null_##t; \
           return *val._##t; }
 
-XIMPL(range)
-XIMPL(tuple)
-XIMPL(dict)
-XIMPL(ordset)
-XIMPL(set)
+XIMPL(range, RANGE)
+XIMPL(tuple, TUPLE)
+XIMPL(dict, DICT)
+XIMPL(ordset, ORDSET)
+XIMPL(set, SET)
 
 
 mem variant::size() const

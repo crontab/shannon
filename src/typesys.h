@@ -140,6 +140,8 @@ public:
     ~Scope();
     Base* deepFind(const str&) const;
     Variable* addVariable(const str&, Type*);
+    int dataSize()
+            { return vars.size(); }
 };
 
 
@@ -168,7 +170,8 @@ public:
 class Module: public State
 {
 public:
-    Module(const str& _name): State(_name, NULL)  { }
+    const int id;
+    Module(const str& _name, int _id): State(_name, NULL), id(_id)  { }
 };
 
 
