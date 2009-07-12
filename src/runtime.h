@@ -76,6 +76,8 @@ public:
         TUPLE, DICT, ORDSET, SET, FIFO, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
+    enum { CHARSET_BITS = charset::BITS };
+
 protected:
     Type type;
     union
