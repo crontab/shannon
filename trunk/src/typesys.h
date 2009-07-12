@@ -23,6 +23,54 @@ class Variant;
 class TypeReference;
 
 
+// --- VIRTUAL MACHINE (partial) ---
+
+// Some bits of the virtual machine are needed here because each State class
+// holds its own code segment.
+
+class Context: noncopyable
+{
+    friend class CodeSeg;
+protected:
+    List<Module> modules;
+    List<tuple> datasegs;
+    Module* topModule;
+    void resetDatasegs();
+public:
+    Context();
+    Module* addModule(const str& name);
+    void run(varstack&); // TODO: execute all init blocks in modules
+};
+
+
+class CodeSeg: noncopyable
+{
+    friend class CodeGen;
+protected:
+    str code;
+    varstack consts;
+    mem stksize;
+    // These can't be refcounted as it will introduce circular references. Both
+    // can be NULL if a const expression is executed.
+    State* state;
+    Context* context;
+
+    int addOp(unsigned c);
+    void add8(uchar i);
+    void add16(unsigned short i);
+    void addInt(integer i);
+    void addPtr(void* p);
+    void close(mem _stksize);
+    bool empty() const
+        { return code.empty(); }
+public:
+    CodeSeg(State*, Context*);
+    void run(varstack&);
+};
+
+
+// --- BASIC LANGUAGE OBJECTS ---
+
 class Base: public Symbol
 {
 public:
@@ -153,10 +201,14 @@ protected:
     List<Constant> consts;
     List<Type> types;
     List<State> states;
+
+    CodeSeg main;
+    CodeSeg finalize;
+
 public:
     State* const parent;
     int const level;
-    State(const str& _name, State* _parent);
+    State(const str& _name, State* _parent, Context*);
     ~State();
     langobj* newObject();
     template<class T>
@@ -170,8 +222,9 @@ public:
 class Module: public State
 {
 public:
-    const int id;
-    Module(const str& _name, int _id): State(_name, NULL), id(_id)  { }
+    const mem id;
+    Module(const str& _name, mem _id, Context* _context)
+        : State(_name, NULL, _context), id(_id)  { }
 };
 
 

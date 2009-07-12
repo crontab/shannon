@@ -661,7 +661,7 @@ void test_typesys()
     check(PConst(b)->type->isBool());
 
     {
-        State state("test", queenBee);
+        State state("test", queenBee, NULL);
         b = state.deepFind("true");
         check(b != NULL && b->isConstant());
         check(state.deepFind("untrue") == NULL);

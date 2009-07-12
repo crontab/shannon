@@ -25,6 +25,7 @@
 #  error "BOOL defined somewhere conflicts with internal definitions in variant class"
 #endif
 
+// Implementation is in variant.cpp and fifo.cpp.
 
 // TODO: at least the implementation of tuple should be rewritten with
 // realloc(), because we always have a vector of variants and we never
@@ -713,6 +714,24 @@ public:
 
 
 langobj* new_langobj(State*);
+
+
+// --- SIMPLE VARIANT COLLECTION ------------------------------------------- //
+
+
+// TODO: reimplement with a simple dynamic buffer
+class varstack: protected tuple_impl, public noncopyable
+{
+public:
+    varstack() { }
+    ~varstack() { }
+    void push(const variant& v)     { push_back(v); }
+    void pushn(mem n)               { resize(size() + n); }
+    variant& top()                  { return back(); }
+    variant& top(mem n)             { return *(end() - n); }
+    void pop()                      { pop_back(); }
+    void popn(mem n)                { resize(size() - n); }
+};
 
 
 #endif // __RUNTIME_H

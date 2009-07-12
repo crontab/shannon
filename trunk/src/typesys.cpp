@@ -1,8 +1,70 @@
 
 
 #include "typesys.h"
+#include "vm.h"
 
 
+// --- EXECUTION CONTEXT --------------------------------------------------- //
+
+
+Context::Context()
+    : topModule(NULL)  { }
+
+
+Module* Context::addModule(const str& name)
+{
+    if (modules.size() == 255)
+        throw emessage("Maximum number of modules reached");
+    topModule = new Module(name, modules.size(), this);
+    modules.add(topModule);
+    datasegs.add(new tuple());
+    return topModule;
+}
+
+
+void Context::resetDatasegs()
+{
+    assert(modules.size() == datasegs.size());
+    for (mem i = 0; i < modules.size(); i++)
+    {
+        tuple* d = datasegs[i];
+        d->clear();
+        d->resize(modules[i]->dataSize());
+    }
+}
+
+
+
+// --- CODE SEGMENT -------------------------------------------------------- //
+
+CodeSeg::CodeSeg(State* _state, Context* _context)
+    : state(_state), context(_context)  { }
+
+int CodeSeg::addOp(unsigned c)
+    { code.push_back(c); return code.size() - 1; }
+
+void CodeSeg::add8(uchar i)
+    { code.push_back(i); }
+
+void CodeSeg::add16(unsigned short i)
+    { code.append((char*)&i, 2); }
+
+void CodeSeg::addInt(integer i)
+    { code.append((char*)&i, sizeof(i)); }
+
+void CodeSeg::addPtr(void* p)
+    { code.append((char*)&p, sizeof(p)); }
+
+
+void CodeSeg::close(mem _stksize)
+{
+    if (!code.empty())
+        addOp(opEnd);
+    stksize = _stksize;
+}
+
+
+// --- TYPE SYSTEM --------------------------------------------------------- //
 
 // Constructor placeholders for the DERIVEX macro
 #define new_Fifo(x)     new Fifo(x)
@@ -112,9 +174,11 @@ Variable* Scope::addVariable(const str& name, Type* type)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(const str& _name, State* _parent)
-  : Base(_name, STATE), Scope(_parent), parent(_parent),
-    level(_parent == NULL ? 0 : _parent->level + 1) { }
+State::State(const str& _name, State* _parent, Context* _context)
+  : Base(_name, STATE), Scope(_parent),
+    main(this, _context), finalize(this, _context),
+    parent(_parent), level(_parent == NULL ? 0 : _parent->level + 1) { }
+
 
 State::~State()  { }
 
@@ -254,7 +318,7 @@ TypeReference::TypeReference(): Type(TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module("system", -1),
+  : Module("system", mem(-1), NULL),
     defaultTypeRef(registerType(new TypeReference())),
     defaultVoid(registerType(new Void())),
     defaultInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),
