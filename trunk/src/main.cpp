@@ -46,8 +46,8 @@ enum OpCode
     opLoadNullOrdset,
     opLoadNullSet,
     opLoadNullFifo,
-    opLoadConst,        // [const-index: 16]
-    opLoadTypeRef,      // [type-repo-index: 16]
+    opLoadConst,        // [const-index: 8]
+    opLoadTypeRef,      // [Type*]
 
     // Loaders: each of these can be replaced by a corresponding storer if
     // the object turns out to be a L-value.
@@ -114,7 +114,7 @@ enum OpCode
     opToChar,
     opToInt,
     opToStr,
-    opToType,           // [type-repo-index: 16]
+    opToType,           // [Type*]
     
     // Arithmetic
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
@@ -126,8 +126,8 @@ enum OpCode
     opJumpTrue, opJumpFalse, opJump,
 
     // Function call
-    opCall,             // [type-repo-index: 16]
-    
+    opCall,             // [Type*]
+
     // Helpers
     opEcho, opEchoLn,
     opAssert,           // [line-num: 16]
@@ -135,6 +135,146 @@ enum OpCode
     
     opMaxCode
 };
+
+
+class Context: noncopyable
+{
+    friend class CodeSeg;
+protected:
+    List<Module> modules;
+    List<tuple> datasegs;
+    varstack stack;
+    Module* topModule;
+    void resetDatasegs();
+public:
+    Context();
+    Module* addModule(const str& name);
+    void run();
+};
+
+
+class CodeSeg: noncopyable
+{
+protected:
+    str code;
+    varstack consts;
+public:
+    int addOp(OpCode c);
+    void add8(uchar i);
+    void add16(unsigned short i);
+    void addInt(integer i);
+    void addPtr(void* p);
+    void close();
+};
+
+
+class CodeGen: noncopyable
+{
+protected:
+
+    struct stkinfo
+    {
+        Type* type;
+        variant value;
+        stkinfo(Type* t): type(t) { }
+        stkinfo(Type* t, const variant& v): type(t), value(v)  { }
+    };
+
+    CodeSeg codeseg;
+    std::vector<stkinfo> genStack;
+    mem stkMax;
+    Context* context;
+
+    void stkPush(Type* t, const variant& v);
+    void stkPush(Type* t)
+            { stkPush(t, null); }
+    void stkPush(Constant* c)
+            { stkPush(c->type, c->value); }
+    const stkinfo& stkTop() const;
+    Type* topType() const
+            { return stkTop().type; }
+    const variant& topValue() const
+            { return stkTop().value; }
+    void stkPop();
+
+public:
+    CodeGen(Context*);
+};
+
+
+// --- EXECUTION CONTEXT --------------------------------------------------- //
+
+
+Context::Context()
+    : topModule(NULL)  { }
+
+
+Module* Context::addModule(const str& name)
+{
+    if (modules.size() == 255)
+        throw emessage("Maximum number of modules reached");
+    topModule = new Module(name, modules.size());
+    modules.add(topModule);
+    datasegs.add(new tuple());
+    return topModule;
+}
+
+
+void Context::resetDatasegs()
+{
+    assert(modules.size() == datasegs.size());
+    for (mem i = 0; i < modules.size(); i++)
+    {
+        tuple* d = datasegs[i];
+        d->clear();
+        d->resize(modules[i]->dataSize());
+    }
+}
+
+
+// --- CODE SEGMENT -------------------------------------------------------- //
+
+
+int CodeSeg::addOp(OpCode c)
+    { code.push_back(c); return code.size() - 1; }
+
+void CodeSeg::add8(uchar i)
+    { code.push_back(i); }
+
+void CodeSeg::add16(unsigned short i)
+    { code.append((char*)&i, 2); }
+
+void CodeSeg::addInt(integer i)
+    { code.append((char*)&i, sizeof(i)); }
+
+void CodeSeg::addPtr(void* p)
+    { code.append((char*)&p, sizeof(p)); }
+
+void CodeSeg::close()
+    { addOp(opEnd); }
+
+
+// --- CODE GENERATOR ------------------------------------------------------ //
+
+
+CodeGen::CodeGen(Context* _context)
+    : stkMax(0), context(_context)  { }
+
+
+void CodeGen::stkPush(Type* type, const variant& value)
+{
+    genStack.push_back(stkinfo(type, value));
+    if (genStack.size() > stkMax)
+        stkMax = genStack.size();
+}
+
+
+const CodeGen::stkinfo& CodeGen::stkTop() const
+    { return genStack.back(); }
+
+
+void CodeGen::stkPop()
+    { genStack.pop_back(); }
 
 
 // --- tests --------------------------------------------------------------- //
@@ -149,6 +289,10 @@ int main()
     {
         Parser parser("x", new in_text("x"));
         fout << "opcodes: " << opMaxCode << endl;
+        
+//        Context context;
+        CodeGen codegen(NULL);
+        
     }
     catch (std::exception& e)
     {

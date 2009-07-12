@@ -158,7 +158,7 @@ void fifo_intf::var_enq(const variant& v)
 {
     if (is_char_fifo())
     {
-        if (v.is_str())
+        if (v.is(variant::STR))
             enq(v.as_str());
         else
             enq(v.as_char());

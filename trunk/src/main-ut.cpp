@@ -88,27 +88,27 @@ void test_variant()
     int save_alloc = object::alloc;
     {
         variant v1 = null;              check(v1.is_null());
-        variant v2 = 0;                 check(v2.is_int());     check(v2.as_int() == 0);
-        variant v3 = 1;                 check(v3.is_int());     check(v3.as_int() == 1);
-        variant v4 = INTEGER_MAX;       check(v4.is_int());     check(v4.as_int() == INTEGER_MAX);
-        variant v5 = INTEGER_MIN;       check(v5.is_int());     check(v5.as_int() == INTEGER_MIN);
-        variant v6 = 1.1;               check(v6.is_real());    check(v6.as_real() == real(1.1));
-        variant v7 = false;             check(v7.is_bool());    check(!v7.as_bool());
-        variant v8 = true;              check(v8.is_bool());    check(v8.as_bool());
-        variant v12 = 'x';              check(v12.is_char());   check(v12.as_char() == 'x');
-        variant v9 = "";                check(v9.is_str());     check(v9.as_str().empty());
-        variant v10 = "abc";            check(v10.is_str());    check(v10.as_str() == "abc");
+        variant v2 = 0;                 check(v2.is(variant::INT));     check(v2.as_int() == 0);
+        variant v3 = 1;                 check(v3.as_int() == 1);
+        variant v4 = INTEGER_MAX;       check(v4.as_int() == INTEGER_MAX);
+        variant v5 = INTEGER_MIN;       check(v5.as_int() == INTEGER_MIN);
+        variant v6 = 1.1;               check(v6.as_real() == real(1.1));
+        variant v7 = false;             check(!v7.as_bool());
+        variant v8 = true;              check(v8.as_bool());
+        variant v12 = 'x';              check(v12.as_char() == 'x');
+        variant v9 = "";                check(v9.as_str().empty());
+        variant v10 = "abc";            check(v10.as_str() == "abc");
         string s1 = "def";
-        variant vst = s1;               check(vst.is_str());    check(vst.as_str() == s1);
-        variant vr = new_range();       check(vr.is_range());   check(vr.is_null_ptr());
-        variant vr1 = new_range(1, 5);  check(vr1.is_range());  check(!vr1.is_null_ptr());
-        variant vr2(6, 7);              check(vr2.is_range());  check(!vr2.is_null_ptr());
-        variant vr3(6, 5);              check(vr3.is_range());  check(vr3.is_null_ptr());
-        variant vt = new_tuple();       check(vt.is_tuple());   check(vt.is_null_ptr());
-        variant vd = new_dict();        check(vd.is_dict());    check(vd.is_null_ptr());
-        variant vs = new_set();         check(vs.is_set());     check(vs.is_null_ptr());
-        variant vos = new_ordset();     check(vos.is_ordset());    check(vos.is_null_ptr());
-        variant vts = new_tinyset();    check(vts.is_tinyset());  check(vts.as_tinyset() == 0);
+        variant vst = s1;               check(vst.as_str() == s1);
+        variant vr = new_range();       check(vr.is(variant::RANGE));   check(vr.is_null_ptr());
+        variant vr1 = new_range(1, 5);  check(vr1.is(variant::RANGE));  check(!vr1.is_null_ptr());
+        variant vr2(6, 7);              check(vr2.is(variant::RANGE));  check(!vr2.is_null_ptr());
+        variant vr3(6, 5);              check(vr3.is(variant::RANGE));  check(vr3.is_null_ptr());
+        variant vt = new_tuple();       check(vt.is(variant::TUPLE));   check(vt.is_null_ptr());
+        variant vd = new_dict();        check(vd.is(variant::DICT));    check(vd.is_null_ptr());
+        variant vs = new_set();         check(vs.is(variant::SET));     check(vs.is_null_ptr());
+        variant vos = new_ordset();     check(vos.is(variant::ORDSET));    check(vos.is_null_ptr());
+        variant vts = new_tinyset();    check(vts.as_tinyset() == 0);
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
@@ -173,21 +173,8 @@ void test_variant()
         v = new_ordset();      check(v.is_null_ptr());
         v = o;                 check(v.as_object() == o);
         check(v != null);
-        check(!v.is_null());
-        check(!v.is_int());
-        check(!v.is_real());
-        check(!v.is_bool());
-        check(!v.is_int());
-        check(!v.is_char());
-        check(!v.is_str());
-        check(!v.is_range());
-        check(!v.is_tuple());
-        check(!v.is_dict());
-        check(!v.is_set());
-        check(!v.is_ordset());
-        check(!v.is_tinyset());
         v = null;
-        check(!v.is_object());
+        check(!v.is(variant::OBJECT));
         check(v == null);
 
         // tinyset
@@ -632,13 +619,13 @@ void test_fifos()
     // f.dump(std::cout); std::cout << std::endl;
     variant x;
     f.var_deq(x);
-    check(x.is_tuple());
+    check(x.is(variant::TUPLE));
     f.var_deq(w);
-    check(w.is_str());
+    check(w.is(variant::STR));
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is_range());
+    check(vr.is(variant::RANGE));
 
     fifo fc(true);
     test_bidir_char_fifo(fc);

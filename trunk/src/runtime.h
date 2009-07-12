@@ -76,15 +76,11 @@ public:
         TUPLE, DICT, ORDSET, SET, FIFO, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
-    enum { CHARSET_BITS = charset::BITS };
-
 protected:
     Type type;
     union
     {
-        bool     _bool;
-        uchar    _char;
-        integer  _int;
+        integer  _int;      // int, char and bool
         uinteger _tinyset;
         real     _real;
         char     _str[sizeof(str)];
@@ -97,8 +93,19 @@ protected:
         fifo_intf* _fifo;
     } val;
 
-    str& _str_write()               { return *(str*)val._str; }
-    const str& _str_read()    const { return *(str*)val._str; }
+#ifdef DEBUG
+    void _dbg(Type t) const         { if (type != t) _type_err(); }
+#else
+    void _dbg(Type t) const         { }
+#endif
+
+    bool _bool()                const { _dbg(BOOL); return val._int; }
+    uchar _char()               const { _dbg(CHAR); return val._int; }
+    integer _int()              const { _dbg(INT); return val._int; }
+    tinyset _tinyset()          const { _dbg(TINYSET); return val._tinyset; }
+    real _real()                const { _dbg(REAL); return val._real; }
+    str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
+    const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
     range& _range_write();
     const range& _range_read() const;
     tuple& _tuple_write();
@@ -109,13 +116,14 @@ protected:
     const ordset& _ordset_read() const;
     set& _set_write();
     const set& _set_read() const;
-    fifo_intf* _fifo() const        { return val._fifo; }
+    fifo_intf* _fifo()          const { _dbg(FIFO); return val._fifo; }
+    object* _object()           const { _dbg(OBJECT); return val._obj; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
-    void _init(bool b)              { type = BOOL; val._bool = b; }
-    void _init(char c)              { type = CHAR; val._char = c; }
-    void _init(uchar c)             { type = CHAR; val._char = c; }
+    void _init(bool b)              { type = BOOL; val._int = b; }
+    void _init(char c)              { type = CHAR; val._int = uchar(c); }
+    void _init(uchar c)             { type = CHAR; val._int = c; }
     template<class T>
         void _init(T i)             { type = INT; val._int = i; }
     void _init(tinyset s)           { type = TINYSET; val._tinyset = s.val; }
@@ -145,16 +153,6 @@ protected:
 
     unsigned as_tiny_int() const;
     unsigned as_char_int() const;
-/*
-    // Range checking
-#ifdef RANGE_CHECKING
-    integer _in_signed(integer) const;
-    integer _in_unsigned(integer) const;
-#else
-    integer _in_signed(integer)     const { return val._int; }
-    integer _in_unsigned(integer)   const { return val._int; }
-#endif
-*/
 
 public:
     variant()                       { _init(); }
@@ -180,19 +178,8 @@ public:
     bool operator< (const variant& v) const;
 
     // TODO: is_int(int), is_real(real) ... or operator == maybe?
+    bool is(Type t)           const { return type == t; }
     bool is_null()            const { return type == NONE; }
-    bool is_bool()            const { return type == BOOL; }
-    bool is_char()            const { return type == CHAR; }
-    bool is_int()             const { return type == INT; }
-    bool is_tinyset()         const { return type == TINYSET; }
-    bool is_real()            const { return type == REAL; }
-    bool is_str()             const { return type == STR; }
-    bool is_range()           const { return type == RANGE; }
-    bool is_tuple()           const { return type == TUPLE; }
-    bool is_dict()            const { return type == DICT; }
-    bool is_ordset()          const { return type == ORDSET; }
-    bool is_set()             const { return type == SET; }
-    bool is_fifo()            const { return type == FIFO; }
     bool is_ordinal()         const { return type >= BOOL && type <= INT; }
     bool is_nonpod()          const { return type >= NONPOD; }
     bool is_refcnt()          const { return type >= REFCNT; }
@@ -203,17 +190,11 @@ public:
 
     // Type conversions
     // TODO: as_xxx(defualt)
-    bool as_bool()            const { _req(BOOL); return val._bool; }
-    uchar as_char()            const { _req(CHAR); return val._char; }
+    bool as_bool()            const { _req(BOOL); return val._int; }
+    uchar as_char()           const { _req(CHAR); return val._int; }
     integer as_int()          const { _req(INT); return val._int; }
-    integer as_ordinal()      const;
+    integer as_ordinal()      const { if (!is_ordinal()) _type_err(); return val._int; }
     tinyset as_tinyset()      const { _req(TINYSET); return val._tinyset; }
-/*
-    template<class T>
-        T as_signed()         const { _req(INT); return (T)_in_signed(sizeof(T)); }
-    template<class T>
-        T as_unsigned()       const { _req(INT); return (T)_in_unsigned(sizeof(T)); }
-*/
     real as_real()            const { _req(REAL); return val._real; }
     const str& as_str()       const { _req(STR); return _str_read(); }
     const range& as_range()   const { _req(RANGE); return _range_read(); }
@@ -254,7 +235,7 @@ public:
     dict_iterator dict_end() const;
     set_iterator set_begin() const;
     set_iterator set_end() const;
-    
+
     // for unit tests
     bool is_null_ptr() const { _req_refcnt(); return val._obj == NULL; }
 };
@@ -333,7 +314,7 @@ class tuple: public object
 
     tuple_impl impl;
 
-protected:
+public:
     tuple();
     tuple(const tuple& other): impl(other.impl)  { }
     ~tuple();
@@ -341,6 +322,7 @@ protected:
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
+    void clear()                              { impl.clear(); }
     void resize(mem n)                        { impl.resize(n); }
     void push_back(const variant& v)          { impl.push_back(v); }
     void insert(mem i, const variant& v)      { impl.insert(impl.begin() + i, v); }
