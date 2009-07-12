@@ -14,13 +14,13 @@ protected:
     struct stkinfo
     {
         Type* type;
-        variant value;
         stkinfo(Type* t): type(t) { }
-        stkinfo(Type* t, const variant& v): type(t), value(v)  { }
     };
 
     CodeSeg& codeseg;
+
     std::vector<stkinfo> genStack;
+    varlist valStack;
     mem stkMax;
 
     void stkPush(Type* t, const variant& v);
@@ -32,13 +32,60 @@ protected:
     Type* topType() const
             { return stkTop().type; }
     const variant& topValue() const
-            { return stkTop().value; }
+            { return valStack.back(); }
     void stkPop();
 
 public:
     CodeGen(CodeSeg&);
     ~CodeGen();
 };
+
+
+// --- THE VIRTUAL MACHINE ------------------------------------------------- //
+
+
+void invOpcode()        { throw EInvOpcode(); }
+
+
+template<class T>
+    inline void PUSH(variant*& stk, const T& v)  { ::new(++stk) variant(v);  }
+inline void POP(variant*& stk)              { (*stk--).~variant(); }
+
+
+void CodeSeg::doRun(variant*& stk, const char* ip)
+{
+    while (1)
+    {
+        switch(uchar(*ip++))
+        {
+        case opInv: invOpcode(); break;
+        case opEnd: return;
+        case opNop: break;
+        }
+    }
+}
+
+
+void CodeSeg::run(varstack& stack)
+{
+    if (code.empty())
+        return;
+    variant* stkbase = stack.reserve(stksize);
+    variant* stk = stkbase - 1; // point to the top element
+    try
+    {
+        doRun(stk, code.data());
+    }
+    catch(exception& e)
+    {
+        while (stk <= stkbase)
+            POP(stk);
+        stack.free(stksize);
+        throw e;
+    }
+    assert(stk == stkbase - 1);
+    stack.free(stksize);
+}
 
 
 // --- CODE GENERATOR ------------------------------------------------------ //
@@ -56,7 +103,8 @@ CodeGen::~CodeGen()  { codeseg.close(stkMax); }
 
 void CodeGen::stkPush(Type* type, const variant& value)
 {
-    genStack.push_back(stkinfo(type, value));
+    genStack.push_back(stkinfo(type));
+    valStack.push_back(value);
     if (genStack.size() > stkMax)
         stkMax = genStack.size();
 }
@@ -67,21 +115,42 @@ const CodeGen::stkinfo& CodeGen::stkTop() const
 
 
 void CodeGen::stkPop()
-    { genStack.pop_back(); }
+{
+    assert(genStack.size() == valStack.size());
+    genStack.pop_back();
+    valStack.pop_back();
+}
+
+
+// --- varlist ------------------------------------------------------------- //
 
 
 // --- tests --------------------------------------------------------------- //
+
 
 #define check(x) assert(x)
 
 
 int main()
 {
+    {
+        varlist v;
+        v.push_back(1);
+        v.push_back(new object());
+        fout << v.back() << endl;
+        v.pop_back();
+        fout << v.back() << endl;
+        v.push_back(new object());
+        v.push_back(new range(0, 1));
+        v.erase(1);
+    }
+
+
     initTypeSys();
     try
     {
         Parser parser("x", new in_text("x"));
-        fout << "opcodes: " << opMaxCode << endl;
+//        fout << "opcodes: " << opMaxCode << endl;
         
 //        Context context;
         CodeSeg codeseg(NULL, NULL);

@@ -276,6 +276,7 @@ void test_variant()
         check(vta.to_string() == "[100, true, \"abc\", [1..2]]");
         vta.unique();
         check(vt.is_unique()); check(vta.is_unique());
+        check(vta.to_string() == "[100, true, \"abc\", [1..2]]");
         vta.put(2, "def");
         check(vt.to_string() == "[100, true, \"abc\", [1..2]]");
         check(vta.to_string() == "[100, true, \"def\", [1..2]]");
@@ -711,7 +712,7 @@ int main()
         test_fifos();
         test_typesys();
     }
-    catch (exception& e)
+    catch (std::exception& e)
     {
         fail(e.what());
     }
