@@ -38,7 +38,16 @@ void Context::resetDatasegs()
 // --- CODE SEGMENT -------------------------------------------------------- //
 
 CodeSeg::CodeSeg(State* _state, Context* _context)
-    : state(_state), context(_context)  { }
+  : state(_state), context(_context)
+#ifdef DEBUG
+    , closed(false)
+#endif
+    { }
+
+CodeSeg::~CodeSeg()  { }
+
+void CodeSeg::clear()
+    { code.clear(); consts.clear(); stksize = 0; closed = false; }
 
 int CodeSeg::addOp(unsigned c)
     { code.push_back(c); return code.size() - 1; }
@@ -58,9 +67,11 @@ void CodeSeg::addPtr(void* p)
 
 void CodeSeg::close(mem _stksize)
 {
+    assert(!closed);
     if (!code.empty())
         addOp(opEnd);
     stksize = _stksize;
+    closed = true;
 }
 
 

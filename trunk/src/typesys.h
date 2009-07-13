@@ -54,6 +54,9 @@ protected:
     // can be NULL if this is a const expression executed at compile time.
     State* state;
     Context* context;
+#ifdef DEBUG
+    bool closed;
+#endif
 
     int addOp(unsigned c);
     void add8(uchar i);
@@ -63,10 +66,20 @@ protected:
     void close(mem _stksize);
     bool empty() const
         { return code.empty(); }
-    void doRun(variant*& stk, const char* ip);
+    void doRun(variant*&, const uchar* ip);
 public:
     CodeSeg(State*, Context*);
-    void run(varstack&);    // defined in vm.cpp
+    ~CodeSeg();
+    void clear(); // for unit tests
+    void run(varstack&, int returns = 0);
+};
+
+
+class ConstCode: public CodeSeg
+{
+public:
+    ConstCode(): CodeSeg(NULL, NULL) { }
+    void run(variant&);
 };
 
 

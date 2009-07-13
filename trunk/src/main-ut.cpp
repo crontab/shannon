@@ -22,11 +22,11 @@ using namespace std;
 #define check(e) \
     { if (!(e)) fail(#e); }
 
-#define check_throw(e,...) \
-    { bool chk_throw = false; try { __VA_ARGS__; } catch(e&) { chk_throw = true; } check(chk_throw); }
+#define check_throw(e,a) \
+    { bool chk_throw = false; try { a; } catch(e&) { chk_throw = true; } check(chk_throw); }
 
-#define check_nothrow(...) \
-    { try { __VA_ARGS__; } catch(...) { fail("exception thrown"); } }
+#define check_nothrow(a) \
+    { try { a; } catch(...) { fail("exception thrown"); } }
 
 #define XSTR(s) _STR(s)
 #define _STR(s) #s

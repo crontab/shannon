@@ -17,7 +17,11 @@ enum OpCode
     opEnd,
     opNop,
     
-    // Load constants
+    // Arithmetic
+    opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
+    opNeg, opBitNot, opNot,
+    
+    // Const loaders
     opLoadNull,
     opLoadFalse,
     opLoadTrue,
@@ -57,10 +61,10 @@ enum OpCode
     opStoreMember,      // [var-index: 8] pop val, pop obj
 
     // Vector/string concatenation
-    opCharToStr,        // pop char, push str
-    opCatCharStr,       // pop char
-    opVarToTuple,       // pop val, push tuple
-    opCatElemTuple,     // pop elem
+    opCatStrChar,       // pop char
+    opCatStrs,          // pop str
+    opCatTupleElem,     // pop elem
+    opCatTuples,        // pop tuple
     
     // Range operations
     opMkBoolRange,      // stupid but accepted by the compiler
@@ -95,16 +99,14 @@ enum OpCode
     opCase,             // pop var, push {0,1}
     opCaseRange,        // pop int, push {0,1}
     
-    // Safe variant typecasts
+    // Safe typecasts
     opToBool,
     opToChar,
     opToInt,
     opToStr,
+    opCharToStr,
+    opElemToTuple,
     opToType,           // [Type*]
-    
-    // Arithmetic
-    opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
-    opNeg, opBitNot, opNot,
     
     // Jumps; [dst] is a relative offset
     //   short bool evaluation: pop if jump, leave it otherwise
