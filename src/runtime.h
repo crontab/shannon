@@ -68,7 +68,7 @@ struct tinyset
 
 class variant
 {
-    friend class fifo_intf;
+    friend class CodeSeg;
 
 public:
     // Note: the order is important, especially after STR
@@ -100,11 +100,8 @@ protected:
     void _dbg(Type t) const         { }
 #endif
 
-    bool _bool()                const { _dbg(BOOL); return val._int; }
-    uchar _char()               const { _dbg(CHAR); return val._int; }
-    integer _int()              const { _dbg(INT); return val._int; }
-    tinyset _tinyset()          const { _dbg(TINYSET); return val._tinyset; }
-    real _real()                const { _dbg(REAL); return val._real; }
+    integer  _int()             const { _dbg(INT); return val._int; }
+    integer& _int_write()             { _dbg(INT); return val._int; }
     str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
     const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
     range& _range_write();
@@ -166,9 +163,9 @@ public:
     
     void clear()                    { _fin(); _init(); }
     void operator=(None)            { _fin(); _init(); }
-    template<class T>
     // TODO: check cases when the same value is assigned (e.g. v = v)
-    void operator= (const T& v)     { _fin(); _init(v); }
+    template<class T>
+        void operator= (const T& v)     { _fin(); _init(v); }
     void operator= (const variant& v)   { _fin(); _init(v); }
     bool operator== (const variant& v) const;
     bool operator!= (const variant& v)
@@ -313,17 +310,10 @@ public:
 };
 
 
-struct podvar { char data[sizeof(variant)]; };
-typedef std::vector<podvar> podvar_impl;
-
-// #define USE_STL_VECTOR
-
-#ifndef USE_STL_VECTOR
-
 class varlist
 {
 protected:
-    podvar_impl impl;
+    std::vector<variant> impl;
 public:
     varlist();
     varlist(const varlist&);
@@ -332,36 +322,24 @@ public:
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void resize(mem);
-    void clear()                              { resize(0); }
-    void push_back(variant v);
-    variant& back()                           { return (variant&)impl.back(); }
-    const variant& back()               const { return (variant&)impl.back(); }
+    void clear();
+    void push_back(const variant& v);
+    variant& back()                           { return impl.back(); }
+    const variant& back()               const { return impl.back(); }
     void pop_back();
     void insert(mem, const variant&);
-    void put(mem i, const variant& v)         { (variant&)impl[i] = v; }
+    void put(mem i, const variant& v)         { impl[i] = v; }
     void erase(mem i);
     void erase(mem i, mem count);
-    const variant& operator[] (mem i)   const { return (variant&)(impl[i]); }
+    const variant& operator[] (mem i)   const { return impl[i]; }
 };
-
-#else
-
-class varlist: public std::vector<variant>
-{
-protected:
-public:
-    varlist() { }
-    varlist(const varlist& v): std::vector<variant>(v) { }
-    void insert(mem i, const variant& v);
-    void put(mem i, const variant& v)         { (*this)[i] = v; }
-    void erase(mem i);
-    void erase(mem i, mem count);
-};
-
-#endif
 
 
 // Fast uninitialized storage for variants
+
+struct podvar { char data[sizeof(variant)]; };
+typedef std::vector<podvar> podvar_impl;
+
 class varstack: protected podvar_impl
 {
 protected:
@@ -370,10 +348,14 @@ public:
     varstack();
     ~varstack();
 
-    variant* reserve(mem);  // for fast operation
+    variant* reserve(mem);  // returns a stack base ptr for fast operation
     void free(mem);
     
+    mem size()            const { return podvar_impl::size(); }
     void push(variant);
+    variant& top()              { return (variant&)back(); }
+    const variant& top()  const { return (variant&)back(); }
+    void pop();
 };
 
 

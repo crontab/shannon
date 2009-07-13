@@ -116,73 +116,20 @@ range* new_range(integer l, integer r)
 }
 
 
-#ifndef USE_STL_VECTOR
 
-varlist::varlist()          { }
-void varlist::pop_back()    { back().~variant(); impl.pop_back(); }
-
-
-void varlist::push_back(variant v)
-{
-    impl.push_back((podvar&)v);
-}
-
-
-varlist::varlist(const varlist& other)
-{
-    mem count = other.size();
-    if (count == 0)
-        return;
-    impl.resize(count);
-    podvar_impl::iterator i = impl.begin();
-    podvar_impl::const_iterator io = other.impl.begin();
-    while (count--)
-    {
-        ::new(&(variant&)(*i)) variant((variant&)(*io));
-        i++;
-        io++;
-    }
-}
-
-
-void varlist::resize(mem s)
-{
-    mem olds = impl.size();
-    if (s < olds)
-    {
-        mem count = olds - s;
-        podvar_impl::reverse_iterator i = impl.rbegin();
-        while (count--)
-        {
-            ((variant&)(*i)).~variant();
-            i++;
-        }
-        impl.resize(s);
-    }
-    else if (s > olds)
-    {
-        impl.resize(s);
-        mem count = s - olds;
-        podvar_impl::iterator i = impl.begin() + olds;
-        while (count--)
-        {
-            ::new(&(variant&)(*i)) variant();
-            i++;
-        }
-    }
-}
+varlist::varlist()                          { }
+varlist::varlist(const varlist& other)      : impl(other.impl)  { }
+void varlist::pop_back()                    { impl.pop_back(); }
+void varlist::push_back(const variant& v)   { impl.push_back(v); }
+void varlist::resize(mem s)                 { impl.resize(s); }
+void varlist::clear()                       { impl.clear(); }
 
 
 void varlist::insert(mem i, const variant& v)
 {
-    // A bit suboptimal, because the STL doesn't provide an insert operation
-    // with default construction. Anyway, we are not going to use insert() at
-    // least in the compiler itself.
     if (i > impl.size())
         throw etupleindex();
-    podvar p;
-    ::new(&(variant&)(p)) variant(v);
-    impl.insert(impl.begin() + i, p);
+    impl.insert(impl.begin() + i, v);
 }
 
 
@@ -190,9 +137,7 @@ void varlist::erase(mem i)
 {
     if (i >= impl.size())
         throw etupleindex();
-    podvar_impl::iterator it = impl.begin() + i;
-    ((variant&)(*it)).~variant();
-    impl.erase(it);
+    impl.erase(impl.begin() + i);
 }
 
 
@@ -207,53 +152,15 @@ void varlist::erase(mem i, mem count)
         if (count == 0)
             return;
     }
-    podvar_impl::iterator it = impl.begin() + i;
-    while (count --)
-    {
-        ((variant&)(*it)).~variant();
-        it++;
-    }
     impl.erase(impl.begin() + i, impl.begin() + i + count - 1);
 }
 
-#else
 
-void varlist::insert(mem i, const variant& v)
-{
-    if (i > size())
-        throw etupleindex();
-    std::vector<variant>::insert(begin() + i, v);
-}
-
-
-void varlist::erase(mem i)
-{
-    if (i >= size())
-        throw etupleindex();
-    std::vector<variant>::erase(begin() + i);
-}
-
-
-void varlist::erase(mem i, mem count)
-{
-    mem s = size();
-    if (i >= s)
-        throw etupleindex();
-    if (i + count >= s)
-    {
-        count = s - i;
-        if (count == 0)
-            return;
-    }
-    std::vector<variant>::erase(begin() + i, begin() + i + count - 1);
-}
-
-#endif
-
-
-varstack::varstack()    { }
-varstack::~varstack()   { if (!empty()) _err(); }
-void varstack::_err()   { fatal(0x1001, "varstack error"); }
+varstack::varstack()            { }
+varstack::~varstack()           { if (!empty()) _err(); }
+void varstack::_err()           { fatal(0x1001, "varstack error"); }
+void varstack::push(variant v)  { push_back((podvar&)v); }
+void varstack::pop()            { ((variant&)back()).~variant(); pop_back(); }
 
 
 variant* varstack::reserve(mem n)
@@ -269,12 +176,6 @@ void varstack::free(mem n)
     mem s = size();
     if (n > s) _err();
     resize(s - n);
-}
-
-
-void varstack::push(variant v)
-{
-    push_back((podvar&)v);
 }
 
 

@@ -147,7 +147,7 @@ void fifo_intf::var_deq(variant& v)
     else
     {
         _req_non_empty();
-        v._fin();
+        v.clear();
         memcpy((char*)&v, get_tail(), sizeof(variant));
         deq_bytes(sizeof(variant));
     }
