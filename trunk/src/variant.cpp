@@ -330,6 +330,28 @@ void variant::_fin2()
 }
 
 
+bool variant::to_bool() const
+{
+    switch (type)
+    {
+    case NONE:      return false;
+    case BOOL: 
+    case CHAR: 
+    case INT:       return val._int != 0;
+    case TINYSET:   return val._tinyset != 0;
+    case REAL:      return val._real != 0.0;
+    case STR:       return !_str_read().empty();
+    case RANGE:     return !_range_read().empty();
+    case TUPLE:     return !_tuple_read().empty();
+    case DICT:      return !_dict_read().empty();
+    case ORDSET:    return !_ordset_read().empty();
+    case SET:       return !_set_read().empty();
+    case FIFO:      return !_fifo()->empty();
+    default:        return val._obj != NULL;
+    }
+}
+
+
 void variant::dump(fifo_intf& s) const
 {
     switch (type)

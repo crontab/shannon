@@ -51,7 +51,7 @@ DEF_EXCEPTION(evariantclone, "Can't clone")
 DEF_EXCEPTION(etupleindex,   "Tuple index out of range")
 
 
-class None { int dummy; };
+class _None { int dummy; };
 
 struct tinyset
 {
@@ -150,7 +150,7 @@ protected:
 
 public:
     variant()                       { _init(); }
-    variant(None)                   { _init(); }
+    variant(_None)                  { _init(); }
     template<class T>
         variant(const T& v)         { _init(v); }
     variant(integer l, integer r)   { _init(l, r); }
@@ -158,7 +158,7 @@ public:
     ~variant()                      { _fin(); }
     
     void clear()                    { _fin(); _init(); }
-    void operator=(None)            { _fin(); _init(); }
+    void operator=(_None)           { _fin(); _init(); }
     // TODO: check cases when the same value is assigned (e.g. v = v)
     template<class T>
         void operator= (const T& v)     { _fin(); _init(v); }
@@ -168,6 +168,7 @@ public:
                               const { return !(this->operator==(v)); }
 
     void dump(fifo_intf&) const;
+    bool to_bool() const;
     str  to_string() const;
     bool operator< (const variant& v) const;
 

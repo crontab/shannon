@@ -13,7 +13,7 @@ class State;
 class Module;
 class QueenBee;
 
-class Void;
+class None;
 class Ordinal;
 class Enumeration;
 class Range;
@@ -89,7 +89,7 @@ public:
 class Base: public Symbol
 {
 public:
-    enum BaseId { VARIABLE, CONSTANT, STATE };
+    enum BaseId { VARIABLE, CONSTANT };
 
     BaseId const baseId;
 
@@ -98,7 +98,6 @@ public:
 
     bool isVariable() const   { return baseId == VARIABLE; }
     bool isConstant() const   { return baseId == CONSTANT; }
-    bool isState() const      { return baseId == STATE; }
 };
 
 
@@ -111,8 +110,8 @@ class Type: public object
     friend class State;
 
 public:
-    enum TypeId { VOID, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, ARRAY, VECTOR, SET, FIFO, VARIANT, TYPEREF };
+    enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
+        DICT, ARRAY, VECTOR, SET, FIFO, VARIANT, TYPEREF, STATE };
 
 protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
@@ -124,8 +123,10 @@ protected:
     Container* derivedVector;
     Container* derivedSet;
     
+    void setName(const str _name)
+            { assert(name.empty()); name = _name; }
     void setTypeId(TypeId t)
-        { (TypeId&)typeId = t; }
+            { (TypeId&)typeId = t; }
 
 public:
     Type(TypeId);
@@ -134,7 +135,7 @@ public:
     void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
 
     bool is(TypeId t)  { return typeId == t; }
-    bool isVoid()  { return typeId == VOID; }
+    bool isNone()  { return typeId == NONE; }
     bool isBool()  { return typeId == BOOL; }
     bool isChar()  { return typeId == CHAR; }
     bool isInt()  { return typeId == INT; }
@@ -148,9 +149,11 @@ public:
     bool isFifo()  { return typeId == FIFO; }
     bool isVariant()  { return typeId == VARIANT; }
     bool isTypeRef()  { return typeId == TYPEREF; }
+    bool isState()  { return typeId == STATE; }
 
     bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
+    bool isString();
     bool canBeArrayIndex();
     bool canBeSmallSetIndex();
 
@@ -159,7 +162,8 @@ public:
     Container* deriveSet();
 
     virtual bool identicalTo(Type* t)  { return t == this; } // for comparing container elements, indexes
-    virtual bool canCastImplTo(Type* t)  { return identicalTo(t); } // can assign, implicit cast
+    virtual bool canCastImplTo(Type* t)  { return identicalTo(t); } // can assign or automatically convert the type without changing the value
+    virtual void runtimeTypecast(variant&)  { notimpl(); }  // TODO:
 };
 
 
@@ -210,7 +214,7 @@ public:
 
 typedef State* PState;
 
-class State: public Base, public Scope
+class State: public Type, public Scope
 {
 protected:
     List<Constant> consts;
@@ -221,8 +225,8 @@ protected:
     CodeSeg finalize;
 
 public:
-    State* const parent;
     int const level;
+
     State(const str& _name, State* _parent, Context*);
     ~State();
     langobj* newObject();
@@ -246,12 +250,12 @@ public:
 // --- TYPES ---
 
 
-class Void: public Type
+class None: public Type
 {
 public:
-    Void();
-    virtual bool identicalTo(Type* t)  { return t->isVoid(); }
-    virtual bool canCastImplTo(Type* t)  { return t->isVoid() || t->isVariant(); }
+    None();
+    virtual bool identicalTo(Type* t)  { return t->isNone(); }
+    virtual bool canCastImplTo(Type* t)  { return t->isNone() || t->isVariant(); }
 };
 
 
@@ -317,10 +321,13 @@ public:
     Range(Ordinal*);
     bool identicalTo(Type* t)
             { return t->isRange() && base->identicalTo(PRange(t)->base); }
+    bool canCastImplTo(Type* t)
+            { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
 };
 
 
 typedef Container* PContainer;
+typedef Container* PVector;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any
@@ -346,7 +353,7 @@ public:
     bool isSmallSet()
             { return isSet() && index->canBeSmallSetIndex(); }
     bool isEmptyCont()
-            { return elem->isVoid() && index->isVoid(); }
+            { return elem->isNone() && index->isNone(); }
 };
 
 
@@ -370,7 +377,6 @@ class Variant: public Type
 public:
     Variant();
     bool identicalTo(Type* t)  { return t->isVariant(); }
-    bool canCastImplTo(Type* t)  { return true; }
 };
 
 
@@ -389,7 +395,7 @@ class QueenBee: public Module
 {
 public:
     TypeReference* defaultTypeRef;
-    Void* defaultVoid;
+    None* defaultNone;
     Ordinal* defaultInt;
     Enumeration* defaultBool;
     Ordinal* defaultChar;

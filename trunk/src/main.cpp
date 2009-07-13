@@ -10,7 +10,7 @@
 // --- THE VIRTUAL MACHINE ------------------------------------------------- //
 
 
-void invOpcode()        { throw EInvOpcode(); }
+static void invOpcode()        { throw EInvOpcode(); }
 
 
 template<class T>
@@ -31,23 +31,30 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
         {
             switch(*ip++)
             {
-            case opInv: invOpcode(); break;
-            case opEnd: return;
-            case opNop: break;
+            case opInv:     invOpcode(); break;
+            case opEnd:     return;
+            case opNop:     break;
 
             // Arithmetic
-            case opAdd:    BINARY_INT(+=); break;
-            case opSub:    BINARY_INT(-=); break;
-            case opMul:    BINARY_INT(/=); break;
-            case opMod:    BINARY_INT(%=); break;
-            case opBitAnd: BINARY_INT(&=); break;
-            case opBitOr:  BINARY_INT(|=); break;
-            case opBitXor: BINARY_INT(^=); break;
-            case opBitShl: BINARY_INT(<<=); break;
-            case opBitShr: BINARY_INT(>>=); break;
-            case opNeg:    UNARY_INT(-); break;
-            case opBitNot: UNARY_INT(~); break;
-            case opNot:    UNARY_INT(-); break;
+            // TODO: range checking in debug mode
+            case opAdd:     BINARY_INT(+=); break;
+            case opSub:     BINARY_INT(-=); break;
+            case opMul:     BINARY_INT(*=); break;
+            case opDiv:     BINARY_INT(/=); break;
+            case opMod:     BINARY_INT(%=); break;
+            case opBitAnd:  BINARY_INT(&=); break;
+            case opBitOr:   BINARY_INT(|=); break;
+            case opBitXor:  BINARY_INT(^=); break;
+            case opBitShl:  BINARY_INT(<<=); break;
+            case opBitShr:  BINARY_INT(>>=); break;
+            case opNeg:     UNARY_INT(-); break;
+            case opBitNot:  UNARY_INT(~); break;
+            case opNot:     UNARY_INT(-); break;
+
+            case opToBool:  *stk = stk->to_bool(); break;
+            case opToStr:   *stk = stk->to_string(); break;
+            case opToType:  { Type* t = *(Type**)ip; ip += sizeof(Type*); t->runtimeTypecast(*stk); } break;
+            case opDynCast: notimpl(); break;
 
             // Const loaders
             case opLoadNull:        PUSH(stk, null); break;
@@ -108,6 +115,7 @@ void ConstCode::run(variant& result)
 
 DEF_EXCEPTION(ETypeMismatch, "Type mismatch")
 DEF_EXCEPTION(EExprTypeMismatch, "Expression type mismatch")
+DEF_EXCEPTION(EInvalidTypecast, "Invalid typecast")
 
 
 class CodeGen: noncopyable
@@ -125,6 +133,9 @@ protected:
     std::vector<stkinfo> genStack;
     varstack valStack;
     mem stkMax;
+#ifdef DEBUG
+    mem stkSize;
+#endif
 
     void stkPush(Type* t, const variant& v);
     void stkPush(Type* t)
@@ -146,11 +157,16 @@ public:
     void loadInt(integer);
     void arithmBinary(OpCode);
     void arithmUnary(OpCode);
+    void explicitCastTo(Type*);
+    void implicitCastTo(Type*);
 };
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
     : codeseg(_codeseg), stkMax(0)
+#ifdef DEBUG
+    , stkSize(0)
+#endif    
 {
     assert(codeseg.empty());
 }
@@ -165,6 +181,7 @@ void CodeGen::endConstExpr(Type* expectType)
     Type* resultType = stkPop();
     if (expectType != NULL && !resultType->canCastImplTo(expectType))
         throw EExprTypeMismatch();
+    assert(genStack.size() == 0);
 }
 
 
@@ -203,12 +220,55 @@ void CodeGen::arithmUnary(OpCode op)
 }
 
 
+void CodeGen::explicitCastTo(Type* to)
+{
+    Type* from = stkPop();
+    if (to->isBool())
+        codeseg.addOp(opToBool);
+    else if (to->isString())
+        codeseg.addOp(opToStr);
+    else if (to->isOrdinal() && from->isOrdinal())
+        ;
+    else if (from->isVariant())
+    {
+        codeseg.addOp(opToType);
+        codeseg.addPtr(to);
+    }
+    else if (to->isState() && from->isState())
+    {
+        codeseg.addOp(opDynCast);
+        codeseg.addPtr(to);
+    }
+    else
+        throw EInvalidTypecast();
+    stkPush(to);
+}
+
+
+void CodeGen::implicitCastTo(Type* to)
+{
+    if (topType()->identicalTo(to))
+        return;
+    Type* from = stkPop();
+    if (to->isVariant())
+        ;   // everything in the VM is a variant anyway
+    else if (from->canCastImplTo(to))
+        ;   // means variant copying is considered safe
+    else
+        throw ETypeMismatch();
+    stkPush(to);
+}
+
+
 void CodeGen::stkPush(Type* type, const variant& value)
 {
     genStack.push_back(stkinfo(type));
     valStack.push(value);
     if (genStack.size() > stkMax)
         stkMax = genStack.size();
+#ifdef DEBUG
+    stkSize++;
+#endif
 }
 
 
@@ -222,6 +282,9 @@ Type* CodeGen::stkPop()
     Type* result = genStack.back().type;
     genStack.pop_back();
     valStack.pop();
+#ifdef DEBUG
+    stkSize--;
+#endif
     return result;
 }
 
@@ -253,10 +316,11 @@ int main()
             gen.loadInt(2);
             gen.arithmUnary(opNeg);
             gen.arithmBinary(opSub);
-            gen.endConstExpr(queenBee->defaultInt);
+            gen.explicitCastTo(queenBee->defaultStr);
+            gen.endConstExpr(/*queenBee->defaultStr*/ NULL);
         }
         seg.run(r);
-        check(r.as_int() == 12);
+        check(r.as_str() == "12");
     }
     catch (std::exception& e)
     {
