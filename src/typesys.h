@@ -50,6 +50,7 @@ protected:
     str code;
     varlist consts;
     mem stksize;
+    mem returns;
     // These can't be refcounted as it will introduce circular references. Both
     // can be NULL if this is a const expression executed at compile time.
     State* state;
@@ -63,15 +64,15 @@ protected:
     void add16(unsigned short i);
     void addInt(integer i);
     void addPtr(void* p);
-    void close(mem _stksize);
+    void close(mem _stksize, mem _returns);
     bool empty() const
         { return code.empty(); }
-    void doRun(variant*&, const uchar* ip);
+    void doRun(variant*, const uchar* ip);
 public:
     CodeSeg(State*, Context*);
     ~CodeSeg();
     void clear(); // for unit tests
-    void run(varstack&, int returns = 0);
+    void run(varstack&);
 };
 
 

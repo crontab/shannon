@@ -22,73 +22,72 @@ inline void POP(variant*& stk)                  { (*stk--).~variant(); }
 #define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
 
 
-void CodeSeg::doRun(variant*& stk, const uchar* ip)
+void CodeSeg::doRun(variant* stk, const uchar* ip)
 {
-    while (1)
-    {
-        switch(*ip++)
-        {
-        case opInv: invOpcode(); break;
-        case opEnd: return;
-        case opNop: break;
-
-        // Arithmetic
-        case opAdd:    BINARY_INT(+=); break;
-        case opSub:    BINARY_INT(-=); break;
-        case opMul:    BINARY_INT(/=); break;
-        case opMod:    BINARY_INT(%=); break;
-        case opBitAnd: BINARY_INT(&=); break;
-        case opBitOr:  BINARY_INT(|=); break;
-        case opBitXor: BINARY_INT(^=); break;
-        case opBitShl: BINARY_INT(<<=); break;
-        case opBitShr: BINARY_INT(>>=); break;
-        case opNeg:    UNARY_INT(-); break;
-        case opBitNot: UNARY_INT(~); break;
-        case opNot:    UNARY_INT(-); break;
-
-        // Const loaders
-        case opLoadNull:        PUSH(stk, null); break;
-        case opLoadFalse:       PUSH(stk, false); break;
-        case opLoadTrue:        PUSH(stk, true); break;
-        case opLoadChar:        PUSH(stk, *ip++); break;
-        case opLoad0:           PUSH(stk, integer(0)); break;
-        case opLoad1:           PUSH(stk, integer(1)); break;
-        case opLoadInt:         PUSH(stk, *(integer*)ip); ip += sizeof(integer); break;
-        case opLoadNullStr:     PUSH(stk, null_str); break;
-        case opLoadNullRange:   PUSH(stk, new_range()); break;
-        case opLoadNullTuple:   PUSH(stk, new_tuple()); break;
-        case opLoadNullDict:    PUSH(stk, new_dict()); break;
-        case opLoadNullOrdset:  PUSH(stk, new_ordset()); break;
-        case opLoadNullSet:     PUSH(stk, new_set()); break;
-        case opLoadNullFifo:    PUSH(stk, new_fifo()); break;
-        case opLoadConst:       PUSH(stk, consts[*ip++]); break;
-        case opLoadTypeRef:     PUSH(stk, *(object**)ip); ip += sizeof(object*); break;
-
-        default: invOpcode(); break;
-        }
-    }
-}
-
-
-void CodeSeg::run(varstack& stack, int returns)
-{
-    assert(closed);
-    if (code.empty())
-        return;
-    variant* stkbase = stack.reserve(stksize);
-    variant* stk = stkbase - 1; // point to the top element
+    variant* stkbase = stk;
     try
     {
-        doRun(stk, (const uchar*)code.data());
+        while (1)
+        {
+            switch(*ip++)
+            {
+            case opInv: invOpcode(); break;
+            case opEnd: return;
+            case opNop: break;
+
+            // Arithmetic
+            case opAdd:    BINARY_INT(+=); break;
+            case opSub:    BINARY_INT(-=); break;
+            case opMul:    BINARY_INT(/=); break;
+            case opMod:    BINARY_INT(%=); break;
+            case opBitAnd: BINARY_INT(&=); break;
+            case opBitOr:  BINARY_INT(|=); break;
+            case opBitXor: BINARY_INT(^=); break;
+            case opBitShl: BINARY_INT(<<=); break;
+            case opBitShr: BINARY_INT(>>=); break;
+            case opNeg:    UNARY_INT(-); break;
+            case opBitNot: UNARY_INT(~); break;
+            case opNot:    UNARY_INT(-); break;
+
+            // Const loaders
+            case opLoadNull:        PUSH(stk, null); break;
+            case opLoadFalse:       PUSH(stk, false); break;
+            case opLoadTrue:        PUSH(stk, true); break;
+            case opLoadChar:        PUSH(stk, *ip++); break;
+            case opLoad0:           PUSH(stk, integer(0)); break;
+            case opLoad1:           PUSH(stk, integer(1)); break;
+            case opLoadInt:         PUSH(stk, *(integer*)ip); ip += sizeof(integer); break;
+            case opLoadNullStr:     PUSH(stk, null_str); break;
+            case opLoadNullRange:   PUSH(stk, new_range()); break;
+            case opLoadNullTuple:   PUSH(stk, new_tuple()); break;
+            case opLoadNullDict:    PUSH(stk, new_dict()); break;
+            case opLoadNullOrdset:  PUSH(stk, new_ordset()); break;
+            case opLoadNullSet:     PUSH(stk, new_set()); break;
+            case opLoadNullFifo:    PUSH(stk, new_fifo()); break;
+            case opLoadConst:       PUSH(stk, consts[*ip++]); break;
+            case opLoadTypeRef:     PUSH(stk, *(object**)ip); ip += sizeof(object*); break;
+
+            default: invOpcode(); break;
+            }
+        }
     }
     catch(exception& e)
     {
         while (stk <= stkbase)
             POP(stk);
-        stack.free(stksize);
+        // TODO: stack is not freed here
         throw e;
     }
     assert(stk == stkbase + returns - 1);
+}
+
+
+void CodeSeg::run(varstack& stack)
+{
+    assert(closed);
+    if (code.empty())
+        return;
+    doRun(stack.reserve(stksize) - 1, (const uchar*)code.data());
     stack.free(stksize - returns);
 }
 
@@ -96,7 +95,7 @@ void CodeSeg::run(varstack& stack, int returns)
 void ConstCode::run(variant& result)
 {
     varstack stack;
-    CodeSeg::run(stack, 1);
+    CodeSeg::run(stack);
     result = stack.top();
     stack.pop();
     assert(stack.size() == 0);
@@ -157,11 +156,12 @@ CodeGen::CodeGen(CodeSeg& _codeseg)
 }
 
 
-CodeGen::~CodeGen()  { codeseg.close(stkMax); }
+CodeGen::~CodeGen()  { }
 
 
 void CodeGen::endConstExpr(Type* expectType)
 {
+    codeseg.close(stkMax, 1);
     Type* resultType = stkPop();
     if (expectType != NULL && !resultType->canCastImplTo(expectType))
         throw EExprTypeMismatch();

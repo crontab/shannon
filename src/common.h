@@ -1,17 +1,19 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
+#if !defined(DEBUG) && !defined(NDEBUG)
+#  define NDEBUG
+#endif
 
+#include <assert.h>
 #include <limits.h>
 
 #include <string>
 #include <exception>
 
-
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
 #endif
-
 
 #if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
 #  define RANGE_CHECKING
