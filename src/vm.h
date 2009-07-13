@@ -6,9 +6,9 @@
 
 
 DEF_EXCEPTION(EInvOpcode, "Invalid code")
+DEF_EXCEPTION(EVarTypeMismatch, "Variant type mismatch")
 
 
-// TODO: "unsafe" versions for operations that expect particular types
 // TODO: implement safe typecasts from any type to any type (for opToXXX)
 
 enum OpCode
@@ -21,6 +21,12 @@ enum OpCode
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
     opNeg, opBitNot, opNot,
     
+    // Safe typecasts
+    opToBool,
+    opToStr,
+    opToType,           // [Type*]
+    opDynCast,          // [State*]
+
     // Const loaders
     opLoadNull,
     opLoadFalse,
@@ -98,15 +104,6 @@ enum OpCode
     // further boolean jump
     opCase,             // pop var, push {0,1}
     opCaseRange,        // pop int, push {0,1}
-    
-    // Safe typecasts
-    opToBool,
-    opToChar,
-    opToInt,
-    opToStr,
-    opCharToStr,
-    opElemToTuple,
-    opToType,           // [Type*]
     
     // Jumps; [dst] is a relative offset
     //   short bool evaluation: pop if jump, leave it otherwise

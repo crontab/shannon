@@ -4,6 +4,9 @@
 #include "vm.h"
 
 
+void varTypeMismatch()  { throw EVarTypeMismatch(); }
+
+
 // --- EXECUTION CONTEXT --------------------------------------------------- //
 
 
@@ -90,8 +93,8 @@ void CodeSeg::close(mem _stksize, mem _returns)
 
 // Constructor placeholders for the DERIVEX macro
 #define new_Fifo(x)     new Fifo(x)
-#define new_Vector(x)   new Container(queenBee->defaultVoid, x)
-#define new_Set(x)      new Container(x, queenBee->defaultVoid)
+#define new_Vector(x)   new Container(queenBee->defaultNone, x)
+#define new_Set(x)      new Container(x, queenBee->defaultNone)
 #define new_Range(x)    new Range(x)
 
 
@@ -114,6 +117,9 @@ Type::Type(TypeId _t)
 
 Type::~Type() { }
 
+
+bool Type::isString()
+    { return isVector() && PVector(this)->isString(); }
 
 bool Type::canBeArrayIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
@@ -197,9 +203,13 @@ Variable* Scope::addVariable(const str& name, Type* type)
 
 
 State::State(const str& _name, State* _parent, Context* _context)
-  : Base(_name, STATE), Scope(_parent),
+  : Type(STATE), Scope(_parent),
     main(this, _context), finalize(this, _context),
-    parent(_parent), level(_parent == NULL ? 0 : _parent->level + 1) { }
+    level(_parent == NULL ? 0 : _parent->level + 1)
+{
+    setName(_name);
+    setOwner(_parent);
+}
 
 
 State::~State()  { }
@@ -218,7 +228,7 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 {
     objptr<Constant> c = new Constant(name, type);
     if (type->name.empty())
-        type->name = name;
+        type->setName(name);
     addUnique(c); // may throw
     consts.add(c);
     return c;
@@ -228,10 +238,10 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 // --- Module -------------------------------------------------------------- //
 
 
-// --- Void ---------------------------------------------------------------- //
+// --- None ---------------------------------------------------------------- //
 
 
-Void::Void(): Type(VOID)  { }
+None::None(): Type(NONE)  { }
 
 
 // --- Ordinal ------------------------------------------------------------- //
@@ -305,11 +315,11 @@ Range::Range(Ordinal* _base): Type(RANGE), base(_base)  { }
 
 
 Container::Container(Type* _index, Type* _elem)
-    : Type(VOID), index(_index), elem(_elem)
+    : Type(NONE), index(_index), elem(_elem)
 {
-    if (index->isVoid())
+    if (index->isNone())
         setTypeId(VECTOR);
-    else if (elem->isVoid())
+    else if (elem->isNone())
         setTypeId(SET);
     else if (index->canBeArrayIndex())
         setTypeId(ARRAY);
@@ -342,7 +352,7 @@ TypeReference::TypeReference(): Type(TYPEREF)  { }
 QueenBee::QueenBee()
   : Module("system", mem(-1), NULL),
     defaultTypeRef(registerType(new TypeReference())),
-    defaultVoid(registerType(new Void())),
+    defaultNone(registerType(new None())),
     defaultInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),
     defaultBool(registerType(new Enumeration(Type::BOOL))),
     defaultChar(registerType(new Ordinal(Type::CHAR, 0, 255))),
@@ -357,10 +367,10 @@ void QueenBee::setup()
     // is not assigned yes, because addTypeAlias() uses defaultTypeRef for all
     // type aliases created.
     defaultStr = defaultChar->deriveVector();
-    defaultEmptyContainer = defaultVoid->deriveVector();
+    defaultEmptyContainer = defaultNone->deriveVector();
     addTypeAlias("typeref", defaultTypeRef);
-    addTypeAlias("void", defaultVoid);
-    addConstant("null", defaultVoid, null);
+    addTypeAlias("none", defaultNone);
+    addConstant("null", defaultNone, null);
     addTypeAlias("int", defaultInt);
     defaultBool->addValue("false");
     defaultBool->addValue("true");

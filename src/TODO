@@ -2,3 +2,5 @@
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics.
 
+* Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
+
