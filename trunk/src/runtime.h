@@ -10,10 +10,6 @@
 #include "charset.h"
 #include "common.h"
 
-#if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
-#  define RANGE_CHECKING
-#endif
-
 
 #define foreach(type,iter,cont) \
     for (type iter = (cont).begin(); iter != (cont).end(); iter++)

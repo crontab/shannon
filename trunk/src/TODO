@@ -1,0 +1,4 @@
+
+* Nullable types? Look at C#. Easy to implement, just need strictly defined
+  semantics.
+
