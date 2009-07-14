@@ -1,6 +1,6 @@
 #summary Very brief description of language features as they are implemented already
 
-*Syntax* is Python-style, however you can have C-style blocks. A block enclosed in curly braces is equivalent to a Python-style colon construct with indents - both can be mixed in one source. Nested C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
+*Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
 
 *Constant and variable declarations* start with const and var respectively (e.g. const int c = 0). Type specification can be omitted, in which case it is automatically determined from the initializer (var v = 0). Initializers are always required both for constants and variables.
 
