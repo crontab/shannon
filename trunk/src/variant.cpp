@@ -20,7 +20,7 @@ int object::alloc = -5; // compensate the three static objects null_xxx above
 
 
 object::object()
-    : refcount(0)
+    : refcount(0), runtime_type(NULL)
 {
 #ifdef DEBUG
     pincrement(&object::alloc);
@@ -82,6 +82,9 @@ XCLONE(ordset)
 XCLONE(set)
 
 
+range::range(): left(0), right(-1)  { }
+range::range(integer l, integer r): left(l), right(r)  { }
+range::range(const range& other): left(other.left), right(other.right)  { }
 range::~range()  { }
 
 bool range::equals(const range& other) const
@@ -266,7 +269,6 @@ void variant::_init(const variant& other)
     case BOOL:
     case CHAR:
     case INT:  val._int = other.val._int; break;
-    case TINYSET: val._tinyset = other.val._tinyset; break;
     case REAL: val._real = other.val._real; break;
     case STR:
         ::new(&_str_write()) str(other._str_read());
@@ -324,7 +326,6 @@ void variant::_fin2()
     case BOOL:
     case CHAR:
     case INT:
-    case TINYSET:
     case REAL:
         break;
     case STR:
@@ -345,20 +346,6 @@ void variant::dump(fifo_intf& s) const
     case BOOL: s << (val._int ? "true" : "false"); break;
     case CHAR: s << '\'' << uchar(val._int) << '\''; break;
     case INT:  s << val._int; break;
-    case TINYSET:
-        {
-            s << '[';
-            int cnt = 0;
-            for (int i = 0; i < TINYSET_BITS; i++)
-                if (val._tinyset & (uinteger(1) << i))
-                {
-                    if (++cnt > 1)
-                        s << ", ";
-                    s << integer(i);
-                }
-            s << ']';
-        }
-        break;
     case REAL: s << integer(val._real); break; // TODO: !!!
     case STR:  s << '"' << _str_read() << '"'; break;
     default:    // containers and objects
@@ -389,7 +376,6 @@ bool variant::operator== (const variant& other) const
     case BOOL:
     case CHAR:
     case INT:       return val._int == other.val._int;
-    case TINYSET:   return val._tinyset == other.val._tinyset;
     case REAL:      return val._real == other.val._real;
     case STR:       return _str_read() == other._str_read();
     case RANGE:     return _range_read().equals(other._range_read());
@@ -409,7 +395,6 @@ bool variant::operator< (const variant& other) const
     case BOOL:
     case CHAR:
     case INT:  return val._int < other.val._int;
-    case TINYSET: return val._tinyset < other.val._tinyset;
     case REAL: return val._real < other.val._real;
     case STR:  return _str_read() < other._str_read();
     default:    // containers and objects
@@ -431,15 +416,6 @@ bool variant::is_unique() const
 void variant::_type_err() { throw emessage("Variant type mismatch"); }
 void variant::_range_err() { throw emessage("Variant range error"); }
 void variant::_index_err() { throw emessage("Variant index error"); }
-
-
-unsigned variant::as_tiny_int() const
-{
-    integer i = as_ordinal();
-    if (i < 0 || i >= TINYSET_BITS)
-        _range_err();
-    return i;
-}
 
 
 unsigned variant::as_char_int() const
@@ -493,7 +469,6 @@ bool variant::empty() const
     case CHAR:
     case INT:       return val._int == 0;
     case REAL:      return val._real == 0.0;
-    case TINYSET:   return val._tinyset == 0;
     case STR:       return _str_read().empty();
     case RANGE:     if (val._range == NULL) return true; return _range_read().empty();
     case TUPLE:     if (val._tuple == NULL) return true; return _tuple_read().empty();
@@ -567,7 +542,6 @@ void variant::tie(const variant& key)
 {
     switch (type)
     {
-    case TINYSET: val._tinyset |= uinteger(1) << key.as_tiny_int(); break;
     case ORDSET: _ordset_write().tie(key.as_char_int()); break;
     case SET: _set_write().tie(key); break;
     default: _type_err(); break;
@@ -608,7 +582,6 @@ void variant::untie(const variant& key)
 {
     switch (type)
     {
-    case TINYSET: val._tinyset &= ~(uinteger(1) << key.as_tiny_int()); break;
     case DICT: _dict_write().untie(key); break;
     case ORDSET: _ordset_write().untie(key.as_char_int()); break;
     case SET: _set_write().untie(key); break;
@@ -642,7 +615,6 @@ bool variant::has(const variant& index) const
 {
     switch (type)
     {
-    case TINYSET:   return val._tinyset & (uinteger(1) << index.as_tiny_int());
     case RANGE:     return _range_read().has(index.as_int());
     case DICT:      return _dict_read().find(index) != _dict_read().end();
     case ORDSET:    return _ordset_read().has(index.as_char_int());

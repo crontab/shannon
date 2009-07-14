@@ -108,7 +108,6 @@ void test_variant()
         variant vd = new_dict();        check(vd.is(variant::DICT));    check(vd.is_null_ptr());
         variant vs = new_set();         check(vs.is(variant::SET));     check(vs.is_null_ptr());
         variant vos = new_ordset();     check(vos.is(variant::ORDSET));    check(vos.is_null_ptr());
-        variant vts = new_tinyset();    check(vts.as_tinyset() == 0);
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
@@ -122,7 +121,6 @@ void test_variant()
         check_throw(v1.as_dict());
         check_throw(v1.as_set());
         check_throw(v1.as_ordset());
-        check_throw(v1.as_tinyset());
         check_throw(v1.as_object());
         
         check(v1.to_string() == "null");
@@ -145,7 +143,6 @@ void test_variant()
         check(vd.to_string() == "[]");
         check(vs.to_string() == "[]");
         check(vos.to_string() == "[]");
-        check(vts.to_string() == "[]");
         check(vo.to_string() == "[test_obj]");
 
         check(v1 < v2); check(!(v2 < v1));
@@ -176,32 +173,6 @@ void test_variant()
         v = null;
         check(!v.is(variant::OBJECT));
         check(v == null);
-
-        // tinyset
-        check(vts.empty()); check_throw(vts.size());
-        vts.tie(5);
-        vts.tie(26);
-        vts.tie(31);
-#ifdef SH64
-        vts.tie(63);
-        vts.has(63);
-        vts.untie(63);
-#else
-        check_throw(vts.tie(63));
-#endif
-        check_throw(vts.tie(100));
-        check_throw(vts.tie(-1));
-        check_throw(vts.untie(100));
-        check_throw(vts.untie(-1));
-        check_throw(vts.tie("abc"));
-        check(vts.to_string() == "[5, 26, 31]");
-        check(!vts.empty());
-        vts.untie(26);
-        vts.untie(30);
-        check(vts.to_string() == "[5, 31]");
-        check(vts.has(5));
-        check(vts.has(31));
-        check(!vts.has(26));
 
         // str
         vst = "";
@@ -682,7 +653,8 @@ int main()
         << integer(sizeof(long long)) << "  int: " << integer(sizeof(int)) << "  void*: " << integer(sizeof(void*))
         << "  float: " << integer(sizeof(float)) << "  double: " << integer(sizeof(double)) << '\n';
     fout << "integer: " << integer(sizeof(integer)) << "  mem: " << integer(sizeof(mem))
-        << "  real: " << integer(sizeof(real)) << "  variant: " << integer(sizeof(variant)) << '\n';
+        << "  real: " << integer(sizeof(real)) << "  variant: " << integer(sizeof(variant))
+        << "  object: " << integer(sizeof(object)) << '\n';
 
     check(sizeof(int) == 4);
     check(sizeof(mem) >= 4);

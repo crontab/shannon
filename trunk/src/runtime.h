@@ -36,8 +36,8 @@ class dict;
 class ordset;
 class set;
 class range;
-
 class fifo_intf;
+
 
 typedef std::map<variant, variant> dict_impl;
 typedef dict_impl::const_iterator dict_iterator;
@@ -46,14 +46,6 @@ typedef set_impl::const_iterator set_iterator;
 
 
 class _None { int dummy; };
-
-struct tinyset
-{
-    uinteger val;
-    tinyset(): val(0) { }
-    tinyset(uinteger v): val(v) { }
-    bool operator == (const tinyset& other) const { return val == other.val; }
-};
 
 
 class variant
@@ -64,7 +56,7 @@ class variant
 public:
     // Note: the order is important, especially after STR
     enum Type
-      { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
+      { NONE, BOOL, CHAR, INT, REAL, STR, RANGE,
         TUPLE, DICT, ORDSET, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
@@ -73,7 +65,6 @@ protected:
     union
     {
         integer  _int;      // int, char and bool
-        uinteger _tinyset;
         real     _real;
         char     _str[sizeof(str)];
         char*    _str_ptr;  // for debugging, with the hope it points to a string in _str
@@ -120,7 +111,6 @@ protected:
     void _init(uchar c)             { type = CHAR; val._int = c; }
     template<class T>
         void _init(T i)             { type = INT; val._int = i; }
-    void _init(tinyset s)           { type = TINYSET; val._tinyset = s.val; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(const str&);
     void _init(const char*);
@@ -144,7 +134,6 @@ protected:
     void _req_refcnt() const        { if (!is_refcnt()) _type_err(); }
     void _req_obj() const           { if (!is_object()) _type_err(); }
 
-    unsigned as_tiny_int() const;
     unsigned as_char_int() const;
 
 public:
@@ -189,7 +178,6 @@ public:
     uchar as_char()           const { _req(CHAR); return val._int; }
     integer as_int()          const { _req(INT); return val._int; }
     integer as_ordinal()      const { if (!is_ordinal()) _type_err(); return val._int; }
-    tinyset as_tinyset()      const { _req(TINYSET); return val._tinyset; }
     real as_real()            const { _req(REAL); return val._real; }
     const str& as_str()       const { _req(STR); return _str_read(); }
     const range& as_range()   const { _req(RANGE); return _range_read(); }
@@ -201,7 +189,7 @@ public:
 
     // Container operations
     mem  size() const;                                      // str, tuple, dict
-    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset
+    bool empty() const;                                     // str, tuple, dict, set, ordset
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
     void append(const str&);                                // str
@@ -214,12 +202,12 @@ public:
     void insert(mem index, const variant&);                 // tuple
     void put(mem index, const variant&);                    // tuple
     void tie(const variant& key, const variant&);           // dict
-    void tie(const variant&);                               // set, ordset, tinyset
+    void tie(const variant&);                               // set, ordset
     void assign(integer left, integer right);               // range
     void erase(mem index);                                  // str, tuple
     void erase(mem index, mem count);                       // str, tuple
-    void untie(const variant& key);                         // dict, set, ordset, tinyset
-    bool has(const variant& index) const;                   // dict, set, ordset, tinyset
+    void untie(const variant& key);                         // dict, set, ordset
+    bool has(const variant& index) const;                   // dict, set, ordset
     integer left() const;                                   // range
     integer right() const;                                  // range
     const variant& operator[] (mem index) const;            // tuple, dict[int]
@@ -242,9 +230,10 @@ extern const str null_str;
 fifo_intf& operator<< (fifo_intf&, const variant&);
 
 
+class Type; // see typesys.h
+
 class object: public noncopyable
 {
-    friend class variant;
     friend void _release(object*);
     friend void _replace(object*&);
     friend object* _grab(object*);
@@ -257,6 +246,7 @@ public:
 
 protected:
     int refcount;
+    Type* runtime_type;
     virtual object* clone() const; // calls fatal()
 public:
     object();
@@ -264,6 +254,8 @@ public:
     bool is_unique() const  { return refcount == 1; }
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
+    Type* get_runtime_type() const  { return runtime_type; }
+    void set_runtime_type(Type* rt) { assert(runtime_type == NULL); runtime_type = rt; }
 };
 
 
@@ -286,15 +278,14 @@ template<class T>
 
 class range: public object
 {
-    friend class variant;
     friend range* new_range(integer, integer);
 public:
     integer left;
     integer right;
 
-    range(): left(0), right(-1)  { }
-    range(integer l, integer r): left(l), right(r)  { }
-    range(const range& other): left(other.left), right(other.right)  { }
+    range();
+    range(integer l, integer r);
+    range(const range& other);
     ~range();
     virtual object* clone() const;
     void assign(integer l, integer r)  { left = l; right = r; }
@@ -465,7 +456,6 @@ inline dict* new_dict()                 { return NULL; }
 inline ordset* new_ordset()             { return NULL; }
 inline set* new_set()                   { return NULL; }
 range* new_range(integer l, integer r);
-inline tinyset new_tinyset()            { return 0; }
 inline fifo_intf* new_fifo()            { return NULL; }
 
 inline void variant::unique()                     { if (is_refcnt()) _unique(val._obj); }
@@ -726,10 +716,8 @@ class langobj: public object
     friend class State;
 
 protected:
-    langobj(State* _type): type(_type) { }
 
 public:
-    State* const type;
     variant vars[0];
 
     ~langobj(); // TODO: finalize vars
