@@ -52,14 +52,12 @@
     typedef double real;
 #   define INTEGER_MIN LLONG_MIN
 #   define INTEGER_MAX LLONG_MAX
-#   define TINYSET_BITS 64
 #else
     typedef int integer;
     typedef unsigned int uinteger;
     typedef float real;
 #   define INTEGER_MIN INT_MIN
 #   define INTEGER_MAX INT_MAX
-#   define TINYSET_BITS 32
 #endif
 
 
