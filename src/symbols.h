@@ -2,10 +2,12 @@
 #define __SYMBOLS_H
 
 
+#include "common.h"
+#include "runtime.h"
+
 #include <map>
 #include <vector>
 
-#include "runtime.h"
 
 
 class Symbol: public object

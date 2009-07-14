@@ -1,5 +1,6 @@
 
 
+#include "common.h"
 #include "runtime.h"
 #include "source.h"
 #include "symbols.h"

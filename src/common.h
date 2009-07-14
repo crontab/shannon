@@ -2,9 +2,10 @@
 #define __COMMON_H
 
 #if !defined(DEBUG) && !defined(NDEBUG)
-#  define NDEBUG
+#  define NDEBUG    // to suppress assert()
 #endif
 
+#include <sys/types.h>
 #include <assert.h>
 #include <limits.h>
 
@@ -20,9 +21,9 @@
 #endif
 
 
-#if defined __x86_64__
+#if defined(__x86_64__)
 #  define PTR64
-#elif defined __i386__
+#elif defined(__i386__)
 #  define PTR32
 #else
 #  error Unknown architecure.
@@ -64,7 +65,10 @@ typedef size_t mem;
 typedef std::string str;
 
 typedef unsigned char uchar;
-typedef unsigned char ushort;
+
+#ifndef __USE_MISC
+    typedef unsigned char ushort;
+#endif
 
 
 // --- MISC --------------------------------------------------------------- //
@@ -89,10 +93,11 @@ template<class T>
 
 
 // The eternal int-to-string problem in C++
-str to_string(integer value);
+str to_string(integer);
 str to_string(integer value, int base, int width = 0, char fill = '0');
-str to_string(uinteger value);
-str to_string(mem value);
+str to_string(uinteger);
+str to_string(mem);
+inline str to_string(int value) { return to_string(integer(value)); }
 uinteger from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 

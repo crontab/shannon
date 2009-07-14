@@ -1,14 +1,15 @@
 #ifndef __RUNTIME_H
 #define __RUNTIME_H
 
+#include "common.h"
+#include "charset.h"
+
 #include <exception>
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
 
-#include "charset.h"
-#include "common.h"
 
 
 #define foreach(type,iter,cont) \
@@ -578,6 +579,7 @@ public:
     fifo_intf& operator<< (mem);
     fifo_intf& operator<< (char c)          { enq(c); return *this; }
     fifo_intf& operator<< (uchar c)         { enq(c); return *this; }
+    fifo_intf& operator<< (int i)           { this->operator<< (integer(i)); return *this; }
 };
 
 const char endl = '\n';
