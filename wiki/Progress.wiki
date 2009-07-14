@@ -12,7 +12,7 @@
 
 *Enum type* is declared as def enum ident(value1, value2, ...). Enums are not compatible with ints but can be statically typecasted. Enums or enum subranges can be used as array indexes.
 
-*Arithmetic operators* are: +, -, *, /, mod, also bitwise and, or, xor, shl, shr, not. Boolean operators are: and, or, xor, not and are distinguished by operand types. In case of ambiguity boolean operators are assumed. Floating point type is not supported in the current version.
+*Arithmetic operators* are: +, -, `*`, /, mod, also bitwise and, or, xor, shl, shr, not. Boolean operators are: and, or, xor, not and are distinguished by operand types. In case of ambiguity boolean operators are assumed. Floating point type is not supported in the current version.
 
 *Strings and vectors* are unified: concatenation (the pipe sign "|") and assignment rules apply to both, i.e. an element can be assigned or concatenated to a vector of a corresponding type. Strings have one additional feature though: they can be compared (==, <, <=, >=, !=), while vectors can only be compared for equality. The vector constructor ([a, b, ...]) can be used both in constant expressions and at run time.
 
