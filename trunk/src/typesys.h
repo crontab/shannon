@@ -25,6 +25,11 @@ class TypeReference;
 
 // --- VIRTUAL MACHINE (partial) ---
 
+
+DEF_EXCEPTION(EVarTypeMismatch, "Variant type mismatch")
+DEF_EXCEPTION(ERange, "Range check error")
+
+
 // Some bits of the virtual machine are needed here because each State class
 // holds its own code segment.
 
@@ -61,7 +66,7 @@ protected:
 
     int addOp(unsigned c);
     void add8(uchar i);
-    void add16(unsigned short i);
+    void add16(ushort i);
     void addInt(integer i);
     void addPtr(void* p);
     void close(mem _stksize, mem _returns);
@@ -163,7 +168,7 @@ public:
 
     virtual bool identicalTo(Type* t)  { return t == this; } // for comparing container elements, indexes
     virtual bool canCastImplTo(Type* t)  { return identicalTo(t); } // can assign or automatically convert the type without changing the value
-    virtual void runtimeTypecast(variant&)  { notimpl(); }  // TODO:
+    virtual void runtimeTypecast(variant&) = 0; //  { notimpl(); }
 };
 
 
@@ -235,6 +240,7 @@ public:
             { t->setOwner(this); types.add(t); return t; }
     Constant* addConstant(const str& name, Type* type, const variant& value);
     Constant* addTypeAlias(const str& name, Type* type);
+    void runtimeTypecast(variant&) { notimpl(); } // TODO:
 };
 
 
@@ -254,8 +260,8 @@ class None: public Type
 {
 public:
     None();
-    virtual bool identicalTo(Type* t)  { return t->isNone(); }
-    virtual bool canCastImplTo(Type* t)  { return t->isNone() || t->isVariant(); }
+    bool identicalTo(Type* t)           { return t->isNone(); }
+    void runtimeTypecast(variant& v)    { if (!v.is_null()) throw EVarTypeMismatch(); }
 };
 
 
@@ -272,18 +278,21 @@ protected:
 public:
     Ordinal(TypeId, integer, integer);
     Range* deriveRange();
-    bool rangeLe(integer _left, integer _right)
-            { return left >= _left && right <= _right; }
+    bool isLe(integer _left, integer _right)
+            { return _left >= left && _right <= right; }
     bool rangeFits(integer i)
             { return right - left <= i; }
     bool rangeEq(integer l, integer r)
             { return left == l && right == r; }
     bool rangeEq(Ordinal* t)
             { return rangeEq(t->left, t->right); }
+    bool isInRange(integer v)
+            { return v >= left && v <= right; }
     bool identicalTo(Type* t)
             { return t->is(typeId) && rangeEq(POrdinal(t)); }
     bool canCastImplTo(Type* t)
             { return t->is(typeId); }
+    void runtimeTypecast(variant&);
     virtual Ordinal* deriveSubrange(integer _left, integer _right);
 };
 
@@ -323,11 +332,14 @@ public:
             { return t->isRange() && base->identicalTo(PRange(t)->base); }
     bool canCastImplTo(Type* t)
             { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
+    void runtimeTypecast(variant& v)
+            { if (!v.is(variant::RANGE)) throw EVarTypeMismatch(); }
 };
 
 
 typedef Container* PContainer;
 typedef Container* PVector;
+typedef Container* PString;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any
@@ -337,17 +349,19 @@ typedef Container* PVector;
 //   EMPTYCONT: void, void
 class Container: public Type
 {
-protected:
-    Type* index;
-    Type* elem;
 public:
+    Type* const index;
+    Type* const elem;
+
     enum { MAX_ARRAY_INDEX = 256 };
+
     Container(Type* _index, Type* _elem);
     bool identicalTo(Type* t)
             { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
                 && index->identicalTo(PContainer(t)->index); }
     bool canCastImplTo(Type* t)
             { return isEmptyCont() || identicalTo(t); }
+    void runtimeTypecast(variant&);
     bool isString()
             { return isVector() && elem->isChar(); }
     bool isSmallSet()
@@ -367,8 +381,11 @@ public:
     Fifo(Type*);
     bool identicalTo(Type* t)
             { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
+    void runtimeTypecast(variant&);
     bool isCharFifo()
             { return elem->isChar(); }
+    bool isVariantFifo()
+            { return elem->isVariant(); }
 };
 
 
@@ -376,7 +393,8 @@ class Variant: public Type
 {
 public:
     Variant();
-    bool identicalTo(Type* t)  { return t->isVariant(); }
+    bool identicalTo(Type* t)           { return t->isVariant(); }
+    void runtimeTypecast(variant&)      { }
 };
 
 
@@ -384,7 +402,8 @@ class TypeReference: public Type
 {
 public:
     TypeReference();
-    bool identicalTo(Type* t)  { return t->isTypeRef(); }
+    bool identicalTo(Type* t)           { return t->isTypeRef(); }
+    void runtimeTypecast(variant&)      { throw EVarTypeMismatch(); }   // TODO:
 };
 
 
@@ -394,13 +413,14 @@ public:
 class QueenBee: public Module
 {
 public:
-    TypeReference* defaultTypeRef;
-    None* defaultNone;
-    Ordinal* defaultInt;
-    Enumeration* defaultBool;
-    Ordinal* defaultChar;
-    Container* defaultStr;
-    Container* defaultEmptyContainer;
+    TypeReference* defTypeRef;
+    None* defNone;
+    Ordinal* defInt;
+    Enumeration* defBool;
+    Ordinal* defChar;
+    Container* defStr;
+    Container* defEmptyContainer;
+    Variant* defVariant;
     
     QueenBee();
     void setup();

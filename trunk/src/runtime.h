@@ -65,6 +65,7 @@ struct tinyset
 class variant
 {
     friend class CodeSeg;
+    friend class Ordinal; // for hacking the runtime typecasts
 
 public:
     // Note: the order is important, especially after STR
@@ -81,6 +82,7 @@ protected:
         uinteger _tinyset;
         real     _real;
         char     _str[sizeof(str)];
+        char*    _str_ptr;  // for debugging, with the hope it points to a string in _str
         object*  _obj;
         range*   _range;
         tuple*   _tuple;
@@ -96,6 +98,9 @@ protected:
     void _dbg(Type t) const         { }
 #endif
 
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool     _bool()            const { _dbg(BOOL); return val._int; }
+    uchar    _uchar()           const { _dbg(CHAR); return val._int; }
     integer  _int()             const { _dbg(INT); return val._int; }
     integer& _int_write()             { _dbg(INT); return val._int; }
     str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
@@ -173,6 +178,7 @@ public:
     bool operator< (const variant& v) const;
 
     // TODO: is_int(int), is_real(real) ... or operator == maybe?
+    Type getType()            const { return type; }
     bool is(Type t)           const { return type == t; }
     bool is_null()            const { return type == NONE; }
     bool is_ordinal()         const { return type >= BOOL && type <= INT; }
@@ -205,7 +211,6 @@ public:
     bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset, fifo
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
-    void append(const variant& v);                          // str
     void append(const str&);                                // str
     void append(const char*);                               // str
     void append(char c);                                    // str
@@ -311,16 +316,17 @@ class varlist
 {
 protected:
     std::vector<variant> impl;
-public:
-    varlist();
     varlist(const varlist&);
     void operator= (const varlist&); // not implemented
+public:
+    varlist();
     ~varlist()                                { clear(); }
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void resize(mem);
     void clear();
     void push_back(const variant& v);
+    void append(const varlist&);
     variant& back()                           { return impl.back(); }
     const variant& back()               const { return impl.back(); }
     void pop_back();
@@ -359,10 +365,12 @@ public:
 class tuple: public object, public varlist
 {
     friend class variant;
-public:
-    tuple();
+protected:
     tuple(const tuple& other): varlist(other)  { }
     void operator=(const tuple& other)  { varlist::operator=(other); }
+public:
+    tuple();
+    tuple(mem, const variant&);
     ~tuple();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
@@ -450,6 +458,7 @@ public:
     void operator= (T* o)               { replace(obj, o); }
     T* operator* () const               { return obj; }
     T* operator-> () const              { return obj; }
+    T* get() const                      { return obj; }
     operator T*() const                 { return obj; }
     bool operator== (T* o) const        { return obj == o; }
     bool operator== (const objptr<T>& p) const { return obj == p.obj; }

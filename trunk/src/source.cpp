@@ -61,6 +61,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"elif", tokElif},
         {"else", tokElse},
         {"enum", tokEnum},
+        {"finally", tokFinally},
         {"if", tokIf},
         {"in", tokIn},
         {"is", tokIs},
@@ -135,9 +136,10 @@ str mkPrintable(const str& s)
 
 
 Parser::Parser(const str& fn, fifo_intf* input)
-    : fileName(fn), input(input), blankLine(true),
+    : fileName(fn), input(input), newLine(true),
       indentStack(), linenum(1), indent(0),
-      singleLineBlock(false), token(tokUndefined), strValue(),
+      singleLineBlock(false), curlyLevel(0),
+      token(tokUndefined), strValue(),
       intValue(0)
 {
     indentStack.push(0);
@@ -262,6 +264,8 @@ void Parser::skipEol()
 }
 
 
+// TODO: test curly mode
+
 Token Parser::next()
 {
 restart:
@@ -275,8 +279,11 @@ restart:
     // --- Handle EOF and EOL ---
     if (c == -1)
     {
-        // finalize all indents at end of file
-        if (indentStack.size() > 0)
+        // Finalize all indents at end of file; a file itself is a block so
+        // the compiler needs a block-end here.
+        if (curlyLevel > 0)
+            error("Unbalanced curly brackets in file");
+        else if (indentStack.size() > 0)
         {
             strValue = "<END>";
             indentStack.pop();
@@ -289,10 +296,10 @@ restart:
     else if (input->eol())
     {
         skipEol();
-        if (blankLine)
-            goto restart;
-        blankLine = true; // start from a new line
-        if (singleLineBlock)
+        if (newLine)
+            goto restart;       // Ignore blank lines, no matter what indent.
+        newLine = true;         // Start from a new line.
+        if (singleLineBlock)    // Only possible in Python mode
         {
             strValue = "<END>";
             singleLineBlock = false;
@@ -314,22 +321,21 @@ restart:
         else
             skipSinglelineComment();
         // if the comment started on a non-blank line, we have to generate <SEP>,
-        // so we simply preserve blankLine
+        // so we simply preserve newLine
         goto restart;
     }
 
-    else if (blankLine)
+    else if (curlyLevel == 0 && newLine)
     {
-        // this is a new line, blanks are skipped, so we are at the first 
+        // This is a new line, blanks are skipped, so we are at the first 
         // non-blank, non-comment char:
-        
         int newIndent = getIndent();
         int oldIndent = indentStack.top();
         if (newIndent > oldIndent)
         {
             strValue = "<INDENT>";
             indentStack.push(newIndent);
-            blankLine = false; // don't return to this branch again
+            newLine = false; // don't return to this branch again
             return token = tokIndent;
         }
         else if (newIndent < oldIndent) // unindent
@@ -341,18 +347,18 @@ restart:
                 error("Unmatched un-indent");
             else if (newIndent == oldIndent)
             {
-                blankLine = false; // don't return to this branch again
+                newLine = false; // don't return to this branch again
                 return token = tokBlockEnd;
             }
             else
-                // by keeping blankLine = true we force to return to this branch
+                // by keeping newLine = true we force to return to this branch
                 // next time so that proper number of <END>s are generated
                 return token = tokBlockEnd;
         }
         // else: same indent level, so pass through to token analysis
     }
 
-    blankLine = false;
+    newLine = false;
 
     // --- Handle ordinary tokens ---
     if (identFirst[c])  // identifier or keyword
@@ -400,6 +406,8 @@ restart:
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
+            if (curlyLevel > 0)
+                error("Colon is not allowed in curly-bracket mode, use { }");
             input->skip(wsChars);
             singleLineBlock = !input->eol();
             if (singleLineBlock)
@@ -418,10 +426,11 @@ restart:
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;
         case ')': return token = tokRParen;
-        // TODO: support curly braces mode: once a "{" is seen, the mode is
-        // switched and only curly braces and colons are recognized.
-        // case '{': return token = tokLCurly;
-        // case '}': return token = tokRCurly;
+        case '{': curlyLevel++; return token = tokBlockBegin;
+        case '}':
+            if (--curlyLevel < 0)
+                error("Unbalanced }");
+            return token = tokBlockEnd;
         case '<': return token = (input->get_if('=') ? tokLessEq : tokLAngle);
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);

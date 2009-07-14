@@ -123,6 +123,8 @@ void varlist::pop_back()                    { impl.pop_back(); }
 void varlist::push_back(const variant& v)   { impl.push_back(v); }
 void varlist::resize(mem s)                 { impl.resize(s); }
 void varlist::clear()                       { impl.clear(); }
+void varlist::append(const varlist& other)
+    { impl.insert(impl.end(), other.impl.begin(), other.impl.end()); }
 
 
 void varlist::insert(mem i, const variant& v)
@@ -181,6 +183,12 @@ void varstack::free(mem n)
 
 tuple::tuple()  { }
 tuple::~tuple() { }
+
+tuple::tuple(mem count, const variant& v)
+{
+    while (count--)
+        push_back(v);
+}
 
 void tuple::dump(fifo_intf& s) const
 {
@@ -534,7 +542,7 @@ char variant::getch(mem i) const            { _req(STR); return _str_read()[i]; 
 void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
 void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
 void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
-void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
+// void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
 void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_back(v); }
 
 
