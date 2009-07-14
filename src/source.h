@@ -42,7 +42,7 @@ enum Token
     // Cat level (simple expr)
     tokCat,
     // Rel level: the order should be in sync with comparison opcodes
-    tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
+    tokEqual, tokNotEq, tokLessThan, tokLessEq, tokGreaterThan, tokGreaterEq,
     // NOT level
     tokNot,
     // AND level

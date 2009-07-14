@@ -5,9 +5,6 @@
 #include "vm.h"
 
 
-void varTypeMismatch()  { throw EVarTypeMismatch(); }
-
-
 // --- EXECUTION CONTEXT --------------------------------------------------- //
 
 
@@ -125,7 +122,7 @@ bool Type::isString()
 bool Type::canBeArrayIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
 
-bool Type::canBeSmallSetIndex()
+bool Type::canBeOrdsetIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(charset::BITS); }
 
 
@@ -248,9 +245,6 @@ None::None(): Type(NONE)  { }
 // --- Ordinal ------------------------------------------------------------- //
 
 
-DEF_EXCEPTION(ESubrange, "Invalid subrange")
-
-
 Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
     : Type(_type), derivedRange(NULL), left(_left), right(_right)
 {
@@ -266,7 +260,7 @@ Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
     if (rangeEq(_left, _right))
         return this;
     if (!isLe(_left, _right))
-        throw ESubrange();
+        throw emessage("Subrange error");
     return new Ordinal(typeId, _left, _right);
 }
 
@@ -279,9 +273,9 @@ void Ordinal::runtimeTypecast(variant& v)
         return;
     }
     if (!v.is_ordinal())
-        throw EVarTypeMismatch();
+        typeMismatch();
     if (!isInRange(v.as_ordinal()))
-        throw ERange();
+        throw emessage("Out of range");
     if (isChar())
         v.type = variant::CHAR;
     else if (isInt() || isEnum())
@@ -321,7 +315,7 @@ Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
     if (_left == left && _right == right)
         return this;
     if (_left < left || _right > right)
-        throw ESubrange();
+        throw emessage("Subrange error");
     return new Enumeration(values, _left, _right);
 }
 
@@ -341,7 +335,12 @@ Container::Container(Type* _index, Type* _elem)
     if (index->isNone())
         setTypeId(VECTOR);
     else if (elem->isNone())
-        setTypeId(SET);
+    {
+        if (index->canBeOrdsetIndex())
+            setTypeId(ORDSET);
+        else
+            setTypeId(SET);
+    }
     else if (index->canBeArrayIndex())
         setTypeId(ARRAY);
     else
@@ -360,7 +359,7 @@ void Container::runtimeTypecast(variant& v)
     if ((elem->isVariant() || elem->isNone())
         && (index->isVariant() || index->isNone()))
             return;
-    throw EVarTypeMismatch();
+    typeMismatch();
 }
 
 
@@ -373,15 +372,8 @@ Fifo::Fifo(Type* _elem): Type(FIFO), elem(_elem)  { }
 void Fifo::runtimeTypecast(variant& v)
 {
     // TODO: Type of an object should be known at run time so that we can do
-    // more meaningful typecasts. Same for containers. Meanwhile, only this
-    // is possible:
-    if (!v.is(variant::FIFO))
-        throw EVarTypeMismatch();
-    if (isCharFifo() && v.as_fifo()->is_char_fifo())
-        return;
-    if (isVariantFifo())
-        return;
-    throw EVarTypeMismatch();
+    // more meaningful typecasts. Same for containers.
+    typeMismatch();
 }
 
 
@@ -408,7 +400,6 @@ QueenBee::QueenBee()
     defBool(registerType(new Enumeration(Type::BOOL))),
     defChar(registerType(new Ordinal(Type::CHAR, 0, 255))),
     defStr(NULL),
-    defEmptyContainer(NULL),
     defVariant(registerType(new Variant()))
     { }
 
@@ -419,7 +410,6 @@ void QueenBee::setup()
     // is not assigned yes, because addTypeAlias() uses defaultTypeRef for all
     // type aliases created.
     defStr = defChar->deriveVector();
-    defEmptyContainer = defNone->deriveVector();
     addTypeAlias("typeref", defTypeRef);
     addTypeAlias("none", defNone);
     addConstant("null", defNone, null);

@@ -45,13 +45,6 @@ typedef std::set<variant> set_impl;
 typedef set_impl::const_iterator set_iterator;
 
 
-DEF_EXCEPTION(evarianttype,  "Variant type mismatch")
-DEF_EXCEPTION(evariantrange, "Variant range check error")
-DEF_EXCEPTION(evariantindex, "Variant array index out of bounds")
-DEF_EXCEPTION(evariantclone, "Can't clone")
-DEF_EXCEPTION(etupleindex,   "Tuple index out of range")
-
-
 class _None { int dummy; };
 
 struct tinyset
@@ -72,7 +65,7 @@ public:
     // Note: the order is important, especially after STR
     enum Type
       { NONE, BOOL, CHAR, INT, TINYSET, REAL, STR, RANGE,
-        TUPLE, DICT, ORDSET, SET, FIFO, OBJECT,
+        TUPLE, DICT, ORDSET, SET, OBJECT,
         NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
 
 protected:
@@ -90,7 +83,6 @@ protected:
         dict*    _dict;
         ordset*  _ordset;
         set*     _set;
-        fifo_intf* _fifo;
     } val;
 
 #ifdef DEBUG
@@ -119,7 +111,6 @@ protected:
     const ordset& _ordset_read() const;
     set& _set_write();
     const set& _set_read() const;
-    fifo_intf* _fifo()          const { _dbg(FIFO); return val._fifo; }
     object* _object()           const { _dbg(OBJECT); return val._obj; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
@@ -139,7 +130,6 @@ protected:
     void _init(dict*);
     void _init(ordset*);
     void _init(set*);
-    void _init(fifo_intf*);
     void _init(object*);
     void _init(const variant&);
 
@@ -177,7 +167,7 @@ public:
                               const { return !(this->operator==(v)); }
 
     void dump(fifo_intf&) const;
-    bool to_bool() const;
+    bool to_bool()            const { return !empty(); }
     str  to_string() const;
     bool operator< (const variant& v) const;
 
@@ -207,12 +197,11 @@ public:
     const dict& as_dict()     const { _req(DICT); return _dict_read(); }
     const ordset& as_ordset() const { _req(ORDSET); return _ordset_read(); }
     const set& as_set()       const { _req(SET); return _set_read(); }
-    fifo_intf* as_fifo()      const { _req(FIFO); return _fifo(); }
     object* as_object()       const { _req_obj(); return val._obj; }
 
     // Container operations
     mem  size() const;                                      // str, tuple, dict
-    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset, fifo
+    bool empty() const;                                     // str, tuple, dict, set, ordset, tinyset
     void resize(mem);                                       // str, tuple
     void resize(mem, char);                                 // str
     void append(const str&);                                // str
@@ -414,12 +403,12 @@ public:
     set();
     ~set();
     virtual object* clone() const;
+    virtual void dump(fifo_intf&) const;
     // mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
     void tie(const variant& v)                { impl.insert(v); }
     void untie(const variant& v)              { impl.erase(v); }
     set_iterator find(const variant& v) const { return impl.find(v); }
-    virtual void dump(fifo_intf&) const;
     set_iterator begin()                const { return impl.begin(); }
     set_iterator end()                  const { return impl.end(); }
 };
@@ -436,12 +425,12 @@ public:
     ordset();
     ~ordset();
     virtual object* clone() const;
+    virtual void dump(fifo_intf&) const;
     bool empty()                        const { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
     bool equals (const ordset& other)   const { return impl.eq(other.impl); }
-    virtual void dump(fifo_intf&) const;
 };
 
 
@@ -497,11 +486,6 @@ inline set_iterator variant::set_end() const      { _req(SET); return _set_read(
 #endif
 
 
-DEF_EXCEPTION(efifoempty, "Invalid FIFO operation");
-DEF_EXCEPTION(efifordonly, "FIFO is read-only");
-DEF_EXCEPTION(efifowronly, "FIFO is write-only");
-
-
 // The abstract FIFO interface. There are 2 modes of operation: variant FIFO
 // and character FIFO. Destruction of variants is basically not handled by
 // this class to give more flexibility to implementations (e.g. there may be
@@ -516,8 +500,10 @@ protected:
 
     bool _char;
 
-    void _empty_err() const;
-    void _fifo_type_err() const;
+    static void _empty_err();
+    static void _wronly_err();
+    static void _rdonly_err();
+    static void _fifo_type_err();
     // TODO: _req() can be empty in RELEASE build
     void _req(bool req_char) const      { if (req_char != _char) _fifo_type_err(); }
     void _req_non_empty();
@@ -537,10 +523,12 @@ protected:
     void _token(const charset& chars, str* result);
 
 public:
-    fifo_intf(bool is_char): _char(is_char)  { }
+    fifo_intf(bool is_char);
+    ~fifo_intf();
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
 
+    virtual void dump(fifo_intf&) const; // just displays <fifo>
     virtual bool empty();   // throws efifowronly
 
     // Main FIFO operations, work on both char and variant fifos
@@ -569,8 +557,6 @@ public:
     mem  enq(const str& s)              { return enq_chars(s.data(), s.size()); }
     void enq(char c)                    { enq_chars(&c, 1); }
     void enq(uchar c)                   { enq_chars((char*)&c, 1); }
-
-    virtual void dump(fifo_intf&) const; // just displays <fifo>
 
     fifo_intf& operator<< (const char* s);
     fifo_intf& operator<< (const str& s)    { enq(s); return *this; }

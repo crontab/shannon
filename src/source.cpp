@@ -284,7 +284,7 @@ restart:
         // the compiler needs a block-end here.
         if (curlyLevel > 0)
             error("Unbalanced curly brackets in file");
-        else if (indentStack.size() > 0)
+        else if (!indentStack.empty())
         {
             strValue = "<END>";
             indentStack.pop();
@@ -408,7 +408,7 @@ restart:
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
             if (curlyLevel > 0)
-                error("Colon is not allowed in curly-bracket mode, use { }");
+                error("Colon is not allowed in curly-bracket mode");
             input->skip(wsChars);
             singleLineBlock = !input->eol();
             if (singleLineBlock)
@@ -421,7 +421,14 @@ restart:
             }
         case '+': return token = tokPlus;
         case '-': return token = tokMinus;
-        case '/': return token = tokDiv;
+        case '/': 
+            if (input->get_if('/'))
+            {
+                skipSinglelineComment();
+                goto restart;
+            }
+            // TODO: C-style multi-line comments
+            return token = tokDiv;
         case '*': return token = tokMul;
         case '[': return token = tokLSquare;
         case ']': return token = tokRSquare;
@@ -432,7 +439,8 @@ restart:
             if (--curlyLevel < 0)
                 error("Unbalanced }");
             return token = tokBlockEnd;
-        case '<': return token = (input->get_if('=') ? tokLessEq : tokLAngle);
+        case '<': return token = (input->get_if('=') ? tokLessEq
+                    : (input->get_if('>') ? tokNotEq : tokLAngle));
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
         case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);

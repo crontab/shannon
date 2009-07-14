@@ -37,7 +37,7 @@ object::~object()
 }
 
 
-object* object::clone()                 const { throw evariantclone(); }
+object* object::clone()                 const { throw emessage("Object can't be cloned"); }
 void object::dump(fifo_intf& s)         const { s << "object"; }
 bool object::less_than(object* other)   const { return this < other; }
 
@@ -110,8 +110,8 @@ void range::dump(fifo_intf& s) const
 
 range* new_range(integer l, integer r)
 {
-    if (l > r)
-        return NULL;
+//    if (l > r)
+//        return NULL;
     return new range(l, r);
 }
 
@@ -130,7 +130,7 @@ void varlist::append(const varlist& other)
 void varlist::insert(mem i, const variant& v)
 {
     if (i > impl.size())
-        throw etupleindex();
+        throw emessage("Index overflow");
     impl.insert(impl.begin() + i, v);
 }
 
@@ -138,7 +138,7 @@ void varlist::insert(mem i, const variant& v)
 void varlist::erase(mem i)
 {
     if (i >= impl.size())
-        throw etupleindex();
+        throw emessage("Index overflow");
     impl.erase(impl.begin() + i);
 }
 
@@ -147,7 +147,7 @@ void varlist::erase(mem i, mem count)
 {
     mem s = impl.size();
     if (i >= s)
-        throw etupleindex();
+        throw emessage("Index overflow");
     if (i + count >= s)
     {
         count = s - i;
@@ -253,7 +253,6 @@ void variant::_init(tuple* t)       { type = TUPLE; val._tuple = grab(t); }
 void variant::_init(dict* d)        { type = DICT; val._dict = grab(d); }
 void variant::_init(ordset* s)      { type = ORDSET; val._ordset = grab(s); }
 void variant::_init(set* s)         { type = SET; val._set = grab(s); }
-void variant::_init(fifo_intf* f)   { type = FIFO; val._fifo = grab(f); }
 void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
 
 
@@ -334,28 +333,6 @@ void variant::_fin2()
     default:    // containers and objects
         release(val._obj);
         break;
-    }
-}
-
-
-bool variant::to_bool() const
-{
-    switch (type)
-    {
-    case NONE:      return false;
-    case BOOL: 
-    case CHAR: 
-    case INT:       return val._int != 0;
-    case TINYSET:   return val._tinyset != 0;
-    case REAL:      return val._real != 0.0;
-    case STR:       return !_str_read().empty();
-    case RANGE:     return !_range_read().empty();
-    case TUPLE:     return !_tuple_read().empty();
-    case DICT:      return !_dict_read().empty();
-    case ORDSET:    return !_ordset_read().empty();
-    case SET:       return !_set_read().empty();
-    case FIFO:      return !_fifo()->empty();
-    default:        return val._obj != NULL;
     }
 }
 
@@ -451,9 +428,9 @@ bool variant::is_unique() const
 }
 
 
-void variant::_type_err() { throw evarianttype(); }
-void variant::_range_err() { throw evariantrange(); }
-void variant::_index_err() { throw evariantindex(); }
+void variant::_type_err() { throw emessage("Variant type mismatch"); }
+void variant::_range_err() { throw emessage("Variant range error"); }
+void variant::_index_err() { throw emessage("Variant index error"); }
 
 
 unsigned variant::as_tiny_int() const
@@ -511,16 +488,21 @@ bool variant::empty() const
 {
     switch (type)
     {
-    case TINYSET: return val._tinyset == 0;
-    case STR:     return _str_read().empty();
-    case RANGE:   if (val._range == NULL) return true; return _range_read().empty();
-    case TUPLE:   if (val._tuple == NULL) return true; return _tuple_read().empty();
-    case DICT:    if (val._dict == NULL) return true; return _dict_read().empty();
-    case ORDSET:  if (val._ordset == NULL) return true; return _ordset_read().empty();
-    case SET:     if (val._set == NULL) return true; return _set_read().empty();
-    case FIFO:    if (val._fifo == NULL) return true; return _fifo()->empty();
-    default: _type_err(); return false;
+    case NONE:      return true;
+    case BOOL:
+    case CHAR:
+    case INT:       return val._int == 0;
+    case REAL:      return val._real == 0.0;
+    case TINYSET:   return val._tinyset == 0;
+    case STR:       return _str_read().empty();
+    case RANGE:     if (val._range == NULL) return true; return _range_read().empty();
+    case TUPLE:     if (val._tuple == NULL) return true; return _tuple_read().empty();
+    case DICT:      if (val._dict == NULL) return true; return _dict_read().empty();
+    case ORDSET:    if (val._ordset == NULL) return true; return _ordset_read().empty();
+    case SET:       if (val._set == NULL) return true; return _set_read().empty();
+    case OBJECT:    return val._obj == NULL;
     }
+    return true;
 }
 
 

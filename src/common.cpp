@@ -205,9 +205,9 @@ uinteger from_string(const char* p, bool* error, bool* overflow, int base)
 }
 
 
-
+emessage::emessage(const str& m) throw(): message(m) { }
+emessage::emessage(const char* m) throw(): message(m) { }
 emessage::~emessage() throw() { }
-
 const char* emessage::what() const throw()  { return message.c_str(); }
 
 

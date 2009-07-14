@@ -5,9 +5,6 @@
 #include "common.h"
 
 
-DEF_EXCEPTION(EInvOpcode, "Invalid code")
-
-
 // TODO: implement safe typecasts from any type to any type (for opToXXX)
 
 enum OpCode
@@ -16,6 +13,30 @@ enum OpCode
     opEnd,
     opNop,
     
+    // Const loaders
+    opLoadNull,
+    opLoadFalse,
+    opLoadTrue,
+    opLoadChar,         // [8]
+    opLoad0,
+    opLoad1,
+    opLoadInt,          // [int]
+    opLoadNullStr,
+    opLoadNullRange,
+    opLoadNullVec,
+    opLoadNullDict,
+    opLoadNullOrdset,
+    opLoadNullSet,
+    opLoadConst,        // [const-index: 8] // compound values only
+    opLoadConst2,       // [const-index: 16] // compound values only
+    opLoadTypeRef,      // [Type*]
+
+    // Safe typecasts
+    opToBool,
+    opToStr,
+    opToType,           // [Type*]
+    opDynCast,          // [State*]
+
     // Arithmetic
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
     opNeg, opBitNot, opNot,
@@ -32,31 +53,15 @@ enum OpCode
     opMkRange,          // -right-int, -left-int, +range
     opInRange,          // -range, -int, +{0,1}
 
-    // Safe typecasts
-    opToBool,
-    opToStr,
-    opToType,           // [Type*]
-    opDynCast,          // [State*]
+    // Comparators
+    opCmpOrd,           // -ord, -ord, +{-1,0,1}
+    opCmpStr,           // -str, -str, +{-1,0,1}
+    opCmpVar,           // -var, -var, +{0,1}
 
-    // Const loaders
-    opLoadNull,
-    opLoadFalse,
-    opLoadTrue,
-    opLoadChar,         // [8]
-    opLoad0,
-    opLoad1,
-    opLoadInt,          // [int]
-    opLoadNullStr,
-    opLoadNullRange,
-    opLoadNullTuple,
-    opLoadNullDict,
-    opLoadNullOrdset,
-    opLoadNullSet,
-    opLoadNullFifo,
-    opLoadConst,        // [const-index: 8] // compound values only
-    opLoadConst2,       // [const-index: 16] // compound values only
-    opLoadTypeRef,      // [Type*]
-
+    // Compare the stack top with 0 and replace it with a bool value.
+    // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
+    opEqual, opNotEq, opLessThan, opLessEq, opGreaterThan, opGreaterEq,
+    
     // Loaders: each of these can be replaced by a corresponding storer if
     // the object turns out to be a L-value.
     opLoadLocal,        // [stack-index: signed-8 (retval(-N), args(-N), temp(N))]
@@ -79,26 +84,6 @@ enum OpCode
     opStoreDictElem,    // -val, -key, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
 
-    // Comparators
-    opCmp,              // -var, -var, +{-1,0,1}
-    opCmpNull,          // -var, +{0,1}
-    opCmpFalse,         // -bool, +{0,1}
-    opCmpTrue,          // -bool, +{-1,0}
-    opCmpCharStr,       // -str, -char, +{-1,0,1}
-    opCmpStrChar,       // -char, -str, +{-1,0,1}
-    opCmpInt0,          // -int, +{-1,0,1}
-    opCmpInt1,          // -int, +{-1,0,1}
-    opCmpNullStr,       // -str, +{0,1}
-    opCmpNullTuple,     // -str, +{0,1}
-    opCmpNullDict,      // -str, +{0,1}
-    opCmpNullOrdset,    // -ordset, +{0,1}
-    opCmpNullSet,       // -set, +{0,1}
-    opCmpNullFifo,      // -str, +{0,1}
-
-    // Compare the stack top with 0 and replace it with a bool value.
-    // The order of these opcodes is in sync with tokEqual..tokNotEq
-    opEqual, opLessThan, opLessEq, opGreaterEq, opGreaterThan, opNotEq,
-    
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
     // further boolean jump
     opCase,             // -var, +{0,1}
