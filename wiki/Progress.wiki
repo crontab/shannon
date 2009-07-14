@@ -2,7 +2,7 @@
 
 *Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
 
-*Constant and variable declarations* start with const and var respectively (e.g. `const int c = 0`). Type specification can be omitted, in which case it is automatically determined from the initializer (`var v = 0`). Initializers are always required both for constants and variables.
+*Constant and variable declarations* start with `const` and `var` respectively (e.g. `const int i = 0`), one definition at a time. Type specification can be omitted, in which case it is automatically determined from the initializer (`var v = 0`). Initializers are always required both for constants and variables.
 
 *Type aliases and the typeref data type*: type aliases start with `def`, the rest is like in C, but also Java/C#-like syntax is allowed. Or both. For example, `int[] a[]` is equivalent to `int a[][]` or `int[][] a`. Function/state definitions also start with `def` because they are types. Type aliases are actually constants of type `typeref`, so `def int a[]` is fully equivalent to `const typeref a = int[]` (where the type can be omitted, i.e. `const a = int[]`). `Typeref` variables are also possible: they can be used with operators `is` and `as`.
 
