@@ -25,19 +25,21 @@ struct ENotFound: public EParser
 enum Token
 {
     tokUndefined = -1,
-    tokBlockBegin, tokBlockEnd, tokSep, tokIndent, // these will depend on C-style vs. Python-style modes in the future
+    // Blocks: for the compiler, these tokens are transparent wrt to C-style
+    // vs. Python-style modes
+    tokBlockBegin, tokBlockEnd, tokSep, tokIndent,
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
 
     tokModule, tokConst, tokDef, tokTypeOf,
     tokEnum, tokEcho, tokAssert, tokSizeOf, tokBegin, tokIf, tokElif, tokElse,
-    tokWhile, tokBreak, tokContinue, tokCase, tokReturn,
+    tokWhile, tokBreak, tokContinue, tokCase, tokReturn, tokFinally,
     
-    // term level
+    // Term level
     tokMul, tokDiv, tokMod,
-    // arithm level
+    // Arithm level
     tokPlus, tokMinus,
-    // cat level (simple expr)
+    // Cat level (simple expr)
     tokCat,
     // Rel level: the order should be in sync with comparison opcodes
     tokEqual, tokLessThan, tokLessEq, tokGreaterEq, tokGreaterThan, tokNotEq,
@@ -50,12 +52,12 @@ enum Token
     
     tokIn, tokIs, tokAs,
 
-    // special chars and sequences
+    // Special chars and sequences
     tokComma, tokPeriod, tokRange,
     tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
     tokAssign, tokExclam,
     
-    // aliases; don't define new consts after this group
+    // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,
     tokCmpFirst = tokEqual, tokCmpLast = tokNotEq
 };
@@ -69,11 +71,12 @@ class Parser
 protected:
     str fileName;
     objptr<fifo_intf> input;
-    bool blankLine;
+    bool newLine;
     std::stack<int> indentStack;
     int linenum;
     int indent;
     bool singleLineBlock; // if a: b = c
+    int curlyLevel;
 
     str errorLocation() const;
     void parseStringLiteral();

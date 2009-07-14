@@ -51,10 +51,19 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
             case opBitNot:  UNARY_INT(~); break;
             case opNot:     UNARY_INT(-); break;
 
+            // Vector/string concatenation
+            case opCharToStr:   *stk = str(1, stk->_uchar()); break;
+            case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POP(stk); break;
+            case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
+            case opVarToVec:    *stk = new tuple(1, *stk); break;
+            case opVarCat:      (stk - 1)->_tuple_write().push_back(*stk); POP(stk); break;
+            case opVecCat:      (stk - 1)->_tuple_write().append(stk->_tuple_read()); POP(stk); break;
+
+            // Safe typecasts
             case opToBool:  *stk = stk->to_bool(); break;
             case opToStr:   *stk = stk->to_string(); break;
             case opToType:  { Type* t = *(Type**)ip; ip += sizeof(Type*); t->runtimeTypecast(*stk); } break;
-            case opDynCast: notimpl(); break;
+            case opDynCast: notimpl(); break; // TODO:
 
             // Const loaders
             case opLoadNull:        PUSH(stk, null); break;
@@ -143,20 +152,28 @@ protected:
     void stkPush(Constant* c)
             { stkPush(c->type, c->value); }
     const stkinfo& stkTop() const;
-    Type* topType() const
+    Type* stkTopType() const
             { return stkTop().type; }
     const variant& topValue() const
             { return valStack.top(); }
     Type* stkPop();
 
+    bool tryCast(Type*, Type*);
+    
 public:
     CodeGen(CodeSeg&);
     ~CodeGen();
-    
+
     void endConstExpr(Type* expectType);
+    void loadBool(bool);
+    void loadChar(uchar);
     void loadInt(integer);
+    void loadConst(Type*, const variant&);
     void arithmBinary(OpCode);
     void arithmUnary(OpCode);
+    void elemToVec();
+    void elemCat();
+    void cat();
     void explicitCastTo(Type*);
     void implicitCastTo(Type*);
 };
@@ -185,6 +202,21 @@ void CodeGen::endConstExpr(Type* expectType)
 }
 
 
+void CodeGen::loadBool(bool v)
+{
+    codeseg.addOp(v ? opLoadTrue : opLoadFalse);
+    stkPush(queenBee->defBool, v);
+}
+
+
+void CodeGen::loadChar(uchar v)
+{
+    codeseg.addOp(opLoadChar);
+    codeseg.add8(v);
+    stkPush(queenBee->defChar, v);
+}
+
+
 void CodeGen::loadInt(integer v)
 {
     if (v == 0)
@@ -196,7 +228,40 @@ void CodeGen::loadInt(integer v)
         codeseg.addOp(opLoadInt);
         codeseg.addInt(v);
     }
-    stkPush(queenBee->defaultInt, v);
+    stkPush(queenBee->defInt, v);
+}
+
+
+void CodeGen::loadConst(Type* type, const variant& value)
+{
+    if (value.is_nonpod())
+    {
+        mem n = codeseg.consts.size();
+        codeseg.consts.push_back(value);
+        if (n < 256)
+        {
+            codeseg.addOp(opLoadConst);
+            codeseg.add8(uchar(n));
+        }
+        else if (n < 65536)
+        {
+            codeseg.addOp(opLoadConst2);
+            codeseg.add16(ushort(n));
+        }
+        else
+            throw emessage("Maximum number of constants in a block reached");
+        stkPush(type);
+    }
+    else
+    {
+        switch (value.getType())
+        {
+        case variant::BOOL: loadBool(value.as_bool()); break;
+        case variant::CHAR: loadChar(value.as_char()); break;
+        case variant::INT:  loadInt(value.as_int()); break;
+        default: _fatal(0x4001);
+        }
+    }
 }
 
 
@@ -204,7 +269,7 @@ void CodeGen::arithmBinary(OpCode op)
 {
     assert(op >= opAdd && op <= opBitShr);
     Type* t1 = stkPop(), * t2 = stkPop();
-    if (!t1->isInt() || !t2->isInt() || !t1->canCastImplTo(t2))
+    if (!t1->isInt() || !t2->isInt())
         throw ETypeMismatch();
     codeseg.addOp(op);
     stkPush(t1);
@@ -214,28 +279,79 @@ void CodeGen::arithmBinary(OpCode op)
 void CodeGen::arithmUnary(OpCode op)
 {
     assert(op >= opNeg && op <= opNot);
-    if (!topType()->isInt())
+    if (!stkTopType()->isInt())
         throw ETypeMismatch();
     codeseg.addOp(op);
 }
 
 
+void CodeGen::elemToVec()
+{
+    Type* elemType = stkPop();
+    codeseg.addOp(elemType->isChar() ? opCharToStr : opVarToVec);
+    stkPush(elemType->deriveVector());
+}
+
+
+void CodeGen::elemCat()
+{
+    Type* elemType = stkPop();
+    Type* vecType = stkTopType();
+    if (!vecType->isVector())
+        throw emessage("Vector type expected");
+    if (!elemType->canCastImplTo(PVector(vecType)->elem))
+        throw ETypeMismatch();
+    codeseg.addOp(elemType->isChar() ? opCharCat : opVarCat);
+}
+
+
+void CodeGen::cat()
+{
+    Type* right = stkPop();
+    Type* left = stkTopType();
+    if (!left->isVector() || !right->isVector())
+        throw emessage("Vector type expected");
+    if (!right->canCastImplTo(left))
+        throw ETypeMismatch();
+    codeseg.addOp(PVector(left)->elem->isChar() ? opStrCat : opVecCat);
+}
+
+
+// Try implicit cast and return true if succeeded. This code is shared
+// between the explicit and implicit typecast routines.
+bool CodeGen::tryCast(Type* from, Type* to)
+{
+    if (to->isVariant())
+        ;   // everything in the VM is a variant anyway
+    else if (to->isBool())
+        codeseg.addOp(opToBool);    // everything can be cast to bool
+    else if (to->isString())
+        codeseg.addOp(opToStr);     // ... as well as to string
+    else if (from->canCastImplTo(to))
+        ;   // means variant copying is considered safe, including State casts (not implemented yet)
+    else
+        return false;
+    return true;
+}
+
+
 void CodeGen::explicitCastTo(Type* to)
 {
+    if (stkTopType()->identicalTo(to))
+        return;
     Type* from = stkPop();
-    if (to->isBool())
-        codeseg.addOp(opToBool);
-    else if (to->isString())
-        codeseg.addOp(opToStr);
-    else if (to->isOrdinal() && from->isOrdinal())
-        ;
-    else if (from->isVariant())
+    if (tryCast(from, to))
+        ;   // implicit typecast does the job
+    else if (from->isVariant() || (from->isOrdinal() && to->isOrdinal()))
     {
-        codeseg.addOp(opToType);
+        // Ordinals must be casted at runtime so that the variant type of the
+        // value on the stack is correct for subsequent operations.
+        codeseg.addOp(opToType);    // calls to->runtimeTypecast(v)
         codeseg.addPtr(to);
     }
-    else if (to->isState() && from->isState())
+    else if (from->isState() && to->isState())
     {
+        // Implicit type cast wasn't possible, so try run-time typecast
         codeseg.addOp(opDynCast);
         codeseg.addPtr(to);
     }
@@ -247,14 +363,10 @@ void CodeGen::explicitCastTo(Type* to)
 
 void CodeGen::implicitCastTo(Type* to)
 {
-    if (topType()->identicalTo(to))
+    if (stkTopType()->identicalTo(to))
         return;
     Type* from = stkPop();
-    if (to->isVariant())
-        ;   // everything in the VM is a variant anyway
-    else if (from->canCastImplTo(to))
-        ;   // means variant copying is considered safe
-    else
+    if (!tryCast(from, to))
         throw ETypeMismatch();
     stkPush(to);
 }
@@ -305,22 +417,64 @@ int main()
     {
         Parser parser("x", new in_text("x"));
 
+        Module m("test", 0, NULL);
+        Constant* c = m.addConstant("c", queenBee->defChar, char(1));
+
+        // Arithmetic, typecasts
         variant r;
         ConstCode seg;
-
         {
             CodeGen gen(seg);
-            gen.loadInt(1);
+            gen.loadConst(c->type, c->value);
+            gen.explicitCastTo(queenBee->defVariant);
+            gen.explicitCastTo(queenBee->defBool);
+            gen.explicitCastTo(queenBee->defInt);
             gen.loadInt(9);
             gen.arithmBinary(opAdd);
             gen.loadInt(2);
             gen.arithmUnary(opNeg);
             gen.arithmBinary(opSub);
-            gen.explicitCastTo(queenBee->defaultStr);
-            gen.endConstExpr(/*queenBee->defaultStr*/ NULL);
+            gen.explicitCastTo(queenBee->defStr);
+            gen.endConstExpr(queenBee->defStr);
         }
         seg.run(r);
         check(r.as_str() == "12");
+        
+        // String operations
+        c = m.addConstant("s", queenBee->defStr, "ef");
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadChar('a');
+            gen.elemToVec();
+            gen.loadChar('b');
+            gen.elemCat();
+            gen.loadConst(queenBee->defStr, "cd");
+            gen.cat();
+            gen.loadConst(c->type, c->value);
+            gen.cat();
+            gen.endConstExpr(queenBee->defStr);
+        }
+        seg.run(r);
+        check(r.as_str() == "abcdef");
+        
+        // Vector concatenation
+        tuple* t = new tuple(1, 3);
+        t->push_back(4);
+        c = m.addConstant("v", queenBee->defInt->deriveVector(), t);
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadInt(1);
+            gen.elemToVec();
+            gen.loadInt(2);
+            gen.elemCat();
+            gen.loadConst(c->type, c->value);
+            gen.cat();
+            gen.endConstExpr(queenBee->defInt->deriveVector());
+        }
+        seg.run(r);
+        check(r.to_string() == "[1, 2, 3, 4]");
     }
     catch (std::exception& e)
     {

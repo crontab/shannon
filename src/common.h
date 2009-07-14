@@ -64,6 +64,7 @@ typedef size_t mem;
 typedef std::string str;
 
 typedef unsigned char uchar;
+typedef unsigned char ushort;
 
 
 // --- MISC --------------------------------------------------------------- //

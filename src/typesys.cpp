@@ -66,7 +66,7 @@ int CodeSeg::addOp(unsigned c)
 void CodeSeg::add8(uchar i)
     { code.push_back(i); }
 
-void CodeSeg::add16(unsigned short i)
+void CodeSeg::add16(ushort i)
     { code.append((char*)&i, 2); }
 
 void CodeSeg::addInt(integer i)
@@ -93,8 +93,8 @@ void CodeSeg::close(mem _stksize, mem _returns)
 
 // Constructor placeholders for the DERIVEX macro
 #define new_Fifo(x)     new Fifo(x)
-#define new_Vector(x)   new Container(queenBee->defaultNone, x)
-#define new_Set(x)      new Container(x, queenBee->defaultNone)
+#define new_Vector(x)   new Container(queenBee->defNone, x)
+#define new_Set(x)      new Container(x, queenBee->defNone)
 #define new_Range(x)    new Range(x)
 
 
@@ -146,7 +146,7 @@ Variable::~Variable()  { }
 
 
 Constant::Constant(const str& _name, Type* _type)
-    : Base(_name, CONSTANT), type(queenBee->defaultTypeRef),
+    : Base(_name, CONSTANT), type(queenBee->defTypeRef),
       value((object*)_type)  { }
 
 
@@ -247,7 +247,7 @@ None::None(): Type(NONE)  { }
 // --- Ordinal ------------------------------------------------------------- //
 
 
-DEF_EXCEPTION(ERange, "Invalid subrange")
+DEF_EXCEPTION(ESubrange, "Invalid subrange")
 
 
 Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
@@ -262,11 +262,31 @@ Range* Ordinal::deriveRange()   { DERIVEX(Range) }
 
 Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
 {
-    if (_left == left && _right == right)
+    if (rangeEq(_left, _right))
         return this;
-    if (_left < left || _right > right)
-        throw ERange();
+    if (!isLe(_left, _right))
+        throw ESubrange();
     return new Ordinal(typeId, _left, _right);
+}
+
+
+void Ordinal::runtimeTypecast(variant& v)
+{
+    if (isBool())
+    {
+        v = v.to_bool();
+        return;
+    }
+    if (!v.is_ordinal())
+        throw EVarTypeMismatch();
+    if (!isInRange(v.as_ordinal()))
+        throw ERange();
+    if (isChar())
+        v.type = variant::CHAR;
+    else if (isInt() || isEnum())
+        v.type = variant::INT;
+    else
+        fatal(0x3001, "Unknown ordinal type");
 }
 
 
@@ -300,7 +320,7 @@ Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
     if (_left == left && _right == right)
         return this;
     if (_left < left || _right > right)
-        throw ERange();
+        throw ESubrange();
     return new Enumeration(values, _left, _right);
 }
 
@@ -328,10 +348,40 @@ Container::Container(Type* _index, Type* _elem)
 }
 
 
+void Container::runtimeTypecast(variant& v)
+{
+    if (isString())
+    {
+        if (!v.is(variant::STR))
+            v = v.to_string();
+        return;
+    }
+    if ((elem->isVariant() || elem->isNone())
+        && (index->isVariant() || index->isNone()))
+            return;
+    throw EVarTypeMismatch();
+}
+
+
 // --- Fifo ---------------------------------------------------------------- //
 
 
 Fifo::Fifo(Type* _elem): Type(FIFO), elem(_elem)  { }
+
+
+void Fifo::runtimeTypecast(variant& v)
+{
+    // TODO: Type of an object should be known at run time so that we can do
+    // more meaningful typecasts. Same for containers. Meanwhile, only this
+    // is possible:
+    if (!v.is(variant::FIFO))
+        throw EVarTypeMismatch();
+    if (isCharFifo() && v.as_fifo()->is_char_fifo())
+        return;
+    if (isVariantFifo())
+        return;
+    throw EVarTypeMismatch();
+}
 
 
 // --- Variant ------------------------------------------------------------- //
@@ -351,13 +401,14 @@ TypeReference::TypeReference(): Type(TYPEREF)  { }
 
 QueenBee::QueenBee()
   : Module("system", mem(-1), NULL),
-    defaultTypeRef(registerType(new TypeReference())),
-    defaultNone(registerType(new None())),
-    defaultInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),
-    defaultBool(registerType(new Enumeration(Type::BOOL))),
-    defaultChar(registerType(new Ordinal(Type::CHAR, 0, 255))),
-    defaultStr(NULL),
-    defaultEmptyContainer(NULL)
+    defTypeRef(registerType(new TypeReference())),
+    defNone(registerType(new None())),
+    defInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),
+    defBool(registerType(new Enumeration(Type::BOOL))),
+    defChar(registerType(new Ordinal(Type::CHAR, 0, 255))),
+    defStr(NULL),
+    defEmptyContainer(NULL),
+    defVariant(registerType(new Variant()))
     { }
 
 
@@ -366,16 +417,17 @@ void QueenBee::setup()
     // This can't be done in the constructor while the global object queenBee
     // is not assigned yes, because addTypeAlias() uses defaultTypeRef for all
     // type aliases created.
-    defaultStr = defaultChar->deriveVector();
-    defaultEmptyContainer = defaultNone->deriveVector();
-    addTypeAlias("typeref", defaultTypeRef);
-    addTypeAlias("none", defaultNone);
-    addConstant("null", defaultNone, null);
-    addTypeAlias("int", defaultInt);
-    defaultBool->addValue("false");
-    defaultBool->addValue("true");
-    addTypeAlias("bool", defaultBool);
-    addTypeAlias("str", defaultStr);
+    defStr = defChar->deriveVector();
+    defEmptyContainer = defNone->deriveVector();
+    addTypeAlias("typeref", defTypeRef);
+    addTypeAlias("none", defNone);
+    addConstant("null", defNone, null);
+    addTypeAlias("int", defInt);
+    defBool->addValue("false");
+    defBool->addValue("true");
+    addTypeAlias("bool", defBool);
+    addTypeAlias("str", defStr);
+    addTypeAlias("any", defVariant);
 }
 
 

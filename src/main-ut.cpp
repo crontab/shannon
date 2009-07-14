@@ -209,8 +209,7 @@ void test_variant()
         vst.append("abc");
         vst.append("");
         vst.append(s1);
-        vst.append("ghi");
-        vst.append(variant("jkl"));
+        vst.append("ghijkl");
         check(vst.as_str() == "abcdefghijkl");
         check(vst.substr(5, 3) == "fgh");
         check(vst.substr(5) == "fghijkl");
@@ -639,22 +638,22 @@ void test_fifos()
 void test_typesys()
 {
     initTypeSys();
-    check(queenBee->defaultTypeRef->isTypeRef());
-    check(queenBee->defaultVoid->isVoid());
-    check(queenBee->defaultInt->isInt());
-    check(queenBee->defaultInt->isOrdinal());
-    check(queenBee->defaultBool->isBool());
-    check(queenBee->defaultBool->isEnum());
-    check(queenBee->defaultBool->isOrdinal());
-    check(queenBee->defaultBool->rangeEq(0, 1));
-    check(queenBee->defaultChar->isChar());
-    check(queenBee->defaultChar->isOrdinal());
-    check(queenBee->defaultStr->isString());
-    check(queenBee->defaultStr->isContainer());
-    check(queenBee->defaultEmptyContainer->isEmptyCont());
-    check(queenBee->defaultEmptyContainer->isContainer());
-    check(queenBee->defaultEmptyContainer->canCastImplTo(queenBee->defaultStr));
-    check(queenBee->defaultChar->deriveVector() == queenBee->defaultStr);
+    check(queenBee->defTypeRef->isTypeRef());
+    check(queenBee->defNone->isNone());
+    check(queenBee->defInt->isInt());
+    check(queenBee->defInt->isOrdinal());
+    check(queenBee->defBool->isBool());
+    check(queenBee->defBool->isEnum());
+    check(queenBee->defBool->isOrdinal());
+    check(queenBee->defBool->rangeEq(0, 1));
+    check(queenBee->defChar->isChar());
+    check(queenBee->defChar->isOrdinal());
+    check(queenBee->defStr->isString());
+    check(queenBee->defStr->isContainer());
+    check(queenBee->defEmptyContainer->isEmptyCont());
+    check(queenBee->defEmptyContainer->isContainer());
+    check(queenBee->defEmptyContainer->canCastImplTo(queenBee->defStr));
+    check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
     Base* b = queenBee->deepFind("true");
     check(b != NULL && b->isConstant());
@@ -666,10 +665,10 @@ void test_typesys()
         b = state.deepFind("true");
         check(b != NULL && b->isConstant());
         check(state.deepFind("untrue") == NULL);
-        state.addVariable("a", queenBee->defaultInt);
-        check_throw(EDuplicate, state.addVariable("a", queenBee->defaultInt));
-        check_nothrow(state.addVariable("true", queenBee->defaultInt));
-        state.addTypeAlias("ool", queenBee->defaultBool);
+        state.addVariable("a", queenBee->defInt);
+        check_throw(EDuplicate, state.addVariable("a", queenBee->defInt));
+        check_nothrow(state.addVariable("true", queenBee->defInt));
+        state.addTypeAlias("ool", queenBee->defBool);
         b = state.deepFind("ool");
         check(b != NULL && b->isConstant());
         check(PConst(b)->isTypeAlias());
