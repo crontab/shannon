@@ -29,9 +29,12 @@
 #  error Unknown architecure.
 #endif
 
-// On my Mac:
+// On a Mac:
 // short: 2  long: 4  long long: 8  int: 4  void*: 4  float: 4  double: 8
 // integer: 4  mem: 4  real: 4  variant: 8
+// On 64-bit Linux:
+// short: 2  long: 8  long long: 8  int: 4  void*: 8  float: 4  double: 8
+// integer: 8  mem: 8  real: 8  variant: 16
 
 // SH64 can be enabled both on 64 and 32-bit systems
 #ifdef PTR64
@@ -66,10 +69,6 @@ typedef std::string str;
 
 typedef unsigned char uchar;
 
-#ifndef __USE_MISC
-    typedef unsigned char ushort;
-#endif
-
 
 // --- MISC --------------------------------------------------------------- //
 
@@ -93,11 +92,9 @@ template<class T>
 
 
 // The eternal int-to-string problem in C++
-str to_string(integer);
 str to_string(integer value, int base, int width = 0, char fill = '0');
+str to_string(integer);
 str to_string(uinteger);
-str to_string(mem);
-inline str to_string(int value) { return to_string(integer(value)); }
 uinteger from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 

@@ -64,10 +64,10 @@ void CodeSeg::clear()
 int CodeSeg::addOp(unsigned c)
     { code.push_back(c); return code.size() - 1; }
 
-void CodeSeg::add8(uchar i)
+void CodeSeg::add8(uint8_t i)
     { code.push_back(i); }
 
-void CodeSeg::add16(ushort i)
+void CodeSeg::add16(uint16_t i)
     { code.append((char*)&i, 2); }
 
 void CodeSeg::addInt(integer i)

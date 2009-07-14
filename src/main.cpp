@@ -82,6 +82,7 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
             case opLoadNullSet:     PUSH(stk, new_set()); break;
             case opLoadNullFifo:    PUSH(stk, new_fifo()); break;
             case opLoadConst:       PUSH(stk, consts[*ip++]); break;
+            case opLoadConst2:      PUSH(stk, consts[*(uint16_t*)ip]); ip += 2; break;
             case opLoadTypeRef:     PUSH(stk, *(object**)ip); ip += sizeof(object*); break;
 
             default: invOpcode(); break;
@@ -247,7 +248,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         else if (n < 65536)
         {
             codeseg.addOp(opLoadConst2);
-            codeseg.add16(ushort(n));
+            codeseg.add16(n);
         }
         else
             throw emessage("Maximum number of constants in a block reached");

@@ -227,7 +227,6 @@ fifo_intf& fifo_intf::operator<< (const char* s)
 
 fifo_intf& fifo_intf::operator<< (integer i)  { enq(to_string(i)); return *this; }
 fifo_intf& fifo_intf::operator<< (uinteger i) { enq(to_string(i)); return *this; }
-fifo_intf& fifo_intf::operator<< (mem i)      { enq(to_string(i)); return *this; }
 
 
 // --- fifo ---------------------------------------------------------------- //

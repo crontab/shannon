@@ -218,6 +218,7 @@ public:
     str  substr(mem start, mem count = mem(-1)) const;      // str
     char getch(mem) const;                                  // str
     void push_back(const variant&);                         // tuple
+    void append(const tuple&);                              // tuple
     void insert(mem index, const variant&);                 // tuple
     void put(mem index, const variant&);                    // tuple
     void tie(const variant& key, const variant&);           // dict
@@ -576,10 +577,8 @@ public:
     fifo_intf& operator<< (const str& s)    { enq(s); return *this; }
     fifo_intf& operator<< (integer);
     fifo_intf& operator<< (uinteger);
-    fifo_intf& operator<< (mem);
     fifo_intf& operator<< (char c)          { enq(c); return *this; }
     fifo_intf& operator<< (uchar c)         { enq(c); return *this; }
-    fifo_intf& operator<< (int i)           { this->operator<< (integer(i)); return *this; }
 };
 
 const char endl = '\n';
