@@ -91,7 +91,7 @@ static str parserErrorStr(const str& filename, int linenum, const str& msg)
 {
     str s;
     if (!filename.empty())
-        s = filename + '(' + to_string(linenum) + "): ";
+        s = filename + '(' + to_string(integer(linenum)) + "): ";
     return s + msg;
 }
 

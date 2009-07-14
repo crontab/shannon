@@ -5,6 +5,8 @@
 #include "runtime.h"
 #include "symbols.h"
 
+#include <stdint.h>
+
 
 class Type;
 class Variable;
@@ -65,8 +67,8 @@ protected:
 #endif
 
     int addOp(unsigned c);
-    void add8(uchar i);
-    void add16(ushort i);
+    void add8(uint8_t i);
+    void add16(uint16_t i);
     void addInt(integer i);
     void addPtr(void* p);
     void close(mem _stksize, mem _returns);

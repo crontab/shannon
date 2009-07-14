@@ -226,7 +226,7 @@ void ordset::dump(fifo_intf& s) const
         {
             if (++cnt > 1)
                 s << ", ";
-            s << i;
+            s << integer(i);
         }
 }
 
@@ -377,7 +377,7 @@ void variant::dump(fifo_intf& s) const
                 {
                     if (++cnt > 1)
                         s << ", ";
-                    s << i;
+                    s << integer(i);
                 }
             s << ']';
         }
@@ -542,8 +542,8 @@ char variant::getch(mem i) const            { _req(STR); return _str_read()[i]; 
 void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
 void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
 void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
-// void variant::append(const variant& v)      { _req(STR); _str_write().append(v.as_str()); }
 void variant::push_back(const variant& v)   { _req(TUPLE); _tuple_write().push_back(v); }
+void variant::append(const tuple& t)        { _req(TUPLE); _tuple_write().append(t); }
 
 
 str variant::substr(mem index, mem count) const

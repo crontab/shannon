@@ -49,12 +49,12 @@ void test_common()
     check(pdecrement(&i) == 1);
 
     // string conversion
-    check(to_string(0) == "0");
-    check(to_string(-1) == "-1");
+    check(to_string(integer(0)) == "0");
+    check(to_string(integer(-1)) == "-1");
     check(to_string(INTEGER_MAX) == INTEGER_MAX_STR);
     check(to_string(INTEGER_MIN) == INTEGER_MIN_STR);
     check(to_string(1, 10, 4, '0') == "0001");
-    check(to_string(123456789) == "123456789");
+    check(to_string(integer(123456789)) == "123456789");
     check(to_string(-123, 10, 7, '0') == "-000123");
     check(to_string(0xabcde, 16, 6) == "0ABCDE");
     
@@ -681,11 +681,11 @@ void test_typesys()
 
 int main()
 {
-    fout << "short: " << sizeof(short) << "  long: " << sizeof(long) << "  long long: "
-        << sizeof(long long) << "  int: " << sizeof(int) << "  void*: " << sizeof(void*)
-        << "  float: " << sizeof(float) << "  double: " << sizeof(double) << '\n';
-    fout << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
-        << "  real: " << sizeof(real) << "  variant: " << sizeof(variant) << '\n';
+    fout << "short: " << integer(sizeof(short)) << "  long: " << integer(sizeof(long)) << "  long long: "
+        << integer(sizeof(long long)) << "  int: " << integer(sizeof(int)) << "  void*: " << integer(sizeof(void*))
+        << "  float: " << integer(sizeof(float)) << "  double: " << integer(sizeof(double)) << '\n';
+    fout << "integer: " << integer(sizeof(integer)) << "  mem: " << integer(sizeof(mem))
+        << "  real: " << integer(sizeof(real)) << "  variant: " << integer(sizeof(variant)) << '\n';
 
     check(sizeof(int) == 4);
     check(sizeof(mem) >= 4);
