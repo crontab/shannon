@@ -27,7 +27,11 @@ enum OpCode
     opVarToVec,         // -var, +vec
     opVarCat,           // -var, -vec, +vec
     opVecCat,           // -var, -vec, +vec
-    
+
+    // Range operations (work for all ordinals)
+    opMkRange,          // -right-int, -left-int, +range
+    opInRange,          // -range, -int, +{0,1}
+
     // Safe typecasts
     opToBool,
     opToStr,
@@ -75,14 +79,6 @@ enum OpCode
     opStoreDictElem,    // -val, -key, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
 
-    // Range operations
-    opMkBoolRange,      // stupid but accepted by the compiler
-    opMkCharRange,      // -right-char, -left-char, +range
-    opMkIntRange,       // -right-int, -left-int, +range
-    opBoolInRange,      // -range, -bool, +{0,1}
-    opCharInRange,      // -range, -int, +{0,1}
-    opIntInRange,       // -range, -int, +{0,1}
-    
     // Comparators
     opCmp,              // -var, -var, +{-1,0,1}
     opCmpNull,          // -var, +{0,1}
