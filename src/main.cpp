@@ -60,6 +60,10 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
             case opVarCat:      (stk - 1)->_tuple_write().push_back(*stk); POP(stk); break;
             case opVecCat:      (stk - 1)->_tuple_write().append(stk->_tuple_read()); POP(stk); break;
 
+            // Range operations (work for all ordinals)
+            case opMkRange:     (stk - 1)->assign((stk - 1)->_ord(), stk->_ord()); POP(stk); break;
+            case opInRange:     *(stk - 1) = integer((stk - 1)->_range_read().has(stk->_ord())); break;
+
             // Safe typecasts
             case opToBool:  *stk = stk->to_bool(); break;
             case opToStr:   *stk = stk->to_string(); break;

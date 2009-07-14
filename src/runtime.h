@@ -95,8 +95,10 @@ protected:
 
 #ifdef DEBUG
     void _dbg(Type t) const         { if (type != t) _type_err(); }
+    void _dbg_ord() const           { if (!is_ordinal()) _type_err(); }
 #else
     void _dbg(Type t) const         { }
+    void _dbg_ord() const           { }
 #endif
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
@@ -104,6 +106,7 @@ protected:
     uchar    _uchar()           const { _dbg(CHAR); return val._int; }
     integer  _int()             const { _dbg(INT); return val._int; }
     integer& _int_write()             { _dbg(INT); return val._int; }
+    integer  _ord()             const { _dbg_ord(); return val._int; }
     str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
     const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
     range& _range_write();
@@ -366,7 +369,6 @@ public:
 
 class tuple: public object, public varlist
 {
-    friend class variant;
 protected:
     tuple(const tuple& other): varlist(other)  { }
     void operator=(const tuple& other)  { varlist::operator=(other); }
@@ -381,15 +383,14 @@ public:
 
 class dict: public object
 {
-    friend class variant;
-
     dict_impl impl;
 
 protected:
-    dict();
     dict(const dict& other): impl(other.impl)  { }
-    ~dict();
 
+public:
+    dict();
+    ~dict();
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
@@ -404,15 +405,14 @@ protected:
 
 class set: public object
 {
-    friend class variant;
-
     set_impl impl;
 
 protected:
-    set();
     set(const set& other): impl(other.impl)  { }
-    ~set();
 
+public:
+    set();
+    ~set();
     virtual object* clone() const;
     // mem size()                          const { return impl.size(); }
     bool empty()                        const { return impl.empty(); }
@@ -427,15 +427,14 @@ protected:
 
 class ordset: public object
 {
-    friend class variant;
-
     charset impl;
 
 protected:
-    ordset();
     ordset(const ordset& other): impl(other.impl)  { }
-    ~ordset();
 
+public:
+    ordset();
+    ~ordset();
     virtual object* clone() const;
     bool empty()                        const { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }

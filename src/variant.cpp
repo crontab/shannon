@@ -7,11 +7,11 @@
 
 const variant null;
 const str null_str;
-const class _null_tuple: public tuple { } null_tuple;
-const class _null_dict: public dict { } null_dict;
-const class _null_ordset: public ordset { } null_ordset;
-const class _null_set: public set { } null_set;
-const class _null_range: public range { } null_range;
+const tuple null_tuple;
+const dict null_dict;
+const ordset null_ordset;
+const set null_set;
+const range null_range;
 
 
 #ifdef DEBUG
@@ -474,8 +474,9 @@ unsigned variant::as_char_int() const
 }
 
 
-// _xxx_write(): return a unique container implementation, create if necessary
+// _xxx_write(): return a container implementation, create if necessary
 // _xxx_read(): return a const ref to an object, possibly null_xxx if empty
+// TODO: makae at least _xxx_read() functions inline
 
 #define XIMPL(t,T) \
     t& variant::_##t##_write() \
@@ -485,10 +486,7 @@ unsigned variant::as_char_int() const
           /* else  unique(val._##t); */ \
           return *val._##t; } \
     const t& variant::_##t##_read() const \
-        { \
-          _dbg(T); \
-          if (val._##t == NULL) return null_##t; \
-          return *val._##t; }
+        { _dbg(T); return (val._##t == NULL) ? null_##t : *val._##t; }
 
 XIMPL(range, RANGE)
 XIMPL(tuple, TUPLE)
