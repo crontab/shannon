@@ -55,7 +55,6 @@
 		361AF9481000DF4200E12EAE /* variant.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = variant.cpp; path = src/variant.cpp; sourceTree = "<group>"; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
-		362E251F0F0AC811005E05B4 /* shannon - Google Code.webloc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "shannon - Google Code.webloc"; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
 		363127AB10080E6900AF5F47 /* runtime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = runtime.h; path = src/runtime.h; sourceTree = "<group>"; };
 		363C70ED0EF70F4400866D2C /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = src/main.cpp; sourceTree = "<group>"; };
@@ -70,7 +69,6 @@
 		36668F541003CD8600FF0C90 /* source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = source.cpp; path = src/source.cpp; sourceTree = "<group>"; };
 		36668F551003CD8600FF0C90 /* source.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = source.h; path = src/source.h; sourceTree = "<group>"; };
 		36AE5E5E100A2DA800A35762 /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vm.h; path = src/vm.h; sourceTree = "<group>"; };
-		36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "The Shannon Project, Draft 1.2 - Google Docs.webloc"; sourceTree = "<group>"; };
 		36E5DC9010078F00001E0761 /* fifo.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = fifo.cpp; path = src/fifo.cpp; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -141,8 +139,6 @@
 			isa = PBXGroup;
 			children = (
 				362E29FD0F0D6C58005E05B4 /* TODO */,
-				362E251F0F0AC811005E05B4 /* shannon - Google Code.webloc */,
-				36E5AD7A0F0476C7008E9A6C /* The Shannon Project, Draft 1.2 - Google Docs.webloc */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
 			);
 			name = Documentation;
@@ -275,7 +271,7 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_OPTIMIZATION_LEVEL = 2;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = YES;
@@ -308,12 +304,13 @@
 				OTHER_CPLUSPLUSFLAGS = (
 					"-DDEBUG",
 					"-DXCODE",
+					"-Wall",
 				);
 				PREBINDING = NO;
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.5.sdk";
 				SKIP_INSTALL = YES;
 				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = dynamic;
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = "";
 			};
 			name = Debug;
 		};
@@ -351,7 +348,10 @@
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				OTHER_CPLUSPLUSFLAGS = "";
+				OTHER_CPLUSPLUSFLAGS = (
+					"-DNDEBUG",
+					"-Wall",
+				);
 				PREBINDING = NO;
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.5.sdk";
 				SKIP_INSTALL = YES;

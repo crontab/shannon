@@ -22,8 +22,8 @@ using namespace std;
 #define check(e) \
     { if (!(e)) fail(#e); }
 
-#define check_throw(e,a) \
-    { bool chk_throw = false; try { a; } catch(e&) { chk_throw = true; } check(chk_throw); }
+#define check_throw(a) \
+    { bool chk_throw = false; try { a; } catch(std::exception&) { chk_throw = true; } check(chk_throw); }
 
 #define check_nothrow(a) \
     { try { a; } catch(...) { fail("exception thrown"); } }
@@ -103,7 +103,7 @@ void test_variant()
         variant vr = new_range();       check(vr.is(variant::RANGE));   check(vr.is_null_ptr());
         variant vr1 = new_range(1, 5);  check(vr1.is(variant::RANGE));  check(!vr1.is_null_ptr());
         variant vr2(6, 7);              check(vr2.is(variant::RANGE));  check(!vr2.is_null_ptr());
-        variant vr3(6, 5);              check(vr3.is(variant::RANGE));  check(vr3.is_null_ptr());
+        variant vr3(6, 5);              check(vr3.is(variant::RANGE));  check(vr3.empty());
         variant vt = new_tuple();       check(vt.is(variant::TUPLE));   check(vt.is_null_ptr());
         variant vd = new_dict();        check(vd.is(variant::DICT));    check(vd.is_null_ptr());
         variant vs = new_set();         check(vs.is(variant::SET));     check(vs.is_null_ptr());
@@ -112,18 +112,18 @@ void test_variant()
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
-        check_throw(evarianttype, v1.as_int());
-        check_throw(evarianttype, v1.as_real());
-        check_throw(evarianttype, v1.as_bool());
-        check_throw(evarianttype, v1.as_char());
-        check_throw(evarianttype, v1.as_str());
-        check_throw(evarianttype, v1.as_range());
-        check_throw(evarianttype, v1.as_tuple());
-        check_throw(evarianttype, v1.as_dict());
-        check_throw(evarianttype, v1.as_set());
-        check_throw(evarianttype, v1.as_ordset());
-        check_throw(evarianttype, v1.as_tinyset());
-        check_throw(evarianttype, v1.as_object());
+        check_throw(v1.as_int());
+        check_throw(v1.as_real());
+        check_throw(v1.as_bool());
+        check_throw(v1.as_char());
+        check_throw(v1.as_str());
+        check_throw(v1.as_range());
+        check_throw(v1.as_tuple());
+        check_throw(v1.as_dict());
+        check_throw(v1.as_set());
+        check_throw(v1.as_ordset());
+        check_throw(v1.as_tinyset());
+        check_throw(v1.as_object());
         
         check(v1.to_string() == "null");
         check(v2.to_string() == "0");
@@ -178,7 +178,7 @@ void test_variant()
         check(v == null);
 
         // tinyset
-        check(vts.empty()); check_throw(evarianttype, vts.size());
+        check(vts.empty()); check_throw(vts.size());
         vts.tie(5);
         vts.tie(26);
         vts.tie(31);
@@ -187,13 +187,13 @@ void test_variant()
         vts.has(63);
         vts.untie(63);
 #else
-        check_throw(evariantrange, vts.tie(63));
+        check_throw(vts.tie(63));
 #endif
-        check_throw(evariantrange, vts.tie(100));
-        check_throw(evariantrange, vts.tie(-1));
-        check_throw(evariantrange, vts.untie(100));
-        check_throw(evariantrange, vts.untie(-1));
-        check_throw(evarianttype, vts.tie("abc"));
+        check_throw(vts.tie(100));
+        check_throw(vts.tie(-1));
+        check_throw(vts.untie(100));
+        check_throw(vts.untie(-1));
+        check_throw(vts.tie("abc"));
         check(vts.to_string() == "[5, 26, 31]");
         check(!vts.empty());
         vts.untie(26);
@@ -232,18 +232,18 @@ void test_variant()
         check(vr.has(0));
         check(!vr.has(-2));
         vr = new_range(5, 2);
-        check(vr.left() == 0 && vr.right() == -1);
+        check(vr.left() == 5 && vr.right() == 2);
         check(!vr.has(-2));
         variant vr4 = 0;
         vr4.assign(0, 5);
         check(vr4.left() == 0 && vr4.right() == 5);
-        check_throw(evarianttype, vr4.has("abc"));
+        check_throw(vr4.has("abc"));
         variant vra = vr;
         check(vra == vr);
 
         // tuple
         check(vt.empty()); check(vt.size() == 0);
-        check_throw(evariantindex, vt.insert(1, 0));
+        check_throw(vt.insert(1, 0));
         vt.push_back(0);
         vt.push_back("abc");
         vt.insert(vt.size(), 'd');
@@ -251,14 +251,14 @@ void test_variant()
         vt.insert(1, true);
         check(vt.to_string() == "[0, true, \"abc\", 'd', []]");
         check(!vt.empty()); check(vt.size() == 5);
-        check_throw(evariantindex, vt.insert(10, 0));
-        check_throw(evariantindex, vt.insert(mem(-1), 0));
+        check_throw(vt.insert(10, 0));
+        check_throw(vt.insert(mem(-1), 0));
         vt.erase(2);
         check(vt.to_string() == "[0, true, 'd', []]");
         check(vt[2] == 'd');
         vt.put(2, "asd");
         check(vt.to_string() == "[0, true, \"asd\", []]");
-        check_throw(evariantindex, vt.put(4, 0));
+        check_throw(vt.put(4, 0));
         vt.resize(2);
         check(vt.to_string() == "[0, true]");
         vt.resize(4);
@@ -344,16 +344,16 @@ void test_variant()
         check(!vd.has(new_range(0, 6)));
         
         // ordset
-        check(vos.empty()); check_throw(evarianttype, vos.size());
+        check(vos.empty()); check_throw(vos.size());
         vos.tie(5);
         vos.tie(131);
         vos.tie(255);
-        check_throw(evariantrange, vos.tie(256));
-        check_throw(evariantrange, vos.tie(1000));
-        check_throw(evariantrange, vos.tie(-1));
-        check_throw(evariantrange, vos.untie(1000));
-        check_throw(evariantrange, vos.untie(-1));
-        check_throw(evarianttype, vos.tie("abc"));
+        check_throw(vos.tie(256));
+        check_throw(vos.tie(1000));
+        check_throw(vos.tie(-1));
+        check_throw(vos.untie(1000));
+        check_throw(vos.untie(-1));
+        check_throw(vos.tie("abc"));
         check(vos.to_string() == "[5, 131, 255]");
         check(!vos.empty());
         vos.untie(131);
@@ -375,7 +375,7 @@ void test_variant()
         check(vos.is_unique()); check(vosa.to_string() == "[5, 100]");
 
         // set
-        check(vs.empty()); check_throw(evarianttype, vs.size());
+        check(vs.empty()); check_throw(vs.size());
         vs.tie(5);
         vs.tie(26);
         vs.tie(127);
@@ -429,7 +429,7 @@ void test_variant()
         check(vs.to_string() == "[0, 1]");
         
         variant voa = vo;
-        check_throw(evariantclone, voa.unique());
+        check_throw(voa.unique());
         
         // object
         // vo = vo; // this doesn't work at the moment
@@ -466,7 +466,7 @@ void test_symbols()
         objptr<Symbol> s2 = new Symbol("def");
         t.addUnique(s2);
         objptr<Symbol> s3 = new Symbol("abc");
-        check_throw(EDuplicate, t.addUnique(s3));
+        check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
         check(t.find("xyz") == NULL);
@@ -489,8 +489,8 @@ void test_source()
 {
     {
         in_text file("nonexistent");
-        check_throw(esyserr, file.open());
-        check_throw(efifoempty, file.get());
+        check_throw(file.open());
+        check_throw(file.get());
     }
     {
         str_fifo m("one\t two\n567");
@@ -554,19 +554,19 @@ void test_source()
         check(p.getLineNum() == 2);
         check(p.getIndent() == 2);
         check(p.next() == tokIndent);
-        check_throw(EParser, p.next()); // integer overflow
+        check_throw(p.next()); // integer overflow
         check(p.next() == tokSep);
         check(p.getLineNum() == 3);
         check(p.next() == tokIf);
         check(p.next() == tokSep);
         check(p.getLineNum() == 4);
-        check_throw(EParser, p.next()); // unmatched unindent
+        check_throw(p.next()); // unmatched unindent
         check(p.next() == tokIndent);
         check(p.next() == tokIdent);
-        check_throw(EParser, p.next()); // unexpected end of line
+        check_throw(p.next()); // unexpected end of line
         check(p.next() == tokStrValue);
         check(p.strValue == "[\t\r\nA\\]");
-        check_throw(EParser, p.next()); // bad hex sequence
+        check_throw(p.next()); // bad hex sequence
     }
 }
 
@@ -650,9 +650,6 @@ void test_typesys()
     check(queenBee->defChar->isOrdinal());
     check(queenBee->defStr->isString());
     check(queenBee->defStr->isContainer());
-    check(queenBee->defEmptyContainer->isEmptyCont());
-    check(queenBee->defEmptyContainer->isContainer());
-    check(queenBee->defEmptyContainer->canCastImplTo(queenBee->defStr));
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
     Base* b = queenBee->deepFind("true");
@@ -666,7 +663,7 @@ void test_typesys()
         check(b != NULL && b->isConstant());
         check(state.deepFind("untrue") == NULL);
         state.addVariable("a", queenBee->defInt);
-        check_throw(EDuplicate, state.addVariable("a", queenBee->defInt));
+        check_throw(state.addVariable("a", queenBee->defInt));
         check_nothrow(state.addVariable("true", queenBee->defInt));
         state.addTypeAlias("ool", queenBee->defBool);
         b = state.deepFind("ool");

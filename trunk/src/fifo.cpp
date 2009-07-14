@@ -17,14 +17,19 @@ mem fifo::CHUNK_SIZE = sizeof(variant) * 16;
 #endif
 
 
-void fifo_intf::_empty_err() const          { throw efifoempty(); }
-void fifo_intf::_fifo_type_err() const      { fatal(0x1002, "FIFO type mismatch"); }
-const char* fifo_intf::get_tail()           { throw efifowronly(); }
-const char* fifo_intf::get_tail(mem*)       { throw efifowronly(); }
-void fifo_intf::deq_bytes(mem)              { throw efifowronly(); }
-variant* fifo_intf::enq_var()               { throw efifordonly(); }
-mem fifo_intf::enq_chars(const char*, mem)  { throw efifordonly(); }
-bool fifo_intf::empty()                     { throw efifowronly(); }
+fifo_intf::fifo_intf(bool is_char): _char(is_char)  { }
+fifo_intf::~fifo_intf() { }
+
+void fifo_intf::_empty_err()                { throw emessage("FIFO empty"); }
+void fifo_intf::_wronly_err()               { throw emessage("FIFO is write-only"); }
+void fifo_intf::_rdonly_err()               { throw emessage("FIFO is read-only"); }
+void fifo_intf::_fifo_type_err()            { fatal(0x1002, "FIFO type mismatch"); }
+const char* fifo_intf::get_tail()           { _wronly_err(); return NULL; }
+const char* fifo_intf::get_tail(mem*)       { _wronly_err(); return NULL; }
+void fifo_intf::deq_bytes(mem)              { _wronly_err(); }
+variant* fifo_intf::enq_var()               { _rdonly_err(); return NULL; }
+mem fifo_intf::enq_chars(const char*, mem)  { _rdonly_err(); return 0; }
+bool fifo_intf::empty()                     { _rdonly_err(); return true; }
 void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
@@ -395,8 +400,8 @@ buf_fifo::buf_fifo(bool is_char)
   : fifo_intf(is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
 
 buf_fifo::~buf_fifo()  { }
-bool buf_fifo::empty() { throw efifowronly(); }
-void buf_fifo::flush() { throw efifordonly(); }
+bool buf_fifo::empty() { _wronly_err(); return true; }
+void buf_fifo::flush() { _rdonly_err(); }
 
 
 const char* buf_fifo::get_tail()

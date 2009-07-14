@@ -5,7 +5,6 @@
 #  define NDEBUG    // to suppress assert()
 #endif
 
-#include <sys/types.h>
 #include <assert.h>
 #include <limits.h>
 
@@ -108,18 +107,19 @@ public:
     ~noncopyable() {}
 };
 
-
-#define DEF_EXCEPTION(name,msg) \
+/*
+#define _DEF_EXCEPTION(name,msg) \
     struct name: public std::exception \
         { virtual const char* what() const throw() { return msg; } };
-
+*/
 
 typedef std::exception exception;
 
 struct emessage: public exception
 {
     const str message;
-    emessage(const str& message): message(message) { }
+    emessage(const str&) throw();
+    emessage(const char*) throw();
     ~emessage() throw();
     virtual const char* what() const throw();
 };

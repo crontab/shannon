@@ -28,10 +28,6 @@ class TypeReference;
 // --- VIRTUAL MACHINE (partial) ---
 
 
-DEF_EXCEPTION(EVarTypeMismatch, "Variant type mismatch")
-DEF_EXCEPTION(ERange, "Range check error")
-
-
 // Some bits of the virtual machine are needed here because each State class
 // holds its own code segment.
 
@@ -118,7 +114,7 @@ class Type: public object
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, ARRAY, VECTOR, SET, FIFO, VARIANT, TYPEREF, STATE };
+        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
 
 protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
@@ -134,6 +130,8 @@ protected:
             { assert(name.empty()); name = _name; }
     void setTypeId(TypeId t)
             { (TypeId&)typeId = t; }
+    void typeMismatch()
+            { throw emessage("Type mismatch"); }
 
 public:
     Type(TypeId);
@@ -142,6 +140,7 @@ public:
     void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
 
     bool is(TypeId t)  { return typeId == t; }
+    TypeId getTypeId()  { return typeId; }
     bool isNone()  { return typeId == NONE; }
     bool isBool()  { return typeId == BOOL; }
     bool isChar()  { return typeId == CHAR; }
@@ -152,6 +151,7 @@ public:
     bool isArray()  { return typeId == ARRAY; }
     bool isVector()  { return typeId == VECTOR; }
     bool isSet()  { return typeId == SET; }
+    bool isOrdset()  { return typeId == ORDSET; }
     bool isCharSet();
     bool isFifo()  { return typeId == FIFO; }
     bool isVariant()  { return typeId == VARIANT; }
@@ -162,7 +162,7 @@ public:
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
     bool isString();
     bool canBeArrayIndex();
-    bool canBeSmallSetIndex();
+    bool canBeOrdsetIndex();
 
     Fifo* deriveFifo();
     Container* deriveVector();
@@ -263,7 +263,7 @@ class None: public Type
 public:
     None();
     bool identicalTo(Type* t)           { return t->isNone(); }
-    void runtimeTypecast(variant& v)    { if (!v.is_null()) throw EVarTypeMismatch(); }
+    void runtimeTypecast(variant& v)    { if (!v.is_null()) typeMismatch(); }
 };
 
 
@@ -326,22 +326,22 @@ typedef Range* PRange;
 
 class Range: public Type
 {
-protected:
-    Ordinal* base;
 public:
+    Ordinal* const base;
     Range(Ordinal*);
     bool identicalTo(Type* t)
             { return t->isRange() && base->identicalTo(PRange(t)->base); }
     bool canCastImplTo(Type* t)
             { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
     void runtimeTypecast(variant& v)
-            { if (!v.is(variant::RANGE)) throw EVarTypeMismatch(); }
+            { if (!v.is(variant::RANGE)) typeMismatch(); }
 };
 
 
 typedef Container* PContainer;
 typedef Container* PVector;
 typedef Container* PString;
+typedef Container* PSet;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any
@@ -361,15 +361,9 @@ public:
     bool identicalTo(Type* t)
             { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
                 && index->identicalTo(PContainer(t)->index); }
-    bool canCastImplTo(Type* t)
-            { return isEmptyCont() || identicalTo(t); }
     void runtimeTypecast(variant&);
     bool isString()
             { return isVector() && elem->isChar(); }
-    bool isSmallSet()
-            { return isSet() && index->canBeSmallSetIndex(); }
-    bool isEmptyCont()
-            { return elem->isNone() && index->isNone(); }
 };
 
 
@@ -405,7 +399,7 @@ class TypeReference: public Type
 public:
     TypeReference();
     bool identicalTo(Type* t)           { return t->isTypeRef(); }
-    void runtimeTypecast(variant&)      { throw EVarTypeMismatch(); }   // TODO:
+    void runtimeTypecast(variant&)      { typeMismatch(); }   // TODO:
 };
 
 
@@ -421,7 +415,6 @@ public:
     Enumeration* defBool;
     Ordinal* defChar;
     Container* defStr;
-    Container* defEmptyContainer;
     Variant* defVariant;
     
     QueenBee();
