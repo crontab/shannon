@@ -2,11 +2,11 @@
 #define __SOURCE_H
 
 
-#include <stack>
-
-#include "charset.h"
 #include "common.h"
+#include "charset.h"
 #include "runtime.h"
+
+#include <stack>
 
 
 struct EParser: public emessage

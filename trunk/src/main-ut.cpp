@@ -1,16 +1,16 @@
 
 #define __STDC_LIMIT_MACROS
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "common.h"
 #include "runtime.h"
 #include "symbols.h"
 #include "source.h"
 #include "typesys.h"
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 
 using namespace std;

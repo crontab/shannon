@@ -1,10 +1,12 @@
 
+
+#include "common.h"
+#include "runtime.h"
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-
-#include "runtime.h"
 
 
 // --- fifo_intf ----------------------------------------------------------- //

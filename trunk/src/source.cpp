@@ -1,9 +1,10 @@
 
-#include <fcntl.h>
-#include <errno.h>
-
+#include "common.h"
 #include "bsearch.h"
 #include "source.h"
+
+#include <fcntl.h>
+#include <errno.h>
 
 
 // --- KEYWORDS ------------------------------------------------------------ //
