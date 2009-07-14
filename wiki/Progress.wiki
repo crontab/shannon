@@ -1,4 +1,4 @@
-#summary Very brief list of language features as they are implemented
+#summary Very brief description of language features as they are implemented already
 
 *Syntax* is Python-style, however you can have C-style blocks. A block enclosed in curly braces is equivalent to a Python-style colon construct with indents - both can be mixed in one source. Nested C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
 
