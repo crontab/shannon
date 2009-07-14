@@ -20,7 +20,7 @@
 
 *Set/array/dict literals* have same syntax `[value, ...]` or `[key = value, ...]`. The exact type is determined by the context. In cases where the type can't be determined, a typecast is required, e.g. when initializing a variant variable. A set literal is a list of keys with no values. For sets of ordinal types also ranges are allowed in value specs, e.g. `[0..2, 5]`.
 
-*Built-ins*: `echo` and `assert` are for debugging purposes: you can turn them off from the command line, in which case the compiler will ignore echo and assertion statements.
+*Built-ins*: `echo` and `assert` are for debugging purposes: you can turn them on or off from the command line or a compiler directive (not implemented yet), in which case the compiler will ignore these statements. Both `echo` and `assert` don't require parens (and shame on you, Python 3). `Echo` accepts a comma-separated list, where each comma generates a space.
 
 *The if() function* -- `if (cond, a, b)` -- is similar to the ?: operator in C. It accepts 3 arguments - the condition and 2 "branches", however, it executes only one of the branches, like the 'real' if statement, which is important to remember when using expressions with side effects.
 
