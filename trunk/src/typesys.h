@@ -132,6 +132,8 @@ public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
         DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
 
+    enum { MAX_ARRAY_INDEX = 256 };
+
 protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
 
@@ -174,6 +176,7 @@ public:
     bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
     bool isString();
+    bool isCharFifo();
     bool canBeArrayIndex();
     bool canBeOrdsetIndex();
 
@@ -181,12 +184,9 @@ public:
     Container* deriveVector();
     Container* deriveSet();
 
-    virtual bool identicalTo(Type* t)  // for comparing container elements, indexes
-            { return t->is(typeId); }
-    virtual bool canCastImplTo(Type* t)  // can assign or automatically convert the type without changing the value
-            { return identicalTo(t); }
-    virtual void runtimeTypecast(variant&)
-            { typeMismatch(); }
+    virtual bool identicalTo(Type*);  // for comparing container elements, indexes
+    virtual bool canCastImplTo(Type*);  // can assign or automatically convert the type without changing the value
+    virtual void runtimeTypecast(variant&);
 };
 
 
@@ -252,8 +252,7 @@ public:
 
     State(const str& _name, State* _parent, Context*);
     ~State();
-    bool identicalTo(Type* t)
-            { return t == this; }
+    bool identicalTo(Type*);
     langobj* newObject();
     template<class T>
         T* registerType(T* t)
@@ -267,8 +266,7 @@ class Module: public State
 {
 public:
     const mem id;
-    Module(const str& _name, mem _id, Context* _context)
-        : State(_name, NULL, _context), id(_id)  { }
+    Module(const str& _name, mem _id, Context* _context);
 };
 
 
@@ -295,10 +293,8 @@ protected:
 public:
     Ordinal(TypeId, integer, integer);
     Range* deriveRange();
-    bool identicalTo(Type* t)
-            { return t->is(typeId) && rangeEq(POrdinal(t)); }
-    bool canCastImplTo(Type* t)
-            { return t->is(typeId); }
+    bool identicalTo(Type*);
+    bool canCastImplTo(Type*);
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
@@ -330,10 +326,8 @@ public:
     Enumeration();  // user-defined enums
     Enumeration(EnumValues*, integer _left, integer _right);    // subrange
     void addValue(const str&);
-    bool identicalTo(Type* t)
-            { return this == t; }
-    bool canCastImplTo(Type* t)
-            { return t->isEnum() && values == PEnum(t)->values; }
+    bool identicalTo(Type*);
+    bool canCastImplTo(Type*);
     Ordinal* deriveSubrange(integer _left, integer _right);
 };
 
@@ -345,10 +339,8 @@ class Range: public Type
 public:
     Ordinal* const base;
     Range(Ordinal*);
-    bool identicalTo(Type* t)
-            { return t->isRange() && base->identicalTo(PRange(t)->base); }
-    bool canCastImplTo(Type* t)
-            { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
+    bool identicalTo(Type*);
+    bool canCastImplTo(Type*);
 };
 
 
@@ -368,15 +360,8 @@ class Container: public Type
 public:
     Type* const index;
     Type* const elem;
-
-    enum { MAX_ARRAY_INDEX = 256 };
-
     Container(Type* _index, Type* _elem);
-    bool identicalTo(Type* t)
-            { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
-                && index->identicalTo(PContainer(t)->index); }
-    bool isString()
-            { return isVector() && elem->isChar(); }
+    bool identicalTo(Type*);
 };
 
 
@@ -388,10 +373,7 @@ protected:
     Type* elem;
 public:
     Fifo(Type*);
-    bool identicalTo(Type* t)
-            { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
-    bool isCharFifo()
-            { return elem->isChar(); }
+    bool identicalTo(Type*);
 };
 
 
@@ -399,6 +381,7 @@ class Variant: public Type
 {
 public:
     Variant();
+    virtual void runtimeTypecast(variant&);
 };
 
 

@@ -127,7 +127,10 @@ Type::~Type() { }
 
 
 bool Type::isString()
-    { return isVector() && PVector(this)->isString(); }
+    { return isVector() && PVector(this)->elem->isChar(); }
+
+bool Type::isCharFifo()
+    { return isFifo() && PFifo(this)->isChar(); }
 
 bool Type::canBeArrayIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
@@ -139,6 +142,19 @@ bool Type::canBeOrdsetIndex()
 Fifo* Type::deriveFifo()        { DERIVEX(Fifo) }
 Container* Type::deriveVector() { DERIVEX(Vector) }
 Container* Type::deriveSet()    { DERIVEX(Set) }
+
+
+bool Type::identicalTo(Type* t)  // for comparing container elements, indexes
+        { return t->is(typeId); }
+
+bool Type::canCastImplTo(Type* t)  // can assign or automatically convert the type without changing the value
+        { return identicalTo(t); }
+
+void Type::runtimeTypecast(variant& v)
+{
+    if (!v.is_object() || !identicalTo(v._object()->get_rt()))
+        typeMismatch();
+}
 
 
 // --- Variable ----------------------------------------------------------- //
@@ -223,6 +239,10 @@ State::State(const str& _name, State* _parent, Context* _context)
 State::~State()  { }
 
 
+bool State::identicalTo(Type* t)
+    { return t == this; }
+
+
 Constant* State::addConstant(const str& name, Type* type, const variant& value)
 {
     objptr<Constant> c = new Constant(name, type, value);
@@ -244,6 +264,10 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 
 
 // --- Module -------------------------------------------------------------- //
+
+
+Module::Module(const str& _name, mem _id, Context* _context)
+        : State(_name, NULL, _context), id(_id)  { }
 
 
 // --- None ---------------------------------------------------------------- //
@@ -273,6 +297,13 @@ Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
         throw emessage("Subrange error");
     return new Ordinal(typeId, _left, _right);
 }
+
+
+bool Ordinal::identicalTo(Type* t)
+    { return t->is(typeId) && rangeEq(POrdinal(t)); }
+
+bool Ordinal::canCastImplTo(Type* t)
+    { return t->is(typeId); }
 
 
 void Ordinal::runtimeTypecast(variant& v)
@@ -320,6 +351,13 @@ void Enumeration::addValue(const str& name)
 }
 
 
+bool Enumeration::identicalTo(Type* t)
+    { return this == t; }
+
+bool Enumeration::canCastImplTo(Type* t)
+    { return t->isEnum() && values == PEnum(t)->values; }
+
+
 Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
 {
     if (_left == left && _right == right)
@@ -335,6 +373,13 @@ Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
 
 Range::Range(Ordinal* _base)
     : Type(defTypeRef, RANGE), base(_base)  { }
+
+
+bool Range::identicalTo(Type* t)
+        { return t->isRange() && base->identicalTo(PRange(t)->base); }
+
+bool Range::canCastImplTo(Type* t)
+        { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
 
 
 // --- Container ---------------------------------------------------------- //
@@ -359,16 +404,28 @@ Container::Container(Type* _index, Type* _elem)
 }
 
 
+bool Container::identicalTo(Type* t)
+    { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
+            && index->identicalTo(PContainer(t)->index); }
+
+
 // --- Fifo ---------------------------------------------------------------- //
 
 
 Fifo::Fifo(Type* _elem): Type(defTypeRef, FIFO), elem(_elem)  { }
 
 
+bool Fifo::identicalTo(Type* t)
+    { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
+
+
 // --- Variant ------------------------------------------------------------- //
 
 
 Variant::Variant(): Type(defTypeRef, VARIANT)  { }
+
+
+void Variant::runtimeTypecast(variant&)  { }
 
 
 // --- TypeReference ------------------------------------------------------- //
@@ -422,6 +479,7 @@ void initTypeSys()
     defTypeRef = new TypeReference();
     queenBee = new QueenBee();
     queenBee->setup();
+//    fout->set_rt();
 }
 
 

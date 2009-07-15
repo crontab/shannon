@@ -17,10 +17,15 @@ static void invOpcode()        { throw emessage("Invalid opcode"); }
 
 
 template<class T>
-    inline void PUSH(variant*& stk, const T& v) { ::new(++stk) variant(v);  }
-inline void POP(variant*& stk)                  { (*stk--).~variant(); }
+    inline void PUSH(variant*& stk, const T& v)
+        { ::new(++stk) variant(v);  }
+
+inline void POP(variant*& stk)
+        { (*stk--).~variant(); }
+
 template<class T>
-    inline T IPADV(const uchar*& ip)            { T t = *(T*)ip; ip += sizeof(T); return t; }
+    inline T IPADV(const uchar*& ip)
+        { T t = *(T*)ip; ip += sizeof(T); return t; }
     
 
 #define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
@@ -644,12 +649,21 @@ int main()
     }
     catch (std::exception& e)
     {
-        ferr << "Exception: " << e.what() << endl;
+        sio << "Exception: " << e.what() << endl;
         return 101;
     }
+#ifdef DEBUG
+    sio << "Total objects: " << object::alloc << endl;
+#endif
+/*
+    while (!sio.empty())
+    {
+        str s = sio.line();
+        sio << s << endl;
+    }
+*/
     doneTypeSys();
 #ifdef DEBUG
-//    fout << object::alloc << endl;
     assert(object::alloc == 0);
 #endif
 }

@@ -223,6 +223,16 @@ void fifo_intf::_token(const charset& chars, str* result)
 }
 
 
+str fifo_intf::line()
+{
+    static charset linechars = ~charset("\r\n");
+    str result;
+    _token(linechars, &result);
+    skip_eol();
+    return result;
+}
+
+
 void fifo_intf::enq(const char* s)  { if (s != NULL) enq(s, strlen(s)); }
 void fifo_intf::enq(const str& s)   { enq_chars(s.data(), s.size()); }
 void fifo_intf::enq(char c)         { enq_chars(&c, 1); }
@@ -534,9 +544,13 @@ str str_fifo::all() const
 // --- out_file ------------------------------------------------------------ //
 
 
-std_file::std_file(Type* rt, int fd)
-    : fifo_intf(rt, true), _fd(fd)
+std_file::std_file(int infd, int outfd)
+    : in_text(NULL, "<std>"), _ofd(outfd)
 {
+    _fd = infd;
+    if (infd == -1)
+        _eof = true;
+
     pincrement(&refcount);  // prevent auto pointers from freeing this object,
                             // as it is supposed to be static
 #ifdef DEBUG
@@ -546,11 +560,11 @@ std_file::std_file(Type* rt, int fd)
 
 
 std_file::~std_file()                               { pdecrement(&refcount); }
-mem std_file::enq_chars(const char* p, mem count)   { return ::write(_fd, p, count); }
+mem std_file::enq_chars(const char* p, mem count)   { return ::write(_ofd, p, count); }
 
 
-std_file fout(NULL, STDIN_FILENO);
-std_file ferr(NULL, STDERR_FILENO);
+std_file sio(STDIN_FILENO, STDOUT_FILENO);
+std_file serr(-1, STDERR_FILENO);
 
 
 // --- in_text ------------------------------------------------------------- //
@@ -558,7 +572,7 @@ std_file ferr(NULL, STDERR_FILENO);
 
 in_text::in_text(Type* rt, const str& fn)
     : buf_fifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
-in_text::~in_text()             { if (_fd >= 0) ::close(_fd); }
+in_text::~in_text()             { if (_fd > 2) ::close(_fd); }
 void in_text::error(int code)   { _eof = true; throw esyserr(code, file_name); }
 
 
