@@ -26,7 +26,7 @@ void notimpl()
 }
 
 
-static const char* _itobase(integer value, char* buf, int base, int& len, bool _signed)
+static const char* _itobase(long long value, char* buf, int base, int& len, bool _signed)
 {
     // internal conversion routine: converts the value to a string 
     // at the end of the buffer and returns a pointer to the first
@@ -48,19 +48,19 @@ static const char* _itobase(integer value, char* buf, int base, int& len, bool _
     buf[i] = 0;
 
     bool neg = false;
-    uinteger v = value;
+    unsigned long long v = value;
     if (_signed && base == 10 && value < 0)
     {
         v = -value;
         // since we can't handle the lowest signed value, we just return a built-in string.
-        if (integer(v) < 0)   // an LLONG_MIN value negated results in the same value
+        if (((long long)v) < 0)   // an minimum value negated results in the same value
         {
-            if (sizeof(integer) == 8)
+            if (sizeof(value) == 8)
             {
                 len = 20;
                 return "-9223372036854775808";
             }
-            else if (sizeof(integer) == 4)
+            else if (sizeof(value) == 4)
             {
                 len = 11;
                 return "-2147483648";
@@ -85,7 +85,7 @@ static const char* _itobase(integer value, char* buf, int base, int& len, bool _
 }
 
 
-static void _itobase2(str& result, integer value, int base, int width, char padchar, bool _signed)
+static void _itobase2(str& result, long long value, int base, int width, char padchar, bool _signed)
 {
     result.clear();
 
@@ -123,7 +123,7 @@ static void _itobase2(str& result, integer value, int base, int width, char padc
 }
 
 
-str to_string(integer value, int base, int width, char padchar) 
+str _to_string(long long value, int base, int width, char padchar) 
 {
     str result;
     _itobase2(result, value, base, width, padchar, true);
@@ -131,7 +131,7 @@ str to_string(integer value, int base, int width, char padchar)
 }
 
 
-str to_string(integer value)
+str _to_string(long long value)
 {
     str result;
     _itobase2(result, value, 10, 0, ' ', true);
@@ -139,7 +139,7 @@ str to_string(integer value)
 }
 
 
-str to_string(uinteger value)
+str _to_string(mem value)
 {
     str result;
     _itobase2(result, value, 10, 0, ' ', false);
@@ -147,15 +147,7 @@ str to_string(uinteger value)
 }
 
 
-str to_string(mem value)
-{
-    str result;
-    _itobase2(result, value, 10, 0, ' ', false);
-    return result;
-}
-
-
-uinteger from_string(const char* p, bool* error, bool* overflow, int base)
+unsigned long long from_string(const char* p, bool* error, bool* overflow, int base)
 {
     *error = false;
     *overflow = false;
@@ -163,7 +155,7 @@ uinteger from_string(const char* p, bool* error, bool* overflow, int base)
     if (p == 0 || *p == 0 || base < 2 || base > 64)
         { *error = true; return 0; }
 
-    uinteger result = 0;
+    unsigned long long result = 0;
 
     do 
     {
@@ -189,7 +181,7 @@ uinteger from_string(const char* p, bool* error, bool* overflow, int base)
         if (c < 0 || c >= base)
             { *error = true; return 0; }
 
-        uinteger t = result * unsigned(base);
+        unsigned long long t = result * unsigned(base);
         if (t / base != result)
             { *overflow = true; return 0; }
         result = t;

@@ -223,16 +223,11 @@ void fifo_intf::_token(const charset& chars, str* result)
 }
 
 
-fifo_intf& fifo_intf::operator<< (const char* s)
-{
-    if (s != NULL)
-        enq(s, strlen(s));
-    return *this;
-}
-
-
-fifo_intf& fifo_intf::operator<< (integer i)  { enq(to_string(i)); return *this; }
-fifo_intf& fifo_intf::operator<< (uinteger i) { enq(to_string(i)); return *this; }
+void fifo_intf::enq(const char* s)  { if (s != NULL) enq(s, strlen(s)); }
+void fifo_intf::enq(const str& s)   { enq_chars(s.data(), s.size()); }
+void fifo_intf::enq(char c)         { enq_chars(&c, 1); }
+void fifo_intf::enq(uchar c)        { enq_chars((char*)&c, 1); }
+void fifo_intf::enq(long long i)    { enq(to_string(i)); }
 
 
 // --- fifo ---------------------------------------------------------------- //

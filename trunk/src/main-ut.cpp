@@ -79,7 +79,7 @@ class test_obj: public object
 public:
     void dump(fifo_intf& s) const
         { s << "test_obj"; }
-    test_obj()  { }
+    test_obj(): object(NULL)  { }
 };
 
 
@@ -100,14 +100,6 @@ void test_variant()
         variant v10 = "abc";            check(v10.as_str() == "abc");
         string s1 = "def";
         variant vst = s1;               check(vst.as_str() == s1);
-        variant vr = new_range();       check(vr.is(variant::RANGE));   check(vr.is_null_ptr());
-        variant vr1 = new_range(1, 5);  check(vr1.is(variant::RANGE));  check(!vr1.is_null_ptr());
-        variant vr2(6, 7);              check(vr2.is(variant::RANGE));  check(!vr2.is_null_ptr());
-        variant vr3(6, 5);              check(vr3.is(variant::RANGE));  check(vr3.empty());
-        variant vt = new_tuple();       check(vt.is(variant::TUPLE));   check(vt.is_null_ptr());
-        variant vd = new_dict();        check(vd.is(variant::DICT));    check(vd.is_null_ptr());
-        variant vs = new_set();         check(vs.is(variant::SET));     check(vs.is_null_ptr());
-        variant vos = new_ordset();     check(vos.is(variant::ORDSET));    check(vos.is_null_ptr());
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
 
@@ -116,11 +108,6 @@ void test_variant()
         check_throw(v1.as_bool());
         check_throw(v1.as_char());
         check_throw(v1.as_str());
-        check_throw(v1.as_range());
-        check_throw(v1.as_tuple());
-        check_throw(v1.as_dict());
-        check_throw(v1.as_set());
-        check_throw(v1.as_ordset());
         check_throw(v1.as_object());
         
         check(v1.to_string() == "null");
@@ -135,14 +122,6 @@ void test_variant()
         check(v10.to_string() == "\"abc\"");
         check(vst.to_string() == "\"def\"");
         check(v12.to_string() == "'x'");
-        check(vr.to_string() == "[]");
-        check(vr1.to_string() == "[1..5]");
-        check(vr2.to_string() == "[6..7]");
-        check(vr3.to_string() == "[]");
-        check(vt.to_string() == "[]");
-        check(vd.to_string() == "[]");
-        check(vs.to_string() == "[]");
-        check(vos.to_string() == "[]");
         check(vo.to_string() == "[test_obj]");
 
         check(v1 < v2); check(!(v2 < v1));
@@ -163,17 +142,13 @@ void test_variant()
         v = "";                check(v.as_str().empty());           check(v == "");
         v = "abc";             check(v.as_str() == "abc");          check(v == "abc");
         v = s1;                check(v.as_str() == s1);             check(v == s1);
-        v = new_range();       check(v.is_null_ptr());              check(v.left() == 0 && v.right() == -1);
-        v = new_tuple();       check(v.is_null_ptr());
-        v = new_dict();        check(v.is_null_ptr());
-        v = new_set();         check(v.is_null_ptr());
-        v = new_ordset();      check(v.is_null_ptr());
         v = o;                 check(v.as_object() == o);
         check(v != null);
         v = null;
         check(!v.is(variant::OBJECT));
         check(v == null);
 
+/*
         // str
         vst = "";
         check(vst.empty()); check(vst.size() == 0);
@@ -195,7 +170,6 @@ void test_variant()
         vst.resize(5, '-');
         check(vst.as_str() == "acdij");
 
-/*
         // range
         vr = new_range();
         check(vr.empty());
@@ -427,17 +401,17 @@ void test_symbols()
 {
     int save_alloc = object::alloc;
     {
-        objptr<Symbol> s = new Symbol("sym");
+        objptr<Symbol> s = new Symbol(NULL, "sym");
         check(s->getName() == "sym");
         SymbolTable<Symbol> t;
         check(t.empty());
-        objptr<Symbol> s1 = new Symbol("abc");
+        objptr<Symbol> s1 = new Symbol(NULL, "abc");
         check(s1->is_unique());
         t.addUnique(s1);
         check(s1->is_unique());
-        objptr<Symbol> s2 = new Symbol("def");
+        objptr<Symbol> s2 = new Symbol(NULL, "def");
         t.addUnique(s2);
-        objptr<Symbol> s3 = new Symbol("abc");
+        objptr<Symbol> s3 = new Symbol(NULL, "abc");
         check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
@@ -449,7 +423,7 @@ void test_symbols()
         check(l.empty());
         l.add(s1);
         check(!s1->is_unique());
-        l.add(new Symbol("ghi"));
+        l.add(new Symbol(NULL, "ghi"));
         check(l.size() == 2);
         check(!l.empty());
     }
@@ -460,12 +434,12 @@ void test_symbols()
 void test_source()
 {
     {
-        in_text file("nonexistent");
+        in_text file(NULL, "nonexistent");
         check_throw(file.open());
         check_throw(file.get());
     }
     {
-        str_fifo m("one\t two\n567");
+        str_fifo m(NULL, "one\t two\n567");
         check(m.preview() == 'o');
         check(m.get() == 'o');
         check(m.token(identRest) == "ne");
@@ -484,7 +458,7 @@ void test_source()
 #else
         const char* fn = "tests/parser.txt";
 #endif
-        Parser p(fn, new in_text(fn));
+        Parser p(fn, new in_text(NULL, fn));
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
             tokIndent, tokModule, tokSep,
@@ -518,7 +492,8 @@ void test_source()
         check(expect[i] == tokEof && p.token == tokEof);
     }
     {
-        Parser p("mem", new str_fifo(INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
+        Parser p("mem", new str_fifo(NULL,
+            INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
@@ -580,29 +555,29 @@ void test_fifos()
     fifo::CHUNK_SIZE = 2 * sizeof(variant);
 #endif
 
-    fifo f(false);
-    objptr<tuple> t = new tuple();
+    fifo f(NULL, false);
+    objptr<tuple> t = new tuple(NULL);
     t->push_back(0);
     f.var_enq((tuple*)t);
     f.var_enq("abc");
     f.var_enq("def");
-    variant w = new_range(1, 2);
+    variant w = new range(NULL, 1, 2);
     f.var_enq(w);
     // f.dump(std::cout); std::cout << std::endl;
     variant x;
     f.var_deq(x);
-    check(x.is(variant::TUPLE));
+    check(x.is_object());
     f.var_deq(w);
     check(w.is(variant::STR));
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is(variant::RANGE));
+    check(vr.is_object());
 
-    fifo fc(true);
+    fifo fc(NULL, true);
     test_bidir_char_fifo(fc);
     
-    str_fifo fs;
+    str_fifo fs(NULL);
     test_bidir_char_fifo(fs);
 }
 
@@ -610,17 +585,23 @@ void test_fifos()
 void test_typesys()
 {
     initTypeSys();
-    check(queenBee->defTypeRef->isTypeRef());
+    check(defTypeRef->isTypeRef());
+    check(defTypeRef->get_rt() == defTypeRef);
     check(queenBee->defNone->isNone());
+    check(queenBee->defNone->get_rt() == defTypeRef);
     check(queenBee->defInt->isInt());
+    check(queenBee->defInt->get_rt() == defTypeRef);
     check(queenBee->defInt->isOrdinal());
     check(queenBee->defBool->isBool());
+    check(queenBee->defBool->get_rt() == defTypeRef);
     check(queenBee->defBool->isEnum());
     check(queenBee->defBool->isOrdinal());
     check(queenBee->defBool->rangeEq(0, 1));
     check(queenBee->defChar->isChar());
+    check(queenBee->defChar->get_rt() == defTypeRef);
     check(queenBee->defChar->isOrdinal());
     check(queenBee->defStr->isString());
+    check(queenBee->defStr->get_rt() == defTypeRef);
     check(queenBee->defStr->isContainer());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
@@ -650,12 +631,13 @@ void test_typesys()
 
 int main()
 {
-    fout << "short: " << integer(sizeof(short)) << "  long: " << integer(sizeof(long)) << "  long long: "
-        << integer(sizeof(long long)) << "  int: " << integer(sizeof(int)) << "  void*: " << integer(sizeof(void*))
-        << "  float: " << integer(sizeof(float)) << "  double: " << integer(sizeof(double)) << '\n';
-    fout << "integer: " << integer(sizeof(integer)) << "  mem: " << integer(sizeof(mem))
-        << "  real: " << integer(sizeof(real)) << "  variant: " << integer(sizeof(variant))
-        << "  object: " << integer(sizeof(object)) << '\n';
+    fout << "short: " << sizeof(short) << "  long: " << sizeof(long)
+         << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
+         << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
+         << "  double: " << sizeof(double) << '\n';
+    fout << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
+         << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
+         << "  object: " << sizeof(object) << '\n';
 
     check(sizeof(int) == 4);
     check(sizeof(mem) >= 4);

@@ -182,13 +182,6 @@ unsigned variant::as_char_int() const
 }
 
 
-mem variant::size() const
-{
-    _req(STR);
-    return _str_read().size();
-}
-
-
 bool variant::empty() const
 {
     switch (type)
@@ -205,33 +198,6 @@ bool variant::empty() const
 }
 
 
-char variant::getch(mem i) const            { _req(STR); return _str_read()[i]; }
-void variant::append(const str& s)          { _req(STR); _str_write().append(s); }
-void variant::append(const char* s)         { _req(STR); _str_write().append(s); }
-void variant::append(char c)                { _req(STR); _str_write().push_back(c); }
-
-
-str variant::substr(mem index, mem count) const
-{
-    _req(STR);
-    return _str_read().substr(index, count == mem(-1) ? str::npos : count);
-}
-
-
-void variant::erase(mem index)
-{
-    _req(STR);
-    _str_write().erase(index, 1);
-}
-
-
-void variant::erase(mem index, mem count)
-{
-    _req(STR);
-    _str_write().erase(index, count);
-}
-
-
 fifo_intf& operator<< (fifo_intf& s, const variant& v)
 {
     v.dump(s);
@@ -242,7 +208,7 @@ fifo_intf& operator<< (fifo_intf& s, const variant& v)
 // --- OBJECT -------------------------------------------------------------- //
 
 #ifdef DEBUG
-int object::alloc = -5; // compensate the three static objects null_xxx above
+int object::alloc = 0;
 #endif
 
 
@@ -318,9 +284,14 @@ range::range(const range& other)
     : object(other.runtime_type), left(other.left), right(other.right)  { }
 range::~range()  { }
 
+bool range::equals(integer l, integer r) const
+{
+    return left == l && right == r;
+}
+
 bool range::equals(const range& other) const
 {
-    return (left == other.left && right == other.right);
+    return left == other.left && right == other.right;
 }
 
 bool range::less_than(object* o) const

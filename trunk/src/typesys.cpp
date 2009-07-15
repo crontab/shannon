@@ -89,6 +89,10 @@ void CodeSeg::close(mem _stksize, mem _returns)
 
 // --- TYPE SYSTEM --------------------------------------------------------- //
 
+void typeMismatch()
+        { throw emessage("Type mismatch"); }
+
+
 // Constructor placeholders for the DERIVEX macro
 #define new_Fifo(x)     new Fifo(x)
 #define new_Vector(x)   new Container(queenBee->defNone, x)
@@ -424,6 +428,6 @@ void initTypeSys()
 void doneTypeSys()
 {
     defTypeRef = NULL;
-//    queenBee = NULL;
+    queenBee = NULL;
 }
 
