@@ -24,6 +24,10 @@ class Fifo;
 class Variant;
 class TypeReference;
 
+typedef Container Container;
+typedef Container Vector;
+typedef Container String;
+typedef Container Set;
 
 // --- VIRTUAL MACHINE (partial) ---
 
@@ -62,6 +66,7 @@ protected:
     bool closed;
 #endif
 
+    // Code generation
     int addOp(unsigned c);
     void add8(uint8_t i);
     void add16(uint16_t i);
@@ -70,7 +75,14 @@ protected:
     void close(mem _stksize, mem _returns);
     bool empty() const
         { return code.empty(); }
+
+    // Execution
+    static void varToVec(Vector* type, const variant& elem, variant* result);
+    static void varCat(Vector* type, const variant& elem, variant* vec);
+    static void vecCat(const variant& vec2, variant* vec1);
+
     void doRun(variant*, const uchar* ip);
+
 public:
     CodeSeg(State*, Context*);
     ~CodeSeg();
@@ -96,8 +108,8 @@ public:
 
     BaseId const baseId;
 
-    Base(BaseId);
-    Base(const str&, BaseId);
+    Base(Type*, BaseId);
+    Base(Type*, const str&, BaseId);
 
     bool isVariable() const   { return baseId == VARIABLE; }
     bool isConstant() const   { return baseId == CONSTANT; }
@@ -134,7 +146,7 @@ protected:
             { throw emessage("Type mismatch"); }
 
 public:
-    Type(TypeId);
+    Type(Type* rt, TypeId);
     ~Type();
 
     void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
@@ -170,7 +182,7 @@ public:
 
     virtual bool identicalTo(Type* t)  { return t == this; } // for comparing container elements, indexes
     virtual bool canCastImplTo(Type* t)  { return identicalTo(t); } // can assign or automatically convert the type without changing the value
-    virtual void runtimeTypecast(variant&) = 0; //  { notimpl(); }
+    virtual void runtimeTypecast(variant&)  { notimpl(); }
 };
 
 
@@ -242,7 +254,6 @@ public:
             { t->setOwner(this); types.add(t); return t; }
     Constant* addConstant(const str& name, Type* type, const variant& value);
     Constant* addTypeAlias(const str& name, Type* type);
-    void runtimeTypecast(variant&) { notimpl(); } // TODO:
 };
 
 
@@ -263,7 +274,6 @@ class None: public Type
 public:
     None();
     bool identicalTo(Type* t)           { return t->isNone(); }
-    void runtimeTypecast(variant& v)    { if (!v.is_null()) typeMismatch(); }
 };
 
 
@@ -307,7 +317,8 @@ class Enumeration: public Ordinal
 protected:
     // Shared between enums: actually the main enum and its subranges; owned
     // by Enumeration objects, refcounted.
-    class EnumValues: public object, public PtrList<Constant>  { };
+    struct EnumValues: public object, public PtrList<Constant>
+        { EnumValues(): object(NULL) { } };
     objptr<EnumValues> values;
     Enumeration(TypeId _typeId); // built-in enums, e.g. bool
 public:
@@ -333,15 +344,13 @@ public:
             { return t->isRange() && base->identicalTo(PRange(t)->base); }
     bool canCastImplTo(Type* t)
             { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
-    void runtimeTypecast(variant& v)
-            { if (!v.is(variant::RANGE)) typeMismatch(); }
 };
 
 
 typedef Container* PContainer;
-typedef Container* PVector;
-typedef Container* PString;
-typedef Container* PSet;
+typedef Vector* PVector;
+typedef String* PString;
+typedef Set* PSet;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any
@@ -361,7 +370,6 @@ public:
     bool identicalTo(Type* t)
             { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
                 && index->identicalTo(PContainer(t)->index); }
-    void runtimeTypecast(variant&);
     bool isString()
             { return isVector() && elem->isChar(); }
 };
@@ -377,7 +385,6 @@ public:
     Fifo(Type*);
     bool identicalTo(Type* t)
             { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
-    void runtimeTypecast(variant&);
     bool isCharFifo()
             { return elem->isChar(); }
     bool isVariantFifo()
@@ -390,7 +397,6 @@ class Variant: public Type
 public:
     Variant();
     bool identicalTo(Type* t)           { return t->isVariant(); }
-    void runtimeTypecast(variant&)      { }
 };
 
 
@@ -399,7 +405,6 @@ class TypeReference: public Type
 public:
     TypeReference();
     bool identicalTo(Type* t)           { return t->isTypeRef(); }
-    void runtimeTypecast(variant&)      { typeMismatch(); }   // TODO:
 };
 
 
@@ -409,7 +414,6 @@ public:
 class QueenBee: public Module
 {
 public:
-    TypeReference* defTypeRef;
     None* defNone;
     Ordinal* defInt;
     Enumeration* defBool;
@@ -421,7 +425,7 @@ public:
     void setup();
 };
 
-
+extern objptr<TypeReference> defTypeRef;
 extern objptr<QueenBee> queenBee;
 
 void initTypeSys();
@@ -429,3 +433,4 @@ void doneTypeSys();
 
 
 #endif // __TYPESYS_H
+

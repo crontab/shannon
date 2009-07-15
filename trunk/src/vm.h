@@ -45,12 +45,12 @@ enum OpCode
     opCharToStr,        // -char, +str
     opCharCat,          // -char, -str, +str
     opStrCat,           // -str, -str, +str
-    opVarToVec,         // -var, +vec
-    opVarCat,           // -var, -vec, +vec
+    opVarToVec,         // [Vector*] -var, +vec
+    opVarCat,           // [Vector*] -var, -vec, +vec
     opVecCat,           // -var, -vec, +vec
 
     // Range operations (work for all ordinals)
-    opMkRange,          // -right-int, -left-int, +range
+    opMkRange,          // [Ordinal*] -right-int, -left-int, +range
     opInRange,          // -range, -int, +{0,1}
 
     // Comparators

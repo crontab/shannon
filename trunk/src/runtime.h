@@ -31,11 +31,6 @@
 
 class variant;
 class object;
-class tuple;
-class dict;
-class ordset;
-class set;
-class range;
 class fifo_intf;
 
 
@@ -56,9 +51,8 @@ class variant
 public:
     // Note: the order is important, especially after STR
     enum Type
-      { NONE, BOOL, CHAR, INT, REAL, STR, RANGE,
-        TUPLE, DICT, ORDSET, SET, OBJECT,
-        NONPOD = STR, REFCNT = RANGE, ANYOBJ = OBJECT };
+      { NONE, BOOL, CHAR, INT, REAL, STR, OBJECT,
+        NONPOD = STR, REFCNT = OBJECT, ANYOBJ = OBJECT };
 
 protected:
     Type type;
@@ -69,11 +63,6 @@ protected:
         char     _str[sizeof(str)];
         char*    _str_ptr;  // for debugging, with the hope it points to a string in _str
         object*  _obj;
-        range*   _range;
-        tuple*   _tuple;
-        dict*    _dict;
-        ordset*  _ordset;
-        set*     _set;
     } val;
 
 #ifdef DEBUG
@@ -92,16 +81,6 @@ protected:
     integer  _ord()             const { _dbg_ord(); return val._int; }
     str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
     const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
-    range& _range_write();
-    const range& _range_read() const;
-    tuple& _tuple_write();
-    const tuple& _tuple_read() const;
-    dict& _dict_write();
-    const dict& _dict_read() const;
-    ordset& _ordset_write();
-    const ordset& _ordset_read() const;
-    set& _set_write();
-    const set& _set_read() const;
     object* _object()           const { _dbg(OBJECT); return val._obj; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
@@ -109,17 +88,12 @@ protected:
     void _init(bool b)              { type = BOOL; val._int = b; }
     void _init(char c)              { type = CHAR; val._int = uchar(c); }
     void _init(uchar c)             { type = CHAR; val._int = c; }
-    template<class T>
-        void _init(T i)             { type = INT; val._int = i; }
+    void _init(integer i)           { type = INT; val._int = i; }
+    void _init(mem i)               { type = INT; val._int = i; }
+    void _init(int i)               { type = INT; val._int = i; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(const str&);
     void _init(const char*);
-    void _init(integer left, integer right);
-    void _init(range*);
-    void _init(tuple*);
-    void _init(dict*);
-    void _init(ordset*);
-    void _init(set*);
     void _init(object*);
     void _init(const variant&);
 
@@ -141,10 +115,9 @@ public:
     variant(_None)                  { _init(); }
     template<class T>
         variant(const T& v)         { _init(v); }
-    variant(integer l, integer r)   { _init(l, r); }
     variant(const variant& v)       { _init(v); }
     ~variant()                      { _fin(); }
-    
+
     void clear()                    { _fin(); _init(); }
     void operator=(_None)           { _fin(); _init(); }
     // TODO: check cases when the same value is assigned (e.g. v = v)
@@ -156,7 +129,7 @@ public:
                               const { return !(this->operator==(v)); }
 
     void dump(fifo_intf&) const;
-    bool to_bool()            const { return !empty(); }
+    bool to_bool()                  { return !empty(); }
     str  to_string() const;
     bool operator< (const variant& v) const;
 
@@ -180,46 +153,19 @@ public:
     integer as_ordinal()      const { if (!is_ordinal()) _type_err(); return val._int; }
     real as_real()            const { _req(REAL); return val._real; }
     const str& as_str()       const { _req(STR); return _str_read(); }
-    const range& as_range()   const { _req(RANGE); return _range_read(); }
-    const tuple& as_tuple()   const { _req(TUPLE); return _tuple_read(); }
-    const dict& as_dict()     const { _req(DICT); return _dict_read(); }
-    const ordset& as_ordset() const { _req(ORDSET); return _ordset_read(); }
-    const set& as_set()       const { _req(SET); return _set_read(); }
     object* as_object()       const { _req_obj(); return val._obj; }
 
-    // Container operations
-    mem  size() const;                                      // str, tuple, dict
-    bool empty() const;                                     // str, tuple, dict, set, ordset
-    void resize(mem);                                       // str, tuple
-    void resize(mem, char);                                 // str
-    void append(const str&);                                // str
-    void append(const char*);                               // str
-    void append(char c);                                    // str
-    str  substr(mem start, mem count = mem(-1)) const;      // str
-    char getch(mem) const;                                  // str
-    void push_back(const variant&);                         // tuple
-    void append(const tuple&);                              // tuple
-    void insert(mem index, const variant&);                 // tuple
-    void put(mem index, const variant&);                    // tuple
-    void tie(const variant& key, const variant&);           // dict
-    void tie(const variant&);                               // set, ordset
-    void assign(integer left, integer right);               // range
-    void erase(mem index);                                  // str, tuple
-    void erase(mem index, mem count);                       // str, tuple
-    void untie(const variant& key);                         // dict, set, ordset
-    bool has(const variant& index) const;                   // dict, set, ordset
-    integer left() const;                                   // range
-    integer right() const;                                  // range
-    const variant& operator[] (mem index) const;            // tuple, dict[int]
-    const variant& operator[] (const variant& key) const;   // dict
+    bool empty() const;
 
-    dict_iterator dict_begin() const;
-    dict_iterator dict_end() const;
-    set_iterator set_begin() const;
-    set_iterator set_end() const;
-
-    // for unit tests
-    bool is_null_ptr() const { _req_refcnt(); return val._obj == NULL; }
+    // string operations
+    mem size() const;
+    char getch(mem i) const;
+    void append(const str& s);
+    void append(const char* s);
+    void append(char c);
+    str substr(mem index, mem count) const;
+    void erase(mem index);
+    void erase(mem index, mem count);
 };
 
 
@@ -249,9 +195,10 @@ protected:
     Type* runtime_type;
     virtual object* clone() const; // calls fatal()
 public:
-    object();
+    object(Type*);
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
+    virtual bool empty();   // non-const because fifo's can be modified when getting the eof status
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
     Type* get_runtime_type() const  { return runtime_type; }
@@ -278,18 +225,16 @@ template<class T>
 
 class range: public object
 {
-    friend range* new_range(integer, integer);
+protected:
+    range(const range& other);
 public:
     integer left;
     integer right;
-
-    range();
-    range(integer l, integer r);
-    range(const range& other);
+    range(Type*, integer l, integer r);
     ~range();
     virtual object* clone() const;
     void assign(integer l, integer r)  { left = l; right = r; }
-    bool empty() const  { return left > right; }
+    bool empty()  { return left > right; }
     bool has(integer i) const  { return i >= left && i <= right; }
     virtual void dump(fifo_intf&) const;
     bool equals(const range& other) const;
@@ -307,7 +252,7 @@ public:
     varlist();
     ~varlist()                                { clear(); }
     mem size()                          const { return impl.size(); }
-    bool empty()                        const { return impl.empty(); }
+    bool empty()                              { return impl.empty(); }
     void resize(mem);
     void clear();
     void push_back(const variant& v);
@@ -350,13 +295,14 @@ public:
 class tuple: public object, public varlist
 {
 protected:
-    tuple(const tuple& other): varlist(other)  { }
+    tuple(const tuple& other);
     void operator=(const tuple& other)  { varlist::operator=(other); }
 public:
-    tuple();
-    tuple(mem, const variant&);
+    tuple(Type*);
+    tuple(Type*, mem, const variant&);
     ~tuple();
     virtual object* clone() const;
+    bool empty()  { return varlist::empty(); }
     virtual void dump(fifo_intf&) const;
 };
 
@@ -364,16 +310,14 @@ public:
 class dict: public object
 {
     dict_impl impl;
-
 protected:
-    dict(const dict& other): impl(other.impl)  { }
-
+    dict(const dict& other);
 public:
-    dict();
+    dict(Type*);
     ~dict();
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
-    bool empty()                        const { return impl.empty(); }
+    bool empty()                              { return impl.empty(); }
     void untie(const variant& v)              { impl.erase(v); }
     variant& operator[] (const variant& v)    { return impl[v]; }
     dict_iterator find(const variant& v)const { return impl.find(v); }
@@ -386,17 +330,15 @@ public:
 class set: public object
 {
     set_impl impl;
-
 protected:
-    set(const set& other): impl(other.impl)  { }
-
+    set(const set& other);
 public:
-    set();
+    set(Type*);
     ~set();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-    // mem size()                          const { return impl.size(); }
-    bool empty()                        const { return impl.empty(); }
+    mem size()                          const { return impl.size(); }
+    bool empty()                              { return impl.empty(); }
     void tie(const variant& v)                { impl.insert(v); }
     void untie(const variant& v)              { impl.erase(v); }
     set_iterator find(const variant& v) const { return impl.find(v); }
@@ -410,14 +352,13 @@ class ordset: public object
     charset impl;
 
 protected:
-    ordset(const ordset& other): impl(other.impl)  { }
-
+    ordset(const ordset& other);
 public:
-    ordset();
+    ordset(Type*);
     ~ordset();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-    bool empty()                        const { return impl.empty(); }
+    bool empty()                              { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
@@ -450,21 +391,7 @@ public:
 };
 
 
-inline range* new_range()               { return NULL; }
-inline tuple* new_tuple()               { return NULL; }
-inline dict* new_dict()                 { return NULL; }
-inline ordset* new_ordset()             { return NULL; }
-inline set* new_set()                   { return NULL; }
-range* new_range(integer l, integer r);
-inline fifo_intf* new_fifo()            { return NULL; }
-
 inline void variant::unique()                     { if (is_refcnt()) _unique(val._obj); }
-
-inline dict_iterator variant::dict_begin() const  { _req(DICT); return _dict_read().begin(); }
-inline dict_iterator variant::dict_end() const    { _req(DICT); return _dict_read().end(); }
-
-inline set_iterator variant::set_begin() const    { _req(SET); return _set_read().begin(); }
-inline set_iterator variant::set_end() const      { _req(SET); return _set_read().end(); }
 
 
 // --- FIFO ---------------------------------------------------------------- //
@@ -513,7 +440,7 @@ protected:
     void _token(const charset& chars, str* result);
 
 public:
-    fifo_intf(bool is_char);
+    fifo_intf(Type*, bool is_char);
     ~fifo_intf();
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
@@ -608,7 +535,7 @@ protected:
     mem enq_avail();
 
 public:
-    fifo(bool is_char);
+    fifo(Type*, bool is_char);
     ~fifo();
 
     void clear();
@@ -642,7 +569,7 @@ protected:
     mem enq_avail();
 
 public:
-    buf_fifo(bool is_char);
+    buf_fifo(Type*, bool is_char);
     ~buf_fifo();
 
     virtual bool empty(); // throws efifowronly
@@ -656,8 +583,8 @@ protected:
     str string;
 
 public:
-    str_fifo();
-    str_fifo(const str&);
+    str_fifo(Type*);
+    str_fifo(Type*, const str&);
     ~str_fifo();
 
     bool empty();
@@ -675,7 +602,7 @@ protected:
     int _fd;
     virtual mem enq_chars(const char*, mem);
 public:
-    std_file(int fd);
+    std_file(Type*, int fd);
     ~std_file();
 };
 
@@ -697,7 +624,7 @@ protected:
     void error(int code); // throws esyserr
 
 public:
-    in_text(const str& fn);
+    in_text(Type*, const str& fn);
     ~in_text();
     
     bool empty(); //override

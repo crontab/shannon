@@ -17,7 +17,8 @@ mem fifo::CHUNK_SIZE = sizeof(variant) * 16;
 #endif
 
 
-fifo_intf::fifo_intf(bool is_char): _char(is_char)  { }
+fifo_intf::fifo_intf(Type* rt, bool is_char)
+    : object(rt), _char(is_char)  { }
 fifo_intf::~fifo_intf() { }
 
 void fifo_intf::_empty_err()                { throw emessage("FIFO empty"); }
@@ -33,8 +34,8 @@ bool fifo_intf::empty()                     { _rdonly_err(); return true; }
 void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
-fifo::fifo(bool _char)
-    : fifo_intf(_char), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
+fifo::fifo(Type* rt, bool _char)
+    : fifo_intf(rt, _char), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
 void fifo_intf::_req_non_empty()
@@ -396,8 +397,8 @@ void fifo::dump(fifo_intf& s) const
 // --- buf_fifo ------------------------------------------------------------ //
 
 
-buf_fifo::buf_fifo(bool is_char)
-  : fifo_intf(is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
+buf_fifo::buf_fifo(Type* rt, bool is_char)
+  : fifo_intf(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
 
 buf_fifo::~buf_fifo()  { }
 bool buf_fifo::empty() { _wronly_err(); return true; }
@@ -490,12 +491,12 @@ mem buf_fifo::enq_chars(const char* p, mem count)
 // --- str_fifo ------------------------------------------------------------ //
 
 
+str_fifo::str_fifo(Type* rt): buf_fifo(rt, true), string() {}
 str_fifo::~str_fifo() { }
-str_fifo::str_fifo(): buf_fifo(true), string() {}
 
 
-str_fifo::str_fifo(const str& s)
-    : buf_fifo(true), string(s)
+str_fifo::str_fifo(Type* rt, const str& s)
+    : buf_fifo(rt, true), string(s)
 {
     buffer = (char*)s.data();
     bufhead = bufsize = s.size();
@@ -538,8 +539,8 @@ str str_fifo::all() const
 // --- out_file ------------------------------------------------------------ //
 
 
-std_file::std_file(int fd)
-    : fifo_intf(true), _fd(fd)
+std_file::std_file(Type* rt, int fd)
+    : fifo_intf(rt, true), _fd(fd)
 {
     pincrement(&refcount);  // prevent auto pointers from freeing this object,
                             // as it is supposed to be static
@@ -553,15 +554,15 @@ std_file::~std_file()                               { pdecrement(&refcount); }
 mem std_file::enq_chars(const char* p, mem count)   { return ::write(_fd, p, count); }
 
 
-std_file fout(STDIN_FILENO);
-std_file ferr(STDERR_FILENO);
+std_file fout(NULL, STDIN_FILENO);
+std_file ferr(NULL, STDERR_FILENO);
 
 
 // --- in_text ------------------------------------------------------------- //
 
 
-in_text::in_text(const str& fn)
-    : buf_fifo(true), file_name(fn), _fd(-1), _eof(false)  { }
+in_text::in_text(Type* rt, const str& fn)
+    : buf_fifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
 in_text::~in_text()             { if (_fd >= 0) ::close(_fd); }
 void in_text::error(int code)   { _eof = true; throw esyserr(code, file_name); }
 
