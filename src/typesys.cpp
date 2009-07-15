@@ -18,7 +18,7 @@ Module* Context::addModule(const str& name)
         throw emessage("Maximum number of modules reached");
     topModule = new Module(name, modules.size(), this);
     modules.add(topModule);
-    datasegs.add(new tuple());
+    datasegs.add(new tuple(NULL));
     return topModule;
 }
 
@@ -102,16 +102,22 @@ void CodeSeg::close(mem _stksize, mem _returns)
       return derived##d; }
 
 
-Base::Base(BaseId _id): Symbol(null_str), baseId(_id)  { }
-Base::Base(const str& _name, BaseId _id): Symbol(_name), baseId(_id)  { }
+Base::Base(Type* rt, BaseId _id)
+    : Symbol(rt, null_str), baseId(_id)  { }
+Base::Base(Type* rt, const str& _name, BaseId _id)
+    : Symbol(rt, _name), baseId(_id)  { }
 
 
 // --- Type ---------------------------------------------------------------- //
 
 
-Type::Type(TypeId _t)
-  : typeId(_t), owner(NULL), derivedFifo(NULL),
-    derivedVector(NULL), derivedSet(NULL)  { }
+Type::Type(Type* rt, TypeId _t)
+  : object(rt), typeId(_t), owner(NULL), derivedFifo(NULL),
+    derivedVector(NULL), derivedSet(NULL)
+{
+    assert(rt != NULL);
+}
+
 
 Type::~Type() { }
 
@@ -135,7 +141,7 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 
 
 Variable::Variable(const str& _name, Type* _type)
-    : Base(_name, VARIABLE), type(_type)  { }
+    : Base(_type, _name, VARIABLE), type(_type)  { }
 
 Variable::~Variable()  { }
 
@@ -144,12 +150,12 @@ Variable::~Variable()  { }
 
 
 Constant::Constant(const str& _name, Type* _type)
-    : Base(_name, CONSTANT), type(queenBee->defTypeRef),
-      value((object*)_type)  { }
+    : Base(_type, _name, CONSTANT), type(defTypeRef),
+      value(_type)  { }
 
 
 Constant::Constant(const str& _name, Type* _type, const variant& _value)
-    : Base(_name, CONSTANT), type(_type), value(_value)  { }
+    : Base(_type, _name, CONSTANT), type(_type), value(_value)  { }
 
 
 Constant::~Constant()  { }
@@ -201,7 +207,7 @@ Variable* Scope::addVariable(const str& name, Type* type)
 
 
 State::State(const str& _name, State* _parent, Context* _context)
-  : Type(STATE), Scope(_parent),
+  : Type(defTypeRef, STATE), Scope(_parent),
     main(this, _context), finalize(this, _context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
@@ -239,14 +245,14 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 // --- None ---------------------------------------------------------------- //
 
 
-None::None(): Type(NONE)  { }
+None::None(): Type(defTypeRef, NONE)  { }
 
 
 // --- Ordinal ------------------------------------------------------------- //
 
 
 Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
-    : Type(_type), derivedRange(NULL), left(_left), right(_right)
+    : Type(defTypeRef, _type), derivedRange(NULL), left(_left), right(_right)
 {
     assert(isOrdinal());
 }
@@ -323,14 +329,15 @@ Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
 // --- Range --------------------------------------------------------------- //
 
 
-Range::Range(Ordinal* _base): Type(RANGE), base(_base)  { }
+Range::Range(Ordinal* _base)
+    : Type(defTypeRef, RANGE), base(_base)  { }
 
 
 // --- Container ---------------------------------------------------------- //
 
 
 Container::Container(Type* _index, Type* _elem)
-    : Type(NONE), index(_index), elem(_elem)
+    : Type(defTypeRef, NONE), index(_index), elem(_elem)
 {
     if (index->isNone())
         setTypeId(VECTOR);
@@ -348,67 +355,44 @@ Container::Container(Type* _index, Type* _elem)
 }
 
 
-void Container::runtimeTypecast(variant& v)
-{
-    if (isString())
-    {
-        if (!v.is(variant::STR))
-            v = v.to_string();
-        return;
-    }
-    if ((elem->isVariant() || elem->isNone())
-        && (index->isVariant() || index->isNone()))
-            return;
-    typeMismatch();
-}
-
-
 // --- Fifo ---------------------------------------------------------------- //
 
 
-Fifo::Fifo(Type* _elem): Type(FIFO), elem(_elem)  { }
-
-
-void Fifo::runtimeTypecast(variant& v)
-{
-    // TODO: Type of an object should be known at run time so that we can do
-    // more meaningful typecasts. Same for containers.
-    typeMismatch();
-}
+Fifo::Fifo(Type* _elem): Type(defTypeRef, FIFO), elem(_elem)  { }
 
 
 // --- Variant ------------------------------------------------------------- //
 
 
-Variant::Variant(): Type(VARIANT)  { }
+Variant::Variant(): Type(defTypeRef, VARIANT)  { }
 
 
 // --- TypeReference ------------------------------------------------------- //
 
 
-TypeReference::TypeReference(): Type(TYPEREF)  { }
+TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 // --- QueenBee ------------------------------------------------------------ //
 
 
 QueenBee::QueenBee()
-  : Module("system", mem(-1), NULL),
-    defTypeRef(registerType(new TypeReference())),
-    defNone(registerType(new None())),
-    defInt(registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX))),
-    defBool(registerType(new Enumeration(Type::BOOL))),
-    defChar(registerType(new Ordinal(Type::CHAR, 0, 255))),
-    defStr(NULL),
-    defVariant(registerType(new Variant()))
-    { }
+  : Module("system", mem(-1), NULL)
+{
+    registerType(defTypeRef.get());
+    defNone = registerType(new None());
+    defInt = registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX));
+    defBool = registerType(new Enumeration(Type::BOOL));
+    defChar = registerType(new Ordinal(Type::CHAR, 0, 255));
+    defStr = NULL;
+    defVariant = registerType(new Variant());
+}
 
 
 void QueenBee::setup()
 {
     // This can't be done in the constructor while the global object queenBee
-    // is not assigned yes, because addTypeAlias() uses defaultTypeRef for all
-    // type aliases created.
+    // is not assigned
     defStr = defChar->deriveVector();
     addTypeAlias("typeref", defTypeRef);
     addTypeAlias("none", defNone);
@@ -422,10 +406,16 @@ void QueenBee::setup()
 }
 
 
+objptr<TypeReference> defTypeRef;
 objptr<QueenBee> queenBee;
+
 
 void initTypeSys()
 {
+    // Because all Type objects are also runtime objects, they all have a
+    // runtime type of "type reference". The initial typeref object refers to
+    // itself and should be created before anything else in the type system.
+    defTypeRef = new TypeReference();
     queenBee = new QueenBee();
     queenBee->setup();
 }
@@ -433,6 +423,7 @@ void initTypeSys()
 
 void doneTypeSys()
 {
-    queenBee = NULL;
+    defTypeRef = NULL;
+//    queenBee = NULL;
 }
 

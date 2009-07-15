@@ -2,8 +2,8 @@
 #include "symbols.h"
 
 
-Symbol::Symbol(const str& name): name(name)  { }
-Symbol::Symbol(const char* name): name(name)  { }
+Symbol::Symbol(Type* rt, const str& name): object(rt), name(name)  { }
+Symbol::Symbol(Type* rt, const char* name): object(rt), name(name)  { }
 
 EDuplicate::EDuplicate(const str& symbol) throw()
     : emessage("Duplicate identifier: " + symbol)  { }

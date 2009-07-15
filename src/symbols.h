@@ -14,8 +14,8 @@ class Symbol: public object
 {
     str name;
 public:
-    Symbol(const str&);
-    Symbol(const char*);
+    Symbol(Type*, const str&);
+    Symbol(Type*, const char*);
     const str& getName() const { return name; }
     void setName(const str& _name)  { name = _name; }
     void setName(const char* _name)  { name = _name; }
