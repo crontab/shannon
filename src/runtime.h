@@ -45,7 +45,6 @@ class _None { int dummy; };
 
 class variant
 {
-    friend class CodeSeg;
     friend class Ordinal; // for hacking the runtime typecasts
 
 public:
@@ -72,16 +71,6 @@ protected:
     void _dbg(Type t) const         { }
     void _dbg_ord() const           { }
 #endif
-
-    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
-    bool     _bool()            const { _dbg(BOOL); return val._int; }
-    uchar    _uchar()           const { _dbg(CHAR); return val._int; }
-    integer  _int()             const { _dbg(INT); return val._int; }
-    integer& _int_write()             { _dbg(INT); return val._int; }
-    integer  _ord()             const { _dbg_ord(); return val._int; }
-    str& _str_write()                 { _dbg(STR); return *(str*)val._str; }
-    const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
-    object* _object()           const { _dbg(OBJECT); return val._obj; }
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
@@ -155,6 +144,16 @@ public:
     object* as_object()       const { _req_obj(); return val._obj; }
 
     bool empty() const;
+
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool     _bool()            const { _dbg(BOOL); return val._int; }
+    uchar    _uchar()           const { _dbg(CHAR); return val._int; }
+    integer  _int()             const { _dbg(INT); return val._int; }
+    integer& _int_write()             { _dbg(INT); return val._int; }
+    integer  _ord()             const { _dbg_ord(); return val._int; }
+    const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
+    str&     _str_write()             { _dbg(STR); return *(str*)val._str; }
+    object*  _object()          const { _dbg(OBJECT); return val._obj; }
 };
 
 
@@ -462,6 +461,7 @@ public:
     str  token(const charset& c)        { return deq(c); } // alias
     void eat(const charset& c)          { _token(c, NULL); }
     void skip(const charset& c)         { eat(c); } // alias
+    str  line();
     bool eol();
     void skip_eol();
     bool is_eol_char(char c)            { return c == '\r' || c == '\n'; }
@@ -582,34 +582,14 @@ class str_fifo: public buf_fifo
 {
 protected:
     str string;
-
 public:
     str_fifo(Type*);
     str_fifo(Type*, const str&);
     ~str_fifo();
-
     bool empty();
     void flush();
-
     str all() const;
 };
-
-
-// Non-buffered file output, suitable for standard out/err, should be static
-// in the program.
-class std_file: public fifo_intf
-{
-protected:
-    int _fd;
-    virtual mem enq_chars(const char*, mem);
-public:
-    std_file(Type*, int fd);
-    ~std_file();
-};
-
-
-extern std_file fout;
-extern std_file ferr;
 
 
 class in_text: public buf_fifo
@@ -632,6 +612,23 @@ public:
     str  get_file_name() const { return file_name; }
     void open()                { empty(); /* attempt to fill the buffer */ }
 };
+
+
+// Standard input/output object, a two-way fifo. In case of sterr it is
+// write-only.
+class std_file: public in_text
+{
+protected:
+    int _ofd;
+    virtual mem enq_chars(const char*, mem);
+public:
+    std_file(int infd, int outfd);
+    ~std_file();
+};
+
+
+extern std_file sio;
+extern std_file serr;
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
