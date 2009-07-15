@@ -13,9 +13,6 @@
 #include <stdio.h>
 
 
-using namespace std;
-
-
 #define fail(e) \
     (printf("%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), exit(200))
 
@@ -63,7 +60,7 @@ void test_common()
     check(!o); check(!e);
     check(from_string(INTEGER_MAX_STR, &e, &o) == INTEGER_MAX);
     check(from_string(INTEGER_MAX_STR_PLUS, &e, &o) == uinteger(INTEGER_MAX) + 1);
-    check(from_string(INTEGER_MAX_STR "0", &e, &o) == 0 ); check(o);
+    check(from_string("92233720368547758070", &e, &o) == 0); check(o);
     check(from_string("-1", &e, &o) == 0 ); check(e);
     check(from_string("89abcdef", &e, &o, 16) == 0x89abcdef);
     check(from_string("afg", &e, &o, 16) == 0); check(e);
@@ -98,7 +95,7 @@ void test_variant()
         variant v12 = 'x';              check(v12.as_char() == 'x');
         variant v9 = "";                check(v9.as_str().empty());
         variant v10 = "abc";            check(v10.as_str() == "abc");
-        string s1 = "def";
+        str s1 = "def";
         variant vst = s1;               check(vst.as_str() == s1);
         object* o = new test_obj();
         variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
@@ -187,7 +184,7 @@ void test_variant()
         variant vra = vr;
         check(vra == vr);
 
-        // tuple
+        // vector
         check(vt.empty()); check(vt.size() == 0);
         check_throw(vt.insert(1, 0));
         vt.push_back(0);
@@ -556,9 +553,9 @@ void test_fifos()
 #endif
 
     fifo f(NULL, false);
-    objptr<tuple> t = new tuple(NULL);
+    objptr<vector> t = new vector(NULL);
     t->push_back(0);
-    f.var_enq((tuple*)t);
+    f.var_enq((vector*)t);
     f.var_enq("abc");
     f.var_enq("def");
     variant w = new range(NULL, 1, 2);

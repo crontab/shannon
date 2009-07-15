@@ -18,7 +18,7 @@ Module* Context::addModule(const str& name)
         throw emessage("Maximum number of modules reached");
     topModule = new Module(name, modules.size(), this);
     modules.add(topModule);
-    datasegs.add(new tuple(NULL));
+    datasegs.add(new vector(topModule));
     return topModule;
 }
 
@@ -28,7 +28,7 @@ void Context::resetDatasegs()
     assert(modules.size() == datasegs.size());
     for (mem i = 0; i < modules.size(); i++)
     {
-        tuple* d = datasegs[i];
+        vector* d = datasegs[i];
         d->clear();
         d->resize(modules[i]->dataSize());
     }

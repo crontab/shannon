@@ -40,7 +40,7 @@ class Context: noncopyable
     friend class CodeSeg;
 protected:
     List<Module> modules;
-    List<tuple> datasegs;
+    List<vector> datasegs;
     Module* topModule;
     void resetDatasegs();
 public:

@@ -29,14 +29,14 @@ template<class T>
 
 void CodeSeg::varToVec(Vector* type, const variant& elem, variant* result)
 {
-    *result = new tuple(type, 1, elem);
+    *result = new vector(type, 1, elem);
 }
 
 
 void CodeSeg::varCat(Vector* type, const variant& elem, variant* vec)
 {
     assert(type->isVector());
-    tuple* t = (tuple*)vec->_object();
+    vector* t = (vector*)vec->_object();
     if (t == NULL)
         varToVec(type, elem, vec);
     else
@@ -46,10 +46,10 @@ void CodeSeg::varCat(Vector* type, const variant& elem, variant* vec)
 
 void CodeSeg::vecCat(const variant& src, variant* dest)
 {
-    tuple* ts = (tuple*)src._object();
+    vector* ts = (vector*)src._object();
     if (ts == NULL)
         return;
-    tuple* td = (tuple*)dest->_object();
+    vector* td = (vector*)dest->_object();
     if (td == NULL)
         *dest = src;
     else
@@ -625,7 +625,7 @@ int main()
             && prange(r.as_object())->equals(1, 0));
 
         // Vector concatenation
-        tuple* t = new tuple(queenBee->defInt->deriveVector(), 1, 3);
+        vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
         t->push_back(4);
         c = m.addConstant("v", queenBee->defInt->deriveVector(), t);
         seg.clear();
