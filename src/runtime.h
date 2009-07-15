@@ -88,9 +88,9 @@ protected:
     void _init(bool b)              { type = BOOL; val._int = b; }
     void _init(char c)              { type = CHAR; val._int = uchar(c); }
     void _init(uchar c)             { type = CHAR; val._int = c; }
-    void _init(integer i)           { type = INT; val._int = i; }
-    void _init(mem i)               { type = INT; val._int = i; }
     void _init(int i)               { type = INT; val._int = i; }
+    void _init(long long i)         { type = INT; val._int = i; }
+    void _init(mem i)               { type = INT; val._int = i; }
     void _init(double r)            { type = REAL; val._real = r; }
     void _init(const str&);
     void _init(const char*);
@@ -146,7 +146,6 @@ public:
     void unique();
 
     // Type conversions
-    // TODO: as_xxx(defualt)
     bool as_bool()            const { _req(BOOL); return val._int; }
     uchar as_char()           const { _req(CHAR); return val._int; }
     integer as_int()          const { _req(INT); return val._int; }
@@ -156,16 +155,6 @@ public:
     object* as_object()       const { _req_obj(); return val._obj; }
 
     bool empty() const;
-
-    // string operations
-    mem size() const;
-    char getch(mem i) const;
-    void append(const str& s);
-    void append(const char* s);
-    void append(char c);
-    str substr(mem index, mem count) const;
-    void erase(mem index);
-    void erase(mem index, mem count);
 };
 
 
@@ -201,8 +190,8 @@ public:
     virtual bool empty();   // non-const because fifo's can be modified when getting the eof status
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
-    Type* get_runtime_type() const  { return runtime_type; }
-    void set_runtime_type(Type* rt) { assert(runtime_type == NULL); runtime_type = rt; }
+    Type* get_rt() const    { return runtime_type; }
+    void set_rt(Type* rt)   { assert(runtime_type == NULL); runtime_type = rt; }
 };
 
 
@@ -233,13 +222,16 @@ public:
     range(Type*, integer l, integer r);
     ~range();
     virtual object* clone() const;
-    void assign(integer l, integer r)  { left = l; right = r; }
-    bool empty()  { return left > right; }
-    bool has(integer i) const  { return i >= left && i <= right; }
-    virtual void dump(fifo_intf&) const;
+    void assign(integer l, integer r)   { left = l; right = r; }
+    bool empty()                        { return left > right; }
+    bool has(integer i) const           { return i >= left && i <= right; }
+    bool equals(integer l, integer r) const;
     bool equals(const range& other) const;
+    virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
 };
+
+typedef range* prange;
 
 
 class varlist
@@ -306,6 +298,8 @@ public:
     virtual void dump(fifo_intf&) const;
 };
 
+typedef tuple* ptuple;
+
 
 class dict: public object
 {
@@ -346,6 +340,8 @@ public:
     set_iterator end()                  const { return impl.end(); }
 };
 
+typedef set* pset;
+
 
 class ordset: public object
 {
@@ -364,6 +360,8 @@ public:
     bool has(int v) const                     { return impl[v]; }
     bool equals (const ordset& other)   const { return impl.eq(other.impl); }
 };
+
+typedef ordset* pordset;
 
 
 template<class T>
@@ -391,7 +389,7 @@ public:
 };
 
 
-inline void variant::unique()                     { if (is_refcnt()) _unique(val._obj); }
+inline void variant::unique()  { if (is_refcnt()) _unique(val._obj); }
 
 
 // --- FIFO ---------------------------------------------------------------- //
@@ -471,16 +469,19 @@ public:
     bool eof()                          { return empty(); }
 
     mem  enq(const char* p, mem count)  { return enq_chars(p, count); }
-    mem  enq(const str& s)              { return enq_chars(s.data(), s.size()); }
-    void enq(char c)                    { enq_chars(&c, 1); }
-    void enq(uchar c)                   { enq_chars((char*)&c, 1); }
+    void enq(const char* s);
+    void enq(const str& s);
+    void enq(char c);
+    void enq(uchar c);
+    void enq(long long i);
 
-    fifo_intf& operator<< (const char* s);
+    fifo_intf& operator<< (const char* s)   { enq(s); return *this; }
     fifo_intf& operator<< (const str& s)    { enq(s); return *this; }
-    fifo_intf& operator<< (integer);
-    fifo_intf& operator<< (uinteger);
     fifo_intf& operator<< (char c)          { enq(c); return *this; }
     fifo_intf& operator<< (uchar c)         { enq(c); return *this; }
+    fifo_intf& operator<< (long long i)     { enq((long long)i); return *this; }
+    fifo_intf& operator<< (int i)           { enq((long long)i); return *this; }
+    fifo_intf& operator<< (mem i)           { enq((long long)i); return *this; }
 };
 
 const char endl = '\n';

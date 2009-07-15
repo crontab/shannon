@@ -19,7 +19,9 @@ static void invOpcode()        { throw emessage("Invalid opcode"); }
 template<class T>
     inline void PUSH(variant*& stk, const T& v) { ::new(++stk) variant(v);  }
 inline void POP(variant*& stk)                  { (*stk--).~variant(); }
-
+template<class T>
+    inline T IPADV(const uchar*& ip)            { T t = *(T*)ip; ip += sizeof(T); return t; }
+    
 
 #define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
 #define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
@@ -33,6 +35,7 @@ void CodeSeg::varToVec(Vector* type, const variant& elem, variant* result)
 
 void CodeSeg::varCat(Vector* type, const variant& elem, variant* vec)
 {
+    assert(type->isVector());
     tuple* t = (tuple*)vec->_object();
     if (t == NULL)
         varToVec(type, elem, vec);
@@ -50,7 +53,11 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
     if (td == NULL)
         *dest = src;
     else
+    {
+        assert(td->get_rt()->isVector());
+        assert(ts->get_rt()->isVector());
         td->append(*ts);
+    }
 }
 
 
@@ -71,24 +78,24 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
             case opLoadNull:        PUSH(stk, null); break;
             case opLoadFalse:       PUSH(stk, false); break;
             case opLoadTrue:        PUSH(stk, true); break;
-            case opLoadChar:        PUSH(stk, *ip++); break;
+            case opLoadChar:        PUSH(stk, IPADV<uint8_t>(ip)); break;
             case opLoad0:           PUSH(stk, integer(0)); break;
             case opLoad1:           PUSH(stk, integer(1)); break;
-            case opLoadInt:         PUSH(stk, *(integer*)ip); ip += sizeof(integer); break;
+            case opLoadInt:         PUSH(stk, IPADV<integer>(ip)); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
             case opLoadNullRange:   PUSH(stk, (object*)NULL); break;
             case opLoadNullVec:     PUSH(stk, (object*)NULL); break;
             case opLoadNullDict:    PUSH(stk, (object*)NULL); break;
             case opLoadNullOrdset:  PUSH(stk, (object*)NULL); break;
             case opLoadNullSet:     PUSH(stk, (object*)NULL); break;
-            case opLoadConst:       PUSH(stk, consts[*ip++]); break;
-            case opLoadConst2:      PUSH(stk, consts[*(uint16_t*)ip]); ip += 2; break;
-            case opLoadTypeRef:     PUSH(stk, *(object**)ip); ip += sizeof(object*); break;
+            case opLoadConst:       PUSH(stk, consts[IPADV<uint8_t>(ip)]); break;
+            case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
+            case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
 
             // Safe typecasts
             case opToBool:  *stk = stk->to_bool(); break;
             case opToStr:   *stk = stk->to_string(); break;
-            case opToType:  { Type* t = *(Type**)ip; ip += sizeof(Type*); t->runtimeTypecast(*stk); } break;
+            case opToType:  IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
             case opDynCast: notimpl(); break; // TODO:
 
             // Arithmetic
@@ -111,12 +118,12 @@ void CodeSeg::doRun(variant* stk, const uchar* ip)
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
             case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POP(stk); break;
             case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
-            case opVarToVec:    varToVec(*(Vector**)ip, *stk, stk); ip += sizeof(Vector*); break;
-            case opVarCat:      varCat(*(Vector**)ip, *stk, stk - 1); ip += sizeof(Vector*); POP(stk); break;
+            case opVarToVec:    varToVec(IPADV<Vector*>(ip), *stk, stk); break;
+            case opVarCat:      varCat(IPADV<Vector*>(ip), *stk, stk - 1); POP(stk); break;
             case opVecCat:      vecCat(*stk, (stk - 1)); POP(stk); break;
 
             // Range operations (work for all ordinals)
-            case opMkRange:     *(stk - 1) = new range(*(Ordinal**)ip, (stk - 1)->_ord(), stk->_ord()); ip += sizeof(Ordinal*); POP(stk); break;
+            case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POP(stk); break;
             case opInRange:     *(stk - 1) = ((range*)stk->_object())->has((stk - 1)->_ord()); POP(stk); break;
 
             // Comparators
@@ -551,7 +558,6 @@ int main()
     initTypeSys();
     try
     {
-/*
         Parser parser("x", new in_text(NULL, "x"));
 
         Module m("test", 0, NULL);
@@ -615,11 +621,11 @@ int main()
             gen.endConstExpr(queenBee->defBool->deriveRange());
         }
         seg.run(r);
-        range* _r = (range*)r.as_object();
-        check(_r->get_runtime_type()->isRange() && _r->left == 1 && _r->right == 0);
+        check(prange(r.as_object())->get_rt()->isRange()
+            && prange(r.as_object())->equals(1, 0));
 
         // Vector concatenation
-        tuple* t = new tuple(NULL, 1, 3);
+        tuple* t = new tuple(queenBee->defInt->deriveVector(), 1, 3);
         t->push_back(4);
         c = m.addConstant("v", queenBee->defInt->deriveVector(), t);
         seg.clear();
@@ -635,7 +641,6 @@ int main()
         }
         seg.run(r);
         check(r.to_string() == "[1, 2, 3, 4]");
-*/
     }
     catch (std::exception& e)
     {
@@ -644,7 +649,7 @@ int main()
     }
     doneTypeSys();
 #ifdef DEBUG
-    fout << integer(object::alloc) << endl;
+//    fout << object::alloc << endl;
     assert(object::alloc == 0);
 #endif
 }

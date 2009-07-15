@@ -89,10 +89,16 @@ template<class T>
 
 
 // The eternal int-to-string problem in C++
-str to_string(integer value, int base, int width = 0, char fill = '0');
-str to_string(integer);
-str to_string(uinteger);
-uinteger from_string(const char*, bool* error, bool* overflow, int base = 10);
+str _to_string(long long value, int base, int width, char fill);
+str _to_string(long long);
+template<class T>
+    inline str to_string(const T& value, int base, int width = 0, char fill = '0')
+        { return _to_string((long long)value, base, width, fill); }
+template<class T>
+    inline str to_string(const T& value)
+        { return _to_string((long long)value); }
+
+unsigned long long from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 
 class noncopyable 

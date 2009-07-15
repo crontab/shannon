@@ -99,7 +99,11 @@ public:
 };
 
 
-// --- BASIC LANGUAGE OBJECTS ---
+// --- TYPE SYSTEM --------------------------------------------------------- //
+
+
+void typeMismatch();
+
 
 class Base: public Symbol
 {
@@ -142,9 +146,6 @@ protected:
             { assert(name.empty()); name = _name; }
     void setTypeId(TypeId t)
             { (TypeId&)typeId = t; }
-    void typeMismatch()
-            { throw emessage("Type mismatch"); }
-
 public:
     Type(Type* rt, TypeId);
     ~Type();
@@ -180,9 +181,12 @@ public:
     Container* deriveVector();
     Container* deriveSet();
 
-    virtual bool identicalTo(Type* t)  { return t == this; } // for comparing container elements, indexes
-    virtual bool canCastImplTo(Type* t)  { return identicalTo(t); } // can assign or automatically convert the type without changing the value
-    virtual void runtimeTypecast(variant&)  { notimpl(); }
+    virtual bool identicalTo(Type* t)  // for comparing container elements, indexes
+            { return t->is(typeId); }
+    virtual bool canCastImplTo(Type* t)  // can assign or automatically convert the type without changing the value
+            { return identicalTo(t); }
+    virtual void runtimeTypecast(variant&)
+            { typeMismatch(); }
 };
 
 
@@ -248,6 +252,8 @@ public:
 
     State(const str& _name, State* _parent, Context*);
     ~State();
+    bool identicalTo(Type* t)
+            { return t == this; }
     langobj* newObject();
     template<class T>
         T* registerType(T* t)
@@ -273,7 +279,6 @@ class None: public Type
 {
 public:
     None();
-    bool identicalTo(Type* t)           { return t->isNone(); }
 };
 
 
@@ -290,6 +295,11 @@ protected:
 public:
     Ordinal(TypeId, integer, integer);
     Range* deriveRange();
+    bool identicalTo(Type* t)
+            { return t->is(typeId) && rangeEq(POrdinal(t)); }
+    bool canCastImplTo(Type* t)
+            { return t->is(typeId); }
+    void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
     bool rangeFits(integer i)
@@ -300,11 +310,6 @@ public:
             { return rangeEq(t->left, t->right); }
     bool isInRange(integer v)
             { return v >= left && v <= right; }
-    bool identicalTo(Type* t)
-            { return t->is(typeId) && rangeEq(POrdinal(t)); }
-    bool canCastImplTo(Type* t)
-            { return t->is(typeId); }
-    void runtimeTypecast(variant&);
     virtual Ordinal* deriveSubrange(integer _left, integer _right);
 };
 
@@ -387,8 +392,6 @@ public:
             { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
     bool isCharFifo()
             { return elem->isChar(); }
-    bool isVariantFifo()
-            { return elem->isVariant(); }
 };
 
 
@@ -396,7 +399,6 @@ class Variant: public Type
 {
 public:
     Variant();
-    bool identicalTo(Type* t)           { return t->isVariant(); }
 };
 
 
@@ -404,7 +406,6 @@ class TypeReference: public Type
 {
 public:
     TypeReference();
-    bool identicalTo(Type* t)           { return t->isTypeRef(); }
 };
 
 
