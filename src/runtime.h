@@ -24,9 +24,9 @@
 
 // Implementation is in variant.cpp and fifo.cpp.
 
-// TODO: at least the implementation of tuple should be rewritten with
+// TODO: at least the implementation of vector should be rewritten with
 // realloc(), because we always have a vector of variants and we never
-// hold pointers to tuple members, so the pedantic pointer keeping
+// hold pointers to vector members, so the pedantic pointer keeping
 // of the STL's vector<> template is overkill for us.
 
 class variant;
@@ -284,21 +284,21 @@ public:
 };
 
 
-class tuple: public object, public varlist
+class vector: public object, public varlist
 {
 protected:
-    tuple(const tuple& other);
-    void operator=(const tuple& other)  { varlist::operator=(other); }
+    vector(const vector& other);
+    void operator=(const vector& other)  { varlist::operator=(other); }
 public:
-    tuple(Type*);
-    tuple(Type*, mem, const variant&);
-    ~tuple();
+    vector(Type*);
+    vector(Type*, mem, const variant&);
+    ~vector();
     virtual object* clone() const;
     bool empty()  { return varlist::empty(); }
     virtual void dump(fifo_intf&) const;
 };
 
-typedef tuple* ptuple;
+typedef vector* pvector;
 
 
 class dict: public object

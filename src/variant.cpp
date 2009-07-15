@@ -272,7 +272,7 @@ void _unique(object*& o)
     object* t::clone() const { return new t(*this); }
 
 XCLONE(range)
-XCLONE(tuple)
+XCLONE(vector)
 XCLONE(dict)
 XCLONE(ordset)
 XCLONE(set)
@@ -374,20 +374,20 @@ void varstack::free(mem n)
 }
 
 
-tuple::tuple(Type* rt)
+vector::vector(Type* rt)
     : object(rt)  { }
-tuple::tuple(const tuple& other)
+vector::vector(const vector& other)
     : object(other.runtime_type), varlist(other)  { }
-tuple::~tuple()  { }
+vector::~vector()  { }
 
-tuple::tuple(Type* rt, mem count, const variant& v)
+vector::vector(Type* rt, mem count, const variant& v)
     : object(rt)
 {
     while (count--)
         push_back(v);
 }
 
-void tuple::dump(fifo_intf& s) const
+void vector::dump(fifo_intf& s) const
 {
     for(mem i = 0; i < size(); i++)
     {

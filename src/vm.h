@@ -69,7 +69,7 @@ enum OpCode
     opLoadOuter,        // [level: 8, var-index: 8]
     opLoadStatic,       // [module: 8, var-index: 8]
     opLoadStrElem,      // -index, -str, +char
-    opLoadTupleElem,    // -index, -tuple, +val
+    opLoadVecElem,      // -index, -vector, +val
     opLoadDictElem,     // -key, -dict, +val
     opLoadMember,       // [var-index: 8] -obj, +val
 
@@ -80,7 +80,7 @@ enum OpCode
     opStoreOuter,       // [level: 8, var-index: 8]
     opStoreStatic,      // [module: 8, var-index: 8]
     opStoreStrElem,     // -char, -index, -str
-    opStoreTupleElem,   // -val, -index, -tuple
+    opStoreVecElem,     // -val, -index, -vector
     opStoreDictElem,    // -val, -key, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
 
