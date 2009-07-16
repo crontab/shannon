@@ -4,6 +4,8 @@
 
 #include "runtime.h"
 
+#include <string.h>
+
 
 const variant null;
 const str null_str;

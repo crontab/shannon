@@ -29,30 +29,31 @@ typedef Container Vector;
 typedef Container String;
 typedef Container Set;
 
-// --- VIRTUAL MACHINE (partial) ---
 
+// --- VIRTUAL MACHINE (partial) ---
 
 // Some bits of the virtual machine are needed here because each State class
 // holds its own code segment.
 
 class Context: noncopyable
 {
-    friend class CodeSeg;
 protected:
     List<Module> modules;
-    List<vector> datasegs;
+    List<langobj> datasegs;
     Module* topModule;
-    void resetDatasegs();
 public:
     Context();
+    Module* registerModule(Module*);   // for built-in modules
     Module* addModule(const str& name);
-    void run(varstack&); // TODO: execute all init blocks in modules
+    void run(varstack&); // <--- this is where execution starts
 };
 
 
 class CodeSeg: noncopyable
 {
     friend class CodeGen;
+    friend class State;
+    
 protected:
     str code;
     varlist consts;
@@ -73,21 +74,20 @@ protected:
     void addInt(integer i);
     void addPtr(void* p);
     void close(mem _stksize, mem _returns);
-    bool empty() const
-        { return code.empty(); }
 
     // Execution
     static void varToVec(Vector* type, const variant& elem, variant* result);
     static void varCat(Vector* type, const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
-    void doRun(variant*, const uchar* ip);
+    void run(langobj* self, varstack&) const;
 
 public:
     CodeSeg(State*, Context*);
     ~CodeSeg();
+    bool empty() const
+        { return code.empty(); }
     void clear(); // for unit tests
-    void run(varstack&);
 };
 
 
@@ -95,7 +95,7 @@ class ConstCode: public CodeSeg
 {
 public:
     ConstCode(): CodeSeg(NULL, NULL) { }
-    void run(variant&);
+    void run(variant&) const;
 };
 
 
@@ -195,9 +195,10 @@ typedef Variable* PVar;
 class Variable: public Base
 {
     friend class Scope;
-protected:
+public:
     Type* const type;
-    Variable(const str& _name, Type*);
+    mem const id;
+    Variable(const str& _name, Type*, mem _id);
     ~Variable();
 };
 
@@ -230,7 +231,7 @@ public:
     ~Scope();
     Base* deepFind(const str&) const;
     Variable* addVariable(const str&, Type*);
-    int dataSize()
+    mem dataSize()
             { return vars.size(); }
 };
 
@@ -239,20 +240,25 @@ typedef State* PState;
 
 class State: public Type, public Scope
 {
+    friend class Context;
 protected:
     List<Constant> consts;
     List<Type> types;
     List<State> states;
 
     CodeSeg main;
-    CodeSeg finalize;
-
-public:
+    CodeSeg final;
     int const level;
 
+    virtual void run(langobj* self, varstack&);
+    virtual void finalize(langobj* self, varstack&);
+
+public:
     State(const str& _name, State* _parent, Context*);
     ~State();
     bool identicalTo(Type*);
+    bool canCastImplTo(Type*);
+    void runtimeTypecast(variant&);
     langobj* newObject();
     template<class T>
         T* registerType(T* t)
@@ -397,6 +403,9 @@ public:
 
 class QueenBee: public Module
 {
+protected:
+    Variable* siovar;
+    Variable* serrvar;
 public:
     None* defNone;
     Ordinal* defInt;
@@ -404,17 +413,20 @@ public:
     Ordinal* defChar;
     Container* defStr;
     Variant* defVariant;
+    Fifo* defCharFifo;
     
     QueenBee();
     void setup();
+    virtual void run(langobj* self, varstack&);
 };
+
 
 extern objptr<TypeReference> defTypeRef;
 extern objptr<QueenBee> queenBee;
+
 
 void initTypeSys();
 void doneTypeSys();
 
 
 #endif // __TYPESYS_H
-

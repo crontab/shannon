@@ -56,10 +56,10 @@ class _PtrList: public noncopyable
 public:
     _PtrList();
     ~_PtrList();
-
     mem add(void*);
     bool empty()             const { return impl.empty(); }
     mem size()               const { return impl.size(); }
+    void clear();
     void* operator[] (mem i) const { return impl[i]; }
 };
 
@@ -76,7 +76,9 @@ public:
 class _List: public _PtrList  // responsible for freeing the objects
 {
 public:
+    _List();
     ~_List();
+    void clear();
     mem add(object* o);
     object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
 };
