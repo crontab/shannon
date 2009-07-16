@@ -8,8 +8,6 @@
 #include <stack>
 
 
-// TODO: implement safe typecasts from any type to any type (for opToXXX)
-
 enum OpCode
 {
     opInv,  // to detect corrupt code segments
@@ -37,13 +35,15 @@ enum OpCode
     // Safe typecasts
     opToBool,
     opToStr,
-    opToType,           // [Type*]
-    opDynCast,          // [State*]
+    opToType,           // [Type*] -var, +var
+    opToTypeRef,        // -type, -var, +var
+    opIsType,           // [Type*] -var, +bool
+    opIsTypeRef,        // -type, -var, +bool
 
     // Arithmetic
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
     opNeg, opBitNot, opNot,
-    
+
     // Vector/string concatenation
     opCharToStr,        // -char, +str
     opCharCat,          // -char, -str, +str
@@ -155,8 +155,8 @@ public:
     void loadInt(integer i)
             { loadConst(queenBee->defInt, i); }
     void loadConst(Type*, const variant&);
-    void explicitCastTo(Type*);
     void implicitCastTo(Type*);
+    void explicitCastTo(Type*);
     void arithmBinary(OpCode);
     void arithmUnary(OpCode);
     void elemToVec();
@@ -169,3 +169,4 @@ public:
 
 
 #endif // __VM_H
+

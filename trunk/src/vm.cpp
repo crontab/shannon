@@ -95,10 +95,12 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
 
             // Safe typecasts
-            case opToBool:  *stk = stk->to_bool(); break;
-            case opToStr:   *stk = stk->to_string(); break;
-            case opToType:  IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
-            case opDynCast: notimpl(); break; // TODO:
+            case opToBool:      *stk = stk->to_bool(); break;
+            case opToStr:       *stk = stk->to_string(); break;
+            case opToType:      IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
+            case opToTypeRef:   PType(stk->as_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
+            case opIsType:      *stk = IPADV<Type*>(ip)->isMyType(*stk); break;
+            case opIsTypeRef:   *(stk - 1) = PType(stk->as_object())->isMyType(*(stk - 1)); POP(stk); break;
 
             // Arithmetic
             // TODO: range checking in debug mode
@@ -167,3 +169,5 @@ void ConstCode::run(variant& result) const
     stack.pop();
     assert(stack.size() == 0);
 }
+
+
