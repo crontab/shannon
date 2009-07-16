@@ -3,6 +3,9 @@
 
 
 #include "common.h"
+#include "typesys.h"
+
+#include <stack>
 
 
 // TODO: implement safe typecasts from any type to any type (for opToXXX)
@@ -103,6 +106,65 @@ enum OpCode
     opLinenum,          // [line-num: 16]
     
     opMaxCode
+};
+
+
+// --- CODE GENERATOR ------------------------------------------------------ //
+
+
+class CodeGen: noncopyable
+{
+protected:
+
+    struct stkinfo
+    {
+        Type* type;
+        stkinfo(Type* t): type(t) { }
+    };
+
+    CodeSeg& codeseg;
+
+    std::stack<stkinfo> genStack;
+    mem stkMax;
+#ifdef DEBUG
+    mem stkSize;
+#endif
+
+    void stkPush(Type* t, const variant& v);
+    void stkPush(Type* t)
+            { stkPush(t, null); }
+    void stkPush(Constant* c)
+            { stkPush(c->type, c->value); }
+    const stkinfo& stkTop() const;
+    Type* stkTopType() const
+            { return stkTop().type; }
+    Type* stkPop();
+
+    bool tryCast(Type*, Type*);
+    
+public:
+    CodeGen(CodeSeg&);
+    ~CodeGen();
+
+    void endConstExpr(Type* expectType);
+    void loadNone();
+    void loadBool(bool b)
+            { loadConst(queenBee->defBool, b); }
+    void loadChar(uchar c)
+            { loadConst(queenBee->defChar, c); }
+    void loadInt(integer i)
+            { loadConst(queenBee->defInt, i); }
+    void loadConst(Type*, const variant&);
+    void explicitCastTo(Type*);
+    void implicitCastTo(Type*);
+    void arithmBinary(OpCode);
+    void arithmUnary(OpCode);
+    void elemToVec();
+    void elemCat();
+    void cat();
+    void mkRange();
+    void inRange();
+    void cmp(OpCode op);
 };
 
 

@@ -191,6 +191,7 @@ public:
     virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
     void set_rt(Type* rt)   { assert(runtime_type == NULL); runtime_type = rt; }
+    void clear_rt()         { runtime_type = NULL; }
 };
 
 
@@ -638,17 +639,28 @@ class State; // see typesys.h
 
 class langobj: public object
 {
+protected:
     friend class State;
 
-protected:
+    void* operator new(size_t, mem);
+    langobj(State*);
+    ~langobj();
+    void _idx_err();
+    
+#ifdef DEBUG
+    mem varcount;
+#endif
 
-public:
     variant vars[0];
 
-    ~langobj(); // TODO: finalize vars
-
-    void* operator new(size_t);
-    void operator delete (void *p);
+public:
+#ifdef DEBUG
+    variant& operator[] (mem index)
+            { if (index >= varcount) _idx_err(); return vars[index]; }
+#else
+    variant& operator[] (mem index)
+            { return vars[index]; }
+#endif
 };
 
 

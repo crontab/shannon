@@ -1,8 +1,43 @@
 
 
+#include "version.h"
 #include "common.h"
 #include "typesys.h"
 #include "vm.h"
+
+
+// --- LANGUAGE OBJECT ----------------------------------------------------- //
+
+
+void* langobj::operator new(size_t, mem datasize)
+{
+    return new char[sizeof(langobj) + datasize * sizeof(variant)];
+}
+
+
+// Defined in runtime.h
+langobj::langobj(State* type)
+    : object(type)
+#ifdef DEBUG
+    , varcount(type->dataSize())
+#endif
+{
+    memset(vars, 0, type->dataSize() * sizeof(variant));
+}
+
+
+void langobj::_idx_err()
+{
+    throw emessage("Object index error");
+}
+
+
+langobj::~langobj()
+{
+    mem count = PState(get_rt())->dataSize();
+    while (count--)
+        vars[count].~variant();
+}
 
 
 // --- EXECUTION CONTEXT --------------------------------------------------- //
@@ -12,26 +47,50 @@ Context::Context()
     : topModule(NULL)  { }
 
 
-Module* Context::addModule(const str& name)
+Module* Context::registerModule(Module* m)
 {
+    assert(m->id == modules.size());
     if (modules.size() == 255)
         throw emessage("Maximum number of modules reached");
-    topModule = new Module(name, modules.size(), this);
-    modules.add(topModule);
-    datasegs.add(new vector(topModule));
-    return topModule;
+    modules.add(m);
+    return topModule = m;
 }
 
 
-void Context::resetDatasegs()
+Module* Context::addModule(const str& name)
 {
-    assert(modules.size() == datasegs.size());
+    return registerModule(new Module(name, modules.size(), this));
+}
+
+
+void Context::run(varstack& stack)
+{
+    assert(datasegs.empty());
     for (mem i = 0; i < modules.size(); i++)
     {
-        vector* d = datasegs[i];
-        d->clear();
-        d->resize(modules[i]->dataSize());
+        Module* m = modules[i];
+        datasegs.add(m->newObject());
     }
+
+    mem level = 0;
+    try
+    {
+        while (level < modules.size())
+        {
+            modules[level]->run(datasegs[level], stack);
+            level++;
+        }
+    }
+    catch (exception&)
+    {
+        while (level--)
+            modules[level]->finalize(datasegs[level], stack);
+        throw;
+    }
+
+    while (level--)
+        modules[level]->finalize(datasegs[level], stack);
+    datasegs.clear();
 }
 
 
@@ -160,8 +219,8 @@ void Type::runtimeTypecast(variant& v)
 // --- Variable ----------------------------------------------------------- //
 
 
-Variable::Variable(const str& _name, Type* _type)
-    : Base(_type, _name, VARIABLE), type(_type)  { }
+Variable::Variable(const str& _name, Type* _type, mem _id)
+    : Base(_type, _name, VARIABLE), type(_type), id(_id)  { }
 
 Variable::~Variable()  { }
 
@@ -216,7 +275,7 @@ Variable* Scope::addVariable(const str& name, Type* type)
 {
     if (vars.size() == 255)
         throw emessage("Maximum number of variables within one scope is reached");
-    objptr<Variable> v = new Variable(name, type);
+    objptr<Variable> v = new Variable(name, type, vars.size());
     addUnique(v);   // may throw
     vars.add(v);
     return v;
@@ -228,7 +287,7 @@ Variable* Scope::addVariable(const str& name, Type* type)
 
 State::State(const str& _name, State* _parent, Context* _context)
   : Type(defTypeRef, STATE), Scope(_parent),
-    main(this, _context), finalize(this, _context),
+    main(this, _context), final(this, _context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setName(_name);
@@ -241,6 +300,19 @@ State::~State()  { }
 
 bool State::identicalTo(Type* t)
     { return t == this; }
+
+bool State::canCastImplTo(Type* t)
+    { return t == this; } // TODO: implement inheritance
+
+langobj* State::newObject()
+    { return new(dataSize()) langobj(this); }
+
+
+void State::runtimeTypecast(variant& v)
+{
+    if (!v.is_object() || !v._object()->get_rt()->canCastImplTo(this))
+        throw emessage("Incompatible objects");
+}
 
 
 Constant* State::addConstant(const str& name, Type* type, const variant& value)
@@ -260,6 +332,20 @@ Constant* State::addTypeAlias(const str& name, Type* type)
     addUnique(c); // may throw
     consts.add(c);
     return c;
+}
+
+
+void State::run(langobj* self, varstack& stack)
+{
+    if (!main.empty())
+        main.run(self, stack);
+}
+
+
+void State::finalize(langobj* self, varstack& stack)
+{
+    if (!final.empty())
+        final.run(self, stack);
 }
 
 
@@ -438,7 +524,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module("system", mem(-1), NULL)
+  : Module("system", 0, NULL)
 {
     registerType(defTypeRef.get());
     defNone = registerType(new None());
@@ -447,6 +533,9 @@ QueenBee::QueenBee()
     defChar = registerType(new Ordinal(Type::CHAR, 0, 255));
     defStr = NULL;
     defVariant = registerType(new Variant());
+    defCharFifo = NULL;
+    siovar = NULL;
+    serrvar = NULL;
 }
 
 
@@ -455,6 +544,7 @@ void QueenBee::setup()
     // This can't be done in the constructor while the global object queenBee
     // is not assigned
     defStr = defChar->deriveVector();
+    defCharFifo = defChar->deriveFifo();
     addTypeAlias("typeref", defTypeRef);
     addTypeAlias("none", defNone);
     addConstant("null", defNone, null);
@@ -464,6 +554,17 @@ void QueenBee::setup()
     addTypeAlias("bool", defBool);
     addTypeAlias("str", defStr);
     addTypeAlias("any", defVariant);
+    siovar = addVariable("sio", defCharFifo);
+    serrvar = addVariable("serr", defCharFifo);
+    addConstant("__ver_major", defInt, SHANNON_VERSION_MAJOR);
+    addConstant("__ver_minor", defInt, SHANNON_VERSION_MINOR);
+}
+
+
+void QueenBee::run(langobj* self, varstack&)
+{
+    (*self)[siovar->id] = &sio;
+    (*self)[serrvar->id] = &serr;
 }
 
 
@@ -479,12 +580,16 @@ void initTypeSys()
     defTypeRef = new TypeReference();
     queenBee = new QueenBee();
     queenBee->setup();
+    sio.set_rt(queenBee->defCharFifo);
+    serr.set_rt(queenBee->defCharFifo);
 //    fout->set_rt();
 }
 
 
 void doneTypeSys()
 {
+    sio.clear_rt();
+    serr.clear_rt();
     defTypeRef = NULL;
     queenBee = NULL;
 }

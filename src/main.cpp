@@ -7,237 +7,8 @@
 #include "typesys.h"
 #include "vm.h"
 
-#include <stack>
-
 
 // --- THE VIRTUAL MACHINE ------------------------------------------------- //
-
-
-static void invOpcode()        { throw emessage("Invalid opcode"); }
-
-
-template<class T>
-    inline void PUSH(variant*& stk, const T& v)
-        { ::new(++stk) variant(v);  }
-
-inline void POP(variant*& stk)
-        { (*stk--).~variant(); }
-
-template<class T>
-    inline T IPADV(const uchar*& ip)
-        { T t = *(T*)ip; ip += sizeof(T); return t; }
-    
-
-#define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
-#define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
-
-
-void CodeSeg::varToVec(Vector* type, const variant& elem, variant* result)
-{
-    *result = new vector(type, 1, elem);
-}
-
-
-void CodeSeg::varCat(Vector* type, const variant& elem, variant* vec)
-{
-    assert(type->isVector());
-    vector* t = (vector*)vec->_object();
-    if (t == NULL)
-        varToVec(type, elem, vec);
-    else
-        t->push_back(elem);
-}
-
-
-void CodeSeg::vecCat(const variant& src, variant* dest)
-{
-    vector* ts = (vector*)src._object();
-    if (ts == NULL)
-        return;
-    vector* td = (vector*)dest->_object();
-    if (td == NULL)
-        *dest = src;
-    else
-    {
-        assert(td->get_rt()->isVector());
-        assert(ts->get_rt()->isVector());
-        td->append(*ts);
-    }
-}
-
-
-void CodeSeg::doRun(variant* stk, const uchar* ip)
-{
-    variant* stkbase = stk;
-    try
-    {
-        while (1)
-        {
-            switch(*ip++)
-            {
-            case opInv:     invOpcode(); break;
-            case opEnd:     goto exit;
-            case opNop:     break;
-
-            // Const loaders
-            case opLoadNull:        PUSH(stk, null); break;
-            case opLoadFalse:       PUSH(stk, false); break;
-            case opLoadTrue:        PUSH(stk, true); break;
-            case opLoadChar:        PUSH(stk, IPADV<uint8_t>(ip)); break;
-            case opLoad0:           PUSH(stk, integer(0)); break;
-            case opLoad1:           PUSH(stk, integer(1)); break;
-            case opLoadInt:         PUSH(stk, IPADV<integer>(ip)); break;
-            case opLoadNullStr:     PUSH(stk, null_str); break;
-            case opLoadNullRange:   PUSH(stk, (object*)NULL); break;
-            case opLoadNullVec:     PUSH(stk, (object*)NULL); break;
-            case opLoadNullDict:    PUSH(stk, (object*)NULL); break;
-            case opLoadNullOrdset:  PUSH(stk, (object*)NULL); break;
-            case opLoadNullSet:     PUSH(stk, (object*)NULL); break;
-            case opLoadConst:       PUSH(stk, consts[IPADV<uint8_t>(ip)]); break;
-            case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
-            case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
-
-            // Safe typecasts
-            case opToBool:  *stk = stk->to_bool(); break;
-            case opToStr:   *stk = stk->to_string(); break;
-            case opToType:  IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
-            case opDynCast: notimpl(); break; // TODO:
-
-            // Arithmetic
-            // TODO: range checking in debug mode
-            case opAdd:     BINARY_INT(+=); break;
-            case opSub:     BINARY_INT(-=); break;
-            case opMul:     BINARY_INT(*=); break;
-            case opDiv:     BINARY_INT(/=); break;
-            case opMod:     BINARY_INT(%=); break;
-            case opBitAnd:  BINARY_INT(&=); break;
-            case opBitOr:   BINARY_INT(|=); break;
-            case opBitXor:  BINARY_INT(^=); break;
-            case opBitShl:  BINARY_INT(<<=); break;
-            case opBitShr:  BINARY_INT(>>=); break;
-            case opNeg:     UNARY_INT(-); break;
-            case opBitNot:  UNARY_INT(~); break;
-            case opNot:     UNARY_INT(-); break;
-
-            // Vector/string concatenation
-            case opCharToStr:   *stk = str(1, stk->_uchar()); break;
-            case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POP(stk); break;
-            case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
-            case opVarToVec:    varToVec(IPADV<Vector*>(ip), *stk, stk); break;
-            case opVarCat:      varCat(IPADV<Vector*>(ip), *stk, stk - 1); POP(stk); break;
-            case opVecCat:      vecCat(*stk, (stk - 1)); POP(stk); break;
-
-            // Range operations (work for all ordinals)
-            case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POP(stk); break;
-            case opInRange:     *(stk - 1) = ((range*)stk->_object())->has((stk - 1)->_ord()); POP(stk); break;
-
-            // Comparators
-            case opCmpOrd:      *(stk - 1) = (stk - 1)->_ord() - stk->_ord(); POP(stk); break;
-            case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
-            case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
-
-            case opEqual:       stk->_int_write() = stk->_int() == 0; break;
-            case opNotEq:       stk->_int_write() = stk->_int() != 0; break;
-            case opLessThan:    stk->_int_write() = stk->_int() < 0; break;
-            case opLessEq:      stk->_int_write() = stk->_int() <= 0; break;
-            case opGreaterThan: stk->_int_write() = stk->_int() > 0; break;
-            case opGreaterEq:   stk->_int_write() = stk->_int() >= 0; break;
-
-            default: invOpcode(); break;
-            }
-        }
-exit:
-        if (stk != stkbase + returns)
-            fatal(0x5001, "Stack unbalanced");
-    }
-    catch(exception& e)
-    {
-        while (stk > stkbase)
-            POP(stk);
-        // TODO: stack is not free()'d here
-        throw e;
-    }
-}
-
-
-void CodeSeg::run(varstack& stack)
-{
-    assert(closed);
-    if (code.empty())
-        return;
-    doRun(stack.reserve(stksize) - 1, (const uchar*)code.data());
-    stack.free(stksize - returns);
-}
-
-
-void ConstCode::run(variant& result)
-{
-    varstack stack;
-    CodeSeg::run(stack);
-    result = stack.top();
-    stack.pop();
-    assert(stack.size() == 0);
-}
-
-
-
-// --- CODE GENERATOR ------------------------------------------------------ //
-
-
-class CodeGen: noncopyable
-{
-protected:
-
-    struct stkinfo
-    {
-        Type* type;
-        stkinfo(Type* t): type(t) { }
-    };
-
-    CodeSeg& codeseg;
-
-    std::stack<stkinfo> genStack;
-    mem stkMax;
-#ifdef DEBUG
-    mem stkSize;
-#endif
-
-    void stkPush(Type* t, const variant& v);
-    void stkPush(Type* t)
-            { stkPush(t, null); }
-    void stkPush(Constant* c)
-            { stkPush(c->type, c->value); }
-    const stkinfo& stkTop() const;
-    Type* stkTopType() const
-            { return stkTop().type; }
-    Type* stkPop();
-
-    bool tryCast(Type*, Type*);
-    
-public:
-    CodeGen(CodeSeg&);
-    ~CodeGen();
-
-    void endConstExpr(Type* expectType);
-    void loadNone();
-    void loadBool(bool b)
-            { loadConst(queenBee->defBool, b); }
-    void loadChar(uchar c)
-            { loadConst(queenBee->defChar, c); }
-    void loadInt(integer i)
-            { loadConst(queenBee->defInt, i); }
-    void loadConst(Type*, const variant&);
-    void explicitCastTo(Type*);
-    void implicitCastTo(Type*);
-    void arithmBinary(OpCode);
-    void arithmUnary(OpCode);
-    void elemToVec();
-    void elemCat();
-    void cat();
-    void mkRange();
-    void inRange();
-    void cmp(Token tok);
-};
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
@@ -389,10 +160,8 @@ bool CodeGen::tryCast(Type* from, Type* to)
         ;   // everything in the VM is a variant anyway
     else if (to->isBool())
         codeseg.addOp(opToBool);    // everything can be cast to bool
-    else if (to->isString())
-        codeseg.addOp(opToStr);     // ... as well as to string
     else if (from->canCastImplTo(to))
-        ;   // means variant copying is considered safe, including State casts (not implemented yet)
+        ;   // means variant copying is considered safe, including State casts
     else
         return false;
     return true;
@@ -417,17 +186,18 @@ void CodeGen::explicitCastTo(Type* to)
     Type* from = stkPop();
     if (tryCast(from, to))
         ;   // implicit typecast does the job
-    else if (from->isVariant() || (from->isOrdinal() && to->isOrdinal()))
-    {
+    else if (to->isString())
+        codeseg.addOp(opToStr); // explicit cast to string: any object goes
+    else if (
+        // Variants should be typecast'ed to other types explicitly, except to boolean
+        from->isVariant()
         // Ordinals must be casted at runtime so that the variant type of the
         // value on the stack is correct for subsequent operations.
-        codeseg.addOp(opToType);    // calls to->runtimeTypecast(v)
-        codeseg.addPtr(to);
-    }
-    else if (from->isState() && to->isState())
+        || (from->isOrdinal() && to->isOrdinal())
+        // States: implicit type cast wasn't possible, so try run-time typecast
+        || (from->isState() && to->isState()))
     {
-        // Implicit type cast wasn't possible, so try run-time typecast
-        codeseg.addOp(opDynCast);
+        codeseg.addOp(opToType);    // calls to->runtimeTypecast(v)
         codeseg.addPtr(to);
     }
     else
@@ -529,9 +299,9 @@ void CodeGen::inRange()
 }
 
 
-void CodeGen::cmp(Token tok)
+void CodeGen::cmp(OpCode op)
 {
-    assert(tok >= tokEqual && tok <= tokGreaterEq);
+    assert(op >= opEqual && op <= opGreaterEq);
     Type* right = stkPop();
     Type* left = stkPop();
     if (!right->canCastImplTo(left))
@@ -543,11 +313,11 @@ void CodeGen::cmp(Token tok)
     else
     {
         // Only == and != are allowed for all other types
-        if (tok != tokEqual && tok != tokNotEq)
+        if (op != opEqual && op != opNotEq)
             throw emessage("Only equality can be tested for this type");
         codeseg.addOp(opCmpVar);
     }
-    codeseg.addOp(opEqual + OpCode(tok - tokEqual));
+    codeseg.addOp(op);
     stkPush(queenBee->defBool);
 }
 
@@ -646,6 +416,13 @@ int main()
         }
         seg.run(r);
         check(r.to_string() == "[1, 2, 3, 4]");
+        
+        {
+            varstack stk;
+            Context ctx;
+            ctx.registerModule(queenBee);
+            ctx.run(stk);
+        }
     }
     catch (std::exception& e)
     {

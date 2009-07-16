@@ -32,6 +32,7 @@ Symbol* _SymbolTable::find(const str& name) const
 
 _PtrList::_PtrList()  { }
 _PtrList::~_PtrList()  { }
+void _PtrList::clear()  { impl.clear(); }
 
 
 mem _PtrList::add(void* p)
@@ -41,12 +42,18 @@ mem _PtrList::add(void* p)
 }
 
 
+_List::_List()              { }
+_List::~_List()             { clear(); }
 mem _List::add(object* o)   { return _PtrList::add(grab(o)); }
 
 
-_List::~_List()
+void _List::clear()
 {
-    for(mem i = 0; i < size(); i++)
+    mem i = size();
+    while (i--)
         release(operator[](i));
+    _PtrList::clear();
 }
+
+
 

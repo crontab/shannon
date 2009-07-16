@@ -628,11 +628,11 @@ void test_typesys()
 
 int main()
 {
-    fout << "short: " << sizeof(short) << "  long: " << sizeof(long)
+    sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
          << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
          << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
          << "  double: " << sizeof(double) << '\n';
-    fout << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
+    sio << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
          << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
          << "  object: " << sizeof(object) << '\n';
 
