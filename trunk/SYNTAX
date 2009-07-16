@@ -12,125 +12,19 @@
 #   end of statement: <SEP> (end-of-line or ';')
 #   block-begin and block-end: <BEGIN> and <END> (':' followed by indented
 #       blocks until unindent to the previous level, or a special case with
-#       a single line that follows after ':', also C-style blocks will be
-#       supported in the future
+#       a single line that follows after ':', also C-style blocks are 
+#       supported.
 #
 
 
-# Basic elements
-
-ident ::= ( letter | "_" ) ## { letter | digit | "_" }
-
-number ::= decimal | hexadecimal
-
-decimal ::= digit ## { digit }
-
-hexadecimal ::= "0x" ## hexdigit ## { hexdigit }
-
-string-literal ::= "'" ## { string-element } ## "'"
-
-string-element ::= printable-char | string-escape
-
-string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
-        | ( "\x" ## hexdigit ## hexdigit )
-
-
-# Definitions
-
-definition ::= type-def | const-def | var-def
-
-type-def ::= "def" type [ "/" type ] ident { type-derivator }
-
-type ::= type-id { type-derivator }
-
-type-id ::= qualified-name | "typeof" "(" expr ")" | subrange | "enum"
-        | "state"
-
-type-derivator ::= array-derivator | mute-derivator | range-derivator
-        | enum-spec | func-derivator
-
-array-derivator ::= "[" [ type ] "]"
-
-mute-derivator ::= "^"
-
-range-derivator ::= "[" ".." "]"
-
-enum-spec ::= "(" ident { "," ident } ")"
-
-func-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")" function-body
-
-const-def ::= "const" ( auto-object-spec | typed-object-spec ) "=" const-expr
-
-var-def ::= typed-object-spec "=" expr
-
-auto-object-spec ::= ident
-
-typed-object-spec ::= type ident { type-derivator }
-
-subrange ::= rel-expr ".." rel-expr
-
-
-# Expressions
-
-expr ::= or-expr [ ".." or-expr ]
-
-or-expr ::= and-expr { ( "or" | "xor" ) and-expr }
-
-and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
-
-not-expr ::= [ "not" ] rel-expr
-
-rel-expr ::= simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" ) simple-expr }
-
-simple-expr ::= arithm-expr { "|" arithm-expr }
-
-arithm-expr ::= term { ( "+" | "-" ) term }
-
-term ::= factor { ( "*" | "/" | "mod" ) factor }
-
-factor ::= [ "-" | "not" ] designator
-
-designator ::= atom { }
-
-atom ::= literal | qualified-name | subexpr | compound-ctor
-    | fifo-ctor | type | if-expr
-
-literal ::= number | string | "true" | "false" | "null"
-
-qualified-name ::= { ident "." } ident
-
-subexpr ::= "(" expr ")"
-
-compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
-
-element-ctor ::= [ expr "=" ] expr
-
-if-expr ::= "if" "(" expr, expr, expr ")"
-
-
-fifo-ctor ::= "<" [ expr-list ] ">"
-
-expr-list ::= expr { "," expr }
-
-array-item-selection ::= "[" expr "]"
-
-function-call ::= "(" [ expr-list ] ")"
-
-mute ::= "^"
-
-fifo-pull ::= atom "::" expr
-
-fifo-filter ::= atom "||" expr
-
-
-# Module
+# ---------- Module
 
 module ::= [module-header <SEP>] statement-list
 
 module-header ::= "module" ident
 
 
-# Statements
+# ---------- Statements
 
 statement-list ::= { ( statement | definition ) <SEP> }
 
@@ -156,3 +50,68 @@ case-clause ::= "case" expr <BEGIN>
         <END>
 
 case-label ::= const-expr | subrange
+
+
+
+# ---------- Definitions
+
+
+
+# ---------- Expressions
+
+expr ::= or-expr [ ".." or-expr ]
+
+or-expr ::= and-expr { ( "or" | "xor" ) and-expr }
+
+and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
+
+not-expr ::= [ "not" ] rel-expr
+
+rel-expr ::= simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" | "<>" ) simple-expr }
+
+simple-expr ::= arithm-expr { "|" arithm-expr }
+
+arithm-expr ::= term { ( "+" | "-" ) term }
+
+term ::= factor { ( "*" | "/" | "mod" ) factor }
+
+factor ::= [ "-" | "not" ] designator
+
+designator ::= atom { array-item-selection | member-selection | function-call }
+
+atom ::= number | string | ident | subexpr | compound-ctor | type | if-expr
+
+subexpr ::= "(" expr ")"
+
+compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
+
+element-ctor ::= [ expr "=" ] expr
+
+if-expr ::= "if" "(" expr, expr, expr ")"
+
+array-item-selection ::= "[" expr "]"
+
+member-selection ::= '.' ident
+
+function-call ::= "(" [ expr-list ] ")"
+
+expr-list ::= expr { "," expr }
+
+
+# Basic elements
+
+ident ::= ( letter | "_" ) ## { letter | digit | "_" }
+
+number ::= decimal | hexadecimal
+
+decimal ::= digit ## { digit }
+
+hexadecimal ::= "0x" ## hexdigit ## { hexdigit }
+
+string-literal ::= "'" ## { string-element } ## "'"
+
+string-element ::= printable-char | string-escape
+
+string-escape ::= "\\" | "\t" | "\r" | "\n" | "\'"
+        | ( "\x" ## hexdigit ## hexdigit )
+
