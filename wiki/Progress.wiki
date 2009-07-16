@@ -4,7 +4,7 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML (^) the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
 
-*Data types* are: int, char, enum, bool and their subranges; string, range, vector, array, dictionary, set, state (functions and classes unified), typeref, variant and none. Each described below in more detail. (Floating point type is not supported in this release.)
+*Data types* are: int, char, enum, bool and their subranges; string, range, vector, array, dictionary, set, fifo, state (functions and classes unified), typeref, variant and none. Each described below in more detail. (Floating point type is not supported in this release.)
 
 *Integer* is defined as a range, e.g. 1..7, -128..127, 0..65535, etc. An alias called `int` (not a keyword) is defined in the system module as either a signed 32-bit integer or 64-bit, depending on the build mode of the compiler. You can define your own int subranges and assign aliases, for example `def byte = 0..255`. Internally, everything is kept as the maximum int (32 or 64 bit). Values are checked for overflow if the program is run with the RANGE_CHECKING flag set - on by default in DEBUG mode (^).
 
@@ -12,11 +12,9 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *Enum* is defined as `enum(value, value, ...)`, e.g., to create an alias for days of week: `def dow = enum(Mon, Tue, Wed, Thu, Fri, Sat, Sun)`, where Mon is assigned 0, Tue will be 1, etc. Enums are _not_ compatible with ints unless typecast'ed, e.g. `int(Mon)` or `dow(2)`. Subranges of enums are possible, e.g.: `def workdays = Mon..Fri`. Subranges of the same enum type are, of course, compatible, i.e. a variable of type `dow` can be assigned to a variable of type `workday`, with possible range check, if enabled.
 
-*Boolean* type is defined in the system module as `def bool = enum(false, true)`, so none of these identifiers are keywords. Boolean type is not compatible with any other type, however, almost all other types (except typerefs and states) can be implicitly typecast'ed to boolean when encountered in a boolean context. For ordinals (int, char, enum), such conversion yields `false` if the ordinal value is 0; for ranges - if the range is empty (i.e. left > right), for strings and all containers - if the object is empty. E.g. `if s: ...`, where `s` is a string means if the string `s` is not empty.
+*Boolean* type is defined in the system module as `def bool = enum(false, true)`, so none of these identifiers are keywords. Boolean type is not compatible with any other type, however, almost all other types (except typerefs and states) can be implicitly typecast'ed to boolean when encountered in a boolean context. For ordinals (int, char, enum), such conversion yields `false` if the ordinal value is 0; for ranges - if the range is empty (i.e. low > high), for strings, all containers and fifos - if the object is empty. E.g. `if s: ...`, where `s` is a string means if the string `s` is not empty.
 
 *Range* type is declared as `type[..]`, where `type` must be an ordinal type (int, char, enum). A value of type range is a pair of ordinals; range literals are in the form: e.g. [0..9], ['a'..'z'] - not to be confused with the ordinal subrange type, which is a data type, not a value. For example, a constant that holds a range of chars '0' through '9': `def char[..] digits = ['0'..'9']`, or simply `def digits = ['0'..'9']` (since the data type for this const can be determined automatiaclly, it can be omitted). Square brackets can be omitted when used with the `in` operator in loops and boolean expressions: `for d in Mod..Fri: ...` or `if c in 'a'..'z': ...`. Because ranges are in some ways similar to sets, they are compatible with sets with identical element types, i.e. can be converted implicitly at run time if necessary.
-
-*Arithmetic operators* are: +, -, `*`, /, mod, also bitwise `and, or, xor, shl, shr, not`. Boolean operators are: `and, or, xor, not` and are distinguished by operand types.
 
 *Strings and vectors* are unified: concatenation (the pipe sign "|") and assignment rules apply to both, i.e. an element can be assigned or concatenated to a vector of a corresponding type. Strings have one additional feature though: they can be compared (==, <, <=, >=, !=, <>), while vectors can only be compared for equality. The vector constructor (`[a, b, ...]`) can be used both in constant expressions and at run time.
 
@@ -24,7 +22,13 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *Set/array/dict literals* have same syntax `[value, ...]` or `[key = value, ...]`. The exact type is determined by the context. In cases where the type can't be determined, a typecast is required, e.g. when initializing a variant variable. A set literal is a list of keys with no values. For sets of ordinal types also ranges are allowed in value specs, e.g. `[0..2, 5]`.
 
-*Diagnostic built-ins*: `echo` and `assert` are for debugging purposes: you can turn them on or off from the command line or using a compiler directive (not implemented yet), in which case the compiler will ignore these statements. Both `echo` and `assert` don't require parens (and shame on you, Python 3). `Echo` accepts a comma-separated list, where each comma generates a space.
+*Variant type* is called `any`. It can hold any value, simple or compound, and also the value of a variant can be `null`. Variants should be typecast'ed explicitly in expressions and assignments mixed with typed entities. The only two automatic conversions possible are: to boolean in boolean expressions and also to a string in the echo statement. In fact, this applies to all types, not only variants.
+
+*Operators* are: +, -, `*`, /, mod, also bitwise `and, or, xor, shl, shr, not`; boolean: `and, or, xor, not`,  distinguished from bitwise operators by operand types; special operators: `in, is, as`.
+
+*Diagnostic built-ins*: `echo` and `assert` are for debugging purposes: you can turn them on or off from the command line or using a compiler directive (^), in which case the compiler will ignore these statements. Both `echo` and `assert` don't require parens (and shame on you, Python 3). `Echo` accepts a comma-separated list, where each comma generates a space.
+
+*Other built-ints*: copy(), count(), low(), high(), del(), ins() (^).
 
 *The if() function* -- `if (cond, a, b)` -- is similar to the ?: operator in C. It accepts 3 arguments - the condition and 2 "branches", however, it executes only one of the branches, like the 'real' if statement, which is important to remember when using expressions with side effects.
 
@@ -33,5 +37,3 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 *if... elif... else, while... break... continue...* Enjoy them. You don't need to put parens around  conditional expressions like in C.
 
 *Case operator* is like in Pascal: the labels are constant values or ranges, also a list of values/ranges is allowed. In the current implementation, ordinals, typerefs and strings are allowed for case.
-
-*Variant type* is called `any`. It can hold any value, simple or compound, and also the value of a variant can be `null`. Variants should be typecast'ed explicitly in expressions and assignments mixed with typed entities. The only two automatic conversions possible are: to boolean in boolean expressions and also to a string in the echo statement. In fact, this applies to all types, not only variants.
