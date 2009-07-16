@@ -1,10 +1,14 @@
 #summary Very brief description of language features as they are implemented already
 
-*Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
+Legend: (^) - not implemented at the moment, (?) - questionable feature, may be changed or removed.
 
-*Constant and variable declarations* start with `const` and `var` respectively (e.g. `const int i = 0`), one definition at a time. Type specification can be omitted, in which case it is automatically determined from the initializer (`var v = 0`). Initializers are always required both for constants and variables.
+*Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML (^) the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines.
 
-*Type aliases and the typeref data type*: type aliases start with `def`, the rest is like in C, but also Java/C#-like syntax is allowed. Or both. For example, `int[] a[]` is equivalent to `int a[][]` or `int[][] a`. Function/state definitions also start with `def` because they are types. Type aliases are actually constants of type `typeref`, so `def int a[]` is fully equivalent to `const typeref a = int[]` (where the type can be omitted, i.e. `const a = int[]`). `Typeref` variables are also possible: they can be used with operators `is` and `as`.
+*Data types* are: int, char, enum, bool and their subranges; string, range, vector, array, dictionary, set, state (functions and classes unified), variant and none. Each described below in more detail.
+
+*Integer* is defined as a range, e.g. 1..7, -128..127, 0..65535, etc. An alias called `int` (not a keyword) is defined in the system module as either a signed 32-bit integer or 64-bit, depending on the build mode of the compiler. You can define your own int subranges and assign aliases, for example `def byte = 0..255`. Internally, everything is kept as the maximum int (32 or 64 bit). Values are checked for overflow if the program is run with the RANGE_CHECKING flag set - on by default in DEBUG mode (^).
+
+*Char*: the default character type called `char` is defined in the system module as a range '\x00'..'\xff'. Like with ints, subranges are possible. Char values are not compatible with ints, but like with all ordinal types, static typecasts are possible in both directions, e.g. `int('a')` or `char(10)`. Both char and string literals are denoted by single quotes; a single-char string is assumed as a char by the compiler; automatic conversions are performed when a char is used in a string expression (e.g. `'abc' | 'd'` yields `'abcd'`).
 
 *Ordinal subrange* type is similar to that of Pascal: you can have, for example, 0..9, 'a'..'z', `Mon..Fri` (if Mon and Fri are enum constants), etc. as type specs. In fact, int, char and bool are not built-in types, they are defined through subranges in the System module.
 
