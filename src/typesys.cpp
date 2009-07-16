@@ -204,23 +204,23 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 
 
 bool Type::identicalTo(Type* t)  // for comparing container elements, indexes
-        { return t->is(typeId); }
+    { return t->is(typeId); }
 
 bool Type::canCastImplTo(Type* t)  // can assign or automatically convert the type without changing the value
-        { return identicalTo(t); }
+    { return identicalTo(t); }
+
+bool Type::isMyType(variant& v)
+    { return (v.is_object() && identicalTo(v._object()->get_rt())); }
 
 void Type::runtimeTypecast(variant& v)
-{
-    if (!v.is_object() || !identicalTo(v._object()->get_rt()))
-        typeMismatch();
-}
+    { if (!isMyType(v)) typeMismatch(); }
 
 
 // --- Variable ----------------------------------------------------------- //
 
 
-Variable::Variable(const str& _name, Type* _type, mem _id)
-    : Base(_type, _name, VARIABLE), type(_type), id(_id)  { }
+Variable::Variable(const str& _name, Type* _type, mem _id, bool _readOnly)
+    : Base(_type, _name, VARIABLE), type(_type), id(_id), readOnly(_readOnly)  { }
 
 Variable::~Variable()  { }
 
@@ -228,13 +228,8 @@ Variable::~Variable()  { }
 // --- Constant ----------------------------------------------------------- //
 
 
-Constant::Constant(const str& _name, Type* _type)
-    : Base(_type, _name, CONSTANT), type(defTypeRef),
-      value(_type)  { }
-
-
 Constant::Constant(const str& _name, Type* _type, const variant& _value)
-    : Base(_type, _name, CONSTANT), type(_type), value(_value)  { }
+    : Base(_type, _name, DEFINITION), type(_type), value(_value)  { }
 
 
 Constant::~Constant()  { }
@@ -304,15 +299,18 @@ bool State::identicalTo(Type* t)
 bool State::canCastImplTo(Type* t)
     { return t == this; } // TODO: implement inheritance
 
+
 langobj* State::newObject()
-    { return new(dataSize()) langobj(this); }
-
-
-void State::runtimeTypecast(variant& v)
 {
-    if (!v.is_object() || !v._object()->get_rt()->canCastImplTo(this))
-        throw emessage("Incompatible objects");
+    mem s = dataSize();
+    if (s == 0)
+        return NULL;
+    return new(s) langobj(this);
 }
+
+
+bool State::isMyType(variant& v)
+    { return (v.is_object() && v._object()->get_rt()->canCastImplTo(this)); }
 
 
 Constant* State::addConstant(const str& name, Type* type, const variant& value)
@@ -326,7 +324,7 @@ Constant* State::addConstant(const str& name, Type* type, const variant& value)
 
 Constant* State::addTypeAlias(const str& name, Type* type)
 {
-    objptr<Constant> c = new Constant(name, type);
+    objptr<Constant> c = new Constant(name, defTypeRef, type);
     if (type->name.empty())
         type->setName(name);
     addUnique(c); // may throw
@@ -360,6 +358,7 @@ Module::Module(const str& _name, mem _id, Context* _context)
 
 
 None::None(): Type(defTypeRef, NONE)  { }
+bool None::isMyType(variant& v)  { return v.is_null(); }
 
 
 // --- Ordinal ------------------------------------------------------------- //
@@ -390,6 +389,12 @@ bool Ordinal::identicalTo(Type* t)
 
 bool Ordinal::canCastImplTo(Type* t)
     { return t->is(typeId); }
+
+
+bool Ordinal::isMyType(variant& v)
+{
+    return isBool() || (v.is_ordinal() && isInRange(v.as_ordinal()));
+}
 
 
 void Ordinal::runtimeTypecast(variant& v)
@@ -509,8 +514,7 @@ bool Fifo::identicalTo(Type* t)
 
 
 Variant::Variant(): Type(defTypeRef, VARIANT)  { }
-
-
+bool Variant::isMyType(variant&)  { return true; }
 void Variant::runtimeTypecast(variant&)  { }
 
 

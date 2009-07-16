@@ -108,15 +108,15 @@ void typeMismatch();
 class Base: public Symbol
 {
 public:
-    enum BaseId { VARIABLE, CONSTANT };
+    enum BaseId { VARIABLE, DEFINITION };
 
     BaseId const baseId;
 
     Base(Type*, BaseId);
     Base(Type*, const str&, BaseId);
 
-    bool isVariable() const   { return baseId == VARIABLE; }
-    bool isConstant() const   { return baseId == CONSTANT; }
+    bool isVariable() const     { return baseId == VARIABLE; }
+    bool isDefinition() const   { return baseId == DEFINITION; }
 };
 
 
@@ -132,7 +132,7 @@ public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
         DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
 
-    enum { MAX_ARRAY_INDEX = 256 };
+    enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
 protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
@@ -186,6 +186,7 @@ public:
 
     virtual bool identicalTo(Type*);  // for comparing container elements, indexes
     virtual bool canCastImplTo(Type*);  // can assign or automatically convert the type without changing the value
+    virtual bool isMyType(variant&);
     virtual void runtimeTypecast(variant&);
 };
 
@@ -198,7 +199,8 @@ class Variable: public Base
 public:
     Type* const type;
     mem const id;
-    Variable(const str& _name, Type*, mem _id);
+    bool const readOnly;
+    Variable(const str& _name, Type*, mem _id, bool _readOnly = false);
     ~Variable();
 };
 
@@ -211,8 +213,7 @@ class Constant: public Base
 public:
     Type* const type;
     variant const value;
-    Constant(const str&, Type*);                    // type alias
-    Constant(const str&, Type*, const variant&);    // ordinary constant
+    Constant(const str&, Type*, const variant&);
     ~Constant();
     bool isTypeAlias()
             { return type->isTypeRef(); }
@@ -258,7 +259,7 @@ public:
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
-    void runtimeTypecast(variant&);
+    bool isMyType(variant&);
     langobj* newObject();
     template<class T>
         T* registerType(T* t)
@@ -283,6 +284,7 @@ class None: public Type
 {
 public:
     None();
+    bool isMyType(variant&);
 };
 
 
@@ -301,6 +303,7 @@ public:
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
+    bool isMyType(variant&);
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
@@ -387,7 +390,8 @@ class Variant: public Type
 {
 public:
     Variant();
-    virtual void runtimeTypecast(variant&);
+    bool isMyType(variant&);
+    void runtimeTypecast(variant&);
 };
 
 

@@ -603,21 +603,21 @@ void test_typesys()
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
     Base* b = queenBee->deepFind("true");
-    check(b != NULL && b->isConstant());
+    check(b != NULL && b->isDefinition());
     check(PConst(b)->value.as_int() == 1);
     check(PConst(b)->type->isBool());
 
     {
         State state("test", queenBee, NULL);
         b = state.deepFind("true");
-        check(b != NULL && b->isConstant());
+        check(b != NULL && b->isDefinition());
         check(state.deepFind("untrue") == NULL);
         state.addVariable("a", queenBee->defInt);
         check_throw(state.addVariable("a", queenBee->defInt));
         check_nothrow(state.addVariable("true", queenBee->defInt));
         state.addTypeAlias("ool", queenBee->defBool);
         b = state.deepFind("ool");
-        check(b != NULL && b->isConstant());
+        check(b != NULL && b->isDefinition());
         check(PConst(b)->isTypeAlias());
         check(PConst(b)->getAlias()->isBool());
     }

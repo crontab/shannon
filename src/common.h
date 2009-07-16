@@ -31,9 +31,10 @@
 // On a Mac:
 // short: 2  long: 4  long long: 8  int: 4  void*: 4  float: 4  double: 8
 // integer: 4  mem: 4  real: 4  variant: 8
+
 // On 64-bit Linux:
 // short: 2  long: 8  long long: 8  int: 4  void*: 8  float: 4  double: 8
-// integer: 8  mem: 8  real: 8  variant: 16
+// integer: 8  mem: 8  real: 8  variant: 16  object: 16/24
 
 // SH64 can be enabled both on 64 and 32-bit systems
 #ifdef PTR64
