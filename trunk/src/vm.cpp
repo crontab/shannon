@@ -78,10 +78,11 @@ void CodeSeg::varToVec(Vector* type, const variant& elem, variant* result)
 }
 
 
-void CodeSeg::varCat(Vector* type, const variant& elem, variant* vec)
+void CodeSeg::varCat(const variant& elem, variant* vec)
 {
-    assert(type->isVector());
+    assert(vec->as_object()->get_rt()->isVector());
     vector* t = (vector*)vec->_object();
+    Vector* type = CAST(Vector*, t->get_rt());
     if (t == NULL)
         varToVec(type, elem, vec);
     else
@@ -146,14 +147,15 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
             
             case opPop:             POP(stk); break;
+            case opSwap:            varswap(stk, stk - 1); break;
 
             // Safe typecasts
             case opToBool:      *stk = stk->to_bool(); break;
             case opToStr:       *stk = stk->to_string(); break;
             case opToType:      IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
-            case opToTypeRef:   CAST(Type*, stk->as_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
+            case opToTypeRef:   CAST(Type*, stk->_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
             case opIsType:      *stk = IPADV<Type*>(ip)->isMyType(*stk); break;
-            case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->as_object())->isMyType(*(stk - 1)); POP(stk); break;
+            case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->_object())->isMyType(*(stk - 1)); POP(stk); break;
 
             // Arithmetic
             // TODO: range checking in debug mode
@@ -176,8 +178,8 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POP(stk); break;
             case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
             case opVarToVec:    varToVec(IPADV<Vector*>(ip), *stk, stk); break;
-            case opVarCat:      varCat(IPADV<Vector*>(ip), *stk, stk - 1); POP(stk); break;
-            case opVecCat:      vecCat(*stk, (stk - 1)); POP(stk); break;
+            case opVarCat:      varCat(*stk, stk - 1); POP(stk); break;
+            case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 
             // Range operations
             case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POP(stk); break;
@@ -230,54 +232,65 @@ StateBody::StateBody(State* state, Context* context)
 StateBody::~StateBody() { }
 
 
-Context::Context()  { }
+Context::Context()
+{
+    registerModule("system", queenBee);
+}
+
 Context::~Context()  { }
 
 
-ModuleAlias* Context::registerModule(const str& name, Module* module)
+ModuleAlias* Context::registerModule(const str& name, Module* type)
 {
-    assert(module->id == modules.size());
-    if (modules.size() == 255)
+    assert(type->id == defs.size());
+    if (defs.size() == 255)
         throw emessage("Maximum number of modules reached");
-    ModuleAlias* alias = new ModuleAlias(name, module, new StateBody(module, this));
-    modules.add(alias);
-    addUnique(alias);
-    module->setName(name);
+    objptr<StateBody> body = new StateBody(type, this);
+    objptr<ModuleAlias> alias = new ModuleAlias(name, type, body);
+    addUnique(alias);   // may throw
+    types.add(type);
+    bodies.add(body);
+    defs.add(alias);
+    type->setName(name);
     return alias;
 }
 
 
 ModuleAlias* Context::addModule(const str& name)
 {
-    objptr<Module> module = new Module(modules.size());
+    objptr<Module> module = new Module(defs.size());
     return registerModule(name, module);
 }
 
 
 void Context::run(varstack& stack)
 {
+    // TODO: call a virtual init method for all modules
     assert(datasegs.empty());
-    for (mem i = 0; i < modules.size(); i++)
-        datasegs.add(getModule(i)->newObject());
+    assert(types.size() == bodies.size() && bodies.size() == defs.size());
+
+    mem count = defs.size();
+    for (mem i = 0; i < count; i++)
+        datasegs.add(types[i]->newObject());
 
     mem level = 0;
     try
     {
-        while (level < modules.size())
+        while (level < count)
         {
-            getBody(level)->run(datasegs[level], stack);
+            bodies[level]->run(datasegs[level], stack);
             level++;
         }
     }
     catch (exception&)
     {
         while (level--)
-            getBody(level)->finalize(datasegs[level], stack);
+            bodies[level]->finalize(datasegs[level], stack);
         throw;
     }
 
     while (level--)
-        getBody(level)->finalize(datasegs[level], stack);
+        bodies[level]->finalize(datasegs[level], stack);
     datasegs.clear();
 }
 

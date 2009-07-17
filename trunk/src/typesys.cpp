@@ -229,9 +229,9 @@ Variable* Scope::addVariable(const str& name, Type* type)
 {
     if (vars.size() == 255)
         throw emessage("Maximum number of variables within one scope is reached");
-    Variable* v = new Variable(name, type, vars.size());
-    vars.add(v);
+    objptr<Variable> v = new Variable(name, type, vars.size());
     addUnique(v);   // may throw
+    vars.add(v);
     return v;
 }
 
@@ -276,20 +276,20 @@ Module::~Module()  { }
 
 Constant* State::addConstant(const str& name, Type* type, const variant& value)
 {
-    Constant* c = new Constant(name, type, value);
-    consts.add(c);
+    objptr<Constant> c = new Constant(name, type, value);
     addUnique(c); // may throw
+    consts.add(c);
     return c;
 }
 
 
 Constant* State::addTypeAlias(const str& name, Type* type)
 {
-    Constant* c = new Constant(name, defTypeRef, type);
+    objptr<Constant> c = new Constant(name, defTypeRef, type);
+    addUnique(c); // may throw
+    consts.add(c);
     if (type->name.empty())
         type->name = name;
-    consts.add(c);
-    addUnique(c); // may throw
     return c;
 }
 
@@ -504,11 +504,28 @@ void QueenBee::setup()
     addConstant("__ver_minor", defInt, SHANNON_VERSION_MINOR);
 }
 
-
+/*
 void QueenBee::run(langobj* self, varstack&)
 {
     (*self)[siovar->id] = &sio;
     (*self)[serrvar->id] = &serr;
+}
+*/
+
+
+Type* QueenBee::typeFromValue(const variant& v)
+{
+    switch (v.getType())
+    {
+    case variant::NONE: return defNone;
+    case variant::BOOL: return defBool;
+    case variant::CHAR: return defChar;
+    case variant::INT:  return defInt;
+    case variant::REAL: notimpl(); break;
+    case variant::STR:  return defStr;
+    case variant::OBJECT: return v._object()->get_rt();
+    }
+    return NULL;
 }
 
 

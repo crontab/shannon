@@ -34,6 +34,7 @@ enum OpCode
     opLoadTypeRef,      // [Type*]
     
     opPop,              // -var
+    opSwap,
 
     // Safe typecasts
     opToBool,
@@ -53,7 +54,7 @@ enum OpCode
     opCharCat,          // -char, -str, +str
     opStrCat,           // -str, -str, +str
     opVarToVec,         // [Vector*] -var, +vec
-    opVarCat,           // [Vector*] -var, -vec, +vec
+    opVarCat,           // -var, -vec, +vec
     opVecCat,           // -var, -vec, +vec
 
     // Range operations (work for all ordinals)
@@ -75,9 +76,9 @@ enum OpCode
     opLoadThis,         // [var-index: 8]
     opLoadOuter,        // [level: 8, var-index: 8]
     opLoadStatic,       // [module: 8, var-index: 8]
-    opLoadStrElem,      // -index, -str, +char
-    opLoadVecElem,      // -index, -vector, +val
-    opLoadDictElem,     // -key, -dict, +val
+    opLoadStrElem,      // -str, -index, +char
+    opLoadVecElem,      // -vector, -index, +val
+    opLoadDictElem,     // -dict, -key, +val
     opLoadMember,       // [var-index: 8] -obj, +val
 
     // Storers
@@ -86,9 +87,9 @@ enum OpCode
     opStoreThis,        // [var-index: 8]
     opStoreOuter,       // [level: 8, var-index: 8]
     opStoreStatic,      // [module: 8, var-index: 8]
-    opStoreStrElem,     // -char, -index, -str
-    opStoreVecElem,     // -val, -index, -vector
-    opStoreDictElem,    // -val, -key, -dict
+    opStoreStrElem,     // -index, -char, -str
+    opStoreVecElem,     // -index, -val, -vector
+    opStoreDictElem,    // -key, -val, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
 
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
@@ -159,7 +160,7 @@ protected:
 
     // Execution
     static void varToVec(Vector* type, const variant& elem, variant* result);
-    static void varCat(Vector* type, const variant& elem, variant* vec);
+    static void varCat(const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
     void run(langobj* self, varstack&) const;
@@ -189,10 +190,11 @@ class StateBody: public object, public CodeSeg
 {
     friend class Context;
 protected:
-    CodeSeg final;
     void finalize(langobj* self, varstack& stack)
         { final.run(self, stack); }
 public:
+    CodeSeg final;
+
     StateBody(State*, Context*);
     ~StateBody();
 };
@@ -201,16 +203,16 @@ public:
 class Context: protected BaseTable<ModuleAlias>
 {
 protected:
-    List<ModuleAlias> modules;
+    List<Module> types;
+    List<StateBody> bodies;
+    List<ModuleAlias> defs;
     List<langobj> datasegs;
 
-    Module* getModule(mem i)    { return CAST(Module*, modules[i]->getStateType()); }
-    StateBody* getBody(mem i)   { return modules[i]->getBody(); }
+    ModuleAlias* registerModule(const str& name, Module*);   // for built-in modules
 
 public:
     Context();
     ~Context();
-    ModuleAlias* registerModule(const str& name, Module*);   // for built-in modules
     ModuleAlias* addModule(const str& name);
     void run(varstack&); // <--- this is where execution starts
 };
@@ -257,6 +259,7 @@ public:
     CodeGen(CodeSeg&);
     ~CodeGen();
 
+    void end();
     void endConstExpr(Type* expectType);
     void loadNone();
     void loadBool(bool b)
@@ -267,6 +270,7 @@ public:
             { loadConst(queenBee->defInt, i); }
     void loadConst(Type*, const variant&);
     void discard();
+    void swap();
     void implicitCastTo(Type*);
     void explicitCastTo(Type*);
     void dynamicCast();
