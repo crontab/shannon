@@ -123,25 +123,13 @@ inline bool isCmpOp(OpCode op)
 
 // --- CODE SEGMENT ------------------------------------------------------- //
 
-
-class Context: noncopyable
-{
-protected:
-    List<Module> modules;
-    List<langobj> datasegs;
-    Module* topModule;
-public:
-    Context();
-    Module* registerModule(Module*);   // for built-in modules
-    Module* addModule(const str& name);
-    void run(varstack&); // <--- this is where execution starts
-};
+class Context;
 
 
 class CodeSeg: noncopyable
 {
     friend class CodeGen;
-    friend class State;
+    friend class StateBody;
 
     // This object can be duplicated if necessary with a different context
     // assigned; the code segment is a refcounted string, so copying would
@@ -196,18 +184,41 @@ public:
 };
 
 
-class StateBody: public object
+class StateBody: public object, public CodeSeg
 {
+    friend class Context;
 protected:
-    CodeSeg main;
     CodeSeg final;
-
-    virtual void run(langobj* self, varstack&);
-    virtual void finalize(langobj* self, varstack&);
-
+    void finalize(langobj* self, varstack& stack)
+        { final.run(self, stack); }
 public:
     StateBody(State*, Context*);
     ~StateBody();
+};
+
+typedef StateBody* PStateBody;
+
+
+class Context: noncopyable
+{
+protected:
+    List<Constant> modules;
+    List<langobj> datasegs;
+    Constant* topModule;
+
+#ifdef DEBUG
+    Module* getModule(mem i)    { return dynamic_cast<Module*>(modules[i]->type); }
+    StateBody* getBody(mem i)   { return dynamic_cast<StateBody*>(modules[i]->value.as_object()); }
+#else
+    Module* getModule(mem i)    { return PModule(modules[i]->type); }
+    StateBody* getBody(mem i)   { return PStateBody(modules[i]->value.as_object()); }
+#endif
+
+public:
+    Context();
+    Constant* registerModule(const str& name, Module*);   // for built-in modules
+    Constant* addModule(const str& name);
+    void run(varstack&); // <--- this is where execution starts
 };
 
 

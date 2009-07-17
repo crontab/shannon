@@ -149,6 +149,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     case Type::TYPEREF:
     case Type::STATE:
+    case Type::MODULE:
         addOp(opLoadTypeRef);
         codeseg.addPtr(value.as_object());
         break;
@@ -407,7 +408,7 @@ int main()
     {
         Parser parser("x", new in_text(NULL, "x"));
 
-        Module m("test", 0, NULL);
+        Module m(Type::MODULE, NULL);
         Constant* c = m.addConstant("c", queenBee->defChar, char(1));
 
         // Arithmetic, typecasts
@@ -508,7 +509,7 @@ int main()
         {
             varstack stk;
             Context ctx;
-            ctx.registerModule(queenBee);
+            ctx.registerModule("system", queenBee);
             ctx.run(stk);
         }
     }

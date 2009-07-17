@@ -1,6 +1,8 @@
 
 * Use more dynamic_cast<> ops in DEBUG build.
 
+* Reimplement CodeGen::stack as a simple linked list.
+
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics.
 

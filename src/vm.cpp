@@ -4,57 +4,6 @@
 #include "vm.h"
 
 
-Context::Context()
-    : topModule(NULL)  { }
-
-
-Module* Context::registerModule(Module* m)
-{
-    assert(m->id == modules.size());
-    if (modules.size() == 255)
-        throw emessage("Maximum number of modules reached");
-    modules.add(m);
-    return topModule = m;
-}
-
-
-Module* Context::addModule(const str& name)
-{
-    return registerModule(new Module(name, modules.size(), this));
-}
-
-
-void Context::run(varstack& stack)
-{
-    assert(datasegs.empty());
-    for (mem i = 0; i < modules.size(); i++)
-    {
-        Module* m = modules[i];
-        datasegs.add(m->newObject());
-    }
-
-    mem level = 0;
-    try
-    {
-        while (level < modules.size())
-        {
-            modules[level]->run(datasegs[level], stack);
-            level++;
-        }
-    }
-    catch (exception&)
-    {
-        while (level--)
-            modules[level]->finalize(datasegs[level], stack);
-        throw;
-    }
-
-    while (level--)
-        modules[level]->finalize(datasegs[level], stack);
-    datasegs.clear();
-}
-
-
 // --- CODE SEGMENT -------------------------------------------------------- //
 
 
@@ -159,8 +108,10 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 
 void CodeSeg::run(langobj* self, varstack& stack) const
 {
+    if (code.empty())
+        return;
+
     assert(closed);
-    assert(!code.empty());
     assert(self == NULL || self->get_rt()->canCastImplTo(state));
 
     register const uchar* ip = (const uchar*)code.data();
@@ -271,5 +222,60 @@ void ConstCode::run(variant& result) const
     stack.pop();
     assert(stack.size() == 0);
 }
+
+
+StateBody::StateBody(State* state, Context* context)
+    : object(state), CodeSeg(state, context), final(state, context)  { }
+
+StateBody::~StateBody() { }
+
+
+Context::Context()
+    : topModule(NULL)  { }
+
+
+Constant* Context::registerModule(const str& name, Module* m)
+{
+    if (modules.size() == 255)
+        throw emessage("Maximum number of modules reached");
+    Constant* c = new Constant(name, defModule, new StateBody(defModule, this));
+    modules.add(c);
+    return topModule = c;
+}
+
+
+Constant* Context::addModule(const str& name)
+{
+    return registerModule(name, new Module(Type::MODULE, NULL));
+}
+
+
+void Context::run(varstack& stack)
+{
+    assert(datasegs.empty());
+    for (mem i = 0; i < modules.size(); i++)
+        datasegs.add(getModule(i)->newObject());
+
+    mem level = 0;
+    try
+    {
+        while (level < modules.size())
+        {
+            getBody(level)->run(datasegs[level], stack);
+            level++;
+        }
+    }
+    catch (exception&)
+    {
+        while (level--)
+            getBody(level)->finalize(datasegs[level], stack);
+        throw;
+    }
+
+    while (level--)
+        getBody(level)->finalize(datasegs[level], stack);
+    datasegs.clear();
+}
+
 
 
