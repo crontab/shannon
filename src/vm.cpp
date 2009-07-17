@@ -93,6 +93,8 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opLoadConst:       PUSH(stk, consts[IPADV<uint8_t>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
+            
+            case opPop:             POP(stk); break;
 
             // Safe typecasts
             case opToBool:      *stk = stk->to_bool(); break;

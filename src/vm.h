@@ -31,6 +31,8 @@ enum OpCode
     opLoadConst,        // [const-index: 8] // compound values only
     opLoadConst2,       // [const-index: 16] // compound values only
     opLoadTypeRef,      // [Type*]
+    
+    opPop,              // -var
 
     // Safe typecasts
     opToBool,
@@ -40,8 +42,9 @@ enum OpCode
     opIsType,           // [Type*] -var, +bool
     opIsTypeRef,        // -type, -var, +bool
 
-    // Arithmetic
+    // Arithmetic binary: -ord, -ord, +ord
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
+    // Arithmetic unary: -ord, +ord
     opNeg, opBitNot, opNot,
 
     // Vector/string concatenation
@@ -92,10 +95,11 @@ enum OpCode
     opCase,             // -var, +{0,1}
     opCaseRange,        // -int, +{0,1}
     
-    // Jumps; [dst] is a relative offset
+    // Jumps; [dst] is a relative offset -128..127
     //   short bool evaluation: pop if jump, leave it otherwise
-    opJumpOr, opJumpAnd,
-    opJumpTrue, opJumpFalse, opJump,
+    // TODO: 16-bit versions of these
+    opJumpOr, opJumpAnd,                // [dst 8] (-)bool
+    opJumpTrue, opJumpFalse, opJump,    // [dst 8]
 
     // Function call
     opCall,             // [Type*]
@@ -107,6 +111,14 @@ enum OpCode
     
     opMaxCode
 };
+
+
+inline bool isLoadOp(OpCode op)
+    { return (op >= opLoadNull && op <= opLoadTypeRef)
+        || (op >= opLoadLocal && op <= opLoadMember); }
+
+inline bool isCmpOp(OpCode op)
+    { return op >= opEqual && op <= opGreaterEq; }
 
 
 // --- CODE GENERATOR ------------------------------------------------------ //
@@ -123,6 +135,10 @@ protected:
     };
 
     CodeSeg& codeseg;
+    mem lastLoadOp;
+
+    mem addOp(OpCode);
+    bool revertLastLoad();
 
     std::stack<stkinfo> genStack;
     mem stkMax;
@@ -155,8 +171,11 @@ public:
     void loadInt(integer i)
             { loadConst(queenBee->defInt, i); }
     void loadConst(Type*, const variant&);
+    void discard();
     void implicitCastTo(Type*);
     void explicitCastTo(Type*);
+    void dynamicCast();
+    void testType(Type*);
     void arithmBinary(OpCode);
     void arithmUnary(OpCode);
     void elemToVec();

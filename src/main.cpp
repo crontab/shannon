@@ -12,7 +12,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
-    : codeseg(_codeseg), stkMax(0)
+    : codeseg(_codeseg), lastLoadOp(mem(-1)), stkMax(0)
 #ifdef DEBUG
     , stkSize(0)
 #endif    
@@ -22,6 +22,27 @@ CodeGen::CodeGen(CodeSeg& _codeseg)
 
 
 CodeGen::~CodeGen()  { }
+
+
+mem CodeGen::addOp(OpCode op)
+{
+    mem s = codeseg.size();
+    if (isLoadOp(op))
+        lastLoadOp = s;
+    else
+        lastLoadOp = mem(-1);
+    codeseg.add8(op);
+    return s;
+}
+
+
+bool CodeGen::revertLastLoad()
+{
+    if (lastLoadOp == mem(-1))
+        return false;
+    codeseg.resize(lastLoadOp);
+    return true;
+}
 
 
 void CodeGen::stkPush(Type* type, const variant&)
@@ -70,13 +91,13 @@ void CodeGen::loadConst(Type* type, const variant& value)
     switch (type->getTypeId())
     {
     case Type::NONE:
-        codeseg.addOp(opLoadNull);
+        addOp(opLoadNull);
         break;
     case Type::BOOL:
-        codeseg.addOp(empty ? opLoadFalse : opLoadTrue);
+        addOp(empty ? opLoadFalse : opLoadTrue);
         break;
     case Type::CHAR:
-        codeseg.addOp(opLoadChar);
+        addOp(opLoadChar);
         codeseg.add8(value.as_char());
         break;
     case Type::INT:
@@ -84,21 +105,21 @@ void CodeGen::loadConst(Type* type, const variant& value)
         {
             integer v = value.as_int();
             if (v == 0)
-                codeseg.addOp(opLoad0);
+                addOp(opLoad0);
             else if (v == 1)
-                codeseg.addOp(opLoad1);
+                addOp(opLoad1);
             else
             {
-                codeseg.addOp(opLoadInt);
+                addOp(opLoadInt);
                 codeseg.addInt(v);
             }
         }
         break;
     case Type::RANGE:
-        if (empty) codeseg.addOp(opLoadNullRange); else addToConsts = true;
+        if (empty) addOp(opLoadNullRange); else addToConsts = true;
         break;
     case Type::DICT:
-        if (empty) codeseg.addOp(opLoadNullDict); else addToConsts = true;
+        if (empty) addOp(opLoadNullDict); else addToConsts = true;
         break;
     case Type::ARRAY:
         if (empty) _fatal(0x6001);
@@ -106,15 +127,15 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     case Type::VECTOR:
         if (empty)
-            codeseg.addOp(type->isString() ? opLoadNullStr : opLoadNullVec);
+            addOp(type->isString() ? opLoadNullStr : opLoadNullVec);
         else
             addToConsts = true;
         break;
     case Type::SET:
-        if (empty) codeseg.addOp(opLoadNullSet); else addToConsts = true;
+        if (empty) addOp(opLoadNullSet); else addToConsts = true;
         break;
     case Type::ORDSET:
-        if (empty) codeseg.addOp(opLoadNullSet); else addToConsts = true;
+        if (empty) addOp(opLoadNullSet); else addToConsts = true;
         break;
     case Type::FIFO:
         if (empty) _fatal(0x6002);
@@ -125,7 +146,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     case Type::TYPEREF:
     case Type::STATE:
-        codeseg.addOp(opLoadTypeRef);
+        addOp(opLoadTypeRef);
         codeseg.addPtr(value.as_object());
         break;
     }
@@ -136,12 +157,12 @@ void CodeGen::loadConst(Type* type, const variant& value)
         codeseg.consts.push_back(value);
         if (n < 256)
         {
-            codeseg.addOp(opLoadConst);
+            addOp(opLoadConst);
             codeseg.add8(uchar(n));
         }
         else if (n < 65536)
         {
-            codeseg.addOp(opLoadConst2);
+            addOp(opLoadConst2);
             codeseg.add16(n);
         }
         else
@@ -152,6 +173,13 @@ void CodeGen::loadConst(Type* type, const variant& value)
 }
 
 
+void CodeGen::discard()
+{
+    stkPop();
+    addOp(opPop);
+}
+
+
 // Try implicit cast and return true if succeeded. This code is shared
 // between the explicit and implicit typecast routines.
 bool CodeGen::tryCast(Type* from, Type* to)
@@ -159,7 +187,7 @@ bool CodeGen::tryCast(Type* from, Type* to)
     if (to->isVariant())
         ;   // everything in the VM is a variant anyway
     else if (to->isBool())
-        codeseg.addOp(opToBool);    // everything can be cast to bool
+        addOp(opToBool);    // everything can be cast to bool
     else if (from->canCastImplTo(to))
         ;   // means variant copying is considered safe, including State casts
     else
@@ -187,7 +215,7 @@ void CodeGen::explicitCastTo(Type* to)
     if (tryCast(from, to))
         ;   // implicit typecast does the job
     else if (to->isString())
-        codeseg.addOp(opToStr); // explicit cast to string: any object goes
+        addOp(opToStr); // explicit cast to string: any object goes
     else if (
         // Variants should be typecast'ed to other types explicitly, except to boolean
         from->isVariant()
@@ -197,12 +225,32 @@ void CodeGen::explicitCastTo(Type* to)
         // States: implicit type cast wasn't possible, so try run-time typecast
         || (from->isState() && to->isState()))
     {
-        codeseg.addOp(opToType);    // calls to->runtimeTypecast(v)
+        addOp(opToType);    // calls to->runtimeTypecast(v)
         codeseg.addPtr(to);
     }
     else
         throw emessage("Invalid typecast");
     stkPush(to);
+}
+
+
+void CodeGen::dynamicCast()
+{
+    Type* typeref = stkPop();
+    stkPop();
+    if (!typeref->isTypeRef())
+        throw emessage("Typeref expected in dynamic typecast");
+    stkPush(queenBee->defVariant);
+}
+
+
+void CodeGen::testType(Type* type)
+{
+    Type* varType = stkPop();
+    if (!revertLastLoad())
+        discard();
+    loadBool(varType->canCastImplTo(type));
+    stkPush(queenBee->defBool);
 }
 
 
@@ -212,7 +260,7 @@ void CodeGen::arithmBinary(OpCode op)
     Type* t1 = stkPop(), * t2 = stkPop();
     if (!t1->isInt() || !t2->isInt())
         throw emessage("Operand types do not match operator");
-    codeseg.addOp(op);
+    addOp(op);
     stkPush(t1);
 }
 
@@ -222,7 +270,7 @@ void CodeGen::arithmUnary(OpCode op)
     assert(op >= opNeg && op <= opNot);
     if (!stkTopType()->isInt())
         throw emessage("Operand type doesn't match operator");
-    codeseg.addOp(op);
+    addOp(op);
 }
 
 
@@ -231,10 +279,10 @@ void CodeGen::elemToVec()
     Type* elemType = stkPop();
     Type* vecType = elemType->deriveVector();
     if (elemType->isChar())
-        codeseg.addOp(opCharToStr);
+        addOp(opCharToStr);
     else
     {
-        codeseg.addOp(opVarToVec);
+        addOp(opVarToVec);
         codeseg.addPtr(vecType);
     }
     stkPush(vecType);
@@ -250,10 +298,10 @@ void CodeGen::elemCat()
     if (!elemType->canCastImplTo(PVector(vecType)->elem))
         throw emessage("Vector element type mismatch");
     if (elemType->isChar())
-        codeseg.addOp(opCharCat);
+        addOp(opCharCat);
     else
     {
-        codeseg.addOp(opVarCat);
+        addOp(opVarCat);
         codeseg.addPtr(vecType);
     }
 }
@@ -267,7 +315,7 @@ void CodeGen::cat()
         throw emessage("Vector type expected");
     if (!right->canCastImplTo(left))
         throw emessage("Vector types do not match");
-    codeseg.addOp(PVector(left)->elem->isChar() ? opStrCat : opVecCat);
+    addOp(PVector(left)->elem->isChar() ? opStrCat : opVecCat);
 }
 
 
@@ -279,7 +327,7 @@ void CodeGen::mkRange()
         throw emessage("Range elements must be ordinal");
     if (!right->canCastImplTo(left))
         throw emessage("Range element types do not match");
-    codeseg.addOp(opMkRange);
+    addOp(opMkRange);
     Type* rangeType = POrdinal(left)->deriveRange();
     codeseg.addPtr(rangeType);
     stkPush(rangeType);
@@ -294,30 +342,30 @@ void CodeGen::inRange()
         throw emessage("Range type expected");
     if (!elem->canCastImplTo(PRange(rng)->base))
         throw emessage("Range element type mismatch");
-    codeseg.addOp(opInRange);
+    addOp(opInRange);
     stkPush(queenBee->defBool);
 }
 
 
 void CodeGen::cmp(OpCode op)
 {
-    assert(op >= opEqual && op <= opGreaterEq);
+    assert(isCmpOp(op));
     Type* right = stkPop();
     Type* left = stkPop();
     if (!right->canCastImplTo(left))
         throw emessage("Types mismatch in comparison");
     if (left->isOrdinal() && right->isOrdinal())
-        codeseg.addOp(opCmpOrd);
+        addOp(opCmpOrd);
     else if (left->isString() && right->isString())
-        codeseg.addOp(opCmpStr);
+        addOp(opCmpStr);
     else
     {
         // Only == and != are allowed for all other types
         if (op != opEqual && op != opNotEq)
             throw emessage("Only equality can be tested for this type");
-        codeseg.addOp(opCmpVar);
+        addOp(opCmpVar);
     }
-    codeseg.addOp(op);
+    addOp(op);
     stkPush(queenBee->defBool);
 }
 
