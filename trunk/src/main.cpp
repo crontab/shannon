@@ -36,12 +36,15 @@ mem CodeGen::addOp(OpCode op)
 }
 
 
-bool CodeGen::revertLastLoad()
+void CodeGen::revertLastLoad()
 {
     if (lastLoadOp == mem(-1))
-        return false;
-    codeseg.resize(lastLoadOp);
-    return true;
+        discard();
+    else
+    {
+        codeseg.resize(lastLoadOp);
+        lastLoadOp = mem(-1);
+    }
 }
 
 
@@ -240,6 +243,8 @@ void CodeGen::dynamicCast()
     stkPop();
     if (!typeref->isTypeRef())
         throw emessage("Typeref expected in dynamic typecast");
+    addOp(opToTypeRef);
+    codeseg.addPtr(typeref);
     stkPush(queenBee->defVariant);
 }
 
@@ -247,9 +252,28 @@ void CodeGen::dynamicCast()
 void CodeGen::testType(Type* type)
 {
     Type* varType = stkPop();
-    if (!revertLastLoad())
-        discard();
-    loadBool(varType->canCastImplTo(type));
+    if (varType->isVariant())
+    {
+        addOp(opToType);
+        codeseg.addPtr(type);
+    }
+    else
+    {
+        // Can be determined at compile time
+        revertLastLoad();
+        loadBool(varType->canCastImplTo(type));
+    }
+    stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::testType()
+{
+    Type* typeref = stkPop();
+    stkPop();
+    if (!typeref->isTypeRef())
+        throw emessage("Typeref expected in dynamic typecast");
+    addOp(opToTypeRef);
     stkPush(queenBee->defBool);
 }
 
@@ -478,6 +502,8 @@ int main()
         }
         seg.run(r);
         check(r.to_string() == "[true, true]");
+
+        // TODO: test for dynamicCast(), testType(), revertLastLoad()
 
         {
             varstack stk;

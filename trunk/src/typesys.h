@@ -30,83 +30,6 @@ typedef Container String;
 typedef Container Set;
 
 
-// --- VIRTUAL MACHINE (partial) ---
-
-// Some bits of the virtual machine are needed here because each State class
-// holds its own code segment.
-
-class Context: noncopyable
-{
-protected:
-    List<Module> modules;
-    List<langobj> datasegs;
-    Module* topModule;
-public:
-    Context();
-    Module* registerModule(Module*);   // for built-in modules
-    Module* addModule(const str& name);
-    void run(varstack&); // <--- this is where execution starts
-};
-
-
-class CodeSeg: noncopyable
-{
-    friend class CodeGen;
-    friend class State;
-
-    // This object can be duplicated if necessary with a different context
-    // assigned; the code segment is a refcounted string, so copying would
-    // be efficient.
-protected:
-    str code;
-    varlist consts;
-    mem stksize;
-    mem returns;
-    // These can't be refcounted as it will introduce circular references. Both
-    // can be NULL if this is a const expression executed at compile time.
-    State* state;
-    Context* context;
-#ifdef DEBUG
-    bool closed;
-#endif
-
-    // Code generation
-    void add8(uint8_t i);
-    void add16(uint16_t i);
-    void addInt(integer i);
-    void addPtr(void* p);
-    void close(mem _stksize, mem _returns);
-
-    // Execution
-    static void varToVec(Vector* type, const variant& elem, variant* result);
-    static void varCat(Vector* type, const variant& elem, variant* vec);
-    static void vecCat(const variant& vec2, variant* vec1);
-
-    void resize(mem s)
-        { code.resize(s); }
-    void run(langobj* self, varstack&) const;
-
-public:
-    CodeSeg(State*, Context*);
-    ~CodeSeg();
-
-    // For unit tests:
-    void clear();
-    bool empty() const
-        { return code.empty(); }
-    mem size() const
-        { return code.size(); }
-};
-
-
-class ConstCode: public CodeSeg
-{
-public:
-    ConstCode(): CodeSeg(NULL, NULL) { }
-    void run(variant&) const;
-};
-
-
 // --- TYPE SYSTEM --------------------------------------------------------- //
 
 
@@ -138,7 +61,8 @@ class Type: public object
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
+        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF,
+        STATE, MODULE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
@@ -180,6 +104,7 @@ public:
     bool isVariant()  { return typeId == VARIANT; }
     bool isTypeRef()  { return typeId == TYPEREF; }
     bool isState()  { return typeId == STATE; }
+    bool isModule()  { return typeId == MODULE; }
 
     bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
@@ -253,17 +178,9 @@ class State: public Type, public Scope
 protected:
     List<Constant> consts;
     List<Type> types;
-    List<State> states;
-
-    CodeSeg main;
-    CodeSeg final;
     int const level;
-
-    virtual void run(langobj* self, varstack&);
-    virtual void finalize(langobj* self, varstack&);
-
 public:
-    State(const str& _name, State* _parent, Context*);
+    State(State* _parent);
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
@@ -277,11 +194,13 @@ public:
 };
 
 
+typedef Module* PModule;
+
 class Module: public State
 {
 public:
     const mem id;
-    Module(const str& _name, mem _id, Context* _context);
+    Module(mem _id);
 };
 
 
