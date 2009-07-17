@@ -11,7 +11,7 @@
 class Type;
 class Variable;
 class Constant;
-class State;
+class StateAlias;
 class QueenBee;
 
 class None;
@@ -22,11 +22,15 @@ class Container;
 class Fifo;
 class Variant;
 class TypeReference;
+class State;
+class Module;
+class StateBody;
 
 typedef Container Container;
 typedef Container Vector;
 typedef Container String;
 typedef Container Set;
+typedef StateAlias ModuleAlias;
 
 
 // --- TYPE SYSTEM --------------------------------------------------------- //
@@ -57,11 +61,11 @@ typedef Type* PType;
 class Type: public object
 {
     friend class State;
+    friend class Context;
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF,
-        STATE, MODULE };
+        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
@@ -79,6 +83,7 @@ protected:
             { assert(name.empty()); name = _name; }
     void setTypeId(TypeId t)
             { (TypeId&)typeId = t; }
+
 public:
     Type(Type* rt, TypeId);
     ~Type();
@@ -103,10 +108,10 @@ public:
     bool isVariant()  { return typeId == VARIANT; }
     bool isTypeRef()  { return typeId == TYPEREF; }
     bool isState()  { return typeId == STATE; }
-    bool isModule()  { return typeId == MODULE; }
 
     bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
+    bool isModule();
     bool isString();
     bool isCharFifo();
     bool canBeArrayIndex();
@@ -127,7 +132,6 @@ typedef Variable* PVar;
 
 class Variable: public Base
 {
-    friend class Scope;
 public:
     Type* const type;
     mem const id;
@@ -141,15 +145,29 @@ typedef Constant* PConst;
 
 class Constant: public Base
 {
-    friend class State;
 public:
     Type* const type;
     variant const value;
+
     Constant(const str&, Type*, const variant&);
     ~Constant();
     bool isTypeAlias()
             { return type->isTypeRef(); }
+    bool isModuleAlias();
     Type* getAlias();
+};
+
+
+class StateAlias: public Constant
+{
+public:
+    StateAlias(const str&, State*, StateBody*);
+    ~StateAlias();
+    State* getStateType()
+            { return (State*)type; }
+    StateBody* getBody()
+            { assert(value.as_object()->get_rt() == type);
+                return (StateBody*)value._object(); }
 };
 
 
@@ -157,7 +175,7 @@ class Scope: public SymbolTable<Base>
 {
 protected:
     Scope* const outer;
-    PtrList<State> uses;
+    PtrList<Module> uses;
     List<Variable> vars;
 public:
     Scope(Scope* _outer);
@@ -169,19 +187,21 @@ public:
 };
 
 
+// --- TYPES ---
+
+
 typedef State* PState;
-typedef State Module;
 typedef State* PModule;
 
 class State: public Type, public Scope
 {
-    friend class Context;
 protected:
     List<Constant> consts;
     List<Type> types;
-    int const level;
 public:
-    State(TypeId _typeId, State* _parent);
+    int const level;
+
+    State(State* _parent);
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
@@ -195,7 +215,13 @@ public:
 };
 
 
-// --- TYPES ---
+class Module: public State
+{
+public:
+    mem const id;
+    Module(mem _id);
+    ~Module();
+};
 
 
 class None: public Type
@@ -326,7 +352,7 @@ public:
 // --- QUEEN BEE ---
 
 
-class QueenBee: public State
+class QueenBee: public Module
 {
 protected:
     Variable* siovar;
@@ -347,7 +373,6 @@ public:
 
 
 extern objptr<TypeReference> defTypeRef;
-extern objptr<Module> defModule;
 extern objptr<QueenBee> queenBee;
 
 
