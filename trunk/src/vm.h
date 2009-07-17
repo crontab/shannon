@@ -4,7 +4,6 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "symbols.h"
 #include "typesys.h"
 
 #include <stack>
@@ -199,7 +198,7 @@ public:
 };
 
 
-class Context: protected SymbolTable<ModuleAlias>
+class Context: protected BaseTable<ModuleAlias>
 {
 protected:
     List<ModuleAlias> modules;
