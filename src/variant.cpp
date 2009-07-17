@@ -88,7 +88,7 @@ void variant::_fin2()
     case STR:
         _str_write().~str();
         break;
-    default:    // containers and objects
+    case OBJECT:
         release(val._obj);
         break;
     }
@@ -105,7 +105,7 @@ void variant::dump(fifo_intf& s) const
     case INT:  s << val._int; break;
     case REAL: s << integer(val._real); break; // TODO: !!!
     case STR:  s << '"' << _str_read() << '"'; break;
-    default:    // containers and objects
+    case OBJECT:
         s << '[';
         if (val._obj != NULL)
             val._obj->dump(s);

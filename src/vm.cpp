@@ -66,7 +66,7 @@ inline void POP(variant*& stk)
 template<class T>
     inline T IPADV(const uchar*& ip)
         { T t = *(T*)ip; ip += sizeof(T); return t; }
-    
+
 
 #define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
 #define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
@@ -151,9 +151,9 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opToBool:      *stk = stk->to_bool(); break;
             case opToStr:       *stk = stk->to_string(); break;
             case opToType:      IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
-            case opToTypeRef:   PType(stk->as_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
+            case opToTypeRef:   CAST(Type*, stk->as_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
             case opIsType:      *stk = IPADV<Type*>(ip)->isMyType(*stk); break;
-            case opIsTypeRef:   *(stk - 1) = PType(stk->as_object())->isMyType(*(stk - 1)); POP(stk); break;
+            case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->as_object())->isMyType(*(stk - 1)); POP(stk); break;
 
             // Arithmetic
             // TODO: range checking in debug mode
@@ -230,23 +230,27 @@ StateBody::StateBody(State* state, Context* context)
 StateBody::~StateBody() { }
 
 
-Context::Context()
-    : topModule(NULL)  { }
+Context::Context()  { }
+Context::~Context()  { }
 
 
-Constant* Context::registerModule(const str& name, Module* m)
+ModuleAlias* Context::registerModule(const str& name, Module* module)
 {
+    assert(module->id == modules.size());
     if (modules.size() == 255)
         throw emessage("Maximum number of modules reached");
-    Constant* c = new Constant(name, defModule, new StateBody(defModule, this));
-    modules.add(c);
-    return topModule = c;
+    ModuleAlias* alias = new ModuleAlias(name, module, new StateBody(module, this));
+    modules.add(alias);
+    addUnique(alias);
+    module->setName(name);
+    return alias;
 }
 
 
-Constant* Context::addModule(const str& name)
+ModuleAlias* Context::addModule(const str& name)
 {
-    return registerModule(name, new Module(Type::MODULE, NULL));
+    objptr<Module> module = new Module(modules.size());
+    return registerModule(name, module);
 }
 
 

@@ -85,9 +85,15 @@ void notimpl();
 
 template<class T>
     inline T imax(T x, T y)  { return (x > y) ? x : y; }
+
 template<class T>
     inline T imin(T x, T y)  { return (x < y) ? x : y; }
 
+#ifdef DEBUG
+#  define CAST(t,x) (dynamic_cast<t>(x))
+#else
+#  define CAST(t,x) ((t)x)
+#endif
 
 // The eternal int-to-string problem in C++
 str _to_string(long long value, int base, int width, char fill);

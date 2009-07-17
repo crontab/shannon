@@ -1,6 +1,7 @@
 
 #include "version.h"
 #include "typesys.h"
+#include "vm.h"
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
@@ -75,6 +76,8 @@ Type::Type(Type* rt, TypeId _t)
 
 Type::~Type() { }
 
+bool Type::isModule()
+    { return typeId == STATE && PState(this)->level == 0; }
 
 bool Type::isString()
     { return isVector() && PVector(this)->elem->isChar(); }
@@ -126,11 +129,21 @@ Constant::Constant(const str& _name, Type* _type, const variant& _value)
 Constant::~Constant()  { }
 
 
+bool Constant::isModuleAlias()
+    { return isTypeAlias() && getAlias()->isModule(); }
+
+
 Type* Constant::getAlias()
 {
     assert(isTypeAlias());
-    return PType(value.as_object());
+    return CAST(Type*, value.as_object());
 }
+
+
+StateAlias::StateAlias(const str& name, State* state, StateBody* body)
+    : Constant(name, state, body)  { }
+
+StateAlias::~StateAlias()  { }
 
 
 // --- Scope --------------------------------------------------------------- //
@@ -161,9 +174,9 @@ Variable* Scope::addVariable(const str& name, Type* type)
 {
     if (vars.size() == 255)
         throw emessage("Maximum number of variables within one scope is reached");
-    objptr<Variable> v = new Variable(name, type, vars.size());
-    addUnique(v);   // may throw
+    Variable* v = new Variable(name, type, vars.size());
     vars.add(v);
+    addUnique(v);   // may throw
     return v;
 }
 
@@ -171,8 +184,8 @@ Variable* Scope::addVariable(const str& name, Type* type)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId _typeId, State* _parent)
-  : Type(defTypeRef, _typeId), Scope(_parent),
+State::State(State* _parent)
+  : Type(defTypeRef, STATE), Scope(_parent),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setOwner(_parent);
@@ -202,22 +215,26 @@ bool State::isMyType(variant& v)
     { return (v.is_object() && v._object()->get_rt()->canCastImplTo(this)); }
 
 
+Module::Module(mem _id): State(NULL), id(_id)  { }
+Module::~Module()  { }
+
+
 Constant* State::addConstant(const str& name, Type* type, const variant& value)
 {
-    objptr<Constant> c = new Constant(name, type, value);
-    addUnique(c); // may throw
+    Constant* c = new Constant(name, type, value);
     consts.add(c);
+    addUnique(c); // may throw
     return c;
 }
 
 
 Constant* State::addTypeAlias(const str& name, Type* type)
 {
-    objptr<Constant> c = new Constant(name, defTypeRef, type);
+    Constant* c = new Constant(name, defTypeRef, type);
     if (type->name.empty())
         type->setName(name);
-    addUnique(c); // may throw
     consts.add(c);
+    addUnique(c); // may throw
     return c;
 }
 
@@ -396,7 +413,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : State(MODULE, NULL)
+  : Module(0)
 {
     registerType(defTypeRef.get());
     defNone = registerType(new None());
@@ -441,7 +458,6 @@ void QueenBee::run(langobj* self, varstack&)
 
 
 objptr<TypeReference> defTypeRef;
-objptr<Module> defModule;
 objptr<QueenBee> queenBee;
 
 
@@ -451,7 +467,6 @@ void initTypeSys()
     // runtime type of "type reference". The initial typeref object refers to
     // itself and should be created before anything else in the type system.
     defTypeRef = new TypeReference();
-    defModule = new Module(Type::MODULE, NULL);
     queenBee = new QueenBee();
     queenBee->setup();
     sio.set_rt(queenBee->defCharFifo);
@@ -465,7 +480,6 @@ void doneTypeSys()
     sio.clear_rt();
     serr.clear_rt();
     queenBee = NULL;
-    defModule = NULL;
     defTypeRef = NULL;
 }
 

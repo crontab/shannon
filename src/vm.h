@@ -3,6 +3,8 @@
 
 
 #include "common.h"
+#include "runtime.h"
+#include "symbols.h"
 #include "typesys.h"
 
 #include <stack>
@@ -153,14 +155,14 @@ protected:
     void addInt(integer i);
     void addPtr(void* p);
     void close(mem _stksize, mem _returns);
+    void resize(mem s)
+        { code.resize(s); }
 
     // Execution
     static void varToVec(Vector* type, const variant& elem, variant* result);
     static void varCat(Vector* type, const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
-    void resize(mem s)
-        { code.resize(s); }
     void run(langobj* self, varstack&) const;
 
 public:
@@ -196,28 +198,21 @@ public:
     ~StateBody();
 };
 
-typedef StateBody* PStateBody;
 
-
-class Context: noncopyable
+class Context: protected SymbolTable<ModuleAlias>
 {
 protected:
-    List<Constant> modules;
+    List<ModuleAlias> modules;
     List<langobj> datasegs;
-    Constant* topModule;
 
-#ifdef DEBUG
-    Module* getModule(mem i)    { return dynamic_cast<Module*>(modules[i]->type); }
-    StateBody* getBody(mem i)   { return dynamic_cast<StateBody*>(modules[i]->value.as_object()); }
-#else
-    Module* getModule(mem i)    { return PModule(modules[i]->type); }
-    StateBody* getBody(mem i)   { return PStateBody(modules[i]->value.as_object()); }
-#endif
+    Module* getModule(mem i)    { return CAST(Module*, modules[i]->getStateType()); }
+    StateBody* getBody(mem i)   { return modules[i]->getBody(); }
 
 public:
     Context();
-    Constant* registerModule(const str& name, Module*);   // for built-in modules
-    Constant* addModule(const str& name);
+    ~Context();
+    ModuleAlias* registerModule(const str& name, Module*);   // for built-in modules
+    ModuleAlias* addModule(const str& name);
     void run(varstack&); // <--- this is where execution starts
 };
 
