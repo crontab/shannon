@@ -417,6 +417,20 @@ int main()
         seg.run(r);
         check(r.to_string() == "[1, 2, 3, 4]");
         
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadBool(true);
+            gen.elemToVec();
+            gen.loadConst(queenBee->defStr, "abc");
+            gen.loadConst(queenBee->defStr, "abc");
+            gen.cmp(opEqual);
+            gen.elemCat();
+            gen.endConstExpr(queenBee->defBool->deriveVector());
+        }
+        seg.run(r);
+        check(r.to_string() == "[true, true]");
+
         {
             varstack stk;
             Context ctx;

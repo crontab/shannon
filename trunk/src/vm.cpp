@@ -135,12 +135,12 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-            case opEqual:       stk->_int_write() = stk->_int() == 0; break;
-            case opNotEq:       stk->_int_write() = stk->_int() != 0; break;
-            case opLessThan:    stk->_int_write() = stk->_int() < 0; break;
-            case opLessEq:      stk->_int_write() = stk->_int() <= 0; break;
-            case opGreaterThan: stk->_int_write() = stk->_int() > 0; break;
-            case opGreaterEq:   stk->_int_write() = stk->_int() >= 0; break;
+            case opEqual:       *stk = stk->_int() == 0; break;
+            case opNotEq:       *stk = stk->_int() != 0; break;
+            case opLessThan:    *stk = stk->_int() < 0; break;
+            case opLessEq:      *stk = stk->_int() <= 0; break;
+            case opGreaterThan: *stk = stk->_int() > 0; break;
+            case opGreaterEq:   *stk = stk->_int() >= 0; break;
 
             default: invOpcode(); break;
             }

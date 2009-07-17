@@ -59,9 +59,7 @@ case-label ::= const-expr | subrange
 
 # ---------- Expressions
 
-expr ::= or-expr [ ".." or-expr ]
-
-or-expr ::= and-expr { ( "or" | "xor" ) and-expr }
+expr ::= and-expr { ( "or" | "xor" ) and-expr }
 
 and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
 
@@ -85,7 +83,7 @@ subexpr ::= "(" expr ")"
 
 compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
 
-element-ctor ::= [ expr "=" ] expr
+element-ctor ::= [ expr ( "=" | ".." ) ] expr
 
 if-expr ::= "if" "(" expr, expr, expr ")"
 
