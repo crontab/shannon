@@ -12,7 +12,6 @@ class Type;
 class Variable;
 class Constant;
 class State;
-class Module;
 class QueenBee;
 
 class None;
@@ -70,7 +69,7 @@ protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
 
     TypeId const typeId;
-    State* owner;   // used when producing various derivators
+    State* owner;   // derivators are inserted into the owner's repositories
     
     Fifo* derivedFifo;
     Container* derivedVector;
@@ -171,6 +170,8 @@ public:
 
 
 typedef State* PState;
+typedef State Module;
+typedef State* PModule;
 
 class State: public Type, public Scope
 {
@@ -180,7 +181,7 @@ protected:
     List<Type> types;
     int const level;
 public:
-    State(State* _parent);
+    State(TypeId _typeId, State* _parent);
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
@@ -191,16 +192,6 @@ public:
             { t->setOwner(this); types.add(t); return t; }
     Constant* addConstant(const str& name, Type* type, const variant& value);
     Constant* addTypeAlias(const str& name, Type* type);
-};
-
-
-typedef Module* PModule;
-
-class Module: public State
-{
-public:
-    const mem id;
-    Module(mem _id);
 };
 
 
@@ -335,7 +326,7 @@ public:
 // --- QUEEN BEE ---
 
 
-class QueenBee: public Module
+class QueenBee: public State
 {
 protected:
     Variable* siovar;
@@ -356,6 +347,7 @@ public:
 
 
 extern objptr<TypeReference> defTypeRef;
+extern objptr<Module> defModule;
 extern objptr<QueenBee> queenBee;
 
 

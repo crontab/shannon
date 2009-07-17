@@ -4,8 +4,8 @@ debug/common.o: common.h
 debug/charset.o: charset.h
 debug/variant.o: runtime.h common.h charset.h
 debug/source.o: common.h bsearch.h source.h charset.h runtime.h
-debug/fifo.o: common.h runtime.h charset.h
+debug/fifo.o: runtime.h common.h charset.h
 debug/symbols.o: symbols.h common.h runtime.h charset.h
-debug/typesys.o: version.h common.h typesys.h runtime.h charset.h symbols.h
+debug/typesys.o: version.h typesys.h common.h runtime.h charset.h symbols.h
 debug/main.o: common.h runtime.h charset.h source.h symbols.h typesys.h vm.h
 debug/main-ut.o: common.h runtime.h charset.h symbols.h source.h typesys.h

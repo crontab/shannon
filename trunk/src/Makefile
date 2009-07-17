@@ -1,6 +1,6 @@
 
 
-CXXDOPTS = -Wall -Werror -fno-rtti -DDEBUG -g
+CXXDOPTS = -Wall -Werror -DDEBUG -g
 CXXROPTS = -Wall -Werror -fno-rtti -DNDEBUG -O2
 
 

@@ -1,7 +1,5 @@
 
-
 #include "version.h"
-#include "common.h"
 #include "typesys.h"
 
 
@@ -173,8 +171,8 @@ Variable* Scope::addVariable(const str& name, Type* type)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* _parent)
-  : Type(defTypeRef, STATE), Scope(_parent),
+State::State(TypeId _typeId, State* _parent)
+  : Type(defTypeRef, _typeId), Scope(_parent),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setOwner(_parent);
@@ -222,13 +220,6 @@ Constant* State::addTypeAlias(const str& name, Type* type)
     consts.add(c);
     return c;
 }
-
-
-// --- Module -------------------------------------------------------------- //
-
-
-Module::Module(mem _id)
-        : State(NULL), id(_id)  { setTypeId(MODULE); }
 
 
 // --- None ---------------------------------------------------------------- //
@@ -405,7 +396,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module(0)
+  : State(MODULE, NULL)
 {
     registerType(defTypeRef.get());
     defNone = registerType(new None());
@@ -450,6 +441,7 @@ void QueenBee::run(langobj* self, varstack&)
 
 
 objptr<TypeReference> defTypeRef;
+objptr<Module> defModule;
 objptr<QueenBee> queenBee;
 
 
@@ -459,6 +451,7 @@ void initTypeSys()
     // runtime type of "type reference". The initial typeref object refers to
     // itself and should be created before anything else in the type system.
     defTypeRef = new TypeReference();
+    defModule = new Module(Type::MODULE, NULL);
     queenBee = new QueenBee();
     queenBee->setup();
     sio.set_rt(queenBee->defCharFifo);
@@ -471,7 +464,8 @@ void doneTypeSys()
 {
     sio.clear_rt();
     serr.clear_rt();
-    defTypeRef = NULL;
     queenBee = NULL;
+    defModule = NULL;
+    defTypeRef = NULL;
 }
 
