@@ -162,6 +162,7 @@ extern const str null_str;
 
 
 fifo_intf& operator<< (fifo_intf&, const variant&);
+void varswap(variant*, variant*);
 
 
 class Type; // see typesys.h
@@ -385,7 +386,7 @@ public:
     bool operator!= (T* p) const        { return obj != p; }
 
     friend inline
-    bool operator== (T* o, const objptr<T>& p) { return o == p.obj; }
+        bool operator== (T* o, const objptr<T>& p) { return o == p.obj; }
 };
 
 

@@ -73,6 +73,13 @@ Type* CodeGen::stkPop()
 }
 
 
+void CodeGen::end()
+{
+    codeseg.close(stkMax, 0);
+    assert(genStack.size() == 0);
+}
+
+
 void CodeGen::endConstExpr(Type* expectType)
 {
     codeseg.close(stkMax, 1);
@@ -144,8 +151,8 @@ void CodeGen::loadConst(Type* type, const variant& value)
         addToConsts = true;
         break;
     case Type::VARIANT:
-        _fatal(0x6003);
-        break;
+        loadConst(queenBee->typeFromValue(value), value);
+        return;
     case Type::TYPEREF:
     case Type::STATE:
         addOp(opLoadTypeRef);
@@ -179,6 +186,16 @@ void CodeGen::discard()
 {
     stkPop();
     addOp(opPop);
+}
+
+
+void CodeGen::swap()
+{
+    Type* t1 = stkPop();
+    Type* t2 = stkPop();
+    stkPush(t1);
+    stkPush(t2);
+    addOp(opSwap);
 }
 
 
@@ -243,7 +260,6 @@ void CodeGen::dynamicCast()
     if (!typeref->isTypeRef())
         throw emessage("Typeref expected in dynamic typecast");
     addOp(opToTypeRef);
-    codeseg.addPtr(typeref);
     stkPush(queenBee->defVariant);
 }
 
@@ -253,14 +269,14 @@ void CodeGen::testType(Type* type)
     Type* varType = stkPop();
     if (varType->isVariant())
     {
-        addOp(opToType);
+        addOp(opIsType);
         codeseg.addPtr(type);
     }
     else
     {
         // Can be determined at compile time
         revertLastLoad();
-        loadBool(varType->canCastImplTo(type));
+        addOp(varType->canCastImplTo(type) ? opLoadTrue : opLoadFalse);
     }
     stkPush(queenBee->defBool);
 }
@@ -272,7 +288,7 @@ void CodeGen::testType()
     stkPop();
     if (!typeref->isTypeRef())
         throw emessage("Typeref expected in dynamic typecast");
-    addOp(opToTypeRef);
+    addOp(opIsTypeRef);
     stkPush(queenBee->defBool);
 }
 
@@ -323,10 +339,7 @@ void CodeGen::elemCat()
     if (elemType->isChar())
         addOp(opCharCat);
     else
-    {
         addOp(opVarCat);
-        codeseg.addPtr(vecType);
-    }
 }
 
 
@@ -493,21 +506,46 @@ int main()
             CodeGen gen(seg);
             gen.loadBool(true);
             gen.elemToVec();
+
             gen.loadConst(queenBee->defStr, "abc");
             gen.loadConst(queenBee->defStr, "abc");
             gen.cmp(opEqual);
             gen.elemCat();
+
+            gen.loadInt(1);
+            gen.elemToVec();
+            gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
+            gen.dynamicCast();
+            gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
+            gen.testType();
+            gen.elemCat();
+
+#ifdef DEBUG
+            mem s = seg.size();
+#endif
+            gen.loadInt(1);
+            gen.testType(queenBee->defInt); // compile-time
+            gen.testType(queenBee->defBool);
+            check(s == seg.size() - 1);
+            gen.elemCat();
+            gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
+            gen.implicitCastTo(queenBee->defVariant);
+            gen.testType(queenBee->defVariant);
+            gen.elemCat();
+
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[true, true]");
-
-        // TODO: test for dynamicCast(), testType(), revertLastLoad()
+        check(r.to_string() == "[true, true, true, true, true]");
 
         {
             varstack stk;
             Context ctx;
-            ctx.registerModule("system", queenBee);
+            ModuleAlias* m = ctx.addModule("test");
+            StateBody* b = m->getBody();
+            {
+                CodeGen gen(*b);
+            }
             ctx.run(stk);
         }
     }

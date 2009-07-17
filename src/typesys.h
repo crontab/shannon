@@ -441,7 +441,7 @@ public:
     
     QueenBee();
     void setup();
-    virtual void run(langobj* self, varstack&);
+    Type* typeFromValue(const variant&);
 };
 
 

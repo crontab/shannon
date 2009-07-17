@@ -25,8 +25,12 @@ void variant::_init(const variant& other)
         break;
     case BOOL:
     case CHAR:
-    case INT:  val._int = other.val._int; break;
-    case REAL: val._real = other.val._real; break;
+    case INT:
+        val._int = other.val._int;
+        break;
+    case REAL:
+        val._real = other.val._real;
+        break;
     case STR:
         ::new(&_str_write()) str(other._str_read());
         break;
@@ -204,6 +208,14 @@ fifo_intf& operator<< (fifo_intf& s, const variant& v)
 {
     v.dump(s);
     return s;
+}
+
+
+void varswap(variant* v1, variant* v2)
+{
+    podvar t = *(podvar*)v1;
+    *(podvar*)v1 = *(podvar*)v2;
+    *(podvar*)v2 = t;
 }
 
 
