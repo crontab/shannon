@@ -71,7 +71,6 @@ protected:
 #endif
 
     // Code generation
-    int addOp(unsigned c);
     void add8(uint8_t i);
     void add16(uint16_t i);
     void addInt(integer i);
@@ -83,14 +82,20 @@ protected:
     static void varCat(Vector* type, const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
-    bool empty() const
-        { return code.empty(); }
+    void resize(mem s)
+        { code.resize(s); }
     void run(langobj* self, varstack&) const;
 
 public:
     CodeSeg(State*, Context*);
     ~CodeSeg();
-    void clear(); // for unit tests
+
+    // For unit tests:
+    void clear();
+    bool empty() const
+        { return code.empty(); }
+    mem size() const
+        { return code.size(); }
 };
 
 
@@ -398,6 +403,8 @@ public:
     void runtimeTypecast(variant&);
 };
 
+
+typedef TypeReference* PTypeRef;
 
 class TypeReference: public Type
 {

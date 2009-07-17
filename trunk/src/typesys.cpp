@@ -117,9 +117,6 @@ void CodeSeg::clear()
 #endif
 }
 
-int CodeSeg::addOp(unsigned c)
-    { code.push_back(c); return code.size() - 1; }
-
 void CodeSeg::add8(uint8_t i)
     { code.push_back(i); }
 
@@ -137,7 +134,7 @@ void CodeSeg::close(mem _stksize, mem _returns)
 {
     assert(!closed);
     if (!code.empty())
-        addOp(opEnd);
+        add8(opEnd);
     stksize = _stksize;
     returns = _returns;
 #ifdef DEBUG
