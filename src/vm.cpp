@@ -4,6 +4,106 @@
 #include "vm.h"
 
 
+Context::Context()
+    : topModule(NULL)  { }
+
+
+Module* Context::registerModule(Module* m)
+{
+    assert(m->id == modules.size());
+    if (modules.size() == 255)
+        throw emessage("Maximum number of modules reached");
+    modules.add(m);
+    return topModule = m;
+}
+
+
+Module* Context::addModule(const str& name)
+{
+    return registerModule(new Module(name, modules.size(), this));
+}
+
+
+void Context::run(varstack& stack)
+{
+    assert(datasegs.empty());
+    for (mem i = 0; i < modules.size(); i++)
+    {
+        Module* m = modules[i];
+        datasegs.add(m->newObject());
+    }
+
+    mem level = 0;
+    try
+    {
+        while (level < modules.size())
+        {
+            modules[level]->run(datasegs[level], stack);
+            level++;
+        }
+    }
+    catch (exception&)
+    {
+        while (level--)
+            modules[level]->finalize(datasegs[level], stack);
+        throw;
+    }
+
+    while (level--)
+        modules[level]->finalize(datasegs[level], stack);
+    datasegs.clear();
+}
+
+
+// --- CODE SEGMENT -------------------------------------------------------- //
+
+
+CodeSeg::CodeSeg(State* _state, Context* _context)
+  : stksize(0), returns(0), state(_state), context(_context)
+#ifdef DEBUG
+    , closed(false)
+#endif
+    { }
+
+CodeSeg::~CodeSeg()  { }
+
+void CodeSeg::clear()
+{
+    code.clear();
+    consts.clear();
+    stksize = 0;
+    returns = 0;
+#ifdef DEBUG
+    closed = false;
+#endif
+}
+
+void CodeSeg::add8(uint8_t i)
+    { code.push_back(i); }
+
+void CodeSeg::add16(uint16_t i)
+    { code.append((char*)&i, 2); }
+
+void CodeSeg::addInt(integer i)
+    { code.append((char*)&i, sizeof(i)); }
+
+void CodeSeg::addPtr(void* p)
+    { code.append((char*)&p, sizeof(p)); }
+
+
+void CodeSeg::close(mem _stksize, mem _returns)
+{
+    assert(!closed);
+    if (!code.empty())
+        add8(opEnd);
+    stksize = _stksize;
+    returns = _returns;
+#ifdef DEBUG
+    closed = true;
+#endif
+}
+
+
 static void invOpcode()        { throw emessage("Invalid opcode"); }
 
 

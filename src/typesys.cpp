@@ -3,7 +3,6 @@
 #include "version.h"
 #include "common.h"
 #include "typesys.h"
-#include "vm.h"
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
@@ -37,109 +36,6 @@ langobj::~langobj()
     mem count = PState(get_rt())->dataSize();
     while (count--)
         vars[count].~variant();
-}
-
-
-// --- EXECUTION CONTEXT --------------------------------------------------- //
-
-
-Context::Context()
-    : topModule(NULL)  { }
-
-
-Module* Context::registerModule(Module* m)
-{
-    assert(m->id == modules.size());
-    if (modules.size() == 255)
-        throw emessage("Maximum number of modules reached");
-    modules.add(m);
-    return topModule = m;
-}
-
-
-Module* Context::addModule(const str& name)
-{
-    return registerModule(new Module(name, modules.size(), this));
-}
-
-
-void Context::run(varstack& stack)
-{
-    assert(datasegs.empty());
-    for (mem i = 0; i < modules.size(); i++)
-    {
-        Module* m = modules[i];
-        datasegs.add(m->newObject());
-    }
-
-    mem level = 0;
-    try
-    {
-        while (level < modules.size())
-        {
-            modules[level]->run(datasegs[level], stack);
-            level++;
-        }
-    }
-    catch (exception&)
-    {
-        while (level--)
-            modules[level]->finalize(datasegs[level], stack);
-        throw;
-    }
-
-    while (level--)
-        modules[level]->finalize(datasegs[level], stack);
-    datasegs.clear();
-}
-
-
-
-// --- CODE SEGMENT -------------------------------------------------------- //
-
-CodeSeg::CodeSeg(State* _state, Context* _context)
-  : stksize(0), returns(0), state(_state), context(_context)
-#ifdef DEBUG
-    , closed(false)
-#endif
-    { }
-
-CodeSeg::~CodeSeg()  { }
-
-void CodeSeg::clear()
-{
-    code.clear();
-    consts.clear();
-    stksize = 0;
-    returns = 0;
-#ifdef DEBUG
-    closed = false;
-#endif
-}
-
-void CodeSeg::add8(uint8_t i)
-    { code.push_back(i); }
-
-void CodeSeg::add16(uint16_t i)
-    { code.append((char*)&i, 2); }
-
-void CodeSeg::addInt(integer i)
-    { code.append((char*)&i, sizeof(i)); }
-
-void CodeSeg::addPtr(void* p)
-    { code.append((char*)&p, sizeof(p)); }
-
-
-void CodeSeg::close(mem _stksize, mem _returns)
-{
-    assert(!closed);
-    if (!code.empty())
-        add8(opEnd);
-    stksize = _stksize;
-    returns = _returns;
-#ifdef DEBUG
-    closed = true;
-#endif
 }
 
 
@@ -277,12 +173,10 @@ Variable* Scope::addVariable(const str& name, Type* type)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(const str& _name, State* _parent, Context* _context)
+State::State(State* _parent)
   : Type(defTypeRef, STATE), Scope(_parent),
-    main(this, _context), final(this, _context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
-    setName(_name);
     setOwner(_parent);
 }
 
@@ -330,25 +224,11 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 }
 
 
-void State::run(langobj* self, varstack& stack)
-{
-    if (!main.empty())
-        main.run(self, stack);
-}
-
-
-void State::finalize(langobj* self, varstack& stack)
-{
-    if (!final.empty())
-        final.run(self, stack);
-}
-
-
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& _name, mem _id, Context* _context)
-        : State(_name, NULL, _context), id(_id)  { }
+Module::Module(mem _id)
+        : State(NULL), id(_id)  { setTypeId(MODULE); }
 
 
 // --- None ---------------------------------------------------------------- //
@@ -525,7 +405,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module("system", 0, NULL)
+  : Module(0)
 {
     registerType(defTypeRef.get());
     defNone = registerType(new None());

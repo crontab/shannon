@@ -7,7 +7,6 @@ release/source.o: common.h bsearch.h source.h charset.h runtime.h
 release/fifo.o: common.h runtime.h charset.h
 release/symbols.o: symbols.h common.h runtime.h charset.h
 release/typesys.o: version.h common.h typesys.h runtime.h charset.h symbols.h
-release/typesys.o: vm.h
 release/main.o: common.h runtime.h charset.h source.h symbols.h typesys.h
 release/main.o: vm.h
 release/main-ut.o: common.h runtime.h charset.h symbols.h source.h typesys.h
