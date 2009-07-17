@@ -4,6 +4,67 @@
 #include "vm.h"
 
 
+// --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
+
+
+Base::Base(Type* rt, BaseId _id)
+    : object(rt), name(null_str), baseId(_id)  { }
+Base::Base(Type* rt, const str& _name, BaseId _id)
+    : object(rt), name(_name), baseId(_id)  { }
+
+
+EDuplicate::EDuplicate(const str& symbol) throw()
+    : emessage("Duplicate identifier: " + symbol)  { }
+
+
+_BaseTable::_BaseTable()  { }
+_BaseTable::~_BaseTable()  { }
+
+
+void _BaseTable::addUnique(Base* o)
+{
+    std::pair<Impl::iterator, bool> result = impl.insert(Impl::value_type(o->name, o));
+    if (!result.second)
+        throw EDuplicate(o->name);
+}
+
+
+Base* _BaseTable::find(const str& name) const
+{
+    Impl::const_iterator i = impl.find(name);
+    if (i == impl.end())
+        return NULL;
+    return i->second;
+}
+
+
+_PtrList::_PtrList()  { }
+_PtrList::~_PtrList()  { }
+void _PtrList::clear()  { impl.clear(); }
+
+
+mem _PtrList::add(void* p)
+{
+    impl.push_back(p);
+    return size() - 1;
+}
+
+
+_List::_List()              { }
+_List::~_List()             { clear(); }
+mem _List::add(object* o)   { return _PtrList::add(grab(o)); }
+
+
+void _List::clear()
+{
+    mem i = size();
+    while (i--)
+        release(operator[](i));
+    _PtrList::clear();
+}
+
+
+
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
 
 
@@ -55,12 +116,6 @@ void typeMismatch()
     { if (derived##d == NULL) \
         derived##d = owner->registerType(new_##d(this)); \
       return derived##d; }
-
-
-Base::Base(Type* rt, BaseId _id)
-    : Symbol(rt, null_str), baseId(_id)  { }
-Base::Base(Type* rt, const str& _name, BaseId _id)
-    : Symbol(rt, _name), baseId(_id)  { }
 
 
 // --- Type ---------------------------------------------------------------- //
@@ -232,7 +287,7 @@ Constant* State::addTypeAlias(const str& name, Type* type)
 {
     Constant* c = new Constant(name, defTypeRef, type);
     if (type->name.empty())
-        type->setName(name);
+        type->name = name;
     consts.add(c);
     addUnique(c); // may throw
     return c;

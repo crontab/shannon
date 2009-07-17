@@ -4,7 +4,6 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "symbols.h"
 #include "source.h"
 #include "typesys.h"
 
@@ -398,29 +397,29 @@ void test_symbols()
 {
     int save_alloc = object::alloc;
     {
-        objptr<Symbol> s = new Symbol(NULL, "sym");
-        check(s->getName() == "sym");
-        SymbolTable<Symbol> t;
+        objptr<Base> s = new Base(NULL, "sym", Base::VARIABLE);
+        check(s->name == "sym");
+        BaseTable<Base> t;
         check(t.empty());
-        objptr<Symbol> s1 = new Symbol(NULL, "abc");
+        objptr<Base> s1 = new Base(NULL, "abc", Base::VARIABLE);
         check(s1->is_unique());
         t.addUnique(s1);
         check(s1->is_unique());
-        objptr<Symbol> s2 = new Symbol(NULL, "def");
+        objptr<Base> s2 = new Base(NULL, "def", Base::VARIABLE);
         t.addUnique(s2);
-        objptr<Symbol> s3 = new Symbol(NULL, "abc");
+        objptr<Base> s3 = new Base(NULL, "abc", Base::VARIABLE);
         check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
         check(t.find("xyz") == NULL);
         check(!t.empty());
 
-        List<Symbol> l;
+        List<Base> l;
         check(l.size() == 0);
         check(l.empty());
         l.add(s1);
         check(!s1->is_unique());
-        l.add(new Symbol(NULL, "ghi"));
+        l.add(new Base(NULL, "ghi", Base::VARIABLE));
         check(l.size() == 2);
         check(!l.empty());
     }

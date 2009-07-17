@@ -3,9 +3,10 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "symbols.h"
 
 #include <stdint.h>
+
+#include <map>
 
 
 class Type;
@@ -33,25 +34,98 @@ typedef Container Set;
 typedef StateAlias ModuleAlias;
 
 
-// --- TYPE SYSTEM --------------------------------------------------------- //
+// --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
 
 
-void typeMismatch();
-
-
-class Base: public Symbol
+class Base: public object
 {
 public:
     enum BaseId { VARIABLE, DEFINITION };
 
+    str const name;
     BaseId const baseId;
 
     Base(Type*, BaseId);
     Base(Type*, const str&, BaseId);
-
     bool isVariable() const     { return baseId == VARIABLE; }
     bool isDefinition() const   { return baseId == DEFINITION; }
 };
+
+
+struct EDuplicate: public emessage
+    { EDuplicate(const str& symbol) throw(); };
+
+
+class _BaseTable: public noncopyable
+{
+    typedef std::map<str, Base*> Impl;
+    Impl impl;
+public:
+    _BaseTable();
+    ~_BaseTable();
+    bool empty()             const { return impl.empty(); }
+    void addUnique(Base*);
+    Base* find(const str&) const;
+};
+
+
+template<class T>
+class BaseTable: public _BaseTable
+{
+public:
+    void addUnique(T* o)           { _BaseTable::addUnique(o); }
+    T* find(const str& name) const { return (T*)_BaseTable::find(name); }
+};
+
+
+class _PtrList: public noncopyable
+{
+    typedef std::vector<void*> Impl;
+    Impl impl;
+public:
+    _PtrList();
+    ~_PtrList();
+    mem add(void*);
+    bool empty()             const { return impl.empty(); }
+    mem size()               const { return impl.size(); }
+    void clear();
+    void* operator[] (mem i) const { return impl[i]; }
+};
+
+
+template<class T>
+class PtrList: public _PtrList
+{
+public:
+    mem add(T* p)               { return _PtrList::add(p); }
+    T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
+};
+
+
+class _List: public _PtrList  // responsible for freeing the objects
+{
+public:
+    _List();
+    ~_List();
+    void clear();
+    mem add(object* o);
+    object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
+};
+
+
+template<class T>
+class List: public _List
+{
+public:
+    mem add(T* p)               { return _List::add(p); }
+    T* operator[] (mem i) const { return (T*)_List::operator[](i); }
+};
+
+
+// --- TYPE SYSTEM --------------------------------------------------------- //
+
+
+void typeMismatch();
 
 
 typedef Type* PType;
@@ -71,10 +145,9 @@ public:
 
 protected:
     str name;       // some types have a name for better diagnostics (int, str, ...)
-
     TypeId const typeId;
+
     State* owner;   // derivators are inserted into the owner's repositories
-    
     Fifo* derivedFifo;
     Container* derivedVector;
     Container* derivedSet;
@@ -171,7 +244,7 @@ public:
 };
 
 
-class Scope: public SymbolTable<Base>
+class Scope: public BaseTable<Base>
 {
 protected:
     Scope* const outer;

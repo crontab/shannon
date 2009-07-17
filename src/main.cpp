@@ -3,7 +3,6 @@
 #include "common.h"
 #include "runtime.h"
 #include "source.h"
-#include "symbols.h"
 #include "typesys.h"
 #include "vm.h"
 
