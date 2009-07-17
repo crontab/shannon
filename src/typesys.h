@@ -53,7 +53,10 @@ class CodeSeg: noncopyable
 {
     friend class CodeGen;
     friend class State;
-    
+
+    // This object can be duplicated if necessary with a different context
+    // assigned; the code segment is a refcounted string, so copying would
+    // be efficient.
 protected:
     str code;
     varlist consts;
@@ -80,13 +83,13 @@ protected:
     static void varCat(Vector* type, const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
+    bool empty() const
+        { return code.empty(); }
     void run(langobj* self, varstack&) const;
 
 public:
     CodeSeg(State*, Context*);
     ~CodeSeg();
-    bool empty() const
-        { return code.empty(); }
     void clear(); // for unit tests
 };
 
@@ -345,6 +348,7 @@ typedef Range* PRange;
 
 class Range: public Type
 {
+    // TODO: implicit conversion to set
 public:
     Ordinal* const base;
     Range(Ordinal*);

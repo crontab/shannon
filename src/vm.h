@@ -141,7 +141,7 @@ protected:
     Type* stkPop();
 
     bool tryCast(Type*, Type*);
-    
+
 public:
     CodeGen(CodeSeg&);
     ~CodeGen();
