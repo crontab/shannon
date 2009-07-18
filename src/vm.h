@@ -70,10 +70,28 @@ enum OpCode
     // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
     opEqual, opNotEq, opLessThan, opLessEq, opGreaterThan, opGreaterEq,
     
+    // Initializers
+    opInitRet,          // -var
+    opInitLocal,        // [stack-index: signed-8] temp(N)
+    opInitThis,         // [var-index: 8]
+
+    // Storers
+    opStoreRet,         // -var
+    opStoreLocal,       // [stack-index: 8] -var
+    opStoreArg,         // [stack-neg-index: 8] -var
+    opStoreThis,        // [var-index: 8] -var
+    opStoreOuter,       // [level: 8, var-index: 8] -var
+    opStoreStatic,      // [module: 8, var-index: 8] -var
+    opStoreStrElem,     // -index, -char, -str
+    opStoreVecElem,     // -index, -val, -vector
+    opStoreDictElem,    // -key, -val, -dict
+    opStoreMember,      // [var-index: 8] -val, -obj
+
     // Loaders: each of these can be replaced by a corresponding storer if
     // the object turns out to be a L-value.
     opLoadRet,          // +var
-    opLoadLocal,        // [stack-index: signed-8 (args(-N), temp(N))]
+    opLoadLocal,        // [stack-index: 8]
+    opLoadArg,          // [stack-neg-index: 8]
     opLoadThis,         // [var-index: 8]
     opLoadOuter,        // [level: 8, var-index: 8]
     opLoadStatic,       // [module: 8, var-index: 8]
@@ -83,16 +101,6 @@ enum OpCode
     opLoadMember,       // [var-index: 8] -obj, +val
 
     // Storers
-    opStoreRet,         // -var
-    opStoreLocal,       // [stack-index: signed-8]
-    opStoreThis,        // [var-index: 8]
-    opStoreOuter,       // [level: 8, var-index: 8]
-    opStoreStatic,      // [module: 8, var-index: 8]
-    opStoreStrElem,     // -index, -char, -str
-    opStoreVecElem,     // -index, -val, -vector
-    opStoreDictElem,    // -key, -val, -dict
-    opStoreMember,      // [var-index: 8] -val, -obj
-
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
     // further boolean jump
     opCase,             // -var, +{0,1}
@@ -124,60 +132,6 @@ inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
 
 
-// --- CODE SEGMENT ------------------------------------------------------- //
-
-class Context;
-
-
-class CodeSeg: noncopyable
-{
-    friend class CodeGen;
-    friend class StateBody;
-
-    // This object can be duplicated if necessary with a different context
-    // assigned; the code segment is a refcounted string, so copying would
-    // be efficient.
-protected:
-    str code;
-    varlist consts;
-    mem stksize;
-    // These can't be refcounted as it will introduce circular references. Both
-    // can be NULL if this is a const expression executed at compile time.
-    State* state;
-    Context* context;
-#ifdef DEBUG
-    bool closed;
-#endif
-
-    // Code generation
-    void add8(uint8_t i);
-    void add16(uint16_t i);
-    void addInt(integer i);
-    void addPtr(void* p);
-    void close(mem _stksize);
-    void resize(mem s)
-        { code.resize(s); }
-
-    // Execution
-    static void varToVec(Vector* type, const variant& elem, variant* result);
-    static void varCat(const variant& elem, variant* vec);
-    static void vecCat(const variant& vec2, variant* vec1);
-
-    void run(langobj* self, varstack& stack, variant* result) const;
-
-public:
-    CodeSeg(State*, Context*);
-    ~CodeSeg();
-
-    // For unit tests:
-    void clear();
-    bool empty() const
-        { return code.empty(); }
-    mem size() const
-        { return code.size(); }
-};
-
-
 class ConstCode: public CodeSeg
 {
 public:
@@ -186,35 +140,18 @@ public:
 };
 
 
-class StateBody: public object, public CodeSeg
-{
-    friend class Context;
-protected:
-    void finalize(langobj* self, varstack& stack)
-        { final.run(self, stack, NULL); }
-public:
-    CodeSeg final;
-
-    StateBody(State*, Context*);
-    ~StateBody();
-};
-
-
 class Context: protected BaseTable<ModuleAlias>
 {
 protected:
-    List<Module> types;
-    List<StateBody> bodies;
     List<ModuleAlias> defs;
+    List<Module> modules;
     List<langobj> datasegs;
-
-    ModuleAlias* registerModule(const str& name, Module*);   // for built-in modules
-
+    Module* registerModule(const str& name, Module*);   // for built-in modules
 public:
     Context();
     ~Context();
-    ModuleAlias* addModule(const str& name);
-    void run(varstack&); // <--- this is where execution starts
+    Module* addModule(const str& name);
+    void run(varstack&); // <--- execution starts here
 };
 
 
@@ -261,7 +198,7 @@ public:
 
     void end();
     void endConstExpr(Type*);
-    void assignRetVal(Type*);
+    void initRetVal(Type*);
     void loadNone();
     void loadBool(bool b)
             { loadConst(queenBee->defBool, b); }

@@ -68,6 +68,7 @@ template<class T>
     inline T IPADV(const uchar*& ip)
         { T t = *(T*)ip; ip += sizeof(T); return t; }
 
+#define SETPOD(stk,v) (::new(stk) variant(v))
 
 #define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
 #define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
@@ -160,19 +161,19 @@ void CodeSeg::run(langobj* self, varstack& stack, variant* result) const
 
             // Arithmetic
             // TODO: range checking in debug mode
-            case opAdd:     BINARY_INT(+=); break;
-            case opSub:     BINARY_INT(-=); break;
-            case opMul:     BINARY_INT(*=); break;
-            case opDiv:     BINARY_INT(/=); break;
-            case opMod:     BINARY_INT(%=); break;
-            case opBitAnd:  BINARY_INT(&=); break;
-            case opBitOr:   BINARY_INT(|=); break;
-            case opBitXor:  BINARY_INT(^=); break;
-            case opBitShl:  BINARY_INT(<<=); break;
-            case opBitShr:  BINARY_INT(>>=); break;
-            case opNeg:     UNARY_INT(-); break;
-            case opBitNot:  UNARY_INT(~); break;
-            case opNot:     UNARY_INT(-); break;
+            case opAdd:         BINARY_INT(+=); break;
+            case opSub:         BINARY_INT(-=); break;
+            case opMul:         BINARY_INT(*=); break;
+            case opDiv:         BINARY_INT(/=); break;
+            case opMod:         BINARY_INT(%=); break;
+            case opBitAnd:      BINARY_INT(&=); break;
+            case opBitOr:       BINARY_INT(|=); break;
+            case opBitXor:      BINARY_INT(^=); break;
+            case opBitShl:      BINARY_INT(<<=); break;
+            case opBitShr:      BINARY_INT(>>=); break;
+            case opNeg:         UNARY_INT(-); break;
+            case opBitNot:      UNARY_INT(~); break;
+            case opNot:         UNARY_INT(-); break;
 
             // Vector/string concatenation
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
@@ -191,16 +192,17 @@ void CodeSeg::run(langobj* self, varstack& stack, variant* result) const
             case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-            case opEqual:       *stk = stk->_int() == 0; break; // TODO: optimize (just assign BOOL type)
-            case opNotEq:       *stk = stk->_int() != 0; break;
-            case opLessThan:    *stk = stk->_int() < 0; break;
-            case opLessEq:      *stk = stk->_int() <= 0; break;
-            case opGreaterThan: *stk = stk->_int() > 0; break;
-            case opGreaterEq:   *stk = stk->_int() >= 0; break;
+            case opEqual:       SETPOD(stk, stk->_int() == 0); break; // TODO: optimize (just assign BOOL type)
+            case opNotEq:       SETPOD(stk, stk->_int() != 0); break;
+            case opLessThan:    SETPOD(stk, stk->_int() < 0); break;
+            case opLessEq:      SETPOD(stk, stk->_int() <= 0); break;
+            case opGreaterThan: SETPOD(stk, stk->_int() > 0); break;
+            case opGreaterEq:   SETPOD(stk, stk->_int() >= 0); break;
 
-            // TODO: Loaders
-            // Storers:
-            case opStoreRet:    if (result != NULL) POPTO(stk, result); break;
+            // Initializers:
+            case opInitRet:     if (result != NULL) POPTO(stk, result); break;
+            case opInitLocal:   POPTO(stk, stkbase + IPADV<uchar>(ip)); break;
+            case opInitThis:    POPTO(stk, (*self)[IPADV<uchar>(ip)]); break;
 
             default: invOpcode(); break;
             }
@@ -230,39 +232,32 @@ void ConstCode::run(variant& result) const
 }
 
 
-StateBody::StateBody(State* state, Context* context)
-    : object(state), CodeSeg(state, context), final(state, context)  { }
-
-StateBody::~StateBody() { }
-
-
 Context::Context()
 {
     registerModule("system", queenBee);
 }
 
+
 Context::~Context()  { }
 
 
-ModuleAlias* Context::registerModule(const str& name, Module* type)
+Module* Context::registerModule(const str& name, Module* module)
 {
-    assert(type->id == defs.size());
+    assert(module->id == defs.size());
     if (defs.size() == 255)
         throw emessage("Maximum number of modules reached");
-    objptr<StateBody> body = new StateBody(type, this);
-    objptr<ModuleAlias> alias = new ModuleAlias(name, type, body);
+    objptr<ModuleAlias> alias = new ModuleAlias(name, module);
     addUnique(alias);   // may throw
-    types.add(type);
-    bodies.add(body);
     defs.add(alias);
-    type->setName(name);
-    return alias;
+    modules.add(module);
+    module->setName(name);
+    return module;
 }
 
 
-ModuleAlias* Context::addModule(const str& name)
+Module* Context::addModule(const str& name)
 {
-    objptr<Module> module = new Module(defs.size());
+    objptr<Module> module = new Module(this, defs.size());
     return registerModule(name, module);
 }
 
@@ -271,13 +266,13 @@ void Context::run(varstack& stack)
 {
     // TODO: call a virtual init method for all modules
     assert(datasegs.empty());
-    assert(types.size() == bodies.size() && bodies.size() == defs.size());
+    assert(modules.size() == defs.size());
 
     mem count = defs.size();
     for (mem i = 0; i < count; i++)
-        datasegs.add(types[i]->newObject());
+        datasegs.add(modules[i]->newObject());
 
-    assert(types[0] == queenBee);
+    assert(modules[0] == queenBee);
     queenBee->initialize(datasegs[0]);
 
     mem level = 0;
@@ -285,19 +280,19 @@ void Context::run(varstack& stack)
     {
         while (level < count)
         {
-            bodies[level]->run(datasegs[level], stack, NULL);
+            modules[level]->run(datasegs[level], stack, NULL);
             level++;
         }
     }
     catch (exception&)
     {
         while (level--)
-            bodies[level]->finalize(datasegs[level], stack);
+            modules[level]->finalize(datasegs[level], stack);
         throw;
     }
 
     while (level--)
-        bodies[level]->finalize(datasegs[level], stack);
+        modules[level]->finalize(datasegs[level], stack);
     datasegs.clear();
 }
 

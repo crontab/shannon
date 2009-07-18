@@ -85,18 +85,18 @@ void CodeGen::endConstExpr(Type* expectType)
     Type* resultType = stkTopType();
     if (expectType != NULL && !resultType->canCastImplTo(expectType))
         throw emessage("Const expression type mismatch");
-    assignRetVal(NULL);
+    initRetVal(NULL);
     codeseg.close(stkMax);
     assert(genStack.size() == 0);
 }
 
 
-void CodeGen::assignRetVal(Type* expectType)
+void CodeGen::initRetVal(Type* expectType)
 {
     Type* resultType = stkPop();
     if (expectType != NULL && !resultType->canCastImplTo(expectType))
         throw emessage("Return value type mismatch");
-    addOp(opStoreRet);
+    addOp(opInitRet);
 }
 
 
@@ -428,8 +428,10 @@ int main()
     {
         Parser parser("x", new in_text(NULL, "x"));
 
-        Module m(1);
-        Constant* c = m.addConstant("c", queenBee->defChar, char(1));
+        Context ctx;
+        Module* m = ctx.addModule("test");
+        
+        Constant* c = m->addConstant("c", queenBee->defChar, char(1));
 
         // Arithmetic, typecasts
         variant r;
@@ -452,7 +454,7 @@ int main()
         check(r.as_str() == "12");
         
         // String operations
-        c = m.addConstant("s", queenBee->defStr, "ef");
+        c = m->addConstant("s", queenBee->defStr, "ef");
         seg.clear();
         {
             CodeGen gen(seg);
@@ -495,7 +497,7 @@ int main()
         // Vector concatenation
         vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
         t->push_back(4);
-        c = m.addConstant("v", queenBee->defInt->deriveVector(), t);
+        c = m->addConstant("v", queenBee->defInt->deriveVector(), t);
         seg.clear();
         {
             CodeGen gen(seg);
@@ -549,11 +551,8 @@ int main()
 
         {
             varstack stk;
-            Context ctx;
-            ModuleAlias* m = ctx.addModule("test");
-            StateBody* b = m->getBody();
             {
-                CodeGen gen(*b);
+                CodeGen gen(*m);
             }
             ctx.run(stk);
         }

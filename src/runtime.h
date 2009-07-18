@@ -656,11 +656,11 @@ protected:
 
 public:
 #ifdef DEBUG
-    variant& operator[] (mem index)
-            { if (index >= varcount) _idx_err(); return vars[index]; }
+    variant* operator[] (mem index)
+            { if (index >= varcount) _idx_err(); return vars + index; }
 #else
-    variant& operator[] (mem index)
-            { return vars[index]; }
+    variant* operator[] (mem index)
+            { return vars + index; }
 #endif
 };
 

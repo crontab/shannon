@@ -1,6 +1,4 @@
 
-* State type and state body should belong to one class.
-
 * Support both `return` statement and built-in `result` variable?
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
@@ -10,7 +8,6 @@
 
 * Multiple return values: pass a pointer to a preallocated array of vars
 
-* Optimize function calls: if "self" is not used, get the object from a
-  stack-like pool.
-
+* Optimize function calls: if "self" is not used, allocate the object on
+  the stack.
 
