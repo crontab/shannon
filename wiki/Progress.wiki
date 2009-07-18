@@ -40,4 +40,4 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *if... elif... else, while... break... continue...* Enjoy them. You don't need to put parens around  conditional expressions like in C.
 
-*Case operator* is like in Pascal: the labels are constant values or ranges, also a list of values/ranges is allowed. In the current implementation, ordinals, typerefs and strings are allowed for `case`. `break` doesn't work here like in C; if you want to match multiple labels, just list them all as a comma-separated label.
+*Case operator* is like in Pascal: labels are constant values or ranges, also a list of values/ranges is allowed. In the current implementation, ordinals, typerefs and strings are allowed for `case`. `break` doesn't work here like in C; if you want to match multiple labels, just list them all as a comma-separated label.
