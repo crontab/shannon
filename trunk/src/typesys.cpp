@@ -1,16 +1,49 @@
 
 #include "version.h"
 #include "typesys.h"
-#include "vm.h"
+
+
+// --- LANGUAGE OBJECT ----------------------------------------------------- //
+
+
+void* langobj::operator new(size_t, mem datasize)
+{
+    return new char[sizeof(langobj) + datasize * sizeof(variant)];
+}
+
+
+// Defined in runtime.h
+langobj::langobj(State* type)
+    : object(type)
+#ifdef DEBUG
+    , varcount(type->thisSize())
+#endif
+{
+//    memset(vars, 0, type->dataSize() * sizeof(variant));
+}
+
+
+void langobj::_idx_err()
+{
+    throw emessage("Object index error");
+}
+
+
+langobj::~langobj()
+{
+    mem count = CAST(State*, get_rt())->thisSize();
+    while (count--)
+        vars[count].~variant();
+}
 
 
 // --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
 
 
-Base::Base(Type* rt, BaseId _id)
-    : object(rt), name(null_str), baseId(_id)  { }
-Base::Base(Type* rt, const str& _name, BaseId _id)
-    : object(rt), name(_name), baseId(_id)  { }
+Base::Base(BaseId _baseId, Type* _type, const str& _name, mem _id)
+    : object(NULL), baseId(_baseId), type(_type), name(_name), id(_id)  { }
+
+Base::~Base()  { }
 
 
 EDuplicate::EDuplicate(const str& symbol) throw()
@@ -64,42 +97,26 @@ void _List::clear()
 }
 
 
-
-// --- LANGUAGE OBJECT ----------------------------------------------------- //
-
-
-void* langobj::operator new(size_t, mem datasize)
-{
-    return new char[sizeof(langobj) + datasize * sizeof(variant)];
-}
+// --- Variable ----------------------------------------------------------- //
 
 
-// Defined in runtime.h
-langobj::langobj(State* type)
-    : object(type)
-#ifdef DEBUG
-    , varcount(type->dataSize())
-#endif
-{
-//    memset(vars, 0, type->dataSize() * sizeof(variant));
-}
+Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, bool _readOnly)
+    : Base(_baseId, _type, _name, _id), readOnly(_readOnly)  { }
+
+Variable::~Variable()  { }
 
 
-void langobj::_idx_err()
-{
-    throw emessage("Object index error");
-}
+// --- Constant ----------------------------------------------------------- //
 
 
-langobj::~langobj()
-{
-    mem count = PState(get_rt())->dataSize();
-    while (count--)
-        vars[count].~variant();
-}
+Constant::Constant(BaseId _baseId, Type* _type, const str& _name, mem _id, const variant& _value)
+    : Base(_baseId, _type, _name, _id), value(_value)  { }
+
+Constant::~Constant()  { }
 
 
 // --- TYPE SYSTEM --------------------------------------------------------- //
+
 
 void typeMismatch()
         { throw emessage("Type mismatch"); }
@@ -165,46 +182,11 @@ void Type::runtimeTypecast(variant& v)
     { if (!isMyType(v)) typeMismatch(); }
 
 
-// --- Variable ----------------------------------------------------------- //
-
-
-Variable::Variable(const str& _name, Type* _type, mem _id, bool _readOnly)
-    : Base(_type, _name, VARIABLE), type(_type), id(_id), readOnly(_readOnly)  { }
-
-Variable::~Variable()  { }
-
-
-// --- Constant ----------------------------------------------------------- //
-
-
-Constant::Constant(const str& _name, Type* _type, const variant& _value)
-    : Base(_type, _name, DEFINITION), type(_type), value(_value)  { }
-
-
-Constant::~Constant()  { }
-
-
-bool Constant::isModuleAlias()
-    { return isTypeAlias() && getAlias()->isModule(); }
-
-
-Type* Constant::getAlias()
-{
-    assert(isTypeAlias());
-    return CAST(Type*, value.as_object());
-}
-
-
-StateAlias::StateAlias(const str& name, State* state)
-    : Constant(name, state, state)  { }
-
-StateAlias::~StateAlias()  { }
-
-
 // --- Scope --------------------------------------------------------------- //
 
 
-Scope::Scope(Scope* _outer): outer(_outer)  { }
+Scope::Scope(Scope* _outer, mem _startId)
+    : outer(_outer), startId(_startId)  { }
 Scope::~Scope()  { }
 
 
@@ -225,14 +207,23 @@ Base* Scope::deepFind(const str& ident) const
 }
 
 
-Variable* Scope::addVariable(const str& name, Type* type)
+Constant* Scope::addConstant(Type* type, const str& name, const variant& value)
 {
-    if (vars.size() == 255)
-        throw emessage("Maximum number of variables within one scope is reached");
-    objptr<Variable> v = new Variable(name, type, vars.size());
-    addUnique(v);   // may throw
-    vars.add(v);
-    return v;
+    objptr<Constant> c = new Constant(Base::CONSTANT, type, name, 0, value);
+    addUnique(c); // may throw
+    consts.add(c);
+    return c;
+}
+
+
+Constant* Scope::addTypeAlias(Type* type, const str& name)
+{
+    objptr<Constant> c = new Constant(Base::TYPEALIAS, defTypeRef, name, 0, type);
+    addUnique(c); // may throw
+    consts.add(c);
+    if (type->name.empty())
+        type->name = name;
+    return c;
 }
 
 
@@ -240,7 +231,7 @@ Variable* Scope::addVariable(const str& name, Type* type)
 
 
 State::State(State* _parent, Context* context)
-  : Type(defTypeRef, STATE), Scope(_parent),
+  : Type(defTypeRef, STATE), Scope(_parent, 0),
     CodeSeg(this, context), final(this, context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
@@ -260,7 +251,7 @@ bool State::canCastImplTo(Type* t)
 
 langobj* State::newObject()
 {
-    mem s = dataSize();
+    mem s = thisSize();
     if (s == 0)
         return NULL;
     return new(s) langobj(this);
@@ -275,23 +266,15 @@ Module::Module(Context* context, mem _id): State(NULL, context), id(_id)  { }
 Module::~Module()  { }
 
 
-Constant* State::addConstant(const str& name, Type* type, const variant& value)
+Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
 {
-    objptr<Constant> c = new Constant(name, type, value);
-    addUnique(c); // may throw
-    consts.add(c);
-    return c;
-}
-
-
-Constant* State::addTypeAlias(const str& name, Type* type)
-{
-    objptr<Constant> c = new Constant(name, defTypeRef, type);
-    addUnique(c); // may throw
-    consts.add(c);
-    if (type->name.empty())
-        type->name = name;
-    return c;
+    mem id = startId + thisvars.size(); // startId will be used with derived classes
+    if (id >= 255)
+        throw emessage("Maximum number of variables within this object is reached");
+    objptr<Variable> v = new Variable(Base::THISVAR, type, name, id, readOnly);
+    addUnique(v); // may throw
+    thisvars.add(v);
+    return v;
 }
 
 
@@ -379,7 +362,7 @@ void Enumeration::addValue(const str& name)
 {
     reassignRight(
         values->add(
-            owner->addConstant(name, this, variant(values->size()))));
+            owner->addConstant(this, name, values->size())));
 }
 
 
@@ -490,19 +473,20 @@ void QueenBee::setup()
     // is not assigned
     defStr = defChar->deriveVector();
     defCharFifo = defChar->deriveFifo();
-    addTypeAlias("typeref", defTypeRef);
-    addTypeAlias("none", defNone);
-    addConstant("null", defNone, null);
-    addTypeAlias("int", defInt);
+    addTypeAlias(defTypeRef, "typeref");
+    addTypeAlias(defNone, "none");
+    addConstant(defNone, "null", null);
+    addTypeAlias(defInt, "int");
     defBool->addValue("false");
     defBool->addValue("true");
-    addTypeAlias("bool", defBool);
-    addTypeAlias("str", defStr);
-    addTypeAlias("any", defVariant);
-    siovar = addVariable("sio", defCharFifo);
-    serrvar = addVariable("serr", defCharFifo);
-    addConstant("__ver_major", defInt, SHANNON_VERSION_MAJOR);
-    addConstant("__ver_minor", defInt, SHANNON_VERSION_MINOR);
+    addTypeAlias(defBool, "bool");
+    addTypeAlias(defStr, "str");
+    addTypeAlias(defVariant, "any");
+    siovar = addThisVar(defCharFifo, "sio");
+    serrvar = addThisVar(defCharFifo, "serr");
+    sresultvar = addThisVar(defVariant, "sresult");
+    addConstant(defInt, "__ver_major", SHANNON_VERSION_MAJOR);
+    addConstant(defInt, "__ver_minor", SHANNON_VERSION_MINOR);
 }
 
 
@@ -526,6 +510,7 @@ void QueenBee::initialize(langobj* self)
 {
     ::new((*self)[siovar->id]) variant(&sio);
     ::new((*self)[serrvar->id]) variant(&serr);
+    ::new((*self)[sresultvar->id]) variant();
 }
 
 

@@ -109,7 +109,7 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 }
 
 
-void CodeSeg::run(langobj* self, varstack& stack, variant* result) const
+void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
 {
     if (code.empty())
         return;
@@ -227,7 +227,7 @@ void ConstCode::run(variant& result) const
 {
     result.clear();
     varstack stack;
-    CodeSeg::run(NULL, stack, &result);
+    CodeSeg::run(stack, NULL, &result);
     assert(stack.size() == 0);
 }
 
@@ -246,7 +246,8 @@ Module* Context::registerModule(const str& name, Module* module)
     assert(module->id == defs.size());
     if (defs.size() == 255)
         throw emessage("Maximum number of modules reached");
-    objptr<ModuleAlias> alias = new ModuleAlias(name, module);
+    objptr<ModuleAlias> alias = new ModuleAlias(Base::MODULEALIAS,
+        defTypeRef, name, module->id, module);
     addUnique(alias);   // may throw
     defs.add(alias);
     modules.add(module);
@@ -262,39 +263,43 @@ Module* Context::addModule(const str& name)
 }
 
 
-void Context::run(varstack& stack)
+variant Context::run(varstack& stack)
 {
-    // TODO: call a virtual init method for all modules
     assert(datasegs.empty());
     assert(modules.size() == defs.size());
 
+    // Create data segments for all modules
     mem count = defs.size();
     for (mem i = 0; i < count; i++)
         datasegs.add(modules[i]->newObject());
 
+    // Initialize the system module
     assert(modules[0] == queenBee);
     queenBee->initialize(datasegs[0]);
 
+    // Run main code for all modules, then final code in reverse order.
     mem level = 0;
     try
     {
         while (level < count)
         {
-            modules[level]->run(datasegs[level], stack, NULL);
+            modules[level]->run(stack, datasegs[level], NULL);
             level++;
         }
     }
     catch (exception&)
     {
         while (level--)
-            modules[level]->finalize(datasegs[level], stack);
+            modules[level]->finalize(stack, datasegs[level]);
         throw;
     }
-
     while (level--)
-        modules[level]->finalize(datasegs[level], stack);
-    datasegs.clear();
-}
+        modules[level]->finalize(stack, datasegs[level]);
 
+    // Get the result of the exit operator
+    variant result = *(*datasegs[0])[queenBee->sresultvar->id];
+    datasegs.clear();
+    return result;
+}
 
 

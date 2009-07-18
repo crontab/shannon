@@ -12,8 +12,6 @@
 class Type;
 class Variable;
 class Constant;
-class StateAlias;
-class QueenBee;
 
 class None;
 class Ordinal;
@@ -25,16 +23,20 @@ class Variant;
 class TypeReference;
 class State;
 class Module;
+class QueenBee;
 
 typedef Container Container;
 typedef Container Vector;
 typedef Container String;
 typedef Container Set;
+typedef Constant TypeAlias;
+typedef TypeAlias StateAlias;
 typedef StateAlias ModuleAlias;
 
 
 // --- CODE SEGMENT ------------------------------------------------------- //
 
+class CodeGen;
 class Context;
 
 // Defined here because the State type contains code segments. The
@@ -68,13 +70,14 @@ protected:
     void close(mem _stksize);
     void resize(mem s)
         { code.resize(s); }
+    uint8_t operator[] (mem i) const { return uint8_t(code[i]); }
 
     // Execution
     static void varToVec(Vector* type, const variant& elem, variant* result);
     static void varCat(const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
-    void run(langobj* self, varstack& stack, variant* result) const;
+    void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
 
 public:
     CodeSeg(State*, Context*);
@@ -95,17 +98,55 @@ public:
 class Base: public object
 {
 public:
-    enum BaseId { VARIABLE, DEFINITION };
+    enum BaseId { THISVAR, RESULTVAR, LOCALVAR, ARGVAR,
+        CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS };
 
-    str const name;
     BaseId const baseId;
+    Type* const type;
+    str const name;
+    mem const id;
 
-    Base(Type*, BaseId);
-    Base(Type*, const str&, BaseId);
-    bool isVariable() const     { return baseId == VARIABLE; }
-    bool isDefinition() const   { return baseId == DEFINITION; }
+    Base(BaseId, Type*, const str&, mem);
+    ~Base();
+
+    bool isVariable()  { return baseId <= ARGVAR; }
+    bool isDefinition()  { return baseId >= CONSTANT; }
+
+    bool isThisVar()  { return baseId == THISVAR; }
+    bool isResultVar()  { return baseId == RESULTVAR; }
+    bool isLocalVar()  { return baseId == LOCALVAR; }
+    bool isArgVar()  { return baseId == ARGVAR; }
+    bool isConstant()  { return baseId == CONSTANT; }
+    bool isTypeAlias()  { return baseId == TYPEALIAS; }
+    bool isStateAlias()  { return baseId == STATEALIAS; }
+    bool isModuleAlias()  { return baseId == MODULEALIAS; }
 };
 
+
+typedef Variable* PVar;
+
+class Variable: public Base
+{
+public:
+    bool const readOnly;
+    Variable(BaseId, Type*, const str&, mem, bool _readOnly = false);
+    ~Variable();
+};
+
+
+typedef Constant* PConst;
+
+class Constant: public Base
+{
+public:
+    variant const value;
+    Constant(BaseId, Type*, const str&, mem, const variant&);
+    ~Constant();
+    Type* getAlias();
+};
+
+
+// --- SYMBOL TABLE, COLLECTIONS ------------------------------------------- //
 
 struct EDuplicate: public emessage
     { EDuplicate(const str& symbol) throw(); };
@@ -177,6 +218,22 @@ public:
 };
 
 
+class Scope: public BaseTable<Base>
+{
+protected:
+    Scope* const outer;
+    List<Constant> consts;
+    PtrList<Module> uses;
+    mem startId;
+public:
+    Scope(Scope* outer, mem startId);
+    ~Scope();
+    Base* deepFind(const str&) const;
+    Constant* addConstant(Type*, const str&, const variant&);
+    Constant* addTypeAlias(Type*, const str&);
+};
+
+
 // --- TYPE SYSTEM --------------------------------------------------------- //
 
 
@@ -189,8 +246,7 @@ typedef Type* PType;
 
 class Type: public object
 {
-    friend class State;
-    friend class Context;
+    friend class Scope;
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
@@ -256,60 +312,8 @@ public:
 };
 
 
-typedef Variable* PVar;
-
-class Variable: public Base
-{
-public:
-    Type* const type;
-    mem const id;
-    bool const readOnly;
-    Variable(const str& _name, Type*, mem _id, bool _readOnly = false);
-    ~Variable();
-};
-
-
-typedef Constant* PConst;
-
-class Constant: public Base
-{
-public:
-    Type* const type;
-    variant const value;
-
-    Constant(const str&, Type*, const variant&);
-    ~Constant();
-    bool isTypeAlias()
-            { return type->isTypeRef(); }
-    bool isModuleAlias();
-    Type* getAlias();
-};
-
-
-class StateAlias: public Constant
-{
-public:
-    StateAlias(const str&, State*);
-    ~StateAlias();
-    State* getStateType()
-            { return (State*)type; }
-};
-
-
-class Scope: public BaseTable<Base>
-{
-protected:
-    Scope* const outer;
-    PtrList<Module> uses;
-    List<Variable> vars;
-public:
-    Scope(Scope* _outer);
-    ~Scope();
-    Base* deepFind(const str&) const;
-    Variable* addVariable(const str&, Type*);
-    mem dataSize()
-            { return vars.size(); }
-};
+inline Type* Constant::getAlias()
+            { assert(value.is_object()); return CAST(Type*, value._object()); }
 
 
 // --- TYPES ---
@@ -323,12 +327,12 @@ class State: public Type, public Scope, public CodeSeg
     friend class Context;
 
 protected:
-    List<Constant> consts;
     List<Type> types;
+    List<Variable> thisvars;
 
     CodeSeg final;
-    void finalize(langobj* self, varstack& stack)
-        { final.run(self, stack, NULL); }
+    void finalize(varstack& stack, langobj* self)
+        { final.run(stack, self, NULL); }
 
 public:
     int const level;
@@ -341,9 +345,10 @@ public:
     template<class T>
         T* registerType(T* t)
             { t->setOwner(this); types.add(t); return t; }
-    Constant* addConstant(const str& name, Type* type, const variant& value);
-    Constant* addTypeAlias(const str& name, Type* type);
+    Variable* addThisVar(Type*, const str&, bool readOnly = false);
     langobj* newObject();
+    mem thisSize()
+            { return thisvars.size(); }
 };
 
 
@@ -488,9 +493,11 @@ public:
 
 class QueenBee: public Module
 {
+    friend class Context;
 protected:
     Variable* siovar;
     Variable* serrvar;
+    Variable* sresultvar;
 public:
     None* defNone;
     Ordinal* defInt;
@@ -499,7 +506,7 @@ public:
     Container* defStr;
     Variant* defVariant;
     Fifo* defCharFifo;
-    
+
     QueenBee();
     void setup();
     Type* typeFromValue(const variant&);

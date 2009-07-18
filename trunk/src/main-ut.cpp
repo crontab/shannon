@@ -397,17 +397,17 @@ void test_symbols()
 {
     int save_alloc = object::alloc;
     {
-        objptr<Base> s = new Base(NULL, "sym", Base::VARIABLE);
+        objptr<Base> s = new Base(Base::THISVAR, NULL, "sym", 0);
         check(s->name == "sym");
         BaseTable<Base> t;
         check(t.empty());
-        objptr<Base> s1 = new Base(NULL, "abc", Base::VARIABLE);
+        objptr<Base> s1 = new Base(Base::THISVAR, NULL, "abc", 0);
         check(s1->is_unique());
         t.addUnique(s1);
         check(s1->is_unique());
-        objptr<Base> s2 = new Base(NULL, "def", Base::VARIABLE);
+        objptr<Base> s2 = new Base(Base::THISVAR, NULL, "def", 0);
         t.addUnique(s2);
-        objptr<Base> s3 = new Base(NULL, "abc", Base::VARIABLE);
+        objptr<Base> s3 = new Base(Base::THISVAR, NULL, "abc", 0);
         check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
@@ -419,7 +419,7 @@ void test_symbols()
         check(l.empty());
         l.add(s1);
         check(!s1->is_unique());
-        l.add(new Base(NULL, "ghi", Base::VARIABLE));
+        l.add(new Base(Base::THISVAR, NULL, "ghi", 0));
         check(l.size() == 2);
         check(!l.empty());
     }
@@ -611,14 +611,23 @@ void test_typesys()
         b = state.deepFind("true");
         check(b != NULL && b->isDefinition());
         check(state.deepFind("untrue") == NULL);
-        state.addVariable("a", queenBee->defInt);
-        check_throw(state.addVariable("a", queenBee->defInt));
-        check_nothrow(state.addVariable("true", queenBee->defInt));
-        state.addTypeAlias("ool", queenBee->defBool);
+        state.addThisVar(queenBee->defInt, "a");
+        check_throw(state.addThisVar(queenBee->defInt, "a"));
+        check_nothrow(state.addThisVar(queenBee->defInt, "true"));
+        state.addTypeAlias(queenBee->defBool, "ool");
         b = state.deepFind("ool");
         check(b != NULL && b->isDefinition());
         check(PConst(b)->isTypeAlias());
         check(PConst(b)->getAlias()->isBool());
+        check_nothrow(state.addThisVar(queenBee->defInt, "v"));
+        Base* v = state.deepFind("v");
+        check(v->isThisVar());
+        check(v->id == 2);
+        check_nothrow(state.addThisVar(queenBee->defChar, "c1"));
+        check_nothrow(state.addThisVar(queenBee->defChar, "c2"));
+        v = state.deepFind("c2");
+        check(v->isThisVar());
+        check(v->id == 4);
     }
 
     doneTypeSys();
