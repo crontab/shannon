@@ -6,8 +6,13 @@
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
-* Multiple return values: pass a pointer to a preallocated array of vars
+* Multiple return values: allow to assign them to a vector?
 
 * Optimize function calls: if "self" is not used, allocate the object on
   the stack.
+
+* HTML embedded mode
+
+* Compiler directives: #!DEBUG ON|OFF  #!RANGE_CHECK ON|OFF  #!ASSERT ON|OFF
+  #!ECHO ON|OFF  #!EMBED ON|OFF
 

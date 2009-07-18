@@ -10,7 +10,7 @@
 CodeSeg::CodeSeg(State* _state, Context* _context)
   : stksize(0), state(_state), context(_context)
 #ifdef DEBUG
-    , closed(false)
+    , closed(0)
 #endif
     { }
 
@@ -22,34 +22,9 @@ void CodeSeg::clear()
     consts.clear();
     stksize = 0;
 #ifdef DEBUG
-    closed = false;
+    closed = 0;
 #endif
 }
-
-void CodeSeg::add8(uint8_t i)
-    { code.push_back(i); }
-
-void CodeSeg::add16(uint16_t i)
-    { code.append((char*)&i, 2); }
-
-void CodeSeg::addInt(integer i)
-    { code.append((char*)&i, sizeof(i)); }
-
-void CodeSeg::addPtr(void* p)
-    { code.append((char*)&p, sizeof(p)); }
-
-
-void CodeSeg::close(mem _stksize)
-{
-    assert(!closed);
-    if (!code.empty())
-        add8(opEnd);
-    stksize = _stksize;
-#ifdef DEBUG
-    closed = true;
-#endif
-}
-
 
 static void invOpcode()        { throw emessage("Invalid opcode"); }
 
@@ -62,7 +37,11 @@ inline void POP(variant*& stk)
         { (*stk--).~variant(); }
 
 inline void POPTO(variant*& stk, variant* dest)
-        { assert(dest->is_null()); *(podvar*)dest = *(podvar*)stk; stk--; }
+        { *(podvar*)dest = *(podvar*)stk; stk--; }
+
+inline void STORETO(variant*& stk, variant* dest)
+        { dest->~variant(); POPTO(stk, dest); }
+//        { *dest = *stk; POP(stk); }
 
 template<class T>
     inline T IPADV(const uchar*& ip)
@@ -118,8 +97,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
     assert(self == NULL || self->get_rt()->canCastImplTo(state));
 
     register const uchar* ip = (const uchar*)code.data();
-    register variant* stk = stack.reserve(stksize) - 1; // always points to the top element
-    variant* stkbase = stk;
+    variant* stkbase = stack.reserve(stksize);
+    register variant* stk = stkbase - 1; // always points to the top element
     try
     {
         while (1)
@@ -134,7 +113,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadNull:        PUSH(stk, null); break;
             case opLoadFalse:       PUSH(stk, false); break;
             case opLoadTrue:        PUSH(stk, true); break;
-            case opLoadChar:        PUSH(stk, IPADV<uint8_t>(ip)); break;
+            case opLoadChar:        PUSH(stk, IPADV<uchar>(ip)); break;
             case opLoad0:           PUSH(stk, integer(0)); break;
             case opLoad1:           PUSH(stk, integer(1)); break;
             case opLoadInt:         PUSH(stk, IPADV<integer>(ip)); break;
@@ -144,7 +123,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadNullDict:    PUSH(stk, (object*)NULL); break;
             case opLoadNullOrdset:  PUSH(stk, (object*)NULL); break;
             case opLoadNullSet:     PUSH(stk, (object*)NULL); break;
-            case opLoadConst:       PUSH(stk, consts[IPADV<uint8_t>(ip)]); break;
+            case opLoadConst:       PUSH(stk, consts[IPADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
             
@@ -200,21 +179,43 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opGreaterEq:   SETPOD(stk, stk->_int() >= 0); break;
 
             // Initializers:
-            case opInitRet:     if (result != NULL) POPTO(stk, result); break;
+            case opInitRet:     POPTO(stk, result + IPADV<uchar>(ip)); break;
             case opInitLocal:   POPTO(stk, stkbase + IPADV<uchar>(ip)); break;
-            case opInitThis:    POPTO(stk, (*self)[IPADV<uchar>(ip)]); break;
+            case opInitThis:    POPTO(stk, self->var(IPADV<uchar>(ip))); break;
+
+            // Loaders
+            case opLoadRet:     PUSH(stk, result[IPADV<uchar>(ip)]); break;
+            case opLoadLocal:   PUSH(stk, stkbase[IPADV<uchar>(ip)]); break;
+            case opLoadThis:    PUSH(stk, *self->var(IPADV<uchar>(ip))); break;
+            case opLoadStatic:
+                {
+                    mem mod = IPADV<uchar>(ip);
+                    PUSH(stk, *context->datasegs[mod]->var(IPADV<uchar>(ip)));
+                }
+                break;
+
+            // Storers
+            case opStoreRet:    STORETO(stk, result + IPADV<uchar>(ip)); break;
+            case opStoreLocal:  STORETO(stk, stkbase + IPADV<uchar>(ip)); break;
+            case opStoreThis:   STORETO(stk, self->var(IPADV<uchar>(ip))); break;
+            case opStoreStatic:
+                {
+                    mem mod = IPADV<uchar>(ip);
+                    STORETO(stk, context->datasegs[mod]->var(IPADV<uchar>(ip)));
+                }
+                break;
 
             default: invOpcode(); break;
             }
         }
 exit:
-        if (stk != stkbase)
+        if (stk != stkbase - 1)
             fatal(0x5001, "Stack unbalanced");
         stack.free(stksize);
     }
     catch(exception&)
     {
-        while (stk > stkbase)
+        while (stk >= stkbase)
             POP(stk);
         // TODO: stack is not free()'d here
         stack.free(stksize);
@@ -297,7 +298,7 @@ variant Context::run(varstack& stack)
         modules[level]->finalize(stack, datasegs[level]);
 
     // Get the result of the exit operator
-    variant result = *(*datasegs[0])[queenBee->sresultvar->id];
+    variant result = *datasegs[0]->var(queenBee->sresultvar->id);
     datasegs.clear();
     return result;
 }

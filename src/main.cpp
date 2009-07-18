@@ -27,8 +27,29 @@ mem CodeGen::addOp(OpCode op)
 {
     assert(!codeseg.closed);
     lastOpOffs = codeseg.size();
-    codeseg.add8(op);
+    add8(op);
     return lastOpOffs;
+}
+
+
+void CodeGen::add8(uchar i)
+    { codeseg.push_back(i); }
+
+void CodeGen::add16(uint16_t i)
+    { codeseg.append(&i, 2); }
+
+void CodeGen::addInt(integer i)
+    { codeseg.append(&i, sizeof(i)); }
+
+void CodeGen::addPtr(void* p)
+    { codeseg.append(&p, sizeof(p)); }
+
+
+void CodeGen::close()
+{
+    if (!codeseg.empty())
+        add8(opEnd);
+    codeseg.close(stkMax);
 }
 
 
@@ -70,22 +91,21 @@ Type* CodeGen::stkPop()
 }
 
 
-void CodeGen::end(BlockScope* block)
+void CodeGen::end()
 {
-    if (block != NULL)
-        block->deinitLocals();
-    codeseg.close(stkMax);
+    // TODO: optimize this: at the end of a function deinit is not needed
+    // (alhtough stack balance should be somehow checked in DEBUG build anyway)
+    close();
     assert(genStack.size() - locals == 0);
 }
 
 
 void CodeGen::endConstExpr(Type* expectType)
 {
-    Type* resultType = stkTopType();
-    if (expectType != NULL && !resultType->canCastImplTo(expectType))
-        throw emessage("Const expression type mismatch");
+    if (expectType != NULL)
+        implicitCastTo(expectType);
     initRetVal(NULL);
-    codeseg.close(stkMax);
+    close();
     assert(genStack.size() == 0);
 }
 
@@ -107,7 +127,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     case Type::CHAR:
         addOp(opLoadChar);
-        codeseg.add8(value.as_char());
+        add8(value.as_char());
         break;
     case Type::INT:
     case Type::ENUM:
@@ -120,7 +140,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
             else
             {
                 addOp(opLoadInt);
-                codeseg.addInt(v);
+                addInt(v);
             }
         }
         break;
@@ -155,7 +175,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case Type::TYPEREF:
     case Type::STATE:
         addOp(opLoadTypeRef);
-        codeseg.addPtr(value.as_object());
+        addPtr(value.as_object());
         break;
     }
 
@@ -166,12 +186,12 @@ void CodeGen::loadConst(Type* type, const variant& value)
         if (n < 256)
         {
             addOp(opLoadConst);
-            codeseg.add8(uchar(n));
+            add8(uchar(n));
         }
         else if (n < 65536)
         {
             addOp(opLoadConst2);
-            codeseg.add16(n);
+            add16(n);
         }
         else
             throw emessage("Maximum number of constants in a block reached");
@@ -200,21 +220,22 @@ void CodeGen::swap()
 
 void CodeGen::initRetVal(Type* expectType)
 {
-    Type* resultType = stkPop();
-    if (expectType != NULL && !resultType->canCastImplTo(expectType))
-        throw emessage("Return value type mismatch");
+    if (expectType != NULL)
+        implicitCastTo(expectType);
+    stkPop();
     addOp(opInitRet);
+    add8(0);
 }
 
 
 void CodeGen::initLocalVar(Variable* var)
 {
+    assert(var->isLocalVar());
     if (codeseg.context == NULL || locals != genStack.size() - 1 || var->id != locals)
         _fatal(0x6003);
     locals++;
     // Local var simply remains in the stack, so just check the types
-    if (!var->type->canCastImplTo(stkTopType()))
-        typeMismatch();
+    implicitCastTo(var->type);
 }
 
 
@@ -222,11 +243,83 @@ void CodeGen::deinitLocalVar(Variable* var)
 {
     // TODO: don't generate POPs if at the end of a function: just don't call
     // deinitLocalVar()
+    assert(var->isLocalVar());
     if (codeseg.context == NULL || locals != genStack.size() || var->id != locals - 1)
         _fatal(0x6004);
     locals--;
     discard();
 }
+
+
+void CodeGen::initThisVar(Variable* var)
+{
+    assert(var->isThisVar());
+    assert(var->state == codeseg.state);
+    assert(var->id > 255);
+    addOp(opInitThis);
+    add8(var->id);
+}
+
+
+void CodeGen::doStaticVar(ThisVar* var, OpCode op)
+{
+    assert(var->state != NULL && var->state != codeseg.state);
+    if (var->baseId != Base::THISVAR)
+        notimpl();
+    Module* module = CAST(Module*, var->state);
+    assert(module->id <= 255);
+    addOp(op);
+    add8(module->id);
+    add8(var->id);
+}
+
+
+void CodeGen::loadVar(Variable* var)
+{
+    assert(var->id <= 255);
+    if (var->state != NULL && var->state != codeseg.state)
+    {
+        // Static from another module
+        if (var->state->isModule())
+            doStaticVar(var, opLoadStatic);
+        else
+            notimpl();
+    }
+    else
+    {
+        // Local, this, result or arg of the current State
+        if (var->baseId < Base::RESULTVAR || var->baseId > Base::ARGVAR)
+            notimpl();
+        addOp(OpCode(opLoadRet + (var->baseId - Base::RESULTVAR)));
+        add8(var->id);
+    }
+    stkPush(var->type);
+}
+
+
+void CodeGen::storeVar(Variable* var)
+{
+    assert(var->id <= 255);
+    implicitCastTo(var->type);
+    stkPop();
+    if (var->state != NULL && var->state != codeseg.state)
+    {
+        // Static from another module
+        if (var->state->isModule())
+            doStaticVar(var, opStoreStatic);
+        else
+            notimpl();
+    }
+    else
+    {
+        // Local, this, result or arg of the current State
+        if (var->baseId < Base::RESULTVAR || var->baseId > Base::ARGVAR)
+            notimpl();
+        addOp(OpCode(opStoreRet + (var->baseId - Base::RESULTVAR)));
+        add8(var->id);
+    }
+}
+
 
 // Try implicit cast and return true if succeeded. This code is shared
 // between the explicit and implicit typecast routines.
@@ -237,7 +330,7 @@ bool CodeGen::tryCast(Type* from, Type* to)
     else if (to->isBool())
         addOp(opToBool);    // everything can be cast to bool
     else if (from->canCastImplTo(to))
-        ;   // means variant copying is considered safe, including State casts
+        ;   // means value copying is considered safe, including State casts
     else
         return false;
     return true;
@@ -274,7 +367,7 @@ void CodeGen::explicitCastTo(Type* to)
         || (from->isState() && to->isState()))
     {
         addOp(opToType);    // calls to->runtimeTypecast(v)
-        codeseg.addPtr(to);
+        addPtr(to);
     }
     else
         throw emessage("Invalid typecast");
@@ -299,7 +392,7 @@ void CodeGen::testType(Type* type)
     if (varType->isVariant())
     {
         addOp(opIsType);
-        codeseg.addPtr(type);
+        addPtr(type);
     }
     else
     {
@@ -351,7 +444,7 @@ void CodeGen::elemToVec()
     else
     {
         addOp(opVarToVec);
-        codeseg.addPtr(vecType);
+        addPtr(vecType);
     }
     stkPush(vecType);
 }
@@ -394,7 +487,7 @@ void CodeGen::mkRange()
         throw emessage("Range element types do not match");
     addOp(opMkRange);
     Type* rangeType = POrdinal(left)->deriveRange();
-    codeseg.addPtr(rangeType);
+    addPtr(rangeType);
     stkPush(rangeType);
 }
 
@@ -436,7 +529,7 @@ void CodeGen::cmp(OpCode op)
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
-    : Scope(_outer, _gen->getLocals()), gen(_gen)  { }
+    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
 BlockScope::~BlockScope()  { }
@@ -455,7 +548,7 @@ Variable* BlockScope::addLocalVar(Type* type, const str& name)
     mem id = startId + localvars.size();
     if (id >= 255)
         throw emessage("Maximum number of local variables within this scope is reached");
-    objptr<Variable> v = new Variable(Base::LOCALVAR, type, name, id, false);
+    objptr<Variable> v = new LocalVar(Base::LOCALVAR, type, name, id, NULL, false);
     addUnique(v);   // may throw
     localvars.add(v);
     return v;
@@ -609,11 +702,15 @@ int main()
                 gen.initLocalVar(s1);
                 gen.loadConst(queenBee->defStr, "123");
                 gen.initLocalVar(s2);
-                gen.end(&block);
+                gen.loadVar(s2);
+                gen.storeVar(queenBee->sresultvar);
+                block.deinitLocals();
+                gen.end();
             }
             variant result = ctx.run(stk);
-            
+            check(result.as_str() == "123");
         }
+
     }
     catch (std::exception& e)
     {
