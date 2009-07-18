@@ -8,7 +8,7 @@
 
 
 CodeSeg::CodeSeg(State* _state, Context* _context)
-  : stksize(0), returns(0), state(_state), context(_context)
+  : stksize(0), state(_state), context(_context)
 #ifdef DEBUG
     , closed(false)
 #endif
@@ -21,7 +21,6 @@ void CodeSeg::clear()
     code.clear();
     consts.clear();
     stksize = 0;
-    returns = 0;
 #ifdef DEBUG
     closed = false;
 #endif
@@ -40,13 +39,12 @@ void CodeSeg::addPtr(void* p)
     { code.append((char*)&p, sizeof(p)); }
 
 
-void CodeSeg::close(mem _stksize, mem _returns)
+void CodeSeg::close(mem _stksize)
 {
     assert(!closed);
     if (!code.empty())
         add8(opEnd);
     stksize = _stksize;
-    returns = _returns;
 #ifdef DEBUG
     closed = true;
 #endif
@@ -62,6 +60,9 @@ template<class T>
 
 inline void POP(variant*& stk)
         { (*stk--).~variant(); }
+
+inline void POPTO(variant*& stk, variant* dest)
+        { assert(dest->is_null()); *(podvar*)dest = *(podvar*)stk; stk--; }
 
 template<class T>
     inline T IPADV(const uchar*& ip)
@@ -107,7 +108,7 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 }
 
 
-void CodeSeg::run(langobj* self, varstack& stack) const
+void CodeSeg::run(langobj* self, varstack& stack, variant* result) const
 {
     if (code.empty())
         return;
@@ -190,27 +191,31 @@ void CodeSeg::run(langobj* self, varstack& stack) const
             case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-            case opEqual:       *stk = stk->_int() == 0; break;
+            case opEqual:       *stk = stk->_int() == 0; break; // TODO: optimize (just assign BOOL type)
             case opNotEq:       *stk = stk->_int() != 0; break;
             case opLessThan:    *stk = stk->_int() < 0; break;
             case opLessEq:      *stk = stk->_int() <= 0; break;
             case opGreaterThan: *stk = stk->_int() > 0; break;
             case opGreaterEq:   *stk = stk->_int() >= 0; break;
 
+            // TODO: Loaders
+            // Storers:
+            case opStoreRet:    if (result != NULL) POPTO(stk, result); break;
+
             default: invOpcode(); break;
             }
         }
 exit:
-        if (stk != stkbase + returns)
+        if (stk != stkbase)
             fatal(0x5001, "Stack unbalanced");
-        stack.free(stksize - returns);
+        stack.free(stksize);
     }
     catch(exception&)
     {
         while (stk > stkbase)
             POP(stk);
         // TODO: stack is not free()'d here
-        stack.free(stksize - returns);
+        stack.free(stksize);
         throw;
     }
 }
@@ -218,10 +223,9 @@ exit:
 
 void ConstCode::run(variant& result) const
 {
+    result.clear();
     varstack stack;
-    CodeSeg::run(NULL, stack);
-    result = stack.top();
-    stack.pop();
+    CodeSeg::run(NULL, stack, &result);
     assert(stack.size() == 0);
 }
 
@@ -273,12 +277,15 @@ void Context::run(varstack& stack)
     for (mem i = 0; i < count; i++)
         datasegs.add(types[i]->newObject());
 
+    assert(types[0] == queenBee);
+    queenBee->initialize(datasegs[0]);
+
     mem level = 0;
     try
     {
         while (level < count)
         {
-            bodies[level]->run(datasegs[level], stack);
+            bodies[level]->run(datasegs[level], stack, NULL);
             level++;
         }
     }

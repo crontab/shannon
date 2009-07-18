@@ -72,7 +72,8 @@ enum OpCode
     
     // Loaders: each of these can be replaced by a corresponding storer if
     // the object turns out to be a L-value.
-    opLoadLocal,        // [stack-index: signed-8 (retval(-N), args(-N), temp(N))]
+    opLoadRet,          // +var
+    opLoadLocal,        // [stack-index: signed-8 (args(-N), temp(N))]
     opLoadThis,         // [var-index: 8]
     opLoadOuter,        // [level: 8, var-index: 8]
     opLoadStatic,       // [module: 8, var-index: 8]
@@ -82,8 +83,8 @@ enum OpCode
     opLoadMember,       // [var-index: 8] -obj, +val
 
     // Storers
-    // TODO: versions of storers where the destination object is left on the stack
-    opStoreLocal,       // [stack-index]
+    opStoreRet,         // -var
+    opStoreLocal,       // [stack-index: signed-8]
     opStoreThis,        // [var-index: 8]
     opStoreOuter,       // [level: 8, var-index: 8]
     opStoreStatic,      // [module: 8, var-index: 8]
@@ -140,7 +141,6 @@ protected:
     str code;
     varlist consts;
     mem stksize;
-    mem returns;
     // These can't be refcounted as it will introduce circular references. Both
     // can be NULL if this is a const expression executed at compile time.
     State* state;
@@ -154,7 +154,7 @@ protected:
     void add16(uint16_t i);
     void addInt(integer i);
     void addPtr(void* p);
-    void close(mem _stksize, mem _returns);
+    void close(mem _stksize);
     void resize(mem s)
         { code.resize(s); }
 
@@ -163,7 +163,7 @@ protected:
     static void varCat(const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
-    void run(langobj* self, varstack&) const;
+    void run(langobj* self, varstack& stack, variant* result) const;
 
 public:
     CodeSeg(State*, Context*);
@@ -191,7 +191,7 @@ class StateBody: public object, public CodeSeg
     friend class Context;
 protected:
     void finalize(langobj* self, varstack& stack)
-        { final.run(self, stack); }
+        { final.run(self, stack, NULL); }
 public:
     CodeSeg final;
 
@@ -260,7 +260,8 @@ public:
     ~CodeGen();
 
     void end();
-    void endConstExpr(Type* expectType);
+    void endConstExpr(Type*);
+    void assignRetVal(Type*);
     void loadNone();
     void loadBool(bool b)
             { loadConst(queenBee->defBool, b); }

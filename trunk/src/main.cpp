@@ -75,18 +75,28 @@ Type* CodeGen::stkPop()
 
 void CodeGen::end()
 {
-    codeseg.close(stkMax, 0);
+    codeseg.close(stkMax);
     assert(genStack.size() == 0);
 }
 
 
 void CodeGen::endConstExpr(Type* expectType)
 {
-    codeseg.close(stkMax, 1);
-    Type* resultType = stkPop();
+    Type* resultType = stkTopType();
     if (expectType != NULL && !resultType->canCastImplTo(expectType))
         throw emessage("Const expression type mismatch");
+    assignRetVal(NULL);
+    codeseg.close(stkMax);
     assert(genStack.size() == 0);
+}
+
+
+void CodeGen::assignRetVal(Type* expectType)
+{
+    Type* resultType = stkPop();
+    if (expectType != NULL && !resultType->canCastImplTo(expectType))
+        throw emessage("Return value type mismatch");
+    addOp(opStoreRet);
 }
 
 
@@ -147,8 +157,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         if (empty) addOp(opLoadNullSet); else addToConsts = true;
         break;
     case Type::FIFO:
-        if (empty) _fatal(0x6002);
-        addToConsts = true;
+        _fatal(0x6002);
         break;
     case Type::VARIANT:
         loadConst(queenBee->typeFromValue(value), value);
