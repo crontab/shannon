@@ -81,7 +81,7 @@ langobj::langobj(State* type)
     , varcount(type->dataSize())
 #endif
 {
-    memset(vars, 0, type->dataSize() * sizeof(variant));
+//    memset(vars, 0, type->dataSize() * sizeof(variant));
 }
 
 
@@ -504,14 +504,6 @@ void QueenBee::setup()
     addConstant("__ver_minor", defInt, SHANNON_VERSION_MINOR);
 }
 
-/*
-void QueenBee::run(langobj* self, varstack&)
-{
-    (*self)[siovar->id] = &sio;
-    (*self)[serrvar->id] = &serr;
-}
-*/
-
 
 Type* QueenBee::typeFromValue(const variant& v)
 {
@@ -526,6 +518,13 @@ Type* QueenBee::typeFromValue(const variant& v)
     case variant::OBJECT: return v._object()->get_rt();
     }
     return NULL;
+}
+
+
+void QueenBee::initialize(langobj* self)
+{
+    ::new(&(*self)[siovar->id]) variant(&sio);
+    ::new(&(*self)[serrvar->id]) variant(&serr);
 }
 
 

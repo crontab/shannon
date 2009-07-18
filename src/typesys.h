@@ -279,12 +279,12 @@ public:
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
     bool isMyType(variant&);
-    langobj* newObject();
     template<class T>
         T* registerType(T* t)
             { t->setOwner(this); types.add(t); return t; }
     Constant* addConstant(const str& name, Type* type, const variant& value);
     Constant* addTypeAlias(const str& name, Type* type);
+    langobj* newObject();
 };
 
 
@@ -442,6 +442,7 @@ public:
     QueenBee();
     void setup();
     Type* typeFromValue(const variant&);
+    void initialize(langobj*);
 };
 
 
