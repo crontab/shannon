@@ -34,7 +34,7 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *The `exit` operator* is like `return`, except it exits the program with the value specified. If the value is integer,  system exit code is set to that value; otherwise the exit code is set to 0 and the argument of the `exit` operator is printed to std out.
 
-*Other built-ints*: copy(), count(), low(), high(), del(), ins() (^).
+*Other built-ints*: copy(), count(), empty(), low(), high(), del(), ins(), fmt(), qfmt() (^).
 
 *The if() function* -- `if (cond, a, b)` -- is similar to the ?: operator in C. It accepts 3 arguments - the condition and 2 "branches", however, it executes only one of the branches, like the 'real' if statement, which is important to remember when using expressions with side effects.
 
