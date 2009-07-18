@@ -24,7 +24,7 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *Set/array/dict literals* have same syntax `[value, ...]` or `[key = value, ...]`. The exact type is determined by the context. In cases where the type can't be determined, a typecast is required, e.g. when initializing a variant variable. A set literal is a list of keys with no values. For sets of ordinal types also ranges are allowed in value specs, e.g. `[0..2, 5]`.
 
-*Variant type* is called `any`. It can hold any value, simple or compound, and also the value of a variant can be `null`. Variants should be typecast'ed explicitly in expressions and assignments mixed with typed entities. The only two automatic conversions possible are: to boolean in boolean expressions and also to a string in the echo statement. In fact, this applies to all types, not only variants.
+*Variant type* is called `any`. It can hold any value, simple or compound, and also the value of a variant can be `null`. Variants should be typecast'ed explicitly in expressions and assignments mixed with typed entities. The only two automatic conversions possible are: to boolean in `if` and loop conditions, and also to string in the echo statement. In fact, this applies to all types, not only variants.
 
 *Operators* are: +, -, `*`, /, mod, also bitwise `and, or, xor, shl, shr, not`; boolean: `and, or, xor, not`,  distinguished from bitwise operators by operand types; special operators: `in, is, as`.
 
