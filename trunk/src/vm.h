@@ -71,34 +71,34 @@ enum OpCode
     opEqual, opNotEq, opLessThan, opLessEq, opGreaterThan, opGreaterEq,
     
     // Initializers
-    opInitRet,          // -var
+    opInitRet,          // [ret-index] -var
     opInitLocal,        // [stack-index: 8]
     opInitThis,         // [this-index: 8]
 
-    // Storers
-    opStoreRet,         // -var
-    opStoreLocal,       // [stack-index: 8] -var
-    opStoreArg,         // [stack-neg-index: 8] -var
-    opStoreThis,        // [this-index: 8] -var
-    opStoreOuter,       // [level: 8, var-index: 8] -var
-    opStoreStatic,      // [module: 8, var-index: 8] -var
-    opStoreStrElem,     // -index, -char, -str
-    opStoreVecElem,     // -index, -val, -vector
-    opStoreDictElem,    // -key, -val, -dict
-    opStoreMember,      // [var-index: 8] -val, -obj
-
     // Loaders: each of these can be replaced by a corresponding storer if
     // the object turns out to be a L-value.
-    opLoadRet,          // +var
-    opLoadLocal,        // [stack-index: 8]
-    opLoadArg,          // [stack-neg-index: 8]
-    opLoadThis,         // [this-index: 8]
-    opLoadOuter,        // [level: 8, var-index: 8]
-    opLoadStatic,       // [module: 8, var-index: 8]
+    opLoadRet,          // [ret-index] +var
+    opLoadLocal,        // [stack-index: 8] +var
+    opLoadThis,         // [this-index: 8] +var
+    opLoadArg,          // [stack-neg-index: 8] +var
+    opLoadStatic,       // [module: 8, var-index: 8] +var
+    opLoadOuter,        // [level: 8, var-index: 8] +var
     opLoadStrElem,      // -str, -index, +char
     opLoadVecElem,      // -vector, -index, +val
     opLoadDictElem,     // -dict, -key, +val
     opLoadMember,       // [var-index: 8] -obj, +val
+
+    // Storers
+    opStoreRet,         // [ret-index] -var
+    opStoreLocal,       // [stack-index: 8] -var
+    opStoreThis,        // [this-index: 8] -var
+    opStoreArg,         // [stack-neg-index: 8] -var
+    opStoreStatic,      // [module: 8, var-index: 8] -var
+    opStoreOuter,       // [level: 8, var-index: 8] -var
+    opStoreStrElem,     // -index, -char, -str
+    opStoreVecElem,     // -index, -val, -vector
+    opStoreDictElem,    // -key, -val, -dict
+    opStoreMember,      // [var-index: 8] -val, -obj
 
     // Storers
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
@@ -126,7 +126,7 @@ enum OpCode
 
 inline bool isLoadOp(OpCode op)
     { return (op >= opLoadNull && op <= opLoadTypeRef)
-        || (op >= opLoadLocal && op <= opLoadMember); }
+        || (op >= opLoadRet && op <= opLoadMember); }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
@@ -142,6 +142,7 @@ public:
 
 class Context: protected BaseTable<ModuleAlias>
 {
+    friend class CodeSeg;
 protected:
     List<ModuleAlias> defs;
     List<Module> modules;
@@ -176,7 +177,12 @@ protected:
     mem lastOpOffs;
 
     mem addOp(OpCode);
+    void add8(uint8_t i);
+    void add16(uint16_t i);
+    void addInt(integer i);
+    void addPtr(void* p);
     void revertLastLoad();
+    void close();
 
     std::stack<stkinfo> genStack;
     mem stkMax;
@@ -196,6 +202,7 @@ protected:
     Type* stkPop();
 
     bool tryCast(Type*, Type*);
+    void doStaticVar(ThisVar* var, OpCode);
 
 public:
     CodeGen(CodeSeg&);
@@ -203,7 +210,7 @@ public:
 
     mem getLocals() { return locals; }
 
-    void end(BlockScope*);
+    void end();
     void endConstExpr(Type*);
 
     void loadNone();
@@ -220,6 +227,10 @@ public:
     void initRetVal(Type*);
     void initLocalVar(Variable*);
     void deinitLocalVar(Variable*);
+    void initThisVar(Variable*);
+    
+    void loadVar(Variable*);
+    void storeVar(Variable*);
 
     void implicitCastTo(Type*);
     void explicitCastTo(Type*);
@@ -241,6 +252,7 @@ class BlockScope: public Scope
 {
 protected:
     List<Variable> localvars;
+    mem startId;
     CodeGen* gen;
 public:
     BlockScope(Scope* outer, CodeGen*);

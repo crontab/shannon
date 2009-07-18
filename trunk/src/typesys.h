@@ -25,6 +25,9 @@ class State;
 class Module;
 class QueenBee;
 
+typedef Variable ThisVar;
+typedef Variable ResultVar;
+typedef Variable LocalVar;
 typedef Container Container;
 typedef Container Vector;
 typedef Container String;
@@ -59,17 +62,17 @@ protected:
     State* state;
     Context* context;
 #ifdef DEBUG
-    bool closed;
+    int closed;
 #endif
 
-    // Code generation
-    void add8(uint8_t i);
-    void add16(uint16_t i);
-    void addInt(integer i);
-    void addPtr(void* p);
-    void close(mem _stksize);
+    void push_back(uchar u)
+            { code.push_back(u); }
+    void append(void* p, mem count)
+            { code.append((char*)p, count); }
     void resize(mem s)
-        { code.resize(s); }
+            { code.resize(s); }
+    void close(mem _stksize)
+            { assert(++closed == 1); stksize = _stksize; }
     uint8_t operator[] (mem i) const { return uint8_t(code[i]); }
 
     // Execution
@@ -98,8 +101,8 @@ public:
 class Base: public object
 {
 public:
-    enum BaseId { THISVAR, RESULTVAR, LOCALVAR, ARGVAR,
-        CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS };
+    enum BaseId { RESULTVAR, LOCALVAR, THISVAR, ARGVAR, // in sync with loaders and storers
+                    CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS };
 
     BaseId const baseId;
     Type* const type;
@@ -128,8 +131,9 @@ typedef Variable* PVar;
 class Variable: public Base
 {
 public:
+    State* const state;
     bool const readOnly;
-    Variable(BaseId, Type*, const str&, mem, bool _readOnly = false);
+    Variable(BaseId, Type*, const str&, mem, State*, bool _readOnly);
     ~Variable();
 };
 
@@ -224,9 +228,8 @@ protected:
     Scope* const outer;
     List<Constant> consts;
     PtrList<Module> uses;
-    mem startId;
 public:
-    Scope(Scope* outer, mem startId);
+    Scope(Scope* outer);
     ~Scope();
     Base* deepFind(const str&) const;
     Constant* addConstant(Type*, const str&, const variant&);
@@ -320,7 +323,6 @@ inline Type* Constant::getAlias()
 
 
 typedef State* PState;
-typedef State* PModule;
 
 class State: public Type, public Scope, public CodeSeg
 {
@@ -329,6 +331,8 @@ class State: public Type, public Scope, public CodeSeg
 protected:
     List<Type> types;
     List<Variable> thisvars;
+    objptr<Variable> resultvar;
+    mem startId;
 
     CodeSeg final;
     void finalize(varstack& stack, langobj* self)
@@ -337,7 +341,7 @@ protected:
 public:
     int const level;
 
-    State(State* _parent, Context*);
+    State(State* _parent, Context*, Type* resultType);
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
@@ -351,6 +355,8 @@ public:
             { return thisvars.size(); }
 };
 
+
+typedef Module* PModule;
 
 class Module: public State
 {
@@ -493,11 +499,6 @@ public:
 
 class QueenBee: public Module
 {
-    friend class Context;
-protected:
-    Variable* siovar;
-    Variable* serrvar;
-    Variable* sresultvar;
 public:
     None* defNone;
     Ordinal* defInt;
@@ -506,6 +507,9 @@ public:
     Container* defStr;
     Variant* defVariant;
     Fifo* defCharFifo;
+    Variable* siovar;
+    Variable* serrvar;
+    Variable* sresultvar;
 
     QueenBee();
     void setup();
@@ -514,8 +518,8 @@ public:
 };
 
 
-extern objptr<TypeReference> defTypeRef;
-extern objptr<QueenBee> queenBee;
+extern TypeReference* defTypeRef;
+extern QueenBee* queenBee;
 
 
 void initTypeSys();

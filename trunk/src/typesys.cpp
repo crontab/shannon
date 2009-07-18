@@ -100,8 +100,12 @@ void _List::clear()
 // --- Variable ----------------------------------------------------------- //
 
 
-Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, bool _readOnly)
-    : Base(_baseId, _type, _name, _id), readOnly(_readOnly)  { }
+Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, State* _state, bool _readOnly)
+    : Base(_baseId, _type, _name, _id), state(_state), readOnly(_readOnly)
+{
+    assert(isVariable());
+    if (!isResultVar() && _id > 255) fatal(0x3002, "Variable ID too big");
+}
 
 Variable::~Variable()  { }
 
@@ -185,8 +189,8 @@ void Type::runtimeTypecast(variant& v)
 // --- Scope --------------------------------------------------------------- //
 
 
-Scope::Scope(Scope* _outer, mem _startId)
-    : outer(_outer), startId(_startId)  { }
+Scope::Scope(Scope* _outer)
+    : outer(_outer)  { }
 Scope::~Scope()  { }
 
 
@@ -230,12 +234,18 @@ Constant* Scope::addTypeAlias(Type* type, const str& name)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* _parent, Context* context)
-  : Type(defTypeRef, STATE), Scope(_parent, 0),
-    CodeSeg(this, context), final(this, context),
+State::State(State* _parent, Context* context, Type* resultType)
+  : Type(defTypeRef, STATE), Scope(_parent),
+    CodeSeg(this, context), startId(0), final(this, context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setOwner(_parent);
+    if (resultType != NULL)
+    {
+        // TODO: multiple result vars (result1, result2, ... ?)
+        resultvar = new ResultVar(Base::RESULTVAR, resultType, "result", 0, this, false);
+        addUnique(resultvar);
+    }
 }
 
 
@@ -262,7 +272,8 @@ bool State::isMyType(variant& v)
     { return (v.is_object() && v._object()->get_rt()->canCastImplTo(this)); }
 
 
-Module::Module(Context* context, mem _id): State(NULL, context), id(_id)  { }
+Module::Module(Context* context, mem _id)
+    : State(NULL, context, NULL), id(_id)  { }
 Module::~Module()  { }
 
 
@@ -270,8 +281,8 @@ Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
 {
     mem id = startId + thisvars.size(); // startId will be used with derived classes
     if (id >= 255)
-        throw emessage("Maximum number of variables within this object is reached");
-    objptr<Variable> v = new Variable(Base::THISVAR, type, name, id, readOnly);
+        throw emessage("Maximum number of variables within this object reached");
+    objptr<Variable> v = new ThisVar(Base::THISVAR, type, name, id, this, readOnly);
     addUnique(v); // may throw
     thisvars.add(v);
     return v;
@@ -337,7 +348,7 @@ void Ordinal::runtimeTypecast(variant& v)
     else if (isInt() || isEnum())
         v.type = variant::INT;
     else
-        fatal(0x3001, "Unknown ordinal type");
+        notimpl();
 }
 
 
@@ -454,7 +465,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 QueenBee::QueenBee()
   : Module(NULL, 0)
 {
-    registerType(defTypeRef.get());
+    registerType(defTypeRef);
     defNone = registerType(new None());
     defInt = registerType(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX));
     defBool = registerType(new Enumeration(Type::BOOL));
@@ -508,14 +519,17 @@ Type* QueenBee::typeFromValue(const variant& v)
 
 void QueenBee::initialize(langobj* self)
 {
-    ::new((*self)[siovar->id]) variant(&sio);
-    ::new((*self)[serrvar->id]) variant(&serr);
-    ::new((*self)[sresultvar->id]) variant();
+    ::new(self->var(siovar->id)) variant(&sio);
+    ::new(self->var(serrvar->id)) variant(&serr);
+    ::new(self->var(sresultvar->id)) variant();
 }
 
 
-objptr<TypeReference> defTypeRef;
-objptr<QueenBee> queenBee;
+TypeReference* defTypeRef;
+QueenBee* queenBee;
+
+static objptr<TypeReference> _defTypeRef;
+static objptr<QueenBee> _queenBee;
 
 
 void initTypeSys()
@@ -523,8 +537,8 @@ void initTypeSys()
     // Because all Type objects are also runtime objects, they all have a
     // runtime type of "type reference". The initial typeref object refers to
     // itself and should be created before anything else in the type system.
-    defTypeRef = new TypeReference();
-    queenBee = new QueenBee();
+    _defTypeRef = defTypeRef = new TypeReference();
+    _queenBee = queenBee = new QueenBee();
     queenBee->setup();
     sio.set_rt(queenBee->defCharFifo);
     serr.set_rt(queenBee->defCharFifo);
@@ -536,7 +550,7 @@ void doneTypeSys()
 {
     sio.clear_rt();
     serr.clear_rt();
-    queenBee = NULL;
-    defTypeRef = NULL;
+    _queenBee = queenBee = NULL;
+    _defTypeRef = defTypeRef = NULL;
 }
 
