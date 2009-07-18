@@ -27,6 +27,7 @@ void CodeSeg::clear()
 }
 
 static void invOpcode()        { throw emessage("Invalid opcode"); }
+static void idxOverflow()      { throw emessage("Index overflow"); }
 
 
 template<class T>
@@ -35,6 +36,13 @@ template<class T>
 
 inline void POP(variant*& stk)
         { (*stk--).~variant(); }
+
+inline void POPPOD(variant*& stk)
+#ifdef DEBUG
+        { stk->_ord(); stk--; }
+#else
+        { stk--; }
+#endif
 
 inline void POPTO(variant*& stk, variant* dest)
         { *(podvar*)dest = *(podvar*)stk; stk--; }
@@ -47,9 +55,9 @@ template<class T>
     inline T IPADV(const uchar*& ip)
         { T t = *(T*)ip; ip += sizeof(T); return t; }
 
-#define SETPOD(stk,v) (::new(stk) variant(v))
+#define SETPOD(dest,v) (::new(dest) variant(v))
 
-#define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POP(stk); }
+#define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POPPOD(stk); }
 #define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
 
 
@@ -108,6 +116,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opInv:     invOpcode(); break;
             case opEnd:     goto exit;
             case opNop:     break;
+            case opExit:    throw eexit();
 
             // Const loaders
             case opLoadNull:        PUSH(stk, null); break;
@@ -126,9 +135,11 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadConst:       PUSH(stk, consts[IPADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
-            
+            case opLoadDataseg:     PUSH(stk, context->datasegs[IPADV<uchar>(ip)]); break;
+
             case opPop:             POP(stk); break;
             case opSwap:            varswap(stk, stk - 1); break;
+            case opDup:             PUSH(stk, *stk); break;
 
             // Safe typecasts
             case opToBool:      *stk = stk->to_bool(); break;
@@ -156,18 +167,18 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
 
             // Vector/string concatenation
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
-            case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POP(stk); break;
+            case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POPPOD(stk); break;
             case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
             case opVarToVec:    varToVec(IPADV<Vector*>(ip), *stk, stk); break;
             case opVarCat:      varCat(*stk, stk - 1); POP(stk); break;
             case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 
             // Range operations
-            case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POP(stk); break;
-            case opInRange:     *(stk - 1) = ((range*)stk->_object())->has((stk - 1)->_ord()); POP(stk); break;
+            case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPPOD(stk); break;
+            case opInRange:     SETPOD(stk - 1, ((range*)stk->_object())->has((stk - 1)->_ord())); POP(stk); break;
 
             // Comparators
-            case opCmpOrd:      *(stk - 1) = (stk - 1)->_ord() - stk->_ord(); POP(stk); break;
+            case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPPOD(stk); break;
             case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
@@ -187,23 +198,59 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadRet:     PUSH(stk, result[IPADV<uchar>(ip)]); break;
             case opLoadLocal:   PUSH(stk, stkbase[IPADV<uchar>(ip)]); break;
             case opLoadThis:    PUSH(stk, *self->var(IPADV<uchar>(ip))); break;
+            case opLoadArg:     PUSH(stk, stkbase[- IPADV<uchar>(ip) - 1]); break; // not tested
             case opLoadStatic:
                 {
                     mem mod = IPADV<uchar>(ip);
                     PUSH(stk, *context->datasegs[mod]->var(IPADV<uchar>(ip)));
                 }
                 break;
+            case opLoadOuter:   notimpl();
+            case opLoadStrElem:
+                {
+                    mem idx = stk->_int();
+                    POPPOD(stk);
+                    const str& s = stk->_str_read();
+                    if (idx >= s.size())
+                        idxOverflow();
+                    *stk = s[idx];
+                }
+                break;
+            case opLoadVecElem:
+                {
+                    mem idx = stk->_int();
+                    POPPOD(stk);
+                    vector* v = CAST(vector*, stk->_object());
+                    if (idx >= v->size())
+                        idxOverflow();
+                    *stk = (*v)[idx];
+                }
+                break;
+            case opLoadDictElem:
+                {
+                    dict* d = CAST(dict*, (stk - 1)->_object());
+                    dict_impl::const_iterator i = d->find(*stk);
+                    POP(stk);
+                    if (i == d->end())
+                        stk->clear();
+                    else
+                        *stk = i->second;
+                }
+                break;
+            case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(IPADV<uchar>(ip)); break;
 
             // Storers
             case opStoreRet:    STORETO(stk, result + IPADV<uchar>(ip)); break;
             case opStoreLocal:  STORETO(stk, stkbase + IPADV<uchar>(ip)); break;
             case opStoreThis:   STORETO(stk, self->var(IPADV<uchar>(ip))); break;
+            case opStoreArg:    STORETO(stk, stkbase - IPADV<uchar>(ip) - 1); break;
             case opStoreStatic:
                 {
                     mem mod = IPADV<uchar>(ip);
                     STORETO(stk, context->datasegs[mod]->var(IPADV<uchar>(ip)));
                 }
                 break;
+            case opStoreOuter:   notimpl();
 
             default: invOpcode(); break;
             }
@@ -217,7 +264,6 @@ exit:
     {
         while (stk >= stkbase)
             POP(stk);
-        // TODO: stack is not free()'d here
         stack.free(stksize);
         throw;
     }
@@ -252,7 +298,8 @@ Module* Context::registerModule(const str& name, Module* module)
     addUnique(alias);   // may throw
     defs.add(alias);
     modules.add(module);
-    module->setName(name);
+    if (module != queenBee)
+        module->setName(name);
     return module;
 }
 
@@ -284,11 +331,14 @@ variant Context::run(varstack& stack)
     {
         while (level < count)
         {
-            modules[level]->run(stack, datasegs[level], NULL);
             level++;
+            modules[level - 1]->run(stack, datasegs[level - 1], NULL);
         }
     }
-    catch (exception&)
+    catch(eexit&)
+    {
+    }
+    catch(exception&)
     {
         while (level--)
             modules[level]->finalize(stack, datasegs[level]);

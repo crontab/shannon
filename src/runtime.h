@@ -314,8 +314,9 @@ public:
     virtual object* clone() const;
     mem size()                          const { return impl.size(); }
     bool empty()                              { return impl.empty(); }
+    void tie(const variant& key, const variant& value)
+                                              { impl[key] = value; }
     void untie(const variant& v)              { impl.erase(v); }
-    variant& operator[] (const variant& v)    { return impl[v]; }
     dict_iterator find(const variant& v)const { return impl.find(v); }
     virtual void dump(fifo_intf&) const;
     dict_iterator begin()               const { return impl.begin(); }

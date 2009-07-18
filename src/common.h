@@ -118,11 +118,11 @@ public:
     ~noncopyable() {}
 };
 
-/*
-#define _DEF_EXCEPTION(name,msg) \
+
+#define DEF_EXCEPTION(name,msg) \
     struct name: public std::exception \
         { virtual const char* what() const throw() { return msg; } };
-*/
+
 
 typedef std::exception exception;
 
