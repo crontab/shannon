@@ -67,7 +67,7 @@ void CodeGen::revertLastLoad()
 
 void CodeGen::stkPush(Type* type, const variant&)
 {
-    genStack.push(stkinfo(type));
+    genStack.push_back(stkinfo(type));
     if (genStack.size() > stkMax)
         stkMax = genStack.size();
 #ifdef DEBUG
@@ -77,13 +77,17 @@ void CodeGen::stkPush(Type* type, const variant&)
 
 
 const CodeGen::stkinfo& CodeGen::stkTop() const
-    { return genStack.top(); }
+    { return genStack.back(); }
+
+
+const CodeGen::stkinfo& CodeGen::stkTop(mem i) const
+    { return *(genStack.rbegin() + i); }
 
 
 Type* CodeGen::stkPop()
 {
-    Type* result = genStack.top().type;
-    genStack.pop();
+    Type* result = genStack.back().type;
+    genStack.pop_back();
 #ifdef DEBUG
     stkSize--;
 #endif
@@ -110,7 +114,14 @@ void CodeGen::endConstExpr(Type* expectType)
 }
 
 
-void CodeGen::loadConst(Type* type, const variant& value)
+void CodeGen::exit()
+{
+    storeVar(queenBee->sresultvar);
+    addOp(opExit);
+}
+
+
+void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
 {
     // NONE, BOOL, CHAR, INT, ENUM, RANGE,
     //    DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE
@@ -170,7 +181,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         _fatal(0x6002);
         break;
     case Type::VARIANT:
-        loadConst(queenBee->typeFromValue(value), value);
+        loadConst(queenBee->typeFromValue(value), value, true);
         return;
     case Type::TYPEREF:
     case Type::STATE:
@@ -197,8 +208,30 @@ void CodeGen::loadConst(Type* type, const variant& value)
             throw emessage("Maximum number of constants in a block reached");
     }
 
-    stkPush(type, value);
+    stkPush(asVariant ? queenBee->defVariant : type, value);
 }
+
+
+void CodeGen::loadDataseg(Module* module)
+{
+    assert(module->id <= 255);
+    stkPush(module);
+    addOp(opLoadDataseg);
+    add8(module->id);
+}
+
+
+void CodeGen::loadBool(bool b)
+        { loadConst(queenBee->defBool, b); }
+
+void CodeGen::loadChar(uchar c)
+        { loadConst(queenBee->defChar, c); }
+
+void CodeGen::loadInt(integer i)
+        { loadConst(queenBee->defInt, i); }
+
+void CodeGen::loadStr(const str& s)
+        { loadConst(queenBee->defStr, s); }
 
 
 void CodeGen::discard()
@@ -215,6 +248,13 @@ void CodeGen::swap()
     stkPush(t1);
     stkPush(t2);
     addOp(opSwap);
+}
+
+
+void CodeGen::dup()
+{
+    stkPush(stkTopType());
+    addOp(opDup);
 }
 
 
@@ -327,8 +367,8 @@ bool CodeGen::tryCast(Type* from, Type* to)
 {
     if (to->isVariant())
         ;   // everything in the VM is a variant anyway
-    else if (to->isBool())
-        addOp(opToBool);    // everything can be cast to bool
+//    else if (to->isBool())
+//        addOp(opToBool);    // everything can be cast to bool
     else if (from->canCastImplTo(to))
         ;   // means value copying is considered safe, including State casts
     else
@@ -337,6 +377,7 @@ bool CodeGen::tryCast(Type* from, Type* to)
 }
 
 
+// TODO: provide the error message
 void CodeGen::implicitCastTo(Type* to)
 {
     if (stkTopType()->identicalTo(to))
@@ -355,6 +396,8 @@ void CodeGen::explicitCastTo(Type* to)
     Type* from = stkPop();
     if (tryCast(from, to))
         ;   // implicit typecast does the job
+    else if (to->isBool())
+        addOp(opToBool);    // everything can be cast to bool
     else if (to->isString())
         addOp(opToStr); // explicit cast to string: any object goes
     else if (
@@ -452,16 +495,54 @@ void CodeGen::elemToVec()
 
 void CodeGen::elemCat()
 {
-    Type* elemType = stkPop();
-    Type* vecType = stkTopType();
+    Type* elemType = stkTopType();
+    Type* vecType = stkTopType(1);
     if (!vecType->isVector())
         throw emessage("Vector type expected");
-    if (!elemType->canCastImplTo(PVector(vecType)->elem))
-        throw emessage("Vector element type mismatch");
-    if (elemType->isChar())
-        addOp(opCharCat);
-    else
-        addOp(opVarCat);
+    implicitCastTo(PVector(vecType)->elem);
+    elemType = stkPop();
+    addOp(elemType->isChar() ? opCharCat: opVarCat);
+}
+
+
+void CodeGen::loadVecElem()
+{
+    Type* idxType = stkPop();
+    if (!idxType->identicalTo(queenBee->defInt))
+        throw emessage("Vector index must be integer");
+    Type* vecType = stkPop();
+    if (!vecType->isVector())
+        throw emessage("Vector/string expected");
+    addOp(vecType->isString() ? opLoadStrElem : opLoadVecElem);
+    stkPush(PVector(vecType)->elem);
+}
+
+
+void CodeGen::loadDictElem()
+{
+    Type* keyType = stkTopType();
+    Type* dictType = stkTopType(1);
+    if (!dictType->isDict())
+        throw emessage("Dictionary type expected");
+    implicitCastTo(PDict(dictType)->index);
+    stkPop();
+    stkPop();
+    stkPush(PDict(dictType)->elem);
+    addOp(opLoadDictElem);
+}
+
+
+void CodeGen::loadMember(ThisVar* var)
+{
+    assert(var->id <= 255);
+    Type* objType = stkPop();
+    if (!objType->isState())
+        throw emessage("State type expected");
+    if (var->state != objType)
+        throw emessage("Member doesn't belong to this state type"); // shouldn't happen
+    stkPush(var->type);
+    addOp(opLoadMember);
+    add8(var->id);
 }
 
 
@@ -568,142 +649,186 @@ int main()
     {
         Parser parser("x", new in_text(NULL, "x"));
 
-        Context ctx;
-        Module* mod = ctx.addModule("test");
+        {
+            Context ctx;
+            Module* mod = ctx.addModule("test");
+            
+            Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
+
+            // Arithmetic, typecasts
+            variant r;
+            ConstCode seg;
+            {
+                CodeGen gen(seg);
+                gen.loadConst(c->type, c->value);
+                gen.explicitCastTo(queenBee->defVariant);
+                gen.explicitCastTo(queenBee->defBool);
+                gen.explicitCastTo(queenBee->defInt);
+                gen.loadInt(9);
+                gen.arithmBinary(opAdd);
+                gen.loadInt(2);
+                gen.arithmUnary(opNeg);
+                gen.arithmBinary(opSub);
+                gen.explicitCastTo(queenBee->defStr);
+                gen.endConstExpr(queenBee->defStr);
+            }
+            seg.run(r);
+            check(r.as_str() == "12");
+            
+            // String operations
+            c = mod->addConstant(queenBee->defStr, "s", "ef");
+            seg.clear();
+            {
+                CodeGen gen(seg);
+                gen.loadChar('a');
+                gen.elemToVec();
+                gen.loadChar('b');
+                gen.elemCat();
+                gen.loadStr("cd");
+                gen.cat();
+                gen.loadStr("");
+                gen.cat();
+                gen.loadConst(c->type, c->value);
+                gen.cat();
+                gen.endConstExpr(queenBee->defStr);
+            }
+            seg.run(r);
+            check(r.as_str() == "abcdef");
+            
+            // Range operations
+            seg.clear();
+            {
+                CodeGen gen(seg);
+                gen.loadInt(6);
+                gen.loadInt(5);
+                gen.loadInt(10);
+                gen.mkRange();
+                gen.inRange();
+                gen.loadInt(1);
+                gen.loadInt(5);
+                gen.loadInt(10);
+                gen.mkRange();
+                gen.inRange();
+                gen.mkRange();
+                gen.endConstExpr(queenBee->defBool->deriveRange());
+            }
+            seg.run(r);
+            check(prange(r.as_object())->get_rt()->isRange()
+                && prange(r.as_object())->equals(1, 0));
+
+            // Vector concatenation
+            vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
+            t->push_back(4);
+            c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
+            seg.clear();
+            {
+                CodeGen gen(seg);
+                gen.loadInt(1);
+                gen.elemToVec();
+                gen.loadInt(2);
+                gen.elemCat();
+                gen.loadConst(c->type, c->value);
+                gen.cat();
+                gen.endConstExpr(queenBee->defInt->deriveVector());
+            }
+            seg.run(r);
+            check(r.to_string() == "[1, 2, 3, 4]");
+
+            seg.clear();
+            {
+                CodeGen gen(seg);
+                gen.loadBool(true);
+                gen.elemToVec();
+
+                gen.loadStr("abc");
+                gen.loadStr("abc");
+                gen.cmp(opEqual);
+                gen.elemCat();
+
+                gen.loadInt(1);
+                gen.elemToVec();
+                gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
+                gen.dynamicCast();
+                gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
+                gen.testType();
+                gen.elemCat();
+
+    #ifdef DEBUG
+                mem s = seg.size();
+    #endif
+                gen.loadInt(1);
+                gen.testType(queenBee->defInt); // compile-time
+                gen.testType(queenBee->defBool);
+                check(s == seg.size() - 1);
+                gen.elemCat();
+                gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
+                gen.implicitCastTo(queenBee->defVariant);
+                gen.testType(queenBee->defVariant);
+                gen.elemCat();
+                gen.loadStr("");
+                gen.explicitCastTo(queenBee->defBool);
+                gen.elemCat();
+                gen.loadStr("abc");
+                gen.explicitCastTo(queenBee->defBool);
+                gen.elemCat();
+                gen.endConstExpr(queenBee->defBool->deriveVector());
+            }
+            seg.run(r);
+            check(r.to_string() == "[true, true, true, true, true, false, true]");
+        }
         
-        Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
-
-        // Arithmetic, typecasts
-        variant r;
-        ConstCode seg;
         {
-            CodeGen gen(seg);
-            gen.loadConst(c->type, c->value);
-            gen.explicitCastTo(queenBee->defVariant);
-            gen.explicitCastTo(queenBee->defBool);
-            gen.explicitCastTo(queenBee->defInt);
-            gen.loadInt(9);
-            gen.arithmBinary(opAdd);
-            gen.loadInt(2);
-            gen.arithmUnary(opNeg);
-            gen.arithmBinary(opSub);
-            gen.explicitCastTo(queenBee->defStr);
-            gen.endConstExpr(queenBee->defStr);
+            Context ctx;
+            Module* mod = ctx.addModule("test2");
+            Dictionary* dictType = mod->registerType(new Dictionary(queenBee->defStr, queenBee->defInt));
+            dict* d = new dict(dictType);
+            d->tie("key1", 2);
+            d->tie("key2", 3);
+            Constant* c = mod->addConstant(dictType, "dict", d);
+            varstack stk;
+            {
+                CodeGen gen(*mod);
+                gen.loadConst(queenBee->defVariant, 10);
+                gen.elemToVec();
+                gen.loadStr("xyz");
+                gen.loadInt(1);
+                gen.loadVecElem();
+                gen.elemCat();
+                gen.dup();
+                gen.loadInt(0);
+                gen.loadVecElem();
+                gen.elemCat();
+                gen.loadConst(dictType, c->value);
+                gen.loadStr("key2");
+                gen.loadDictElem();
+                gen.elemCat();
+                gen.loadDataseg(queenBee);
+                gen.loadMember(queenBee->siovar);
+                gen.elemCat();
+                gen.storeVar(queenBee->sresultvar);
+                gen.end();
+            }
+            variant result = ctx.run(stk);
+            check(result.to_string() == "[10, 'y', 10, 3, [<char-fifo>]]");
         }
-        seg.run(r);
-        check(r.as_str() == "12");
         
-        // String operations
-        c = mod->addConstant(queenBee->defStr, "s", "ef");
-        seg.clear();
         {
-            CodeGen gen(seg);
-            gen.loadChar('a');
-            gen.elemToVec();
-            gen.loadChar('b');
-            gen.elemCat();
-            gen.loadConst(queenBee->defStr, "cd");
-            gen.cat();
-            gen.loadConst(queenBee->defStr, "");
-            gen.cat();
-            gen.loadConst(c->type, c->value);
-            gen.cat();
-            gen.endConstExpr(queenBee->defStr);
-        }
-        seg.run(r);
-        check(r.as_str() == "abcdef");
-        
-        // Range operations
-        seg.clear();
-        {
-            CodeGen gen(seg);
-            gen.loadInt(6);
-            gen.loadInt(5);
-            gen.loadInt(10);
-            gen.mkRange();
-            gen.inRange();
-            gen.loadInt(1);
-            gen.loadInt(5);
-            gen.loadInt(10);
-            gen.mkRange();
-            gen.inRange();
-            gen.mkRange();
-            gen.endConstExpr(queenBee->defBool->deriveRange());
-        }
-        seg.run(r);
-        check(prange(r.as_object())->get_rt()->isRange()
-            && prange(r.as_object())->equals(1, 0));
-
-        // Vector concatenation
-        vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
-        t->push_back(4);
-        c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
-        seg.clear();
-        {
-            CodeGen gen(seg);
-            gen.loadInt(1);
-            gen.elemToVec();
-            gen.loadInt(2);
-            gen.elemCat();
-            gen.loadConst(c->type, c->value);
-            gen.cat();
-            gen.endConstExpr(queenBee->defInt->deriveVector());
-        }
-        seg.run(r);
-        check(r.to_string() == "[1, 2, 3, 4]");
-        
-        seg.clear();
-        {
-            CodeGen gen(seg);
-            gen.loadBool(true);
-            gen.elemToVec();
-
-            gen.loadConst(queenBee->defStr, "abc");
-            gen.loadConst(queenBee->defStr, "abc");
-            gen.cmp(opEqual);
-            gen.elemCat();
-
-            gen.loadInt(1);
-            gen.elemToVec();
-            gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
-            gen.dynamicCast();
-            gen.loadConst(defTypeRef, queenBee->defInt->deriveVector());
-            gen.testType();
-            gen.elemCat();
-
-#ifdef DEBUG
-            mem s = seg.size();
-#endif
-            gen.loadInt(1);
-            gen.testType(queenBee->defInt); // compile-time
-            gen.testType(queenBee->defBool);
-            check(s == seg.size() - 1);
-            gen.elemCat();
-            gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
-            gen.implicitCastTo(queenBee->defVariant);
-            gen.testType(queenBee->defVariant);
-            gen.elemCat();
-
-            gen.endConstExpr(queenBee->defBool->deriveVector());
-        }
-        seg.run(r);
-        check(r.to_string() == "[true, true, true, true, true]");
-
-        {
+            Context ctx;
+            Module* mod = ctx.addModule("test2");
             varstack stk;
             {
                 CodeGen gen(*mod);
                 BlockScope block(mod, &gen);
                 Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
                 Variable* s2 = block.addLocalVar(queenBee->defStr, "s2");
-                gen.loadConst(queenBee->defStr, "abc");
-                gen.loadConst(queenBee->defStr, "def");
+                gen.loadStr("abc");
+                gen.loadStr("def");
                 gen.cat();
                 gen.initLocalVar(s1);
-                gen.loadConst(queenBee->defStr, "123");
+                gen.loadStr("123");
                 gen.initLocalVar(s2);
                 gen.loadVar(s2);
-                gen.storeVar(queenBee->sresultvar);
+                gen.exit();
                 block.deinitLocals();
                 gen.end();
             }

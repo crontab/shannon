@@ -1,8 +1,12 @@
 
-* Support both `return` statement and built-in `result` variable?
+* Initialize to zero those objects which have a finally block.
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics.
+
+* Strings are immutable, and they are not references like containers. But any
+  char vector is a string and thus it's not a reference. What to do? So this is
+  a big TODO: implement a string class which is not copy-on-write.
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 

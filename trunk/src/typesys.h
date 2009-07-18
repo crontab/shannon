@@ -31,6 +31,7 @@ typedef Variable LocalVar;
 typedef Container Container;
 typedef Container Vector;
 typedef Container String;
+typedef Container Dictionary;
 typedef Container Set;
 typedef Constant TypeAlias;
 typedef TypeAlias StateAlias;
@@ -445,6 +446,7 @@ public:
 
 typedef Container* PContainer;
 typedef Vector* PVector;
+typedef Dictionary* PDict;
 typedef String* PString;
 typedef Set* PSet;
 

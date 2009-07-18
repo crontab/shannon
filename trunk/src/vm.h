@@ -12,8 +12,9 @@
 enum OpCode
 {
     opInv,  // to detect corrupt code segments
-    opEnd,
+    opEnd,  // also return from function
     opNop,
+    opExit, // throws eexit()
     
     // Const loaders
     opLoadNull,
@@ -32,9 +33,11 @@ enum OpCode
     opLoadConst,        // [const-index: 8] // compound values only
     opLoadConst2,       // [const-index: 16] // compound values only
     opLoadTypeRef,      // [Type*]
-    
+    opLoadDataseg,      // [module-index: 8] // used for tests
+
     opPop,              // -var
     opSwap,
+    opDup,              // +var
 
     // Safe typecasts
     opToBool,
@@ -69,7 +72,7 @@ enum OpCode
     // Compare the stack top with 0 and replace it with a bool value.
     // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
     opEqual, opNotEq, opLessThan, opLessEq, opGreaterThan, opGreaterEq,
-    
+
     // Initializers
     opInitRet,          // [ret-index] -var
     opInitLocal,        // [stack-index: 8]
@@ -83,9 +86,9 @@ enum OpCode
     opLoadArg,          // [stack-neg-index: 8] +var
     opLoadStatic,       // [module: 8, var-index: 8] +var
     opLoadOuter,        // [level: 8, var-index: 8] +var
-    opLoadStrElem,      // -str, -index, +char
-    opLoadVecElem,      // -vector, -index, +val
-    opLoadDictElem,     // -dict, -key, +val
+    opLoadStrElem,      // -index, -str, +char
+    opLoadVecElem,      // -index, -vector, +val
+    opLoadDictElem,     // -key, -dict, +val
     opLoadMember,       // [var-index: 8] -obj, +val
 
     // Storers
@@ -95,9 +98,10 @@ enum OpCode
     opStoreArg,         // [stack-neg-index: 8] -var
     opStoreStatic,      // [module: 8, var-index: 8] -var
     opStoreOuter,       // [level: 8, var-index: 8] -var
-    opStoreStrElem,     // -index, -char, -str
-    opStoreVecElem,     // -index, -val, -vector
-    opStoreDictElem,    // -key, -val, -dict
+    // TODO: implement a string class which is not copy-on-write
+//    opStoreStrElem,     // -char, -index, -str
+//    opStoreVecElem,     // -val, -index, -vector
+    opStoreDictElem,    // -val, -key, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
 
     // Storers
@@ -105,7 +109,7 @@ enum OpCode
     // further boolean jump
     opCase,             // -var, +{0,1}
     opCaseRange,        // -int, +{0,1}
-    
+
     // Jumps; [dst] is a relative offset -128..127
     //   short bool evaluation: pop if jump, leave it otherwise
     // TODO: 16-bit versions of these
@@ -119,7 +123,7 @@ enum OpCode
     opEcho, opEchoLn,
     opAssert,           // [line-num: 16]
     opLinenum,          // [line-num: 16]
-    
+
     opMaxCode
 };
 
@@ -130,6 +134,9 @@ inline bool isLoadOp(OpCode op)
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
+
+
+DEF_EXCEPTION(eexit, "exit called");
 
 
 class ConstCode: public CodeSeg
@@ -184,7 +191,8 @@ protected:
     void revertLastLoad();
     void close();
 
-    std::stack<stkinfo> genStack;
+    typedef std::vector<stkinfo> stkImpl;
+    stkImpl genStack;
     mem stkMax;
     mem locals;
 #ifdef DEBUG
@@ -197,8 +205,11 @@ protected:
     void stkPush(Constant* c)
             { stkPush(c->type, c->value); }
     const stkinfo& stkTop() const;
+    const stkinfo& stkTop(mem) const;
     Type* stkTopType() const
             { return stkTop().type; }
+    Type* stkTopType(mem i) const
+            { return stkTop(i).type; }
     Type* stkPop();
 
     bool tryCast(Type*, Type*);
@@ -213,16 +224,17 @@ public:
     void end();
     void endConstExpr(Type*);
 
+    void exit();
     void loadNone();
-    void loadBool(bool b)
-            { loadConst(queenBee->defBool, b); }
-    void loadChar(uchar c)
-            { loadConst(queenBee->defChar, c); }
-    void loadInt(integer i)
-            { loadConst(queenBee->defInt, i); }
-    void loadConst(Type*, const variant&);
+    void loadBool(bool b);
+    void loadChar(uchar c);
+    void loadInt(integer i);
+    void loadStr(const str& s);
+    void loadConst(Type*, const variant&, bool asVariant = false);
+    void loadDataseg(Module*);
     void discard();
     void swap();    // not used currently
+    void dup();
 
     void initRetVal(Type*);
     void initLocalVar(Variable*);
@@ -241,6 +253,9 @@ public:
     void arithmUnary(OpCode);
     void elemToVec();
     void elemCat();
+    void loadVecElem();
+    void loadDictElem();
+    void loadMember(ThisVar*);
     void cat();
     void mkRange();
     void inRange();
