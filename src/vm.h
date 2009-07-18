@@ -72,14 +72,14 @@ enum OpCode
     
     // Initializers
     opInitRet,          // -var
-    opInitLocal,        // [stack-index: signed-8] temp(N)
-    opInitThis,         // [var-index: 8]
+    opInitLocal,        // [stack-index: 8]
+    opInitThis,         // [this-index: 8]
 
     // Storers
     opStoreRet,         // -var
     opStoreLocal,       // [stack-index: 8] -var
     opStoreArg,         // [stack-neg-index: 8] -var
-    opStoreThis,        // [var-index: 8] -var
+    opStoreThis,        // [this-index: 8] -var
     opStoreOuter,       // [level: 8, var-index: 8] -var
     opStoreStatic,      // [module: 8, var-index: 8] -var
     opStoreStrElem,     // -index, -char, -str
@@ -92,7 +92,7 @@ enum OpCode
     opLoadRet,          // +var
     opLoadLocal,        // [stack-index: 8]
     opLoadArg,          // [stack-neg-index: 8]
-    opLoadThis,         // [var-index: 8]
+    opLoadThis,         // [this-index: 8]
     opLoadOuter,        // [level: 8, var-index: 8]
     opLoadStatic,       // [module: 8, var-index: 8]
     opLoadStrElem,      // -str, -index, +char
@@ -151,12 +151,16 @@ public:
     Context();
     ~Context();
     Module* addModule(const str& name);
-    void run(varstack&); // <--- execution starts here
+
+    // Executation of the program starts here. The value of system.sresult is
+    // returned. Can be called multiple times.
+    variant run(varstack&);
 };
 
 
 // --- CODE GENERATOR ------------------------------------------------------ //
 
+class BlockScope;
 
 class CodeGen: noncopyable
 {
@@ -169,13 +173,14 @@ protected:
     };
 
     CodeSeg& codeseg;
-    mem lastLoadOp;
+    mem lastOpOffs;
 
     mem addOp(OpCode);
     void revertLastLoad();
 
     std::stack<stkinfo> genStack;
     mem stkMax;
+    mem locals;
 #ifdef DEBUG
     mem stkSize;
 #endif
@@ -196,9 +201,11 @@ public:
     CodeGen(CodeSeg&);
     ~CodeGen();
 
-    void end();
+    mem getLocals() { return locals; }
+
+    void end(BlockScope*);
     void endConstExpr(Type*);
-    void initRetVal(Type*);
+
     void loadNone();
     void loadBool(bool b)
             { loadConst(queenBee->defBool, b); }
@@ -208,7 +215,12 @@ public:
             { loadConst(queenBee->defInt, i); }
     void loadConst(Type*, const variant&);
     void discard();
-    void swap();
+    void swap();    // not used currently
+
+    void initRetVal(Type*);
+    void initLocalVar(Variable*);
+    void deinitLocalVar(Variable*);
+
     void implicitCastTo(Type*);
     void explicitCastTo(Type*);
     void dynamicCast();
@@ -222,6 +234,19 @@ public:
     void mkRange();
     void inRange();
     void cmp(OpCode op);
+};
+
+
+class BlockScope: public Scope
+{
+protected:
+    List<Variable> localvars;
+    CodeGen* gen;
+public:
+    BlockScope(Scope* outer, CodeGen*);
+    ~BlockScope();
+    Variable* addLocalVar(Type*, const str&);
+    void deinitLocals();
 };
 
 

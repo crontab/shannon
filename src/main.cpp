@@ -11,7 +11,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
-    : codeseg(_codeseg), lastLoadOp(mem(-1)), stkMax(0)
+    : codeseg(_codeseg), lastOpOffs(mem(-1)), stkMax(0), locals(0)
 #ifdef DEBUG
     , stkSize(0)
 #endif    
@@ -25,24 +25,21 @@ CodeGen::~CodeGen()  { }
 
 mem CodeGen::addOp(OpCode op)
 {
-    mem s = codeseg.size();
-    if (isLoadOp(op))
-        lastLoadOp = s;
-    else
-        lastLoadOp = mem(-1);
+    assert(!codeseg.closed);
+    lastOpOffs = codeseg.size();
     codeseg.add8(op);
-    return s;
+    return lastOpOffs;
 }
 
 
 void CodeGen::revertLastLoad()
 {
-    if (lastLoadOp == mem(-1))
+    if (lastOpOffs == mem(-1) || !isLoadOp(OpCode(codeseg[lastOpOffs])))
         discard();
     else
     {
-        codeseg.resize(lastLoadOp);
-        lastLoadOp = mem(-1);
+        codeseg.resize(lastOpOffs);
+        lastOpOffs = mem(-1);
     }
 }
 
@@ -73,10 +70,12 @@ Type* CodeGen::stkPop()
 }
 
 
-void CodeGen::end()
+void CodeGen::end(BlockScope* block)
 {
+    if (block != NULL)
+        block->deinitLocals();
     codeseg.close(stkMax);
-    assert(genStack.size() == 0);
+    assert(genStack.size() - locals == 0);
 }
 
 
@@ -88,15 +87,6 @@ void CodeGen::endConstExpr(Type* expectType)
     initRetVal(NULL);
     codeseg.close(stkMax);
     assert(genStack.size() == 0);
-}
-
-
-void CodeGen::initRetVal(Type* expectType)
-{
-    Type* resultType = stkPop();
-    if (expectType != NULL && !resultType->canCastImplTo(expectType))
-        throw emessage("Return value type mismatch");
-    addOp(opInitRet);
 }
 
 
@@ -207,6 +197,36 @@ void CodeGen::swap()
     addOp(opSwap);
 }
 
+
+void CodeGen::initRetVal(Type* expectType)
+{
+    Type* resultType = stkPop();
+    if (expectType != NULL && !resultType->canCastImplTo(expectType))
+        throw emessage("Return value type mismatch");
+    addOp(opInitRet);
+}
+
+
+void CodeGen::initLocalVar(Variable* var)
+{
+    if (codeseg.context == NULL || locals != genStack.size() - 1 || var->id != locals)
+        _fatal(0x6003);
+    locals++;
+    // Local var simply remains in the stack, so just check the types
+    if (!var->type->canCastImplTo(stkTopType()))
+        typeMismatch();
+}
+
+
+void CodeGen::deinitLocalVar(Variable* var)
+{
+    // TODO: don't generate POPs if at the end of a function: just don't call
+    // deinitLocalVar()
+    if (codeseg.context == NULL || locals != genStack.size() || var->id != locals - 1)
+        _fatal(0x6004);
+    locals--;
+    discard();
+}
 
 // Try implicit cast and return true if succeeded. This code is shared
 // between the explicit and implicit typecast routines.
@@ -360,7 +380,7 @@ void CodeGen::cat()
         throw emessage("Vector type expected");
     if (!right->canCastImplTo(left))
         throw emessage("Vector types do not match");
-    addOp(PVector(left)->elem->isChar() ? opStrCat : opVecCat);
+    addOp(left->isString() ? opStrCat : opVecCat);
 }
 
 
@@ -415,6 +435,33 @@ void CodeGen::cmp(OpCode op)
 }
 
 
+BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
+    : Scope(_outer, _gen->getLocals()), gen(_gen)  { }
+
+
+BlockScope::~BlockScope()  { }
+
+
+void BlockScope::deinitLocals()
+{
+    mem i = localvars.size();
+    while (i--)
+        gen->deinitLocalVar(localvars[i]);
+}
+
+
+Variable* BlockScope::addLocalVar(Type* type, const str& name)
+{
+    mem id = startId + localvars.size();
+    if (id >= 255)
+        throw emessage("Maximum number of local variables within this scope is reached");
+    objptr<Variable> v = new Variable(Base::LOCALVAR, type, name, id, false);
+    addUnique(v);   // may throw
+    localvars.add(v);
+    return v;
+}
+
+
 // --- tests --------------------------------------------------------------- //
 
 
@@ -429,9 +476,9 @@ int main()
         Parser parser("x", new in_text(NULL, "x"));
 
         Context ctx;
-        Module* m = ctx.addModule("test");
+        Module* mod = ctx.addModule("test");
         
-        Constant* c = m->addConstant("c", queenBee->defChar, char(1));
+        Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
 
         // Arithmetic, typecasts
         variant r;
@@ -454,7 +501,7 @@ int main()
         check(r.as_str() == "12");
         
         // String operations
-        c = m->addConstant("s", queenBee->defStr, "ef");
+        c = mod->addConstant(queenBee->defStr, "s", "ef");
         seg.clear();
         {
             CodeGen gen(seg);
@@ -497,7 +544,7 @@ int main()
         // Vector concatenation
         vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
         t->push_back(4);
-        c = m->addConstant("v", queenBee->defInt->deriveVector(), t);
+        c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
         seg.clear();
         {
             CodeGen gen(seg);
@@ -552,9 +599,20 @@ int main()
         {
             varstack stk;
             {
-                CodeGen gen(*m);
+                CodeGen gen(*mod);
+                BlockScope block(mod, &gen);
+                Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
+                Variable* s2 = block.addLocalVar(queenBee->defStr, "s2");
+                gen.loadConst(queenBee->defStr, "abc");
+                gen.loadConst(queenBee->defStr, "def");
+                gen.cat();
+                gen.initLocalVar(s1);
+                gen.loadConst(queenBee->defStr, "123");
+                gen.initLocalVar(s2);
+                gen.end(&block);
             }
-            ctx.run(stk);
+            variant result = ctx.run(stk);
+            
         }
     }
     catch (std::exception& e)

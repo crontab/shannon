@@ -84,6 +84,7 @@ protected:
     void _init(const str&);
     void _init(const char*);
     void _init(object*);
+    void _init(void*);
     void _init(const variant&);
 
     void _fin()                     { if (is_nonpod()) _fin2(); }

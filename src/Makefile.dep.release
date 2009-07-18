@@ -5,6 +5,6 @@ release/charset.o: charset.h
 release/variant.o: runtime.h common.h charset.h
 release/source.o: common.h bsearch.h source.h charset.h runtime.h
 release/fifo.o: runtime.h common.h charset.h
-release/typesys.o: version.h typesys.h common.h runtime.h charset.h vm.h
+release/typesys.o: version.h typesys.h common.h runtime.h charset.h
 release/main.o: common.h runtime.h charset.h source.h typesys.h vm.h
 release/main-ut.o: common.h runtime.h charset.h source.h typesys.h
