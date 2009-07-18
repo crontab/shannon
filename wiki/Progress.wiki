@@ -28,6 +28,8 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *Diagnostic built-ins*: `echo` and `assert` are for debugging purposes: you can turn them on or off from the command line or using a compiler directive (^), in which case the compiler will ignore these statements. Both `echo` and `assert` don't require parens (and shame on you, Python 3). `Echo` accepts a comma-separated list, where each comma generates a space.
 
+*The `exit` operator* is like `return`, except it exits the program with the value specified. If the value is integer, a system exit code is set to that value; otherwise the exit code is set to 0 and the argument of the `exit` operator is printed to std out. (^)
+
 *Other built-ints*: copy(), count(), low(), high(), del(), ins() (^).
 
 *The if() function* -- `if (cond, a, b)` -- is similar to the ?: operator in C. It accepts 3 arguments - the condition and 2 "branches", however, it executes only one of the branches, like the 'real' if statement, which is important to remember when using expressions with side effects.
@@ -36,4 +38,4 @@ Legend: (^) - not implemented at the moment, (?) - questionable feature, may be 
 
 *if... elif... else, while... break... continue...* Enjoy them. You don't need to put parens around  conditional expressions like in C.
 
-*Case operator* is like in Pascal: the labels are constant values or ranges, also a list of values/ranges is allowed. In the current implementation, ordinals, typerefs and strings are allowed for case.
+*Case operator* is like in Pascal: the labels are constant values or ranges, also a list of values/ranges is allowed. In the current implementation, ordinals, typerefs and strings are allowed for `case`. `break` doesn't work here like in C; if you want to match multiple labels, just list them all as a comma-separated label.
