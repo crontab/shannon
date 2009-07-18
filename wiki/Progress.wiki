@@ -1,5 +1,7 @@
 #summary Very brief description of language features as they are implemented already
 
+*At the moment the compiler is being re-written from scratch, so nothing to play with yet.*
+
 Legend: (^) - not implemented at the moment, (?) - questionable feature, may be changed or removed.
 
 *Syntax* is Python-style, however you can have C-style blocks, too. Once a curly bracket is opened, only curly brackets are possible inside. C-style blocks must always be enclosed with braces, even if they consist of one statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines. If the first character of compiler's input is `<`, the compiler starts in embedded HTML mode. Code snippets must be surrounded with `<?` and `?>`. (^)
