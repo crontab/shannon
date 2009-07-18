@@ -25,13 +25,68 @@ class Variant;
 class TypeReference;
 class State;
 class Module;
-class StateBody;
 
 typedef Container Container;
 typedef Container Vector;
 typedef Container String;
 typedef Container Set;
 typedef StateAlias ModuleAlias;
+
+
+// --- CODE SEGMENT ------------------------------------------------------- //
+
+class Context;
+
+// Defined here because the State type contains code segments. The
+// implementation of CodeSeg is in vm.cpp.
+
+class CodeSeg: noncopyable
+{
+    friend class CodeGen;
+    friend class State;
+
+    // This object can be duplicated if necessary with a different context
+    // assigned; the code segment is a refcounted string, so copying would
+    // be efficient.
+protected:
+    str code;
+    varlist consts;
+    mem stksize;
+    // These can't be refcounted as it will introduce circular references. Both
+    // can be NULL if this is a const expression executed at compile time.
+    State* state;
+    Context* context;
+#ifdef DEBUG
+    bool closed;
+#endif
+
+    // Code generation
+    void add8(uint8_t i);
+    void add16(uint16_t i);
+    void addInt(integer i);
+    void addPtr(void* p);
+    void close(mem _stksize);
+    void resize(mem s)
+        { code.resize(s); }
+
+    // Execution
+    static void varToVec(Vector* type, const variant& elem, variant* result);
+    static void varCat(const variant& elem, variant* vec);
+    static void vecCat(const variant& vec2, variant* vec1);
+
+    void run(langobj* self, varstack& stack, variant* result) const;
+
+public:
+    CodeSeg(State*, Context*);
+    ~CodeSeg();
+
+    // For unit tests:
+    void clear();
+    bool empty() const
+        { return code.empty(); }
+    mem size() const
+        { return code.size(); }
+};
 
 
 // --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
@@ -234,13 +289,10 @@ public:
 class StateAlias: public Constant
 {
 public:
-    StateAlias(const str&, State*, StateBody*);
+    StateAlias(const str&, State*);
     ~StateAlias();
     State* getStateType()
             { return (State*)type; }
-    StateBody* getBody()
-            { assert(value.as_object()->get_rt() == type);
-                return (StateBody*)value._object(); }
 };
 
 
@@ -266,15 +318,22 @@ public:
 typedef State* PState;
 typedef State* PModule;
 
-class State: public Type, public Scope
+class State: public Type, public Scope, public CodeSeg
 {
+    friend class Context;
+
 protected:
     List<Constant> consts;
     List<Type> types;
+
+    CodeSeg final;
+    void finalize(langobj* self, varstack& stack)
+        { final.run(self, stack, NULL); }
+
 public:
     int const level;
 
-    State(State* _parent);
+    State(State* _parent, Context*);
     ~State();
     bool identicalTo(Type*);
     bool canCastImplTo(Type*);
@@ -290,9 +349,11 @@ public:
 
 class Module: public State
 {
+    friend class Context;
+protected:
+    Module(Context* context, mem _id);
 public:
     mem const id;
-    Module(mem _id);
     ~Module();
 };
 

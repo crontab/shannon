@@ -195,8 +195,8 @@ Type* Constant::getAlias()
 }
 
 
-StateAlias::StateAlias(const str& name, State* state, StateBody* body)
-    : Constant(name, state, body)  { }
+StateAlias::StateAlias(const str& name, State* state)
+    : Constant(name, state, state)  { }
 
 StateAlias::~StateAlias()  { }
 
@@ -239,8 +239,9 @@ Variable* Scope::addVariable(const str& name, Type* type)
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* _parent)
+State::State(State* _parent, Context* context)
   : Type(defTypeRef, STATE), Scope(_parent),
+    CodeSeg(this, context), final(this, context),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setOwner(_parent);
@@ -270,7 +271,7 @@ bool State::isMyType(variant& v)
     { return (v.is_object() && v._object()->get_rt()->canCastImplTo(this)); }
 
 
-Module::Module(mem _id): State(NULL), id(_id)  { }
+Module::Module(Context* context, mem _id): State(NULL, context), id(_id)  { }
 Module::~Module()  { }
 
 
@@ -468,7 +469,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module(0)
+  : Module(NULL, 0)
 {
     registerType(defTypeRef.get());
     defNone = registerType(new None());
@@ -523,8 +524,8 @@ Type* QueenBee::typeFromValue(const variant& v)
 
 void QueenBee::initialize(langobj* self)
 {
-    ::new(&(*self)[siovar->id]) variant(&sio);
-    ::new(&(*self)[serrvar->id]) variant(&serr);
+    ::new((*self)[siovar->id]) variant(&sio);
+    ::new((*self)[serrvar->id]) variant(&serr);
 }
 
 
