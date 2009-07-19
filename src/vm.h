@@ -24,16 +24,17 @@ enum OpCode
     opLoad0,
     opLoad1,
     opLoadInt,          // [int]
+    opLoadNullRange,    // [Range*]
+    opLoadNullDict,     // [Dict*]
     opLoadNullStr,
-    opLoadNullRange,
-    opLoadNullVec,
-    opLoadNullDict,
-    opLoadNullOrdset,
-    opLoadNullSet,
+    opLoadNullVec,      // [Vector*]
+    opLoadNullArray,    // [Array*]
+    opLoadNullOrdset,   // [Ordset*]
+    opLoadNullSet,      // [Set*]
     opLoadConst,        // [const-index: 8] // compound values only
     opLoadConst2,       // [const-index: 16] // compound values only
     opLoadTypeRef,      // [Type*]
-    opLoadDataseg,      // [module-index: 8] // used for tests
+    opLoadDataseg,      // [module-index: 8] // used in unit tests, otherwise use opLoadStatic
 
     opPop,              // -var
     opSwap,
@@ -51,14 +52,6 @@ enum OpCode
     opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
     // Arithmetic unary: -ord, +ord
     opNeg, opBitNot, opNot,
-
-    // Vector/string concatenation
-    opCharToStr,        // -char, +str
-    opCharCat,          // -char, -str, +str
-    opStrCat,           // -str, -str, +str
-    opVarToVec,         // [Vector*] -var, +vec
-    opVarCat,           // -var, -vec, +vec
-    opVecCat,           // -var, -vec, +vec
 
     // Range operations (work for all ordinals)
     opMkRange,          // [Ordinal*] -right-int, -left-int, +range
@@ -85,11 +78,17 @@ enum OpCode
     opLoadThis,         // [this-index: 8] +var
     opLoadArg,          // [stack-neg-index: 8] +var
     opLoadStatic,       // [module: 8, var-index: 8] +var
+    opLoadMember,       // [var-index: 8] -obj, +val
     opLoadOuter,        // [level: 8, var-index: 8] +var
+
+    // Container read operations
+    opLoadDictElem,     // -key, -dict, +val
+    opTestDictKey,      // -dict, -key, +bool
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
-    opLoadDictElem,     // -key, -dict, +val
-    opLoadMember,       // [var-index: 8] -obj, +val
+    opLoadArrayElem,    // -index, -array, +val
+    opTestOrdset,       // -ordset, -ord, +bool
+    opTestSet,          // -ordset, -key, +bool
 
     // Storers
     opStoreRet,         // [ret-index] -var
@@ -97,14 +96,26 @@ enum OpCode
     opStoreThis,        // [this-index: 8] -var
     opStoreArg,         // [stack-neg-index: 8] -var
     opStoreStatic,      // [module: 8, var-index: 8] -var
-    opStoreOuter,       // [level: 8, var-index: 8] -var
-    // TODO: implement a string class which is not copy-on-write
-//    opStoreStrElem,     // -char, -index, -str
-//    opStoreVecElem,     // -val, -index, -vector
-    opStoreDictElem,    // -val, -key, -dict
     opStoreMember,      // [var-index: 8] -val, -obj
+    opStoreOuter,       // [level: 8, var-index: 8] -var
 
-    // Storers
+    // Container write operations
+    opStoreDictElem,    // -val, -key, -dict
+    // TODO: implement a shared string class (not copy-on-write)
+//    opStoreStrElem,     // -char, -index, -str
+    opStoreVecElem,     // -val, -index, -vector
+    opStoreArrayElem,   // -val, -index, -array
+    opAddToOrdset,      // -ord, -ordset
+    opAddToSet,         // -key, -set
+
+    // Concatenation
+    opCharToStr,        // -char, +str
+    opCharCat,          // -char, -str, +str
+    opStrCat,           // -str, -str, +str
+    opVarToVec,         // [Vector*] -var, +vec
+    opVarCat,           // -var, -vec, +vec
+    opVecCat,           // -var, -vec, +vec
+
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
     // further boolean jump
     opCase,             // -var, +{0,1}
@@ -184,6 +195,7 @@ protected:
     mem lastOpOffs;
 
     mem addOp(OpCode);
+    void addOpPtr(OpCode, void*);
     void add8(uint8_t i);
     void add16(uint16_t i);
     void addInt(integer i);
@@ -210,10 +222,11 @@ protected:
             { return stkTop().type; }
     Type* stkTopType(mem i) const
             { return stkTop(i).type; }
+    void stkReplace(Type*);
     Type* stkPop();
 
-    bool tryCast(Type*, Type*);
     void doStaticVar(ThisVar* var, OpCode);
+    bool tryCast(Type* from, Type* to);
 
 public:
     CodeGen(CodeSeg&);
@@ -230,6 +243,8 @@ public:
     void loadChar(uchar c);
     void loadInt(integer i);
     void loadStr(const str& s);
+    void loadTypeRef(Type*);
+    void loadNullContainer(Container*);
     void loadConst(Type*, const variant&, bool asVariant = false);
     void loadDataseg(Module*);
     void discard();
@@ -242,7 +257,11 @@ public:
     void initThisVar(Variable*);
     
     void loadVar(Variable*);
+    void loadMember(ThisVar*);
     void storeVar(Variable*);
+    void loadContainerElem();
+    void storeContainerElem();
+    void setTest();
 
     void implicitCastTo(Type*);
     void explicitCastTo(Type*);
@@ -253,9 +272,6 @@ public:
     void arithmUnary(OpCode);
     void elemToVec();
     void elemCat();
-    void loadVecElem();
-    void loadDictElem();
-    void loadMember(ThisVar*);
     void cat();
     void mkRange();
     void inRange();

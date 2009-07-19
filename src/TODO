@@ -1,22 +1,37 @@
 
-* Initialize to zero those objects which have a finally block.
+* Initialize to zero objects which have a finally block.
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
-  semantics.
+  semantics, also a default assignment operator, again, like in C#.
 
 * Strings are immutable, and they are not references like containers. But any
   char vector is a string and thus it's not a reference. What to do? So this is
-  a big TODO: implement a string class which is not copy-on-write.
+  a big TODO: implement a shared string class which is not copy-on-write.
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
 * Multiple return values: allow to assign them to a vector?
 
 * Optimize function calls: if "self" is not used, allocate the object on
-  the stack.
+  the stack (?)
 
 * HTML embedded mode
 
 * Compiler directives: #!DEBUG ON|OFF  #!RANGE_CHECK ON|OFF  #!ASSERT ON|OFF
   #!ECHO ON|OFF  #!EMBED ON|OFF
+
+* := assignment as a function
+
+* Colon ':' can be used in curly bracket mode for a single-statement block
+
+* Abstract module and module inheritance paradigm. Modules can be loaded at run
+  time, but they should be inherited from some known module type. Database
+  drivers can be written this way.
+
+* Alternate syntax for string keys in dictionaries: dict->key. This will work
+  for dynamic states too (?)
+
+* Include for sets? set s['item'] (set is a keyword anyway - get/set property)
+
+* operator delete, e.g.: delete d['key'] (applies to sets too)
 

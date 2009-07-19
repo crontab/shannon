@@ -30,8 +30,10 @@ typedef Variable ResultVar;
 typedef Variable LocalVar;
 typedef Container Container;
 typedef Container Vector;
+typedef Container Array;
 typedef Container String;
 typedef Container Dictionary;
+typedef Container Ordset;
 typedef Container Set;
 typedef Constant TypeAlias;
 typedef TypeAlias StateAlias;
@@ -77,8 +79,6 @@ protected:
     uint8_t operator[] (mem i) const { return uint8_t(code[i]); }
 
     // Execution
-    static void varToVec(Vector* type, const variant& elem, variant* result);
-    static void varCat(const variant& elem, variant* vec);
     static void vecCat(const variant& vec2, variant* vec1);
 
     void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
@@ -254,7 +254,7 @@ class Type: public object
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE };
+        DICT, VECTOR, ARRAY, ORDSET, SET, FIFO, VARIANT, TYPEREF, STATE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
@@ -310,7 +310,7 @@ public:
     Container* deriveSet();
 
     virtual bool identicalTo(Type*);  // for comparing container elements, indexes
-    virtual bool canCastImplTo(Type*);  // can assign or automatically convert the type without changing the value
+    virtual bool canAssignTo(Type*);  // can assign or automatically convert the type without changing the value
     virtual bool isMyType(variant&);
     virtual void runtimeTypecast(variant&);
 };
@@ -345,7 +345,7 @@ public:
     State(State* _parent, Context*, Type* resultType);
     ~State();
     bool identicalTo(Type*);
-    bool canCastImplTo(Type*);
+    bool canAssignTo(Type*);
     bool isMyType(variant&);
     template<class T>
         T* registerType(T* t)
@@ -384,15 +384,16 @@ class Ordinal: public Type
 {
     Range* derivedRange;
 protected:
-    integer left;
-    integer right;
     void reassignRight(integer r) // for enums during their definition
-        { assert(r >= left); right = r; }
+        { assert(r >= left); (integer&)right = r; }
 public:
+    integer const left;
+    integer const right;
+
     Ordinal(TypeId, integer, integer);
     Range* deriveRange();
     bool identicalTo(Type*);
-    bool canCastImplTo(Type*);
+    bool canAssignTo(Type*);
     bool isMyType(variant&);
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
@@ -426,7 +427,7 @@ public:
     Enumeration(EnumValues*, integer _left, integer _right);    // subrange
     void addValue(const str&);
     bool identicalTo(Type*);
-    bool canCastImplTo(Type*);
+    bool canAssignTo(Type*);
     Ordinal* deriveSubrange(integer _left, integer _right);
 };
 
@@ -440,7 +441,7 @@ public:
     Ordinal* const base;
     Range(Ordinal*);
     bool identicalTo(Type*);
-    bool canCastImplTo(Type*);
+    bool canAssignTo(Type*);
 };
 
 
@@ -463,6 +464,10 @@ public:
     Type* const elem;
     Container(Type* _index, Type* _elem);
     bool identicalTo(Type*);
+    mem arrayIndexShift()
+        { return CAST(Ordinal*, index)->left; }
+    mem ordsetIndexShift()
+        { return CAST(Ordinal*, index)->left; }
 };
 
 

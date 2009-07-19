@@ -114,9 +114,9 @@ void test_variant()
         // check(v6.to_string() == "1.1");
         check(v7.to_string() == "false");
         check(v8.to_string() == "true");
-        check(v9.to_string() == "\"\"");
-        check(v10.to_string() == "\"abc\"");
-        check(vst.to_string() == "\"def\"");
+        check(v9.to_string() == "''");
+        check(v10.to_string() == "'abc'");
+        check(vst.to_string() == "'def'");
         check(v12.to_string() == "'x'");
         check(vo.to_string() == "[test_obj]");
 

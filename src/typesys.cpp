@@ -176,7 +176,7 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 bool Type::identicalTo(Type* t)  // for comparing container elements, indexes
     { return t->is(typeId); }
 
-bool Type::canCastImplTo(Type* t)  // can assign or automatically convert the type without changing the value
+bool Type::canAssignTo(Type* t)  // can assign or automatically convert the type without changing the value
     { return identicalTo(t); }
 
 bool Type::isMyType(variant& v)
@@ -255,7 +255,7 @@ State::~State()  { }
 bool State::identicalTo(Type* t)
     { return t == this; }
 
-bool State::canCastImplTo(Type* t)
+bool State::canAssignTo(Type* t)
     { return t == this; } // TODO: implement inheritance
 
 
@@ -269,7 +269,7 @@ langobj* State::newObject()
 
 
 bool State::isMyType(variant& v)
-    { return (v.is_object() && v._object()->get_rt()->canCastImplTo(this)); }
+    { return (v.is_object() && v._object()->get_rt()->canAssignTo(this)); }
 
 
 Module::Module(Context* context, mem _id)
@@ -322,7 +322,7 @@ Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
 bool Ordinal::identicalTo(Type* t)
     { return t->is(typeId) && rangeEq(POrdinal(t)); }
 
-bool Ordinal::canCastImplTo(Type* t)
+bool Ordinal::canAssignTo(Type* t)
     { return t->is(typeId); }
 
 
@@ -380,7 +380,7 @@ void Enumeration::addValue(const str& name)
 bool Enumeration::identicalTo(Type* t)
     { return this == t; }
 
-bool Enumeration::canCastImplTo(Type* t)
+bool Enumeration::canAssignTo(Type* t)
     { return t->isEnum() && values == PEnum(t)->values; }
 
 
@@ -404,8 +404,8 @@ Range::Range(Ordinal* _base)
 bool Range::identicalTo(Type* t)
         { return t->isRange() && base->identicalTo(PRange(t)->base); }
 
-bool Range::canCastImplTo(Type* t)
-        { return t->isRange() && base->canCastImplTo(PRange(t)->base); }
+bool Range::canAssignTo(Type* t)
+        { return t->isRange() && base->canAssignTo(PRange(t)->base); }
 
 
 // --- Container ---------------------------------------------------------- //
