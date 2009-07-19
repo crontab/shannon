@@ -29,10 +29,10 @@ typedef Variable ThisVar;
 typedef Variable ResultVar;
 typedef Variable LocalVar;
 typedef Container Container;
-typedef Container Vector;
+typedef Container Vec;
 typedef Container Array;
-typedef Container String;
-typedef Container Dictionary;
+typedef Container Str;
+typedef Container Dict;
 typedef Container Ordset;
 typedef Container Set;
 typedef Constant TypeAlias;
@@ -112,6 +112,7 @@ public:
 
     Base(BaseId, Type*, const str&, mem);
     ~Base();
+    bool empty(); // override
 
     bool isVariable()  { return baseId <= ARGVAR; }
     bool isDefinition()  { return baseId >= CONSTANT; }
@@ -254,7 +255,7 @@ class Type: public object
 
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, VECTOR, ARRAY, ORDSET, SET, FIFO, VARIANT, TYPEREF, STATE };
+        DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, VARIANT, TYPEREF, STATE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
@@ -275,6 +276,8 @@ protected:
 public:
     Type(Type* rt, TypeId);
     ~Type();
+    
+    bool empty(); // override
 
     void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
 
@@ -288,11 +291,13 @@ public:
     bool isRange()  { return typeId == RANGE; }
     bool isDict()  { return typeId == DICT; }
     bool isArray()  { return typeId == ARRAY; }
-    bool isVector()  { return typeId == VECTOR; }
+    bool isStr()  { return typeId == STR; }
+    bool isVec()  { return typeId == VEC; }
     bool isSet()  { return typeId == SET; }
     bool isOrdset()  { return typeId == ORDSET; }
     bool isCharSet();
-    bool isFifo()  { return typeId == FIFO; }
+    bool isVarFifo()  { return typeId == VARFIFO; }
+    bool isCharFifo()  { return typeId == CHARFIFO; }
     bool isVariant()  { return typeId == VARIANT; }
     bool isTypeRef()  { return typeId == TYPEREF; }
     bool isState()  { return typeId == STATE; }
@@ -300,8 +305,6 @@ public:
     bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
     bool isContainer()  { return typeId >= DICT && typeId <= SET; }
     bool isModule();
-    bool isString();
-    bool isCharFifo();
     bool canBeArrayIndex();
     bool canBeOrdsetIndex();
 
@@ -398,8 +401,7 @@ public:
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
-    bool rangeFits(integer i)
-            { return right - left <= i; }
+    bool rangeFits(integer i);
     bool rangeEq(integer l, integer r)
             { return left == l && right == r; }
     bool rangeEq(Ordinal* t)
@@ -419,7 +421,10 @@ protected:
     // Shared between enums: actually the main enum and its subranges; owned
     // by Enumeration objects, refcounted.
     struct EnumValues: public object, public PtrList<Constant>
-        { EnumValues(): object(NULL) { } };
+    {
+        EnumValues(): object(NULL) { }
+        bool empty() { return false; }
+    };
     objptr<EnumValues> values;
     Enumeration(TypeId _typeId); // built-in enums, e.g. bool
 public:
@@ -445,10 +450,10 @@ public:
 };
 
 
-typedef Container* PContainer;
-typedef Vector* PVector;
-typedef Dictionary* PDict;
-typedef String* PString;
+// typedef Container* PContainer;
+typedef Vec* PVec;
+typedef Dict* PDict;
+typedef Str* PStr;
 typedef Set* PSet;
 
 // Depending on the index and element types, can be one of:

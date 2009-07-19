@@ -23,6 +23,9 @@ langobj::langobj(State* type)
 }
 
 
+bool langobj::empty()  { return false; }
+
+
 void langobj::_idx_err()
 {
     throw emessage("Object index error");
@@ -44,6 +47,8 @@ Base::Base(BaseId _baseId, Type* _type, const str& _name, mem _id)
     : object(NULL), baseId(_baseId), type(_type), name(_name), id(_id)  { }
 
 Base::~Base()  { }
+
+bool Base::empty()  { return false; }
 
 
 EDuplicate::EDuplicate(const str& symbol) throw()
@@ -149,17 +154,12 @@ Type::Type(Type* rt, TypeId _t)
     assert(rt != NULL);
 }
 
-
 Type::~Type() { }
+
+bool Type::empty()  { return false; }
 
 bool Type::isModule()
     { return typeId == STATE && PState(this)->level == 0; }
-
-bool Type::isString()
-    { return isVector() && PVector(this)->elem->isChar(); }
-
-bool Type::isCharFifo()
-    { return isFifo() && PFifo(this)->isChar(); }
 
 bool Type::canBeArrayIndex()
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
@@ -309,6 +309,17 @@ Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
 Range* Ordinal::deriveRange()   { DERIVEX(Range) }
 
 
+bool Ordinal::rangeFits(integer i)
+{
+    if (left > right)
+        return false;
+    integer diff = right - left + 1;
+    if (diff <= 0)  // overflow, e.g. default int range
+        return false;
+    return diff <= i;
+}
+
+
 Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
 {
     if (rangeEq(_left, _right))
@@ -415,30 +426,26 @@ Container::Container(Type* _index, Type* _elem)
     : Type(defTypeRef, NONE), index(_index), elem(_elem)
 {
     if (index->isNone())
-        setTypeId(VECTOR);
+        setTypeId(elem->isChar() ? STR : VEC);
     else if (elem->isNone())
-    {
-        if (index->canBeOrdsetIndex())
-            setTypeId(ORDSET);
-        else
-            setTypeId(SET);
-    }
-    else if (index->canBeArrayIndex())
-        setTypeId(ARRAY);
+        setTypeId(index->canBeOrdsetIndex() ? ORDSET : SET);
     else
-        setTypeId(DICT);
+        setTypeId(index->canBeArrayIndex() ? ARRAY : DICT);
 }
 
 
 bool Container::identicalTo(Type* t)
-    { return t->is(typeId) && elem->identicalTo(PContainer(t)->elem)
-            && index->identicalTo(PContainer(t)->index); }
+    { return t->is(typeId) && elem->identicalTo(CAST(Container*, t)->elem)
+            && index->identicalTo(CAST(Container*, t)->index); }
 
 
 // --- Fifo ---------------------------------------------------------------- //
 
 
-Fifo::Fifo(Type* _elem): Type(defTypeRef, FIFO), elem(_elem)  { }
+Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
+{
+    setTypeId(elem->isChar() ? CHARFIFO : VARFIFO);
+}
 
 
 bool Fifo::identicalTo(Type* t)

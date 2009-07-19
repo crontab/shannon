@@ -56,14 +56,18 @@ void CodeGen::close()
 }
 
 
-void CodeGen::revertLastLoad()
+bool CodeGen::revertLastLoad()
 {
     if (lastOpOffs == mem(-1) || !isLoadOp(OpCode(codeseg[lastOpOffs])))
+    {
         discard();
+        return false;
+    }
     else
     {
         codeseg.resize(lastOpOffs);
         lastOpOffs = mem(-1);
+        return true;
     }
 }
 
@@ -116,7 +120,7 @@ void CodeGen::end()
 void CodeGen::endConstExpr(Type* expectType)
 {
     if (expectType != NULL)
-        implicitCastTo(expectType);
+        implicitCastTo(expectType, "Constant expression type mismatch");
     initRetVal(NULL);
     close();
     assert(genStack.size() == 0);
@@ -176,14 +180,11 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     case Type::DICT:
         if (empty) addOpPtr(opLoadNullDict, type); else addToConsts = true;
         break;
-    case Type::VECTOR:
-        if (empty)
-        {
-            if (type->isString()) addOp(opLoadNullStr);
-            else addOpPtr(opLoadNullVec, type);
-        }
-        else
-            addToConsts = true;
+    case Type::STR:
+        if (empty) addOp(opLoadNullStr); else addToConsts = true;
+        break;
+    case Type::VEC:
+        if (empty) addOpPtr(opLoadNullVec, type); else addToConsts = true;
         break;
     case Type::ARRAY:
         if (empty) addOpPtr(opLoadNullArray, type); else addToConsts = true;
@@ -194,7 +195,8 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     case Type::SET:
         if (empty) addOpPtr(opLoadNullSet, type); else addToConsts = true;
         break;
-    case Type::FIFO:
+    case Type::VARFIFO:
+    case Type::CHARFIFO:
         _fatal(0x6002);
         break;
     case Type::VARIANT:
@@ -202,8 +204,7 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         return;
     case Type::TYPEREF:
     case Type::STATE:
-        addOp(opLoadTypeRef);
-        addPtr(value.as_object());
+        addOpPtr(opLoadTypeRef, value.as_object());
         break;
     }
 
@@ -281,7 +282,7 @@ void CodeGen::dup()
 void CodeGen::initRetVal(Type* expectType)
 {
     if (expectType != NULL)
-        implicitCastTo(expectType);
+        implicitCastTo(expectType, "Return type mismatch");
     stkPop();
     addOp(opInitRet);
     add8(0);
@@ -295,7 +296,7 @@ void CodeGen::initLocalVar(Variable* var)
         _fatal(0x6003);
     locals++;
     // Local var simply remains on the stack, so just check the types
-    implicitCastTo(var->type);
+    implicitCastTo(var->type, "Expression type mismatch");
 }
 
 
@@ -374,7 +375,7 @@ void CodeGen::loadMember(ThisVar* var)
 void CodeGen::storeVar(Variable* var)
 {
     assert(var->id <= 255);
-    implicitCastTo(var->type);
+    implicitCastTo(var->type, "Expression type mismatch");
     stkPop();
     if (var->state != NULL && var->state != codeseg.state)
     {
@@ -400,12 +401,12 @@ void CodeGen::loadContainerElem()
 {
     Type* idxType = stkPop();
     Type* contType = stkPop();
-    if (contType->isVector())
+    if (contType->isVec() || contType->isStr())
     {
         if (!idxType->isInt())
-            throw emessage("Vector index must be integer");
+            throw emessage("Vector/string index must be integer");
         idxType = queenBee->defNone;
-        addOp(contType->isString() ? opLoadStrElem : opLoadVecElem);
+        addOp(contType->isStr() ? opLoadStrElem : opLoadVecElem);
     }
     else if (contType->isDict())
         addOp(opLoadDictElem);
@@ -414,9 +415,8 @@ void CodeGen::loadContainerElem()
         addOp(opLoadArrayElem);
     else
         throw emessage("Container/string type expected");
-    if (!tryCast(idxType, PContainer(contType)->index))
-        throw emessage("Container index type mismatch");
-    stkPush(PContainer(contType)->elem);
+    typeCast(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
+    stkPush(CAST(Container*, contType)->elem);
 }
 
 
@@ -425,10 +425,10 @@ void CodeGen::storeContainerElem()
     Type* elemType = stkPop();
     Type* idxType = stkPop();
     Type* contType = stkPop();
-    if (contType->isVector())
+    if (contType->isStr())
+        throw emessage("Operation not allowed on strings");
+    else if (contType->isVec())
     {
-        if (contType->isString())
-            throw emessage("Operation not allowed on strings");
         idxType = queenBee->defNone;
         addOp(opStoreVecElem);
     }
@@ -438,40 +438,75 @@ void CodeGen::storeContainerElem()
         addOp(opStoreDictElem);
     else
         throw emessage("Container type expected");
-    if (!tryCast(idxType, PDict(contType)->index))
-        throw emessage("Container key type mismatch");
-    if (!tryCast(elemType, PContainer(contType)->elem))
-        throw emessage("Container element type mismatch");
+    typeCast(idxType, CAST(Container*, contType)->index, "Container key type mismatch");
+    typeCast(elemType, CAST(Container*, contType)->elem, "Container element type mismatch");
 }
 
 
-void CodeGen::setTest()
+void CodeGen::delDictElem()
 {
-    // Operator `in`: elem in set
-    Type* contType = stkPop();
     Type* idxType = stkPop();
-    if (contType->isSet())
-        addOp(opAddToSet);
-    else if (contType->isOrdset())
+    Type* dictType = stkPop();
+    if (!dictType->isDict())
+        throw emessage("Dictionary type expected");
+    typeCast(idxType, CAST(Dict*, dictType)->index, "Dictionary key type mismatch");
+    addOp(opDelDictElem);
+}
+
+
+void CodeGen::addToSet()
+{
+    Type* idxType = stkPop();
+    Type* setType = stkPop();
+    if (setType->isOrdset())
         addOp(opAddToOrdset);
+    else if (setType->isSet())
+        addOp(opAddToSet);
     else
         throw emessage("Set type expected");
-    if (!tryCast(idxType, PSet(contType)->index))
-        throw emessage("Set element type mismatch");
+    typeCast(idxType, CAST(Set*, setType)->index, "Set element type mismatch");
 }
 
 
-bool CodeGen::tryCast(Type* from, Type* to)
+void CodeGen::inSet()
 {
-    return to->isVariant() || from->canAssignTo(to);
+    // Operator `in`: elem in set
+    Type* setType = stkPop();
+    Type* idxType = stkPop();
+    if (setType->isOrdset())
+        addOp(opInOrdset);
+    else if (setType->isSet())
+        addOp(opInSet);
+    else
+        throw emessage("Set type expected");
+    typeCast(idxType, CAST(Set*, setType)->index, "Set element type mismatch");
+    stkPush(queenBee->defBool);
 }
 
 
-// TODO: provide the error message
-void CodeGen::implicitCastTo(Type* to)
+void CodeGen::inDictKeys()
 {
-    if (!tryCast(stkTopType(), to))
-        throw emessage("Type mismatch");
+    // Operator `in`: key in dict
+    Type* dictType = stkPop();
+    Type* idxType = stkPop();
+    if (!dictType->isDict())
+        throw emessage("Dictionary type expected");
+    typeCast(idxType, CAST(Dict*, dictType)->index, "Dictionary key type mismatch");
+    addOp(opInDictKeys);
+    stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::typeCast(Type* from, Type* to, const char* errmsg)
+{
+    if (!to->isVariant() && !from->canAssignTo(to))
+        throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
+}
+
+
+void CodeGen::implicitCastTo(Type* to, const char* errmsg)
+{
+    typeCast(stkTopType(), to, errmsg);
     stkReplace(to);
 }
 
@@ -481,7 +516,7 @@ void CodeGen::explicitCastTo(Type* to)
     Type* from = stkTopType();
 
     // Try implicit cast first
-    if (tryCast(from, to))
+    if (to->isVariant() || from->canAssignTo(to))
     {
         stkReplace(to);
         return;
@@ -489,7 +524,7 @@ void CodeGen::explicitCastTo(Type* to)
     stkPop();
     if (to->isBool())
         addOp(opToBool);    // everything can be cast to bool
-    else if (to->isString())
+    else if (to->isStr())
         addOp(opToStr); // explicit cast to string: any object goes
     else if (
         // Variants should be typecast'ed to other types explicitly, except to boolean
@@ -499,10 +534,7 @@ void CodeGen::explicitCastTo(Type* to)
         || (from->isOrdinal() && to->isOrdinal())
         // States: implicit type cast wasn't possible, so try run-time typecast
         || (from->isState() && to->isState()))
-    {
-        addOp(opToType);    // calls to->runtimeTypecast(v)
-        addPtr(to);
-    }
+            addOpPtr(opToType, to);    // calls to->runtimeTypecast(v)
     else
         throw emessage("Invalid typecast");
     stkPush(to);
@@ -524,10 +556,7 @@ void CodeGen::testType(Type* type)
 {
     Type* varType = stkPop();
     if (varType->isVariant())
-    {
-        addOp(opIsType);
-        addPtr(type);
-    }
+        addOpPtr(opIsType, type);
     else
     {
         // Can be determined at compile time
@@ -576,10 +605,7 @@ void CodeGen::elemToVec()
     if (elemType->isChar())
         addOp(opCharToStr);
     else
-    {
-        addOp(opVarToVec);
-        addPtr(vecType);
-    }
+        addOpPtr(opVarToVec, vecType);
     stkPush(vecType);
 }
 
@@ -588,9 +614,9 @@ void CodeGen::elemCat()
 {
     Type* elemType = stkTopType();
     Type* vecType = stkTopType(1);
-    if (!vecType->isVector())
-        throw emessage("Vector type expected");
-    implicitCastTo(PVector(vecType)->elem);
+    if (!vecType->isVec() && !vecType->isStr())
+        throw emessage("Vector/string type expected");
+    implicitCastTo(CAST(Vec*, vecType)->elem, "Vector/string element type mismatch");
     elemType = stkPop();
     addOp(elemType->isChar() ? opCharCat: opVarCat);
 }
@@ -600,11 +626,11 @@ void CodeGen::cat()
 {
     Type* right = stkPop();
     Type* left = stkTopType();
-    if (!left->isVector() || !right->isVector())
-        throw emessage("Vector type expected");
+    if ((!left->isVec() || !right->isVec()) && (!left->isStr() || !right->isStr()))
+        throw emessage("Vector/string type expected");
     if (!right->canAssignTo(left))
-        throw emessage("Vector types do not match");
-    addOp(left->isString() ? opStrCat : opVecCat);
+        throw emessage("Vector/string types do not match");
+    addOp(left->isStr() ? opStrCat : opVecCat);
 }
 
 
@@ -616,9 +642,8 @@ void CodeGen::mkRange()
         throw emessage("Range elements must be ordinal");
     if (!right->canAssignTo(left))
         throw emessage("Range element types do not match");
-    addOp(opMkRange);
-    Type* rangeType = POrdinal(left)->deriveRange();
-    addPtr(rangeType);
+    Range* rangeType = POrdinal(left)->deriveRange();
+    addOpPtr(opMkRange, rangeType);
     stkPush(rangeType);
 }
 
@@ -645,7 +670,7 @@ void CodeGen::cmp(OpCode op)
         throw emessage("Types mismatch in comparison");
     if (left->isOrdinal() && right->isOrdinal())
         addOp(opCmpOrd);
-    else if (left->isString() && right->isString())
+    else if (left->isStr() && right->isStr())
         addOp(opCmpStr);
     else
     {
@@ -812,7 +837,7 @@ int main()
                 check(s == seg.size() - 1);
                 gen.elemCat();
                 gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
-                gen.implicitCastTo(queenBee->defVariant);
+                gen.implicitCastTo(queenBee->defVariant, "Type mismatch");
                 gen.testType(queenBee->defVariant);
                 gen.elemCat();
                 gen.loadStr("");
@@ -830,12 +855,15 @@ int main()
         {
             Context ctx;
             Module* mod = ctx.addModule("test2");
-            Dictionary* dictType = mod->registerType(new Dictionary(queenBee->defStr, queenBee->defInt));
-            Array* arrayType = mod->registerType(new Array(queenBee->defBool, queenBee->defStr));
+            Dict* dictType = mod->registerType(new Dict(queenBee->defStr, queenBee->defInt));
             dict* d = new dict(dictType);
             d->tie("key1", 2);
             d->tie("key2", 3);
             Constant* c = mod->addConstant(dictType, "dict", d);
+            Array* arrayType = mod->registerType(new Array(queenBee->defBool, queenBee->defStr));
+            Ordset* ordsetType = queenBee->defChar->deriveSet();
+            Set* setType = queenBee->defInt->deriveSet();
+            check(!setType->isOrdset());
             varstack stk;
             {
                 CodeGen gen(*mod);
@@ -847,6 +875,10 @@ int main()
                 gen.loadVar(v1);
                 gen.loadStr("k1");
                 gen.loadInt(15);
+                gen.storeContainerElem();
+                gen.loadVar(v1);
+                gen.loadStr("k2");
+                gen.loadInt(25);
                 gen.storeContainerElem();
 
                 Variable* v2 = block.addLocalVar(arrayType, "v2");
@@ -860,6 +892,26 @@ int main()
                 gen.loadBool(true);
                 gen.loadStr("def");
                 gen.storeContainerElem();
+                
+                Variable* v3 = block.addLocalVar(ordsetType, "v3");
+                gen.loadNullContainer(ordsetType);
+                gen.initLocalVar(v3);
+                gen.loadVar(v3);
+                gen.loadChar('a');
+                gen.addToSet();
+                gen.loadVar(v3);
+                gen.loadChar('b');
+                gen.addToSet();
+
+                Variable* v4 = block.addLocalVar(setType, "v4");
+                gen.loadNullContainer(setType);
+                gen.initLocalVar(v4);
+                gen.loadVar(v4);
+                gen.loadInt(100);
+                gen.addToSet();
+                gen.loadVar(v4);
+                gen.loadInt(1000);
+                gen.addToSet();
 
                 gen.loadConst(queenBee->defVariant, 10);
                 gen.elemToVec();
@@ -871,7 +923,7 @@ int main()
                 gen.loadInt(0);
                 gen.loadContainerElem();
                 gen.elemCat();
-                gen.loadConst(dictType, c->value);
+                gen.loadConst(c->type, c->value);
                 gen.loadStr("key2");
                 gen.loadContainerElem();
                 gen.elemCat();
@@ -890,15 +942,56 @@ int main()
                 gen.loadInt(7);
                 gen.loadInt(22);
                 gen.storeContainerElem();
+                gen.loadVar(v3);
+                gen.elemCat();
+                gen.loadVar(v4);
+                gen.elemCat();
+
+                gen.loadChar('a');
+                gen.loadVar(v3);
+                gen.inSet();
+                gen.elemCat();
+
+                gen.loadChar('c');
+                gen.loadVar(v3);
+                gen.inSet();
+                gen.elemCat();
+
+                gen.loadInt(1000);
+                gen.loadVar(v4);
+                gen.inSet();
+                gen.elemCat();
+
+                gen.loadInt(1001);
+                gen.loadVar(v4);
+                gen.inSet();
+                gen.elemCat();
+                
+                gen.loadStr("k3");
+                gen.loadVar(v1);
+                gen.inDictKeys();
+                gen.elemCat();
+
+                gen.loadStr("k1");
+                gen.loadVar(v1);
+                gen.inDictKeys();
+                gen.elemCat();
+                
+                gen.loadVar(v1);
+                gen.loadStr("k2");
+                gen.delDictElem();
 
                 gen.storeVar(queenBee->sresultvar);
                 block.deinitLocals();
                 gen.end();
             }
             variant result = ctx.run(stk);
-            check(result.to_string() == "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22]");
+            str s = result.to_string();
+            check(s ==
+                "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22, "
+                "[97, 98], [100, 1000], true, false, true, false, false, true]");
         }
-        
+
         {
             Context ctx;
             Module* mod = ctx.addModule("test2");

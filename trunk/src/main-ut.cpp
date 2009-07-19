@@ -76,6 +76,7 @@ public:
     void dump(fifo_intf& s) const
         { s << "test_obj"; }
     test_obj(): object(NULL)  { }
+    bool empty()  { return false; }
 };
 
 
@@ -596,7 +597,7 @@ void test_typesys()
     check(queenBee->defChar->isChar());
     check(queenBee->defChar->get_rt() == defTypeRef);
     check(queenBee->defChar->isOrdinal());
-    check(queenBee->defStr->isString());
+    check(queenBee->defStr->isStr());
     check(queenBee->defStr->get_rt() == defTypeRef);
     check(queenBee->defStr->isContainer());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
