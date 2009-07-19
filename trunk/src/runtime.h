@@ -188,7 +188,7 @@ public:
     object(Type*);
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
-    virtual bool empty() = 0;   // non-const because fifo's can be modified when getting the eof status
+    virtual bool empty();   // non-const because fifo's can be modified when getting the eof status
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
@@ -227,6 +227,7 @@ public:
     virtual object* clone() const;
     void assign(integer l, integer r)   { left = l; right = r; }
     bool empty()                        { return left > right; }
+    mem diff() const                    { return right - left; }
     bool has(integer i) const           { return i >= left && i <= right; }
     bool equals(integer l, integer r) const;
     bool equals(const range& other) const;

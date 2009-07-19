@@ -52,7 +52,7 @@ inline void STORETO(variant*& stk, variant* dest)
 //        { *dest = *stk; POP(stk); }
 
 template<class T>
-    inline T IPADV(const uchar*& ip)
+    inline T ADV(const uchar*& ip)
         { T t = *(T*)ip; ip += sizeof(T); return t; }
 
 #define SETPOD(dest,v) (::new(dest) variant(v))
@@ -73,6 +73,30 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
             td->append(*ts);
     }
 }
+
+
+void CodeSeg::failAssertion(unsigned file, unsigned line) const
+{
+    throw emessage("Assertion failed: " + context->fileInfos[file]->fileName
+        + " line " + to_string(line));
+}
+
+
+void CodeSeg::echo(const variant& v)
+{
+    // The default dump() method uses apostrophes, which we don't need here,
+    // or at least at the top level (nested strings and chars in containers
+    // can be with apostrophes)
+    if (v.is(variant::CHAR))
+        sio << uchar(v._ord());
+    else if (v.is(variant::STR))
+        sio << v._str_read();
+    else
+        sio << v;
+}
+
+
+// --- The Virtual Machine ------------------------------------------------- //
 
 
 void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
@@ -101,21 +125,21 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadNull:        PUSH(stk, null); break;
             case opLoadFalse:       PUSH(stk, false); break;
             case opLoadTrue:        PUSH(stk, true); break;
-            case opLoadChar:        PUSH(stk, IPADV<uchar>(ip)); break;
+            case opLoadChar:        PUSH(stk, ADV<uchar>(ip)); break;
             case opLoad0:           PUSH(stk, integer(0)); break;
             case opLoad1:           PUSH(stk, integer(1)); break;
-            case opLoadInt:         PUSH(stk, IPADV<integer>(ip)); break;
-            case opLoadNullRange:   PUSH(stk, new range(IPADV<Range*>(ip))); break;
-            case opLoadNullDict:    PUSH(stk, new dict(IPADV<Dict*>(ip))); break;
+            case opLoadInt:         PUSH(stk, ADV<integer>(ip)); break;
+            case opLoadNullRange:   PUSH(stk, new range(ADV<Range*>(ip))); break;
+            case opLoadNullDict:    PUSH(stk, new dict(ADV<Dict*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
-            case opLoadNullVec:     PUSH(stk, new vector(IPADV<Vec*>(ip))); break;
-            case opLoadNullArray:   PUSH(stk, new vector(IPADV<Array*>(ip))); break;
-            case opLoadNullOrdset:  PUSH(stk, new ordset(IPADV<Ordset*>(ip))); break;
-            case opLoadNullSet:     PUSH(stk, new set(IPADV<Set*>(ip))); break;
-            case opLoadConst:       PUSH(stk, consts[IPADV<uchar>(ip)]); break;
-            case opLoadConst2:      PUSH(stk, consts[IPADV<uint16_t>(ip)]); break;
-            case opLoadTypeRef:     PUSH(stk, IPADV<Type*>(ip)); break;
-            case opLoadDataseg:     PUSH(stk, context->datasegs[IPADV<uchar>(ip)]); break;
+            case opLoadNullVec:     PUSH(stk, new vector(ADV<Vec*>(ip))); break;
+            case opLoadNullArray:   PUSH(stk, new vector(ADV<Array*>(ip))); break;
+            case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
+            case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
+            case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
+            case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
+            case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;
+            case opLoadDataseg:     PUSH(stk, context->datasegs[ADV<uchar>(ip)]); break;
 
             case opPop:             POP(stk); break;
             case opSwap:            varswap(stk, stk - 1); break;
@@ -124,9 +148,9 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             // Safe typecasts
             case opToBool:      *stk = stk->to_bool(); break;
             case opToStr:       *stk = stk->to_string(); break;
-            case opToType:      IPADV<Type*>(ip)->runtimeTypecast(*stk); break;
+            case opToType:      ADV<Type*>(ip)->runtimeTypecast(*stk); break;
             case opToTypeRef:   CAST(Type*, stk->_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
-            case opIsType:      *stk = IPADV<Type*>(ip)->isMyType(*stk); break;
+            case opIsType:      *stk = ADV<Type*>(ip)->isMyType(*stk); break;
             case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->_object())->isMyType(*(stk - 1)); POP(stk); break;
 
             // Arithmetic
@@ -146,7 +170,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opNot:         UNARY_INT(-); break;
 
             // Range operations
-            case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
+            case opMkRange:     *(stk - 1) = new range(ADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
             case opInRange:     SETPOD(stk - 1, CAST(range*, stk->_object())->has((stk - 1)->_ord())); POP(stk); break;
 
             // Comparators
@@ -162,22 +186,22 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opGreaterEq:   SETPOD(stk, stk->_int() >= 0); break;
 
             // Initializers:
-            case opInitRet:     POPTO(stk, result + IPADV<uchar>(ip)); break;
-            case opInitLocal:   POPTO(stk, stkbase + IPADV<uchar>(ip)); break;
-            case opInitThis:    POPTO(stk, self->var(IPADV<uchar>(ip))); break;
+            case opInitRet:     POPTO(stk, result + ADV<uchar>(ip)); break;
+            case opInitLocal:   POPTO(stk, stkbase + ADV<uchar>(ip)); break;
+            case opInitThis:    POPTO(stk, self->var(ADV<uchar>(ip))); break;
 
             // Loaders
-            case opLoadRet:     PUSH(stk, result[IPADV<uchar>(ip)]); break;
-            case opLoadLocal:   PUSH(stk, stkbase[IPADV<uchar>(ip)]); break;
-            case opLoadThis:    PUSH(stk, *self->var(IPADV<uchar>(ip))); break;
-            case opLoadArg:     PUSH(stk, stkbase[- IPADV<uchar>(ip) - 1]); break; // not tested
+            case opLoadRet:     PUSH(stk, result[ADV<uchar>(ip)]); break;
+            case opLoadLocal:   PUSH(stk, stkbase[ADV<uchar>(ip)]); break;
+            case opLoadThis:    PUSH(stk, *self->var(ADV<uchar>(ip))); break;
+            case opLoadArg:     PUSH(stk, stkbase[- ADV<uchar>(ip) - 1]); break; // not tested
             case opLoadStatic:
                 {
-                    mem mod = IPADV<uchar>(ip);
-                    PUSH(stk, *context->datasegs[mod]->var(IPADV<uchar>(ip)));
+                    mem mod = ADV<uchar>(ip);
+                    PUSH(stk, *context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }
                 break;
-            case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(IPADV<uchar>(ip)); break;
+            case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(ADV<uchar>(ip)); break;
             case opLoadOuter:   notimpl();
 
             // Container read operations
@@ -221,14 +245,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opInSet: *(stk - 1) = CAST(set*, stk->_object())->has(*(stk - 1)); POP(stk); break;
 
             // Storers
-            case opStoreRet:    STORETO(stk, result + IPADV<uchar>(ip)); break;
-            case opStoreLocal:  STORETO(stk, stkbase + IPADV<uchar>(ip)); break;
-            case opStoreThis:   STORETO(stk, self->var(IPADV<uchar>(ip))); break;
-            case opStoreArg:    STORETO(stk, stkbase - IPADV<uchar>(ip) - 1); break;
+            case opStoreRet:    STORETO(stk, result + ADV<uchar>(ip)); break;
+            case opStoreLocal:  STORETO(stk, stkbase + ADV<uchar>(ip)); break;
+            case opStoreThis:   STORETO(stk, self->var(ADV<uchar>(ip))); break;
+            case opStoreArg:    STORETO(stk, stkbase - ADV<uchar>(ip) - 1); break;
             case opStoreStatic:
                 {
-                    mem mod = IPADV<uchar>(ip);
-                    STORETO(stk, context->datasegs[mod]->var(IPADV<uchar>(ip)));
+                    mem mod = ADV<uchar>(ip);
+                    STORETO(stk, context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }
                 break;
             case opStoreMember:  notimpl();
@@ -277,12 +301,50 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
             case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POPORD(stk); break;
             case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
-            case opVarToVec:    *stk = new vector(IPADV<Vec*>(ip), 1, *stk); break;
+            case opVarToVec:    *stk = new vector(ADV<Vec*>(ip), 1, *stk); break;
             case opVarCat:      CAST(vector*, (stk - 1)->_object())->push_back(*stk); POP(stk); break;
             case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 
             // Misc. built-ins
             case opEmpty:       *stk = stk->empty(); break;
+            case opStrLen:      *stk = stk->_str_read().size(); break;
+            case opVecLen:      *stk = CAST(vector*, stk->_object())->size(); break;
+            case opRangeDiff:   *stk = CAST(range*, stk->_object())->diff(); break;
+            case opRangeLow:    *stk = CAST(range*, stk->_object())->left; break;
+            case opRangeHigh:   *stk = CAST(range*, stk->_object())->right; break;
+
+            // Jumps
+            case opJumpTrue:    { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; POP(stk); } break;
+            case opJumpFalse:   { mem o = ADV<joffs_t>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
+            case opJump:        ip += ADV<joffs_t>(ip); break;
+
+            // Case labels
+            case opCaseInt:     PUSH(stk, stk->_ord() == ADV<integer>(ip)); break;
+            case opCaseRange:
+                {
+                    integer l = ADV<integer>(ip);
+                    PUSH(stk, stk->_ord() >= l && stk->_ord() <= ADV<integer>(ip));
+                }
+                break;
+            case opCaseStr:     *stk = stk->_str_read() == (stk - 1)->_str_read(); break;
+            case opCaseTypeRef: *stk = CAST(Type*, stk->_object())->identicalTo(CAST(Type*, (stk - 1)->_object())); break;
+
+            // Function call
+            case opCall: notimpl();
+
+            // Helpers
+            case opEcho:        echo(*stk); POP(stk); break;
+            case opEchoLn:      sio << endl; break;
+            case opAssert:
+                {
+                    unsigned file = ADV<uint16_t>(ip);
+                    unsigned line = ADV<uint16_t>(ip);
+                    if (!stk->_ord())
+                        failAssertion(file, line);
+                    POP(stk);
+                }
+                break;
+
             default: invOpcode(); break;
             }
         }
@@ -308,6 +370,9 @@ void ConstCode::run(variant& result) const
     CodeSeg::run(stack, NULL, &result);
     assert(stack.size() == 0);
 }
+
+
+// --- EXECUTION CONTEXT --------------------------------------------------- //
 
 
 Context::Context()
@@ -342,7 +407,15 @@ Module* Context::addModule(const str& name)
 }
 
 
-variant Context::run(varstack& stack)
+mem Context::registerFileInfo(const str& fileName)
+{
+    mem result = fileInfos.size();
+    fileInfos.add(new FileInfo(fileName));
+    return result;
+}
+
+
+variant Context::run()
 {
     assert(datasegs.empty());
     assert(modules.size() == defs.size());
@@ -356,27 +429,16 @@ variant Context::run(varstack& stack)
     assert(modules[0] == queenBee);
     queenBee->initialize(datasegs[0]);
 
-    // Run main code for all modules, then final code in reverse order.
-    mem level = 0;
+    // Run main code for all modules
+    varstack stack;
     try
     {
-        while (level < count)
-        {
-            level++;
-            modules[level - 1]->run(stack, datasegs[level - 1], NULL);
-        }
+        for (mem i = 0; i < count; i++)
+            modules[i]->run(stack, datasegs[i], NULL);
     }
     catch(eexit&)
     {
     }
-    catch(exception&)
-    {
-        while (level--)
-            modules[level]->finalize(stack, datasegs[level]);
-        throw;
-    }
-    while (level--)
-        modules[level]->finalize(stack, datasegs[level]);
 
     // Get the result of the exit operator
     variant result = *datasegs[0]->var(queenBee->sresultvar->id);

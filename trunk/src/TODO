@@ -33,5 +33,10 @@
 
 * Include for sets? set s['item'] (set is a keyword anyway - get/set property)
 
-* operator delete, e.g.: delete d['key'] (applies to sets too)
+* Operator delete, e.g.: delete d['key'] (applies to sets too)
 
+* Iterators for all container types. Iterators should lock the container to
+  preevent modification.
+
+* A `pair` data type, which is a dictionary iteration element. But maybe not
+  only. Can be a built-in state with two fields.

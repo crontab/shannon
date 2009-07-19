@@ -236,7 +236,7 @@ Constant* Scope::addTypeAlias(Type* type, const str& name)
 
 State::State(State* _parent, Context* context, Type* resultType)
   : Type(defTypeRef, STATE), Scope(_parent),
-    CodeSeg(this, context), startId(0), final(this, context),
+    CodeSeg(this, context), startId(0),
     level(_parent == NULL ? 0 : _parent->level + 1)
 {
     setOwner(_parent);

@@ -80,6 +80,8 @@ protected:
 
     // Execution
     static void vecCat(const variant& vec2, variant* vec1);
+    void failAssertion(unsigned file, unsigned linenum) const;
+    static void echo(const variant&);
 
     void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
 
@@ -337,10 +339,6 @@ protected:
     List<Variable> thisvars;
     objptr<Variable> resultvar;
     mem startId;
-
-    CodeSeg final;
-    void finalize(varstack& stack, langobj* self)
-        { final.run(stack, self, NULL); }
 
 public:
     int const level;

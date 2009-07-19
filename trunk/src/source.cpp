@@ -63,7 +63,6 @@ Keywords::kwinfo Keywords::keywords[] =
         {"else", tokElse},
         {"enum", tokEnum},
         {"exit", tokExit},
-        {"finally", tokFinally},
         {"if", tokIf},
         {"in", tokIn},
         {"is", tokIs},
