@@ -188,7 +188,7 @@ public:
     object(Type*);
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
-    virtual bool empty();   // non-const because fifo's can be modified when getting the eof status
+    virtual bool empty() = 0;   // non-const because fifo's can be modified when getting the eof status
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
@@ -313,12 +313,13 @@ public:
     dict(Type*);
     ~dict();
     virtual object* clone() const;
-    mem size()                          const { return impl.size(); }
+//    mem size()                          const { return impl.size(); }
     bool empty()                              { return impl.empty(); }
     void tie(const variant& key, const variant& value)
                                               { impl[key] = value; }
     void untie(const variant& v)              { impl.erase(v); }
     dict_iterator find(const variant& v)const { return impl.find(v); }
+    bool has(const variant& key)        const { return impl.find(key) != impl.end(); }
     virtual void dump(fifo_intf&) const;
     dict_iterator begin()               const { return impl.begin(); }
     dict_iterator end()                 const { return impl.end(); }
@@ -335,11 +336,11 @@ public:
     ~set();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-    mem size()                          const { return impl.size(); }
+//    mem size()                          const { return impl.size(); }
     bool empty()                              { return impl.empty(); }
     void tie(const variant& v)                { impl.insert(v); }
     void untie(const variant& v)              { impl.erase(v); }
-    set_iterator find(const variant& v) const { return impl.find(v); }
+    bool has(const variant& v)          const { return impl.find(v) != impl.end(); }
     set_iterator begin()                const { return impl.begin(); }
     set_iterator end()                  const { return impl.end(); }
 };
@@ -649,6 +650,7 @@ protected:
     void* operator new(size_t, mem);
     langobj(State*);
     ~langobj();
+    bool empty(); // override
     void _idx_err();
     
 #ifdef DEBUG

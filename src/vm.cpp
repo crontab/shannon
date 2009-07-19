@@ -106,9 +106,9 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoad1:           PUSH(stk, integer(1)); break;
             case opLoadInt:         PUSH(stk, IPADV<integer>(ip)); break;
             case opLoadNullRange:   PUSH(stk, new range(IPADV<Range*>(ip))); break;
-            case opLoadNullDict:    PUSH(stk, new dict(IPADV<Dictionary*>(ip))); break;
+            case opLoadNullDict:    PUSH(stk, new dict(IPADV<Dict*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
-            case opLoadNullVec:     PUSH(stk, new vector(IPADV<Vector*>(ip))); break;
+            case opLoadNullVec:     PUSH(stk, new vector(IPADV<Vec*>(ip))); break;
             case opLoadNullArray:   PUSH(stk, new vector(IPADV<Array*>(ip))); break;
             case opLoadNullOrdset:  PUSH(stk, new ordset(IPADV<Ordset*>(ip))); break;
             case opLoadNullSet:     PUSH(stk, new set(IPADV<Set*>(ip))); break;
@@ -147,7 +147,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
 
             // Range operations
             case opMkRange:     *(stk - 1) = new range(IPADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
-            case opInRange:     SETPOD(stk - 1, ((range*)stk->_object())->has((stk - 1)->_ord())); POP(stk); break;
+            case opInRange:     SETPOD(stk - 1, CAST(range*, stk->_object())->has((stk - 1)->_ord())); POP(stk); break;
 
             // Comparators
             case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPORD(stk); break;
@@ -190,7 +190,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
                     else *stk = i->second;
                 }
                 break;
-            case opTestDictKey: notimpl();
+            case opInDictKeys: *(stk - 1) = CAST(dict*, stk->_object())->has(*(stk - 1)); POP(stk); break;
             case opLoadStrElem:
                 {
                     mem idx = stk->_int();
@@ -207,13 +207,18 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
                     POPORD(stk);
                     vector* v = CAST(vector*, stk->_object());
                     if (*(ip - 1) == opLoadArrayElem)
-                        idx -= CAST(Vector*, v->get_rt())->arrayIndexShift();
+                        idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
                     if (idx >= v->size()) idxOverflow();
                     *stk = (*v)[idx];
                 }
                 break;
-            case opTestOrdset: notimpl();
-            case opTestSet: notimpl();
+            case opInOrdset:
+                {
+                    SETPOD(stk - 1, CAST(ordset*, stk->_object())->has((stk - 1)->_ord()));
+                    POP(stk);
+                }
+                break;
+            case opInSet: *(stk - 1) = CAST(set*, stk->_object())->has(*(stk - 1)); POP(stk); break;
 
             // Storers
             case opStoreRet:    STORETO(stk, result + IPADV<uchar>(ip)); break;
@@ -237,13 +242,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
                     POP(stk); POP(stk); POP(stk);
                 }
                 break;
+            case opDelDictElem: CAST(dict*, (stk - 1)->_object())->untie(*stk); POP(stk); POP(stk); break;
             case opStoreVecElem:
             case opStoreArrayElem:
                 {
                     vector* v = CAST(vector*, (stk - 2)->_object());
                     mem idx = (stk - 1)->_ord();
                     if (*(ip - 1) == opStoreArrayElem)
-                        idx -= CAST(Vector*, v->get_rt())->arrayIndexShift();
+                        idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
                     if (idx > v->size())
                         idxOverflow();
                     if (idx == v->size())
@@ -265,16 +271,18 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
                     POP(stk);
                 }
                 break;
-            case opAddToSet: notimpl();
+            case opAddToSet: CAST(set*, (stk - 1)->_object())->tie(*stk);  POP(stk); POP(stk); break;
 
             // Concatenation
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
             case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POPORD(stk); break;
             case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
-            case opVarToVec:    *stk = new vector(IPADV<Vector*>(ip), 1, *stk); break;
+            case opVarToVec:    *stk = new vector(IPADV<Vec*>(ip), 1, *stk); break;
             case opVarCat:      CAST(vector*, (stk - 1)->_object())->push_back(*stk); POP(stk); break;
             case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 
+            // Misc. built-ins
+            case opEmpty:       *stk = stk->empty(); break;
             default: invOpcode(); break;
             }
         }

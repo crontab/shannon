@@ -83,12 +83,12 @@ enum OpCode
 
     // Container read operations
     opLoadDictElem,     // -key, -dict, +val
-    opTestDictKey,      // -dict, -key, +bool
+    opInDictKeys,       // -dict, -key, +bool
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
     opLoadArrayElem,    // -index, -array, +val
-    opTestOrdset,       // -ordset, -ord, +bool
-    opTestSet,          // -ordset, -key, +bool
+    opInOrdset,         // -ordset, -ord, +bool
+    opInSet,            // -ordset, -key, +bool
 
     // Storers
     opStoreRet,         // [ret-index] -var
@@ -101,6 +101,7 @@ enum OpCode
 
     // Container write operations
     opStoreDictElem,    // -val, -key, -dict
+    opDelDictElem,      // -key, -dict
     // TODO: implement a shared string class (not copy-on-write)
 //    opStoreStrElem,     // -char, -index, -str
     opStoreVecElem,     // -val, -index, -vector
@@ -115,6 +116,13 @@ enum OpCode
     opVarToVec,         // [Vector*] -var, +vec
     opVarCat,           // -var, -vec, +vec
     opVecCat,           // -var, -vec, +vec
+
+    // Misc. built-ins
+    opEmpty,            // -var, +bool
+    opStrLen,           // -str, +int
+    opVecLen,           // -vec, +int
+    opLow,              // -range, +ord
+    opHigh,             // -range, +ord
 
     // Case labels: cmp the top element with the arg and leave 0 or 1 for
     // further boolean jump
@@ -200,7 +208,7 @@ protected:
     void add16(uint16_t i);
     void addInt(integer i);
     void addPtr(void* p);
-    void revertLastLoad();
+    bool revertLastLoad();
     void close();
 
     typedef std::vector<stkinfo> stkImpl;
@@ -226,7 +234,7 @@ protected:
     Type* stkPop();
 
     void doStaticVar(ThisVar* var, OpCode);
-    bool tryCast(Type* from, Type* to);
+    void typeCast(Type* from, Type* to, const char* errmsg);
 
 public:
     CodeGen(CodeSeg&);
@@ -261,9 +269,12 @@ public:
     void storeVar(Variable*);
     void loadContainerElem();
     void storeContainerElem();
-    void setTest();
+    void delDictElem();
+    void addToSet();
+    void inSet();
+    void inDictKeys();
 
-    void implicitCastTo(Type*);
+    void implicitCastTo(Type*, const char* errmsg);
     void explicitCastTo(Type*);
     void dynamicCast();
     void testType(Type*);
