@@ -7,55 +7,70 @@
 #include "typesys.h"
 
 #include <stack>
+#include <set>
 
 
 enum OpCode
 {
+    // NOTE: the order of many of these instructions in their groups is significant!
+
     opInv,  // to detect corrupt code segments
     opEnd,  // also return from function
     opNop,
     opExit, // throws eexit()
     
     // Const loaders
-    opLoadNull,
-    opLoadFalse,
-    opLoadTrue,
-    opLoadChar,         // [8]
-    opLoad0,
-    opLoad1,
-    opLoadInt,          // [int]
-    opLoadNullRange,    // [Range*]
-    opLoadNullDict,     // [Dict*]
-    opLoadNullStr,
-    opLoadNullVec,      // [Vector*]
-    opLoadNullArray,    // [Array*]
-    opLoadNullOrdset,   // [Ordset*]
-    opLoadNullSet,      // [Set*]
-    opLoadConst,        // [const-index: 8] // compound values only
-    opLoadConst2,       // [const-index: 16] // compound values only
-    opLoadTypeRef,      // [Type*]
-    opLoadDataseg,      // [module-index: 8] // used in unit tests, otherwise use opLoadStatic
+    opLoadNull,         // +null
+    opLoadFalse,        // +false
+    opLoadTrue,         // +true
+    opLoadChar,         // [8] +char
+    opLoad0,            // +0
+    opLoad1,            // +1
+    opLoadInt,          // [int] +int
+    opLoadNullRange,    // [Range*] +range
+    opLoadNullDict,     // [Dict*] +dict
+    opLoadNullStr,      // +str
+    opLoadNullVec,      // [Vector*] +vec
+    opLoadNullArray,    // [Array*] +array
+    opLoadNullOrdset,   // [Ordset*] +ordset
+    opLoadNullSet,      // [Set*] +set
+    opLoadConst,        // [const-index: 8] +var // compound values only
+    opLoadConst2,       // [const-index: 16] +var // compound values only
+    opLoadTypeRef,      // [Type*] +typeref
+    opLoadDataseg,      // [module-index: 8] +langobj
 
     opPop,              // -var
     opSwap,
     opDup,              // +var
 
     // Safe typecasts
-    opToBool,
-    opToStr,
+    opToBool,           // -var, +bool
+    opToStr,            // -var, +str
     opToType,           // [Type*] -var, +var
     opToTypeRef,        // -type, -var, +var
     opIsType,           // [Type*] -var, +bool
     opIsTypeRef,        // -type, -var, +bool
 
     // Arithmetic binary: -ord, -ord, +ord
-    opAdd, opSub, opMul, opDiv, opMod, opBitAnd, opBitOr, opBitXor, opBitShl, opBitShr,
+    opAdd,              // -int, +int, +int
+    opSub,              // -int, +int, +int
+    opMul,              // -int, +int, +int
+    opDiv,              // -int, +int, +int
+    opMod,              // -int, +int, +int
+    opBitAnd,           // -int, +int, +int
+    opBitOr,            // -int, +int, +int
+    opBitXor,           // -int, +int, +int
+    opBitShl,           // -int, +int, +int
+    opBitShr,           // -int, +int, +int
+    
     // Arithmetic unary: -ord, +ord
-    opNeg, opBitNot, opNot,
+    opNeg,              // -int, +int
+    opBitNot,           // -int, +int
+    opNot,              // -int, +int
 
     // Range operations (work for all ordinals)
     opMkRange,          // [Ordinal*] -right-int, -left-int, +range
-    opInRange,          // -range, -int, +{0,1}
+    opInRange,          // -range, -int, +bool
 
     // Comparators
     opCmpOrd,           // -ord, -ord, +{-1,0,1}
@@ -64,7 +79,12 @@ enum OpCode
 
     // Compare the stack top with 0 and replace it with a bool value.
     // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
-    opEqual, opNotEq, opLessThan, opLessEq, opGreaterThan, opGreaterEq,
+    opEqual,            // -int, +bool
+    opNotEq,            // -int, +bool
+    opLessThan,         // -int, +bool
+    opLessEq,           // -int, +bool
+    opGreaterThan,      // -int, +bool
+    opGreaterEq,        // -int, +bool
 
     // Initializers
     opInitRet,          // [ret-index] -var
@@ -121,38 +141,48 @@ enum OpCode
     opEmpty,            // -var, +bool
     opStrLen,           // -str, +int
     opVecLen,           // -vec, +int
-    opLow,              // -range, +ord
-    opHigh,             // -range, +ord
+    opRangeDiff,        // -range, +int
+    opRangeLow,         // -range, +ord
+    opRangeHigh,        // -range, +ord
 
-    // Case labels: cmp the top element with the arg and leave 0 or 1 for
-    // further boolean jump
-    opCase,             // -var, +{0,1}
-    opCaseRange,        // -int, +{0,1}
+    // Jumps; [dst] is a relative 16-bit offset.
+    opJumpTrue,         // [dst 16] -bool
+    opJumpFalse,        // [dst 16] -bool
+    opJump,             // [dst 16]
+    // Short bool evaluation: pop if jump, leave it otherwise
+    opJumpOr,           // [dst 16] (-)bool
+    opJumpAnd,          // [dst 16] (-)bool
 
-    // Jumps; [dst] is a relative offset -128..127
-    //   short bool evaluation: pop if jump, leave it otherwise
-    // TODO: 16-bit versions of these
-    opJumpOr, opJumpAnd,                // [dst 8] (-)bool
-    opJumpTrue, opJumpFalse, opJump,    // [dst 8]
+    // Case labels
+    // TODO: these ops can sometimes be used with simple conditions (if a == 1...)
+    opCaseInt,          // [int], +bool
+    opCaseRange,        // [int, int], +bool
+    opCaseStr,          // -str, +bool
+    opCaseTypeRef,      // -typeref, +bool
 
     // Function call
     opCall,             // [Type*]
 
     // Helpers
-    opEcho, opEchoLn,
-    opAssert,           // [line-num: 16]
-    opLinenum,          // [line-num: 16]
+    opEcho,             // -var
+    opEchoLn,
+    opAssert,           // [file-id: 16, line-num: 16] -bool
 
     opMaxCode
 };
 
 
+typedef int16_t joffs_t;
+
 inline bool isLoadOp(OpCode op)
-    { return (op >= opLoadNull && op <= opLoadTypeRef)
-        || (op >= opLoadRet && op <= opLoadMember); }
+    { return (op >= opLoadNull && op <= opLoadDataseg)
+        || (op >= opLoadRet && op <= opLoadOuter); }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
+
+inline bool isJump(OpCode op)
+    { return op >= opJumpTrue && op <= opJumpAnd; }
 
 
 DEF_EXCEPTION(eexit, "exit called");
@@ -168,20 +198,31 @@ public:
 
 class Context: protected BaseTable<ModuleAlias>
 {
-    friend class CodeSeg;
 protected:
+    friend class CodeSeg;
+
+    struct FileInfo: public object
+    {
+        str fileName;
+        FileInfo(const str& n): object(NULL), fileName(n)  { }
+    };
+
     List<ModuleAlias> defs;
     List<Module> modules;
     List<langobj> datasegs;
+    List<FileInfo> fileInfos;   // for assertion failure reporting
+
     Module* registerModule(const str& name, Module*);   // for built-in modules
+
 public:
     Context();
     ~Context();
     Module* addModule(const str& name);
+    mem registerFileInfo(const str& fileName);
 
     // Executation of the program starts here. The value of system.sresult is
     // returned. Can be called multiple times.
-    variant run(varstack&);
+    variant run();
 };
 
 
@@ -201,11 +242,13 @@ protected:
 
     CodeSeg& codeseg;
     mem lastOpOffs;
-
+    
     mem addOp(OpCode);
     void addOpPtr(OpCode, void*);
     void add8(uint8_t i);
     void add16(uint16_t i);
+    void addJumpOffs(joffs_t i)
+            { add16(uint16_t(i)); }
     void addInt(integer i);
     void addPtr(void* p);
     bool revertLastLoad();
@@ -287,6 +330,28 @@ public:
     void mkRange();
     void inRange();
     void cmp(OpCode op);
+    
+    void empty();
+    void count();
+    void lowHigh(bool high);
+    
+    mem  getCurPos()
+            { return codeseg.size(); }
+    void genPop()  // pop a value off the generator's stack
+            { stkPop(); }
+    void jump(mem target);
+    mem  jumpForward(OpCode op = opJump);
+    mem  boolJumpForward(bool);
+    void resolveJump(mem jumpOffs);
+    void nop()  // my favorite
+            { addOp(opNop); }
+    void caseLabel(Type*, const variant&);
+    
+    void echo()
+            { stkPop(); addOp(opEcho); }
+    void echoLn()
+            { addOp(opEchoLn); }
+    void assertion(integer file, integer line);
 };
 
 

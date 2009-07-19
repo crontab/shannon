@@ -7,7 +7,7 @@
 #include "vm.h"
 
 
-// --- THE VIRTUAL MACHINE ------------------------------------------------- //
+// --- CODE GENERATOR ------------------------------------------------------ //
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
@@ -252,7 +252,7 @@ void CodeGen::loadStr(const str& s)
         { loadConst(queenBee->defStr, s); }
 
 void CodeGen::loadTypeRef(Type* t)
-        { loadConst(defTypeRef, t); }
+        { assert(t != NULL); loadConst(defTypeRef, t); }
 
 
 void CodeGen::discard()
@@ -527,7 +527,7 @@ void CodeGen::explicitCastTo(Type* to)
     else if (to->isStr())
         addOp(opToStr); // explicit cast to string: any object goes
     else if (
-        // Variants should be typecast'ed to other types explicitly, except to boolean
+        // Variants should be typecast'ed to other types explicitly
         from->isVariant()
         // Ordinals must be casted at runtime so that the variant type of the
         // value on the stack is correct for subsequent operations.
@@ -682,6 +682,158 @@ void CodeGen::cmp(OpCode op)
     addOp(op);
     stkPush(queenBee->defBool);
 }
+
+
+void CodeGen::empty()
+{
+    Type* type = stkPop();
+    if (type->isNone())
+    {
+        revertLastLoad();
+        loadBool(true);
+    }
+    else
+        addOp(opEmpty);
+    stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::count()
+{
+    Type* type = stkPop();
+    if (type->isNone())
+    {
+        revertLastLoad();
+        loadInt(0);
+    }
+    else if (type->isOrdinal())
+    {
+        revertLastLoad();
+        // May overflow and yield a negative number, but there is nothing we can do
+        loadInt(POrdinal(type)->right - POrdinal(type)->left + 1);
+    }
+    else if (type->isRange())
+        addOp(opRangeDiff);
+    else if (type->isStr())
+        addOp(opStrLen);
+    else if (type->isVec())
+        addOp(opVecLen);
+    else
+        throw emessage("Operation not available for this type");
+    stkPush(queenBee->defInt);
+}
+
+
+void CodeGen::lowHigh(bool high)
+{
+    Type* type = stkPop();
+    if (type->isOrdinal())
+    {
+        revertLastLoad();
+        loadInt(high ? POrdinal(type)->right : POrdinal(type)->left);
+    }
+    else if (type->isRange())
+        addOp(high ? opRangeHigh : opRangeLow);
+    else
+        throw emessage("Operation not available for this type");
+    stkPush(queenBee->defInt);
+}
+
+
+void CodeGen::jump(mem target)
+{
+    assert(target < getCurPos());
+    integer offs = integer(target) - integer(getCurPos() + 1 + sizeof(joffs_t));
+    if (offs < -32768)
+        throw emessage("Jump target is too far away");
+    addOp(opJump);
+    addJumpOffs(offs);
+}
+
+
+mem CodeGen::boolJumpForward(bool jumpTrue)
+{
+    implicitCastTo(queenBee->defBool, "Boolean expression expected");
+    stkPop();
+    return jumpForward(jumpTrue ? opJumpTrue : opJumpFalse);
+}
+
+
+mem CodeGen::jumpForward(OpCode op)
+{
+    assert(op == opJump || op == opJumpTrue || op == opJumpFalse);
+    mem pos = getCurPos();
+    addOp(op);
+    addJumpOffs(0);
+    return pos;
+}
+
+
+void CodeGen::resolveJump(mem jumpOffs)
+{
+    assert(jumpOffs <= getCurPos() - 1 - sizeof(joffs_t));
+    assert(isJump(OpCode(codeseg.code[jumpOffs])));
+    integer offs = integer(getCurPos()) - integer(jumpOffs + 1 + sizeof(joffs_t));
+    if (offs > 32767)
+        throw emessage("Jump target is too far away");
+    char* p = (char*)codeseg.code.data() + jumpOffs + 1;
+    *(joffs_t*)p = offs;
+}
+
+
+void CodeGen::caseLabel(Type* labelType, const variant& label)
+{
+    Type* caseType = stkTopType();
+    if (labelType->isRange())
+    {
+        typeCast(caseType, CAST(Range*, labelType)->base, "Case label type mismatch");
+        addOp(opCaseRange);
+        range* r = CAST(range*, label._object());
+        addInt(r->left);
+        addInt(r->right);
+    }
+    else
+    {
+        typeCast(caseType, labelType, "Case label type mismatch");
+        if (labelType->isOrdinal())
+        {
+            addOp(opCaseInt);
+            addInt(label._ord());
+        }
+        else if (labelType->isStr())
+        {
+            loadStr(label._str_read());
+            addOp(opCaseStr);
+            stkPop();
+        }
+        else if (labelType->isTypeRef())
+        {
+            loadTypeRef(CAST(Type*, label._object()));
+            addOp(opCaseTypeRef);
+            stkPop();
+        }
+        else
+            throw emessage("Only ordinals, strings and typerefs are allowed in case statement");
+    }
+    stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::assertion(integer file, integer line)
+{
+    if (file > 65535)
+        throw emessage("Too many files... how is this possible?");
+    if (line > 65535)
+        throw emessage("Line number too big for assert operation");
+    implicitCastTo(queenBee->defBool, "Boolean expression expected");
+    stkPop();
+    addOp(opAssert);
+    add16(file);
+    add16(line);
+}
+
+
+// --- BLOCK SCOPE --------------------------------------------------------- //
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
@@ -864,7 +1016,6 @@ int main()
             Ordset* ordsetType = queenBee->defChar->deriveSet();
             Set* setType = queenBee->defInt->deriveSet();
             check(!setType->isOrdset());
-            varstack stk;
             {
                 CodeGen gen(*mod);
                 BlockScope block(mod, &gen);
@@ -985,7 +1136,7 @@ int main()
                 block.deinitLocals();
                 gen.end();
             }
-            variant result = ctx.run(stk);
+            variant result = ctx.run();
             str s = result.to_string();
             check(s ==
                 "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22, "
@@ -995,25 +1146,89 @@ int main()
         {
             Context ctx;
             Module* mod = ctx.addModule("test2");
-            varstack stk;
             {
                 CodeGen gen(*mod);
                 BlockScope block(mod, &gen);
+
+                Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
+                gen.loadNullContainer(queenBee->defVariant->deriveVector());
+                gen.initLocalVar(s0);
+
                 Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
-                Variable* s2 = block.addLocalVar(queenBee->defStr, "s2");
                 gen.loadStr("abc");
                 gen.loadStr("def");
                 gen.cat();
                 gen.initLocalVar(s1);
-                gen.loadStr("123");
+
+                Variable* s2 = block.addLocalVar(queenBee->defInt, "s2");
+                gen.loadInt(123);
                 gen.initLocalVar(s2);
+
+                gen.loadVar(s0);
+                gen.loadVar(s1);
+                gen.elemCat();
                 gen.loadVar(s2);
+                gen.elemCat();
+                gen.dup();
+                gen.count();
+                gen.elemCat();
+
+                mem o1 = gen.jumpForward();
+                gen.nop();
+                gen.resolveJump(o1);
+
+                // if(true, 10, 20)
+                gen.loadBool(true);
+                mem of = gen.boolJumpForward(false);
+                gen.loadInt(10);
+                gen.genPop();
+                mem oj = gen.jumpForward();
+                gen.resolveJump(of);
+                gen.loadInt(20);
+                gen.resolveJump(oj);
+                gen.elemCat();
+
+                gen.loadChar('a');
+                gen.caseLabel(queenBee->defChar, 'a');
+                gen.swap();
+                gen.discard();
+                gen.elemCat();
+
+                gen.loadInt(10);
+                gen.caseLabel(queenBee->defInt->deriveRange(), new range(NULL, 9, 11));
+                gen.swap();
+                gen.discard();
+                gen.elemCat();
+
+                gen.loadStr("22:49");
+                gen.caseLabel(queenBee->defStr, "22:49");
+                gen.swap();
+                gen.discard();
+                gen.elemCat();
+
+                gen.loadTypeRef(queenBee->defInt);
+                gen.caseLabel(defTypeRef, queenBee->defInt);
+                gen.swap();
+                gen.discard();
+                gen.elemCat();
+/*
+                gen.loadStr("The value of true is: ");
+                gen.echo();
+                gen.loadBool(true);
+                gen.echo();
+                gen.echoLn();
+                mem f = ctx.registerFileInfo(__FILE__);
+                gen.loadBool(false);
+                gen.assertion(f, __LINE__);
+*/
                 gen.exit();
+
                 block.deinitLocals();   // not reached
                 gen.end();
             }
-            variant result = ctx.run(stk);
-            check(result.as_str() == "123");
+            variant result = ctx.run();
+            str s = result.to_string();
+            check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
         }
 
     }
@@ -1023,7 +1238,7 @@ int main()
         return 101;
     }
 #ifdef DEBUG
-    sio << "Total objects: " << object::alloc << endl;
+    sio << "Total opcodes: " << opMaxCode << endl;
 #endif
 /*
     while (!sio.empty())
