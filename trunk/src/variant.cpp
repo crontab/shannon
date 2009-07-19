@@ -108,7 +108,7 @@ void variant::dump(fifo_intf& s) const
     case CHAR: s << '\'' << uchar(val._int) << '\''; break;
     case INT:  s << val._int; break;
     case REAL: s << integer(val._real); break; // TODO: !!!
-    case STR:  s << '"' << _str_read() << '"'; break;
+    case STR:  s << '\'' << _str_read() << '\''; break;
     case OBJECT:
         s << '[';
         if (val._obj != NULL)
@@ -292,6 +292,8 @@ XCLONE(ordset)
 XCLONE(set)
 
 
+range::range(Type* rt)
+    : object(rt), left(0), right(-1)  { }
 range::range(Type* rt, integer l, integer r)
     : object(rt), left(l), right(r)  { }
 range::range(const range& other)

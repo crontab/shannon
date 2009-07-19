@@ -221,6 +221,7 @@ protected:
 public:
     integer left;
     integer right;
+    range(Type*);
     range(Type*, integer l, integer r);
     ~range();
     virtual object* clone() const;

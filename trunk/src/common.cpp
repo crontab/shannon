@@ -8,14 +8,23 @@
 
 void _fatal(int code, const char* msg) 
 {
-    fprintf(stderr, "\nInternal [%04x]: %s\n", code, msg);
+#ifdef DEBUG
+    // We want to see the stack backtrace in XCode debugger
+    assert(code == 0);
+#else
+    fprintf(stderr, "\nInternal 0x%04x: %s\n", code, msg);
+#endif
     exit(100);
 }
 
 
 void _fatal(int code) 
 {
+#ifdef DEBUG
+    assert(code == 0);
+#else
     fprintf(stderr, "\nInternal error [%04x]\n", code);
+#endif
     exit(100);
 }
 
