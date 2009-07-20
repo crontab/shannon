@@ -7,8 +7,8 @@
 // --- CODE SEGMENT -------------------------------------------------------- //
 
 
-CodeSeg::CodeSeg(Context* _context)
-  : stksize(0), context(_context), closed(0)  { }
+CodeSeg::CodeSeg(State* _state, Context* _context)
+  : stksize(0), state(_state), context(_context), closed(0)  { }
 
 CodeSeg::~CodeSeg()  { }
 

@@ -266,7 +266,7 @@ void Scope::addUses(ModuleAlias* alias)
 
 State::State(State* _parent, Context* context, Type* resultType)
   : Type(defTypeRef, STATE), Scope(_parent),
-    CodeSeg(context), startId(0),
+    CodeSeg(this, context), startId(0),
     level(_parent == NULL ? 0 : _parent->level + 1),
     selfPtr(_parent == NULL ? this : _parent->selfPtr)
 {
