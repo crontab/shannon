@@ -897,6 +897,12 @@ void test_vm()
             gen.inDictKeys();
             gen.elemCat();
             
+            ThisVar* var = mod->addThisVar(queenBee->defInt, "var");
+            gen.loadInt(200);
+            gen.initThisVar(var);
+            gen.loadVar(var);
+            gen.elemCat();
+            
             gen.loadVar(v1);
             gen.loadStr("k2");
             gen.delDictElem();
@@ -909,7 +915,7 @@ void test_vm()
         str s = result.to_string();
         check(s ==
             "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22, "
-            "[97, 98], [100, 1000], true, false, true, false, false, true]");
+            "[97, 98], [100, 1000], true, false, true, false, false, true, 200]");
     }
 
     {
