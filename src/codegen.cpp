@@ -1,9 +1,10 @@
 
+
 #include "vm.h"
 
 
-CodeGen::CodeGen(CodeSeg& _codeseg)
-  : codeseg(_codeseg), state(_codeseg.state),
+CodeGen::CodeGen(State* _state)
+  : codeseg(*_state), state(_state),
     lastOpOffs(mem(-1)), stkMax(0), locals(0)
 #ifdef DEBUG
     , stkSize(0)
@@ -106,8 +107,6 @@ void CodeGen::stkReplace(Type* type)
 
 void CodeGen::end()
 {
-    // TODO: optimize this: at the end of a function deinit is not needed
-    // (alhtough stack balance should be somehow checked in DEBUG build anyway)
     close();
     assert(genStack.size() - locals == 0);
 }
@@ -227,15 +226,6 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
 }
 
 
-void CodeGen::loadDataseg(Module* module)
-{
-    assert(module->id <= 255);
-    stkPush(module);
-    addOp(opLoadDataseg);
-    add8(module->id);
-}
-
-
 void CodeGen::loadBool(bool b)
         { loadConst(queenBee->defBool, b); }
 
@@ -312,7 +302,7 @@ void CodeGen::deinitLocalVar(Variable* var)
 void CodeGen::initThisVar(Variable* var)
 {
     assert(var->isThisVar());
-    assert(var->state == codeseg.state);
+    assert(var->state == state);
     assert(var->id <= 255);
     stkPop();
     addOp(opInitThis);
@@ -322,8 +312,8 @@ void CodeGen::initThisVar(Variable* var)
 
 void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 {
-    assert(var->state != NULL && var->state != codeseg.state);
-    if (var->baseId != Base::THISVAR)
+    assert(var->state != NULL && var->state != state);
+    if (!var->isThisVar())
         notimpl();
     Module* module = CAST(Module*, var->state);
     assert(module->id <= 255);
@@ -335,26 +325,21 @@ void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 
 void CodeGen::loadVar(Variable* var)
 {
-    if (codeseg.state == NULL)
+    if (state == NULL)
         throw emessage("Not allowed in constant expressions");
     assert(var->id <= 255);
     assert(var->state != NULL);
-    if (var->state == codeseg.state)
+    if (var->state == state)
     {
         // Result, local, this or arg variable of the current state
-        if (var->baseId >= Base::RESULTVAR || var->baseId <= Base::ARGVAR)
-        {
-            addOp(OpCode(opLoadRet + (var->baseId - Base::RESULTVAR)));
-            add8(var->id);
-        }
-        else
-            notimpl();
+        addOp(OpCode(opLoadRet + (var->symbolId - Symbol::FIRSTVAR)));
+        add8(var->id);
     }
-    else if (var->state == codeseg.state->selfPtr)
+    else if (var->state == state->selfPtr)
     {
         // Load through the self pointer, whatever it is (can be outer scope
         // or this scope - anything)
-        if (var->baseId == Base::THISVAR)
+        if (var->isThisVar())
         {
             addOp(opLoadThis);
             add8(var->id);
@@ -362,7 +347,7 @@ void CodeGen::loadVar(Variable* var)
         else
             notimpl();
     }
-    else if (var->state != codeseg.state)
+    else if (var->state != state)
     {
         if (var->state->isModule())
             // Static from another module
@@ -377,41 +362,44 @@ void CodeGen::loadVar(Variable* var)
 }
 
 
-void CodeGen::loadMember(ThisVar* var)
-{
-    assert(var->id <= 255);
-    Type* objType = stkPop();
-    if (!objType->isState())
-        throw emessage("State type expected");
-    if (var->state != objType)
-        throw emessage("Member doesn't belong to this state type"); // shouldn't happen
-    stkPush(var->type);
-    addOp(opLoadMember);
-    add8(var->id);
-}
-
-
+// TODO: coomon code with loadVar(), just opcodes differ
 void CodeGen::storeVar(Variable* var)
 {
     assert(var->id <= 255);
+    assert(var->state != NULL);
+
     implicitCastTo(var->type, "Expression type mismatch");
     stkPop();
-    if (var->state != NULL && var->state != codeseg.state)
+    if (var->state == state)
     {
-        // Static from another module
-        if (var->state->isModule())
-            doStaticVar(var, opStoreStatic);
+        // Result, local, this or arg variable of the current state
+        addOp(OpCode(opStoreRet + (var->symbolId - Symbol::FIRSTVAR)));
+        add8(var->id);
+    }
+    else if (var->state == state->selfPtr)
+    {
+        // Store through the self pointer, whatever it is (can be outer scope
+        // or this scope - anything)
+        if (var->isThisVar())
+        {
+            addOp(opStoreThis);
+            add8(var->id);
+        }
         else
             notimpl();
     }
-    else
+    else if (var->state != state)
     {
-        // Local, this, result or arg of the current State
-        if (var->baseId < Base::RESULTVAR || var->baseId > Base::ARGVAR)
+        if (var->state->isModule())
+            // Static from another module
+            doStaticVar(var, opStoreStatic);
+        else
+            // From somewhere else - not implemented yet
             notimpl();
-        addOp(OpCode(opStoreRet + (var->baseId - Base::RESULTVAR)));
-        add8(var->id);
     }
+    else
+        notimpl();
+    stkPush(var->type);
 }
 
 
@@ -437,7 +425,6 @@ void CodeGen::loadContainerElem()
     typeCast(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
     stkPush(CAST(Container*, contType)->elem);
 }
-
 
 
 void CodeGen::storeContainerElem()
@@ -640,7 +627,6 @@ void CodeGen::elemCat()
     elemType = stkPop();
     addOp(elemType->isChar() ? opCharCat: opVarCat);
 }
-
 
 
 void CodeGen::cat()
@@ -854,8 +840,11 @@ void CodeGen::assertion(integer file, integer line)
 }
 
 
-
 // --- BLOCK SCOPE --------------------------------------------------------- //
+
+
+// In principle this belongs to typesys.cpp but defined here because it uses
+// the codegen object for managing local vars.
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
@@ -875,11 +864,11 @@ void BlockScope::deinitLocals()
 
 Variable* BlockScope::addLocalVar(Type* type, const str& name)
 {
-    assert(gen->state != NULL);
+    assert(gen->getState() != NULL);
     mem id = startId + localvars.size();
     if (id >= 255)
         throw emessage("Maximum number of local variables within this scope is reached");
-    objptr<Variable> v = new LocalVar(Base::LOCALVAR, type, name, id, gen->state, false);
+    objptr<Variable> v = new LocalVar(Symbol::LOCALVAR, type, name, id, gen->getState(), false);
     addUnique(v);   // may throw
     localvars.add(v);
     return v;

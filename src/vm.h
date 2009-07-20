@@ -93,7 +93,7 @@ enum OpCode
     opInitThis,         // [this-index: 8]
 
     // Loaders
-    // NOTE: opLoadRet through opLoadArg are in sync with Base::typeId
+    // NOTE: opLoadRet through opLoadArg are in sync with Symbol::symbolId
     opLoadRet,          // [ret-index] +var
     opLoadLocal,        // [stack-index: 8] +var
     opLoadThis,         // [this-index: 8] +var
@@ -112,6 +112,7 @@ enum OpCode
     opInSet,            // -ordset, -key, +bool
 
     // Storers
+    // NOTE: opStoreRet through opStoreArg are in sync with Symbol::symbolId
     opStoreRet,         // [ret-index] -var
     opStoreLocal,       // [stack-index: 8] -var
     opStoreThis,        // [this-index: 8] -var
@@ -191,23 +192,24 @@ DEF_EXCEPTION(eexit, "exit called");
 class ConstCode: public CodeSeg
 {
 public:
-    ConstCode(): CodeSeg(NULL, NULL) { }
+    ConstCode(): CodeSeg(NULL) { }
     void run(variant&) const;
 };
 
 
-class Context: protected BaseTable<ModuleAlias>
+class Context: noncopyable
 {
-protected:
     friend class CodeSeg;
 
+protected:
     struct FileInfo: public object
     {
         str fileName;
         FileInfo(const str& n): object(NULL), fileName(n)  { }
     };
 
-    List<ModuleAlias> defs;
+    SymbolTable<ModuleAlias> symbols;
+    List<ModuleAlias> aliases;
     List<Module> modules;
     List<langobj> datasegs;
     List<FileInfo> fileInfos;   // for assertion failure reporting
@@ -220,6 +222,8 @@ public:
     ~Context();
     Module* addModule(const str& name);
     mem registerFileInfo(const str& fileName);
+    str getFileName(mem id)
+            { return fileInfos[id]->fileName ;}
     void setReady()
             { ready = true; }
     // Executation of the program starts here. The value of system.sresult is
@@ -234,8 +238,6 @@ class BlockScope;
 
 class CodeGen: noncopyable
 {
-    friend class BlockScope;
-
 protected:
 
     struct stkinfo
@@ -284,10 +286,11 @@ protected:
     void typeCast(Type* from, Type* to, const char* errmsg);
 
 public:
-    CodeGen(CodeSeg&);
+    CodeGen(State*);
     ~CodeGen();
 
     mem getLocals() { return locals; }
+    State* getState() { return state; }
 
     void end();
     void endConstExpr(Type*);
@@ -301,7 +304,6 @@ public:
     void loadTypeRef(Type*);
     void loadNullContainer(Container*);
     void loadConst(Type*, const variant&, bool asVariant = false);
-    void loadDataseg(Module*);
     void discard();
     void swap();    // not used currently
     void dup();
@@ -312,7 +314,6 @@ public:
     void initThisVar(Variable*);
     
     void loadVar(Variable*);
-    void loadMember(ThisVar*);
     void storeVar(Variable*);
     void loadContainerElem();
     void storeContainerElem();

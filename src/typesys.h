@@ -11,7 +11,11 @@
 
 class Type;
 class Variable;
+class Definition;
 class Constant;
+class TypeAlias;
+class StateAlias;
+class ModuleAlias;
 
 class None;
 class Ordinal;
@@ -35,9 +39,6 @@ typedef Container Str;
 typedef Container Dict;
 typedef Container Ordset;
 typedef Container Set;
-typedef Constant TypeAlias;
-typedef TypeAlias StateAlias;
-typedef StateAlias ModuleAlias;
 
 
 // --- CODE SEGMENT ------------------------------------------------------- //
@@ -50,23 +51,15 @@ class Context;
 
 class CodeSeg: noncopyable
 {
+    friend class Context;
     friend class CodeGen;
-    friend class State;
 
-    // This object can be duplicated if necessary with a different context
-    // assigned; the code segment is a refcounted string, so copying would
-    // be efficient.
 protected:
     str code;
     varlist consts;
     mem stksize;
-    // These can't be refcounted as it will introduce circular references. Both
-    // can be NULL if this is a const expression executed at compile time.
-    State* state;
     Context* context;
-#ifdef DEBUG
-    int closed;
-#endif
+    int closed;     // for debugging mainly
 
     void push_back(uchar u)
             { code.push_back(u); }
@@ -86,7 +79,7 @@ protected:
     void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
 
 public:
-    CodeSeg(State*, Context*);
+    CodeSeg(Context*);
     ~CodeSeg();
 
     // For unit tests:
@@ -101,57 +94,93 @@ public:
 // --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
 
 
-class Base: public object
+class Symbol: public object
 {
 public:
-    enum BaseId { RESULTVAR, LOCALVAR, THISVAR, ARGVAR, // in sync with loaders and storers
-                    CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS };
+    enum SymbolId { RESULTVAR, LOCALVAR, THISVAR, ARGVAR, // in sync with loaders and storers
+                    CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS,
+                    FIRSTVAR = RESULTVAR };
 
-    BaseId const baseId;
+    SymbolId const symbolId;
     Type* const type;
     str const name;
-    mem const id;
 
-    Base(BaseId, Type*, const str&, mem);
-    ~Base();
+    Symbol(SymbolId, Type*, const str&);
+    ~Symbol();
     bool empty(); // override
 
-    bool isVariable()  { return baseId <= ARGVAR; }
-    bool isDefinition()  { return baseId >= CONSTANT; }
+    bool isVariable()  { return symbolId <= ARGVAR; }
+    bool isDefinition()  { return symbolId >= CONSTANT; }
 
-    bool isThisVar()  { return baseId == THISVAR; }
-    bool isResultVar()  { return baseId == RESULTVAR; }
-    bool isLocalVar()  { return baseId == LOCALVAR; }
-    bool isArgVar()  { return baseId == ARGVAR; }
-    bool isConstant()  { return baseId == CONSTANT; }
-    bool isTypeAlias()  { return baseId == TYPEALIAS; }
-    bool isStateAlias()  { return baseId == STATEALIAS; }
-    bool isModuleAlias()  { return baseId == MODULEALIAS; }
+    bool isThisVar()  { return symbolId == THISVAR; }
+    bool isResultVar()  { return symbolId == RESULTVAR; }
+    bool isLocalVar()  { return symbolId == LOCALVAR; }
+    bool isArgVar()  { return symbolId == ARGVAR; }
+
+    bool isConstant()  { return symbolId == CONSTANT; }
+    bool isTypeAlias()  { return symbolId == TYPEALIAS; }
+    bool isStateAlias()  { return symbolId == STATEALIAS; }
+    bool isModuleAlias()  { return symbolId == MODULEALIAS; }
 };
 
 
 typedef Variable* PVar;
 
-class Variable: public Base
+class Variable: public Symbol
 {
 public:
+    mem const id;
     State* const state;
     bool const readOnly;
-    Variable(BaseId, Type*, const str&, mem, State*, bool _readOnly);
+    Variable(SymbolId, Type*, const str&, mem, State*, bool);
     ~Variable();
 };
 
 
-typedef Constant* PConst;
+typedef Definition* PDef;
 
-class Constant: public Base
+class Definition: public Symbol
 {
 public:
     variant const value;
-    Constant(BaseId, Type*, const str&, mem, const variant&);
+    Definition(SymbolId, Type*, const str&, const variant&);
+    ~Definition();
+};
+
+
+class Constant: public Definition
+{
+public:
+    Constant(Type*, const str&, const variant&);
     ~Constant();
-    Type* getAlias();
-    Module* getModule();
+};
+
+typedef TypeAlias* PTypeAlias;
+
+class TypeAlias: public Definition
+{
+public:
+    Type* const aliasedType;
+    TypeAlias(const str&, Type*);
+    ~TypeAlias();
+};
+
+
+class StateAlias: public Definition
+{
+public:
+    State* const aliasedState;
+    StateAlias(const str&, State*);
+    ~StateAlias();
+};
+
+
+class ModuleAlias: public Definition
+{
+public:
+    Module* const aliasedModule;
+    ModuleAlias(const str&, Module*);
+    ~ModuleAlias();
 };
 
 
@@ -161,25 +190,25 @@ struct EDuplicate: public emessage
     { EDuplicate(const str& symbol) throw(); };
 
 
-class _BaseTable: public noncopyable
+class _SymbolTable: public noncopyable
 {
-    typedef std::map<str, Base*> Impl;
+    typedef std::map<str, Symbol*> Impl;
     Impl impl;
 public:
-    _BaseTable();
-    ~_BaseTable();
-    bool empty()             const { return impl.empty(); }
-    void addUnique(Base*);
-    Base* find(const str&) const;
+    _SymbolTable();
+    ~_SymbolTable();
+    bool empty() const  { return impl.empty(); }
+    void addUnique(Symbol*);
+    Symbol* find(const str&) const;
 };
 
 
 template<class T>
-class BaseTable: public _BaseTable
+class SymbolTable: public _SymbolTable
 {
 public:
-    void addUnique(T* o)           { _BaseTable::addUnique(o); }
-    T* find(const str& name) const { return (T*)_BaseTable::find(name); }
+    void addUnique(T* o)           { _SymbolTable::addUnique(o); }
+    T* find(const str& name) const { return (T*)_SymbolTable::find(name); }
 };
 
 
@@ -227,18 +256,18 @@ public:
 };
 
 
-class Scope: public BaseTable<Base>
+class Scope: public SymbolTable<Symbol>
 {
 protected:
     Scope* const outer;
-    List<Constant> consts;
+    List<Definition> defs;
     PtrList<Module> uses;
 public:
     Scope(Scope* outer);
     ~Scope();
-    Base* deepFind(const str&) const;
+    Symbol* deepFind(const str&) const;
     Constant* addConstant(Type*, const str&, const variant&);
-    Constant* addTypeAlias(Type*, const str&);
+    TypeAlias* addTypeAlias(const str&, Type*);
     void addUses(ModuleAlias*);
 };
 
@@ -253,8 +282,6 @@ typedef Type* PType;
 
 class Type: public object
 {
-    friend class Scope;
-
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
         DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, VARIANT, TYPEREF, STATE };
@@ -270,8 +297,6 @@ protected:
     Container* derivedVector;
     Container* derivedSet;
     
-    void setName(const str _name)
-            { assert(name.empty()); name = _name; }
     void setTypeId(TypeId t)
             { (TypeId&)typeId = t; }
 
@@ -282,6 +307,7 @@ public:
     bool empty(); // override
 
     void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
+    void setName(const str _name)  { if (name.empty()) name = _name; }
 
     bool is(TypeId t)  { return typeId == t; }
     TypeId getTypeId()  { return typeId; }
@@ -321,10 +347,6 @@ public:
 };
 
 
-inline Type* Constant::getAlias()
-            { assert(value.is_object()); return CAST(Type*, value._object()); }
-
-
 // --- TYPES ---
 
 
@@ -332,8 +354,6 @@ typedef State* PState;
 
 class State: public Type, public Scope, public CodeSeg
 {
-    friend class Context;
-
 protected:
     List<Type> types;
     List<Variable> thisvars;
@@ -363,18 +383,11 @@ typedef Module* PModule;
 
 class Module: public State
 {
-    friend class Context;
-protected:
-    Module(Context* context, mem _id);
 public:
     mem const id;
+    Module(Context* context, mem _id);
     ~Module();
 };
-
-
-inline Module* Constant::getModule()
-            { assert(value.is_object()); return CAST(Module*, value._object()); }
-
 
 
 class None: public Type

@@ -119,6 +119,7 @@ public:
 };
 
 
+
 #define DEF_EXCEPTION(name,msg) \
     struct name: public std::exception \
         { virtual const char* what() const throw() { return msg; } };

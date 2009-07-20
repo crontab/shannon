@@ -12,20 +12,15 @@
 #include <stdio.h>
 
 
-DEF_EXCEPTION(efail,"Test failed")
-
-
 #define fail(e) \
-    (fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), throw efail())
+    (fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), exit(200))
 
 #define check(e) \
     { if (!(e)) fail(#e); }
 
 #define check_throw(a) \
-    { bool chk_throw = false; try { a; } catch(std::exception&) { chk_throw = true; } check(chk_throw); }
+    { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
 
-#define check_nothrow(a) \
-    { try { a; } catch(...) { fail("exception thrown"); } }
 
 #define XSTR(s) _STR(s)
 #define _STR(s) #s
@@ -403,29 +398,29 @@ void test_symbols()
 {
     int save_alloc = object::alloc;
     {
-        objptr<Base> s = new Base(Base::THISVAR, NULL, "sym", 0);
+        objptr<Symbol> s = new Symbol(Symbol::THISVAR, NULL, "sym");
         check(s->name == "sym");
-        BaseTable<Base> t;
+        SymbolTable<Symbol> t;
         check(t.empty());
-        objptr<Base> s1 = new Base(Base::THISVAR, NULL, "abc", 0);
+        objptr<Symbol> s1 = new Symbol(Symbol::THISVAR, NULL, "abc");
         check(s1->is_unique());
         t.addUnique(s1);
         check(s1->is_unique());
-        objptr<Base> s2 = new Base(Base::THISVAR, NULL, "def", 0);
+        objptr<Symbol> s2 = new Symbol(Symbol::THISVAR, NULL, "def");
         t.addUnique(s2);
-        objptr<Base> s3 = new Base(Base::THISVAR, NULL, "abc", 0);
+        objptr<Symbol> s3 = new Symbol(Symbol::THISVAR, NULL, "abc");
         check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
         check(t.find("xyz") == NULL);
         check(!t.empty());
 
-        List<Base> l;
+        List<Symbol> l;
         check(l.size() == 0);
         check(l.empty());
         l.add(s1);
         check(!s1->is_unique());
-        l.add(new Base(Base::THISVAR, NULL, "ghi", 0));
+        l.add(new Symbol(Symbol::THISVAR, NULL, "ghi"));
         check(l.size() == 2);
         check(!l.empty());
     }
@@ -609,10 +604,10 @@ void test_typesys()
     check(queenBee->defStr->isContainer());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
-    Base* b = queenBee->deepFind("true");
-    check(b != NULL && b->isDefinition());
-    check(PConst(b)->value.as_int() == 1);
-    check(PConst(b)->type->isBool());
+    Symbol* b = queenBee->deepFind("true");
+    check(b != NULL && b->isDefinition() && b->isConstant());
+    check(PDef(b)->value.as_int() == 1);
+    check(PDef(b)->type->isBool());
 
     {
         State state(queenBee, NULL, queenBee->defBool);
@@ -621,21 +616,21 @@ void test_typesys()
         check(state.deepFind("untrue") == NULL);
         state.addThisVar(queenBee->defInt, "a");
         check_throw(state.addThisVar(queenBee->defInt, "a"));
-        check_nothrow(state.addThisVar(queenBee->defInt, "true"));
-        state.addTypeAlias(queenBee->defBool, "ool");
+        state.addThisVar(queenBee->defInt, "true");
+        state.addTypeAlias("ool", queenBee->defBool);
         b = state.deepFind("ool");
         check(b != NULL && b->isDefinition());
-        check(PConst(b)->isTypeAlias());
-        check(PConst(b)->getAlias()->isBool());
-        check_nothrow(state.addThisVar(queenBee->defInt, "v"));
-        Base* v = state.deepFind("v");
+        check(b->isTypeAlias());
+        check(PTypeAlias(b)->aliasedType->isBool());
+        state.addThisVar(queenBee->defInt, "v");
+        Symbol* v = state.deepFind("v");
         check(v->isThisVar());
-        check(v->id == 2);
-        check_nothrow(state.addThisVar(queenBee->defChar, "c1"));
-        check_nothrow(state.addThisVar(queenBee->defChar, "c2"));
+        check(PVar(v)->id == 2);
+        state.addThisVar(queenBee->defChar, "c1");
+        state.addThisVar(queenBee->defChar, "c2");
         v = state.deepFind("c2");
         check(v->isThisVar());
-        check(v->id == 4);
+        check(PVar(v)->id == 4);
         b = state.deepFind("result");
         check(b != NULL);
         check(b->isResultVar());
@@ -668,7 +663,7 @@ void test_vm()
         variant r;
         ConstCode seg;
         {
-            CodeGen gen(seg);
+            CodeGen gen(mod);
             gen.loadConst(c->type, c->value);
             gen.explicitCastTo(queenBee->defVariant);
             gen.explicitCastTo(queenBee->defBool);
@@ -688,7 +683,7 @@ void test_vm()
         c = mod->addConstant(queenBee->defStr, "s", "ef");
         seg.clear();
         {
-            CodeGen gen(seg);
+            CodeGen gen(mod);
             gen.loadChar('a');
             gen.elemToVec();
             gen.loadChar('b');
@@ -707,7 +702,7 @@ void test_vm()
         // Range operations
         seg.clear();
         {
-            CodeGen gen(seg);
+            CodeGen gen(mod);
             gen.loadInt(6);
             gen.loadInt(5);
             gen.loadInt(10);
@@ -731,7 +726,7 @@ void test_vm()
         c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
         seg.clear();
         {
-            CodeGen gen(seg);
+            CodeGen gen(mod);
             gen.loadInt(1);
             gen.elemToVec();
             gen.loadInt(2);
@@ -745,7 +740,7 @@ void test_vm()
 
         seg.clear();
         {
-            CodeGen gen(seg);
+            CodeGen gen(mod);
             gen.loadBool(true);
             gen.elemToVec();
 
@@ -798,7 +793,7 @@ void test_vm()
         Set* setType = queenBee->defInt->deriveSet();
         check(!setType->isOrdset());
         {
-            CodeGen gen(*mod);
+            CodeGen gen(mod);
             BlockScope block(mod, &gen);
 
             Variable* v1 = block.addLocalVar(dictType, "v1");
@@ -916,11 +911,13 @@ void test_vm()
             gen.loadStr("k2");
             gen.delDictElem();
 
-            gen.loadDataseg(queenBee);
-            gen.loadMember(queenBee->siovar);
+            Symbol* io = mod->deepFind("sio");
+            check(io != NULL);
+            check(io->isVariable());
+            gen.loadVar(PVar(io));
             gen.elemCat();
 
-            Base* r = mod->deepFind("sresult");
+            Symbol* r = mod->deepFind("sresult");
             check(r != NULL);
             check(r->isVariable());
             gen.loadVar(PVar(r));
@@ -942,7 +939,7 @@ void test_vm()
         ctx.setReady();
         Module* mod = ctx.addModule("test2");
         {
-            CodeGen gen(*mod);
+            CodeGen gen(mod);
             BlockScope block(mod, &gen);
 
             Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
@@ -1072,10 +1069,6 @@ int main()
         test_fifos();
         test_typesys();
         test_vm();
-    }
-    catch (efail&)
-    {
-        exitcode = 200;
     }
     catch (exception& e)
     {
