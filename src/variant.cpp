@@ -221,9 +221,7 @@ void varswap(variant* v1, variant* v2)
 
 // --- OBJECT -------------------------------------------------------------- //
 
-#ifdef DEBUG
 int object::alloc = 0;
-#endif
 
 
 object::object(Type* rt)

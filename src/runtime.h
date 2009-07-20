@@ -176,9 +176,7 @@ class object: public noncopyable
     friend void _unique(object*&);
 
 public:
-#ifdef DEBUG
     static int alloc;
-#endif
 
 protected:
     int refcount;
