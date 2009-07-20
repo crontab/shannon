@@ -398,7 +398,11 @@ Module* Context::registerModule(const str& name, Module* module)
     defs.add(alias);
     modules.add(module);
     if (module != queenBee)
+    {
+        assert(defs[0]->getModule() == queenBee);
         module->setName(name);
+        module->addUses(defs[0]);
+    }
     return module;
 }
 

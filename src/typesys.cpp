@@ -231,6 +231,13 @@ Constant* Scope::addTypeAlias(Type* type, const str& name)
 }
 
 
+void Scope::addUses(ModuleAlias* alias)
+{
+    addUnique(alias);
+    uses.add(alias->getModule());
+}
+
+
 // --- State --------------------------------------------------------------- //
 
 

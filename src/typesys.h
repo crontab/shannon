@@ -51,7 +51,6 @@ class Context;
 class CodeSeg: noncopyable
 {
     friend class CodeGen;
-    friend class BlockScope;
     friend class State;
 
     // This object can be duplicated if necessary with a different context
@@ -152,6 +151,7 @@ public:
     Constant(BaseId, Type*, const str&, mem, const variant&);
     ~Constant();
     Type* getAlias();
+    Module* getModule();
 };
 
 
@@ -239,6 +239,7 @@ public:
     Base* deepFind(const str&) const;
     Constant* addConstant(Type*, const str&, const variant&);
     Constant* addTypeAlias(Type*, const str&);
+    void addUses(ModuleAlias*);
 };
 
 
@@ -369,6 +370,11 @@ public:
     mem const id;
     ~Module();
 };
+
+
+inline Module* Constant::getModule()
+            { assert(value.is_object()); return CAST(Module*, value._object()); }
+
 
 
 class None: public Type

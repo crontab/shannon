@@ -245,8 +245,17 @@ protected:
     };
 
     CodeSeg& codeseg;
+    State* state;
     mem lastOpOffs;
-    
+
+    typedef std::vector<stkinfo> stkImpl;
+    stkImpl genStack;
+    mem stkMax;
+    mem locals;
+#ifdef DEBUG
+    mem stkSize;
+#endif
+
     mem addOp(OpCode);
     void addOpPtr(OpCode, void*);
     void add8(uint8_t i);
@@ -256,14 +265,6 @@ protected:
     void addPtr(void* p);
     bool revertLastLoad();
     void close();
-
-    typedef std::vector<stkinfo> stkImpl;
-    stkImpl genStack;
-    mem stkMax;
-    mem locals;
-#ifdef DEBUG
-    mem stkSize;
-#endif
 
     void stkPush(Type* t, const variant& v);
     void stkPush(Type* t)
