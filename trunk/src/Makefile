@@ -5,13 +5,14 @@ CXXROPTS = -Wall -Werror -fno-rtti -DNDEBUG -O2
 
 
 DOBJS = debug/common.o debug/charset.o debug/variant.o debug/fifo.o \
-	debug/source.o debug/typesys.o debug/vm.o
+	debug/source.o debug/typesys.o debug/vm.o debug/codegen.o
 
 ROBJS = release/common.o release/charset.o release/variant.o release/fifo.o \
-	release/source.o release/typesys.o release/vm.o
+	release/source.o release/typesys.o release/vm.o release/codegen.o
 
 SRCS = common.cpp charset.cpp variant.cpp source.cpp \
-	fifo.cpp typesys.cpp main.cpp main-ut.cpp
+	fifo.cpp typesys.cpp vm.cpp codegen.cpp \
+	main.cpp main-ut.cpp
 
 HDRS = version.h common.h charset.h runtime.h bsearch.h source.h \
 	typesys.h vm.h

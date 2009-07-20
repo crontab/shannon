@@ -211,6 +211,7 @@ protected:
     List<Module> modules;
     List<langobj> datasegs;
     List<FileInfo> fileInfos;   // for assertion failure reporting
+    bool ready;
 
     Module* registerModule(const str& name, Module*);   // for built-in modules
 
@@ -219,7 +220,8 @@ public:
     ~Context();
     Module* addModule(const str& name);
     mem registerFileInfo(const str& fileName);
-
+    void setReady()
+            { ready = true; }
     // Executation of the program starts here. The value of system.sresult is
     // returned. Can be called multiple times.
     variant run();

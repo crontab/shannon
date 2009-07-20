@@ -197,6 +197,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadArg:     PUSH(stk, stkbase[- ADV<uchar>(ip) - 1]); break; // not tested
             case opLoadStatic:
                 {
+                    // TODO: with precompiled libraries this won't work unless
+                    // all module refs are resolved at link time.
                     mem mod = ADV<uchar>(ip);
                     PUSH(stk, *context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }
@@ -317,6 +319,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opJumpTrue:    { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; POP(stk); } break;
             case opJumpFalse:   { mem o = ADV<joffs_t>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
             case opJump:        ip += ADV<joffs_t>(ip); break;
+            case opJumpOr:      { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; else POP(stk); } break;
+            case opJumpAnd:     { mem o = ADV<joffs_t>(ip); if (stk->_ord()) POP(stk); else ip += o; } break;
 
             // Case labels
             case opCaseInt:     PUSH(stk, stk->_ord() == ADV<integer>(ip)); break;
@@ -376,6 +380,7 @@ void ConstCode::run(variant& result) const
 
 
 Context::Context()
+    : ready(false)
 {
     registerModule("system", queenBee);
 }
@@ -417,6 +422,9 @@ mem Context::registerFileInfo(const str& fileName)
 
 variant Context::run()
 {
+    if (!ready)
+        fatal(0x5002, "Execution context not ready");
+
     assert(datasegs.empty());
     assert(modules.size() == defs.size());
 

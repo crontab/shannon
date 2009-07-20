@@ -6,6 +6,7 @@
 #include "runtime.h"
 #include "source.h"
 #include "typesys.h"
+#include "vm.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -36,6 +37,8 @@
 #  define INTEGER_MAX_STR_PLUS "2147483648"
 #  define INTEGER_MIN_STR "-2147483648"
 #endif
+
+
 
 void test_common()
 {
@@ -639,6 +642,372 @@ void test_typesys()
 }
 
 
+void test_vm()
+{
+    initTypeSys();
+
+    {
+        Context ctx;
+        ctx.setReady();
+        Module* mod = ctx.addModule("test");
+        
+        Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
+
+        // Arithmetic, typecasts
+        variant r;
+        ConstCode seg;
+        {
+            CodeGen gen(seg);
+            gen.loadConst(c->type, c->value);
+            gen.explicitCastTo(queenBee->defVariant);
+            gen.explicitCastTo(queenBee->defBool);
+            gen.explicitCastTo(queenBee->defInt);
+            gen.loadInt(9);
+            gen.arithmBinary(opAdd);
+            gen.loadInt(2);
+            gen.arithmUnary(opNeg);
+            gen.arithmBinary(opSub);
+            gen.explicitCastTo(queenBee->defStr);
+            gen.endConstExpr(queenBee->defStr);
+        }
+        seg.run(r);
+        check(r.as_str() == "12");
+        
+        // String operations
+        c = mod->addConstant(queenBee->defStr, "s", "ef");
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadChar('a');
+            gen.elemToVec();
+            gen.loadChar('b');
+            gen.elemCat();
+            gen.loadStr("cd");
+            gen.cat();
+            gen.loadStr("");
+            gen.cat();
+            gen.loadConst(c->type, c->value);
+            gen.cat();
+            gen.endConstExpr(queenBee->defStr);
+        }
+        seg.run(r);
+        check(r.as_str() == "abcdef");
+        
+        // Range operations
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadInt(6);
+            gen.loadInt(5);
+            gen.loadInt(10);
+            gen.mkRange();
+            gen.inRange();
+            gen.loadInt(1);
+            gen.loadInt(5);
+            gen.loadInt(10);
+            gen.mkRange();
+            gen.inRange();
+            gen.mkRange();
+            gen.endConstExpr(queenBee->defBool->deriveRange());
+        }
+        seg.run(r);
+        check(prange(r.as_object())->get_rt()->isRange()
+            && prange(r.as_object())->equals(1, 0));
+
+        // Vector concatenation
+        vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
+        t->push_back(4);
+        c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadInt(1);
+            gen.elemToVec();
+            gen.loadInt(2);
+            gen.elemCat();
+            gen.loadConst(c->type, c->value);
+            gen.cat();
+            gen.endConstExpr(queenBee->defInt->deriveVector());
+        }
+        seg.run(r);
+        check(r.to_string() == "[1, 2, 3, 4]");
+
+        seg.clear();
+        {
+            CodeGen gen(seg);
+            gen.loadBool(true);
+            gen.elemToVec();
+
+            gen.loadStr("abc");
+            gen.loadStr("abc");
+            gen.cmp(opEqual);
+            gen.elemCat();
+
+            gen.loadInt(1);
+            gen.elemToVec();
+            gen.loadTypeRef(queenBee->defInt->deriveVector());
+            gen.dynamicCast();
+            gen.loadTypeRef(queenBee->defInt->deriveVector());
+            gen.testType();
+            gen.elemCat();
+
+#ifdef DEBUG
+            mem s = seg.size();
+#endif
+            gen.loadInt(1);
+            gen.testType(queenBee->defInt); // compile-time
+            gen.testType(queenBee->defBool);
+            check(s == seg.size() - 1);
+            gen.elemCat();
+            gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
+            gen.implicitCastTo(queenBee->defVariant, "Type mismatch");
+            gen.testType(queenBee->defVariant);
+            gen.elemCat();
+            gen.loadStr("");
+            gen.explicitCastTo(queenBee->defBool);
+            gen.elemCat();
+            gen.loadStr("abc");
+            gen.explicitCastTo(queenBee->defBool);
+            gen.elemCat();
+            gen.endConstExpr(queenBee->defBool->deriveVector());
+        }
+        seg.run(r);
+        check(r.to_string() == "[true, true, true, true, true, false, true]");
+    }
+
+    {
+        Context ctx;
+        ctx.setReady();
+        Module* mod = ctx.addModule("test2");
+        Dict* dictType = mod->registerType(new Dict(queenBee->defStr, queenBee->defInt));
+        dict* d = new dict(dictType);
+        d->tie("key1", 2);
+        d->tie("key2", 3);
+        Constant* c = mod->addConstant(dictType, "dict", d);
+        Array* arrayType = mod->registerType(new Array(queenBee->defBool, queenBee->defStr));
+        Ordset* ordsetType = queenBee->defChar->deriveSet();
+        Set* setType = queenBee->defInt->deriveSet();
+        check(!setType->isOrdset());
+        {
+            CodeGen gen(*mod);
+            BlockScope block(mod, &gen);
+
+            Variable* v1 = block.addLocalVar(dictType, "v1");
+            gen.loadNullContainer(dictType);
+            gen.initLocalVar(v1);
+            gen.loadVar(v1);
+            gen.loadStr("k1");
+            gen.loadInt(15);
+            gen.storeContainerElem();
+            gen.loadVar(v1);
+            gen.loadStr("k2");
+            gen.loadInt(25);
+            gen.storeContainerElem();
+
+            Variable* v2 = block.addLocalVar(arrayType, "v2");
+            gen.loadNullContainer(arrayType);
+            gen.initLocalVar(v2);
+            gen.loadVar(v2);
+            gen.loadBool(false);
+            gen.loadStr("abc");
+            gen.storeContainerElem();
+            gen.loadVar(v2);
+            gen.loadBool(true);
+            gen.loadStr("def");
+            gen.storeContainerElem();
+            
+            Variable* v3 = block.addLocalVar(ordsetType, "v3");
+            gen.loadNullContainer(ordsetType);
+            gen.initLocalVar(v3);
+            gen.loadVar(v3);
+            gen.loadChar('a');
+            gen.addToSet();
+            gen.loadVar(v3);
+            gen.loadChar('b');
+            gen.addToSet();
+
+            Variable* v4 = block.addLocalVar(setType, "v4");
+            gen.loadNullContainer(setType);
+            gen.initLocalVar(v4);
+            gen.loadVar(v4);
+            gen.loadInt(100);
+            gen.addToSet();
+            gen.loadVar(v4);
+            gen.loadInt(1000);
+            gen.addToSet();
+
+            gen.loadConst(queenBee->defVariant, 10);
+            gen.elemToVec();
+            gen.loadStr("xyz");
+            gen.loadInt(1);
+            gen.loadContainerElem();
+            gen.elemCat();
+            gen.dup();
+            gen.loadInt(0);
+            gen.loadContainerElem();
+            gen.elemCat();
+            gen.loadConst(c->type, c->value);
+            gen.loadStr("key2");
+            gen.loadContainerElem();
+            gen.elemCat();
+            gen.loadDataseg(queenBee);
+            gen.loadMember(queenBee->siovar);
+            gen.elemCat();
+            gen.loadVar(v1);
+            gen.elemCat();
+            gen.loadVar(v2);
+            gen.elemCat();
+            gen.dup();
+            gen.loadInt(7);
+            gen.loadInt(21);
+            gen.storeContainerElem();
+            gen.dup();
+            gen.loadInt(7);
+            gen.loadInt(22);
+            gen.storeContainerElem();
+            gen.loadVar(v3);
+            gen.elemCat();
+            gen.loadVar(v4);
+            gen.elemCat();
+
+            gen.loadChar('a');
+            gen.loadVar(v3);
+            gen.inSet();
+            gen.elemCat();
+
+            gen.loadChar('c');
+            gen.loadVar(v3);
+            gen.inSet();
+            gen.elemCat();
+
+            gen.loadInt(1000);
+            gen.loadVar(v4);
+            gen.inSet();
+            gen.elemCat();
+
+            gen.loadInt(1001);
+            gen.loadVar(v4);
+            gen.inSet();
+            gen.elemCat();
+            
+            gen.loadStr("k3");
+            gen.loadVar(v1);
+            gen.inDictKeys();
+            gen.elemCat();
+
+            gen.loadStr("k1");
+            gen.loadVar(v1);
+            gen.inDictKeys();
+            gen.elemCat();
+            
+            gen.loadVar(v1);
+            gen.loadStr("k2");
+            gen.delDictElem();
+
+            gen.storeVar(queenBee->sresultvar);
+            block.deinitLocals();
+            gen.end();
+        }
+        variant result = ctx.run();
+        str s = result.to_string();
+        check(s ==
+            "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22, "
+            "[97, 98], [100, 1000], true, false, true, false, false, true]");
+    }
+
+    {
+        Context ctx;
+        ctx.setReady();
+        Module* mod = ctx.addModule("test2");
+        {
+            CodeGen gen(*mod);
+            BlockScope block(mod, &gen);
+
+            Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
+            gen.loadNullContainer(queenBee->defVariant->deriveVector());
+            gen.initLocalVar(s0);
+
+            Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
+            gen.loadStr("abc");
+            gen.loadStr("def");
+            gen.cat();
+            gen.initLocalVar(s1);
+
+            Variable* s2 = block.addLocalVar(queenBee->defInt, "s2");
+            gen.loadInt(123);
+            gen.initLocalVar(s2);
+
+            gen.loadVar(s0);
+            gen.loadVar(s1);
+            gen.elemCat();
+            gen.loadVar(s2);
+            gen.elemCat();
+            gen.dup();
+            gen.count();
+            gen.elemCat();
+
+            mem o1 = gen.jumpForward();
+            gen.nop();
+            gen.resolveJump(o1);
+
+            // if(true, 10, 20)
+            gen.loadBool(true);
+            mem of = gen.boolJumpForward(false);
+            gen.loadInt(10);
+            gen.genPop();
+            mem oj = gen.jumpForward();
+            gen.resolveJump(of);
+            gen.loadInt(20);
+            gen.resolveJump(oj);
+            gen.elemCat();
+
+            gen.loadChar('a');
+            gen.caseLabel(queenBee->defChar, 'a');
+            gen.swap();
+            gen.discard();
+            gen.elemCat();
+
+            gen.loadInt(10);
+            gen.caseLabel(queenBee->defInt->deriveRange(), new range(NULL, 9, 11));
+            gen.swap();
+            gen.discard();
+            gen.elemCat();
+
+            gen.loadStr("22:49");
+            gen.caseLabel(queenBee->defStr, "22:49");
+            gen.swap();
+            gen.discard();
+            gen.elemCat();
+
+            gen.loadTypeRef(queenBee->defInt);
+            gen.caseLabel(defTypeRef, queenBee->defInt);
+            gen.swap();
+            gen.discard();
+            gen.elemCat();
+/*
+            gen.loadStr("The value of true is: ");
+            gen.echo();
+            gen.loadBool(true);
+            gen.echo();
+            gen.echoLn();
+            mem f = ctx.registerFileInfo(__FILE__);
+            gen.loadBool(false);
+            gen.assertion(f, __LINE__);
+*/
+            gen.exit();
+
+            block.deinitLocals();   // not reached
+            gen.end();
+        }
+        variant result = ctx.run();
+        str s = result.to_string();
+        check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
+    }
+
+    doneTypeSys();
+}
+
+
 int main()
 {
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
@@ -672,6 +1041,7 @@ int main()
         test_source();
         test_fifos();
         test_typesys();
+        test_vm();
     }
     catch (std::exception& e)
     {
