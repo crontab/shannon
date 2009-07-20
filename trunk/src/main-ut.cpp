@@ -1,7 +1,6 @@
 
 #define __STDC_LIMIT_MACROS
 
-
 #include "common.h"
 #include "runtime.h"
 #include "source.h"
@@ -751,9 +750,7 @@ void test_vm()
             gen.testType();
             gen.elemCat();
 
-#ifdef DEBUG
             mem s = seg.size();
-#endif
             gen.loadInt(1);
             gen.testType(queenBee->defInt); // compile-time
             gen.testType(queenBee->defBool);
