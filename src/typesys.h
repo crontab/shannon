@@ -340,6 +340,7 @@ protected:
 
 public:
     int const level;
+    State* const selfPtr;
 
     State(State* _parent, Context*, Type* resultType);
     ~State();

@@ -109,7 +109,7 @@ Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, State
     : Base(_baseId, _type, _name, _id), state(_state), readOnly(_readOnly)
 {
     assert(isVariable());
-    if (!isResultVar() && _id > 255) fatal(0x3002, "Variable ID too big");
+    if (_id > 255) fatal(0x3002, "Variable ID too big");
 }
 
 Variable::~Variable()  { }
@@ -237,8 +237,10 @@ Constant* Scope::addTypeAlias(Type* type, const str& name)
 State::State(State* _parent, Context* context, Type* resultType)
   : Type(defTypeRef, STATE), Scope(_parent),
     CodeSeg(this, context), startId(0),
-    level(_parent == NULL ? 0 : _parent->level + 1)
+    level(_parent == NULL ? 0 : _parent->level + 1),
+    selfPtr(_parent == NULL ? this : _parent->selfPtr)
 {
+    // TODO: functions returning self
     setOwner(_parent);
     if (resultType != NULL)
     {
