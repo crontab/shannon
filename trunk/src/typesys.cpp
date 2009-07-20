@@ -43,23 +43,23 @@ langobj::~langobj()
 // --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
 
 
-Base::Base(BaseId _baseId, Type* _type, const str& _name, mem _id)
-    : object(NULL), baseId(_baseId), type(_type), name(_name), id(_id)  { }
+Symbol::Symbol(SymbolId _symbolId, Type* _type, const str& _name)
+    : object(NULL), symbolId(_symbolId), type(_type), name(_name)  { }
 
-Base::~Base()  { }
+Symbol::~Symbol()  { }
 
-bool Base::empty()  { return false; }
+bool Symbol::empty()  { return false; }
 
 
 EDuplicate::EDuplicate(const str& symbol) throw()
     : emessage("Duplicate identifier: " + symbol)  { }
 
 
-_BaseTable::_BaseTable()  { }
-_BaseTable::~_BaseTable()  { }
+_SymbolTable::_SymbolTable()  { }
+_SymbolTable::~_SymbolTable()  { }
 
 
-void _BaseTable::addUnique(Base* o)
+void _SymbolTable::addUnique(Symbol* o)
 {
     std::pair<Impl::iterator, bool> result = impl.insert(Impl::value_type(o->name, o));
     if (!result.second)
@@ -67,7 +67,7 @@ void _BaseTable::addUnique(Base* o)
 }
 
 
-Base* _BaseTable::find(const str& name) const
+Symbol* _SymbolTable::find(const str& name) const
 {
     Impl::const_iterator i = impl.find(name);
     if (i == impl.end())
@@ -79,13 +79,7 @@ Base* _BaseTable::find(const str& name) const
 _PtrList::_PtrList()  { }
 _PtrList::~_PtrList()  { }
 void _PtrList::clear()  { impl.clear(); }
-
-
-mem _PtrList::add(void* p)
-{
-    impl.push_back(p);
-    return size() - 1;
-}
+mem _PtrList::add(void* p)  { impl.push_back(p); return size() - 1; }
 
 
 _List::_List()              { }
@@ -105,8 +99,8 @@ void _List::clear()
 // --- Variable ----------------------------------------------------------- //
 
 
-Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, State* _state, bool _readOnly)
-    : Base(_baseId, _type, _name, _id), state(_state), readOnly(_readOnly)
+Variable::Variable(SymbolId _symbolId, Type* _type, const str& _name, mem _id, State* _state, bool _readOnly)
+    : Symbol(_symbolId, _type, _name), id(_id), state(_state), readOnly(_readOnly)
 {
     assert(isVariable());
     if (_id > 255) fatal(0x3002, "Variable ID too big");
@@ -115,13 +109,43 @@ Variable::Variable(BaseId _baseId, Type* _type, const str& _name, mem _id, State
 Variable::~Variable()  { }
 
 
-// --- Constant ----------------------------------------------------------- //
+// --- Definition ---------------------------------------------------------- //
 
 
-Constant::Constant(BaseId _baseId, Type* _type, const str& _name, mem _id, const variant& _value)
-    : Base(_baseId, _type, _name, _id), value(_value)  { }
+Definition::Definition(SymbolId _symbolId, Type* _type, const str& _name, const variant& _value)
+    : Symbol(_symbolId, _type, _name), value(_value)
+{
+    assert(isDefinition());
+}
+
+Definition::~Definition()  { }
+
+
+Constant::Constant(Type* _type, const str& _name, const variant& _value)
+    : Definition(CONSTANT, _type, _name, _value)  { }
 
 Constant::~Constant()  { }
+
+
+TypeAlias::TypeAlias(const str& _name, Type* _aliasedType)
+  : Definition(TYPEALIAS, defTypeRef, _name, variant(_aliasedType)),
+    aliasedType(_aliasedType)  { }
+
+TypeAlias::~TypeAlias()  { }
+
+
+StateAlias::StateAlias(const str& _name, State* _aliasedState)
+  : Definition(STATEALIAS, defTypeRef, _name, variant(_aliasedState)),
+    aliasedState(_aliasedState)  { }
+
+StateAlias::~StateAlias()  { }
+
+
+ModuleAlias::ModuleAlias(const str& _name, Module* _aliasedModule)
+  : Definition(MODULEALIAS, defTypeRef, _name, variant(_aliasedModule)),
+    aliasedModule(_aliasedModule)  { }
+
+ModuleAlias::~ModuleAlias()  { }
 
 
 // --- TYPE SYSTEM --------------------------------------------------------- //
@@ -194,9 +218,9 @@ Scope::Scope(Scope* _outer)
 Scope::~Scope()  { }
 
 
-Base* Scope::deepFind(const str& ident) const
+Symbol* Scope::deepFind(const str& ident) const
 {
-    Base* b = find(ident);
+    Symbol* b = find(ident);
     if (b != NULL)
         return b;
     for (int i = uses.size() - 1; i >= 0; i--)
@@ -213,20 +237,19 @@ Base* Scope::deepFind(const str& ident) const
 
 Constant* Scope::addConstant(Type* type, const str& name, const variant& value)
 {
-    objptr<Constant> c = new Constant(Base::CONSTANT, type, name, 0, value);
+    objptr<Constant> c = new Constant(type, name, value);
     addUnique(c); // may throw
-    consts.add(c);
+    defs.add(c);
     return c;
 }
 
 
-Constant* Scope::addTypeAlias(Type* type, const str& name)
+TypeAlias* Scope::addTypeAlias(const str& name, Type* type)
 {
-    objptr<Constant> c = new Constant(Base::TYPEALIAS, defTypeRef, name, 0, type);
+    objptr<TypeAlias> c = new TypeAlias(name, type);
     addUnique(c); // may throw
-    consts.add(c);
-    if (type->name.empty())
-        type->name = name;
+    defs.add(c);
+    type->setName(name);
     return c;
 }
 
@@ -234,7 +257,7 @@ Constant* Scope::addTypeAlias(Type* type, const str& name)
 void Scope::addUses(ModuleAlias* alias)
 {
     addUnique(alias);
-    uses.add(alias->getModule());
+    uses.add(alias->aliasedModule);
 }
 
 
@@ -243,7 +266,7 @@ void Scope::addUses(ModuleAlias* alias)
 
 State::State(State* _parent, Context* context, Type* resultType)
   : Type(defTypeRef, STATE), Scope(_parent),
-    CodeSeg(this, context), startId(0),
+    CodeSeg(context), startId(0),
     level(_parent == NULL ? 0 : _parent->level + 1),
     selfPtr(_parent == NULL ? this : _parent->selfPtr)
 {
@@ -252,7 +275,7 @@ State::State(State* _parent, Context* context, Type* resultType)
     if (resultType != NULL)
     {
         // TODO: multiple result vars (result1, result2, ... ?)
-        resultvar = new ResultVar(Base::RESULTVAR, resultType, "result", 0, this, false);
+        resultvar = new ResultVar(Symbol::RESULTVAR, resultType, "result", 0, this, false);
         addUnique(resultvar);
     }
 }
@@ -291,7 +314,7 @@ Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
     mem id = startId + thisvars.size(); // startId will be used with derived classes
     if (id >= 255)
         throw emessage("Maximum number of variables within this object reached");
-    objptr<Variable> v = new ThisVar(Base::THISVAR, type, name, id, this, readOnly);
+    objptr<Variable> v = new ThisVar(Symbol::THISVAR, type, name, id, this, readOnly);
     addUnique(v); // may throw
     thisvars.add(v);
     return v;
@@ -500,15 +523,15 @@ void QueenBee::setup()
     // is not assigned
     defStr = defChar->deriveVector();
     defCharFifo = defChar->deriveFifo();
-    addTypeAlias(defTypeRef, "typeref");
-    addTypeAlias(defNone, "none");
+    addTypeAlias("typeref", defTypeRef);
+    addTypeAlias("none", defNone);
     addConstant(defNone, "null", null);
-    addTypeAlias(defInt, "int");
+    addTypeAlias("int", defInt);
     defBool->addValue("false");
     defBool->addValue("true");
-    addTypeAlias(defBool, "bool");
-    addTypeAlias(defStr, "str");
-    addTypeAlias(defVariant, "any");
+    addTypeAlias("bool", defBool);
+    addTypeAlias("str", defStr);
+    addTypeAlias("any", defVariant);
     siovar = addThisVar(defCharFifo, "sio");
     serrvar = addThisVar(defCharFifo, "serr");
     sresultvar = addThisVar(defVariant, "sresult");

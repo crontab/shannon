@@ -7,24 +7,20 @@
 // --- CODE SEGMENT -------------------------------------------------------- //
 
 
-CodeSeg::CodeSeg(State* _state, Context* _context)
-  : stksize(0), state(_state), context(_context)
-#ifdef DEBUG
-    , closed(0)
-#endif
-    { }
+CodeSeg::CodeSeg(Context* _context)
+  : stksize(0), context(_context), closed(0)  { }
 
 CodeSeg::~CodeSeg()  { }
+
 
 void CodeSeg::clear()
 {
     code.clear();
     consts.clear();
     stksize = 0;
-#ifdef DEBUG
     closed = 0;
-#endif
 }
+
 
 static void invOpcode()        { throw emessage("Invalid opcode"); }
 static void idxOverflow()      { throw emessage("Index overflow"); }
@@ -77,7 +73,7 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 
 void CodeSeg::failAssertion(unsigned file, unsigned line) const
 {
-    throw emessage("Assertion failed: " + context->fileInfos[file]->fileName
+    throw emessage("Assertion failed: " + context->getFileName(file)
         + " line " + to_string(line));
 }
 
@@ -105,7 +101,6 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
         return;
 
     assert(closed);
-    assert(self == NULL || self->get_rt()->canAssignTo(state));
 
     register const uchar* ip = (const uchar*)code.data();
     variant* stkbase = stack.reserve(stksize);
@@ -389,19 +384,22 @@ Context::~Context()  { }
 
 Module* Context::registerModule(const str& name, Module* module)
 {
-    assert(module->id == defs.size());
-    if (defs.size() == 255)
+    assert(module->id == modules.size());
+    if (modules.size() == 255)
         throw emessage("Maximum number of modules reached");
-    objptr<ModuleAlias> alias = new ModuleAlias(Base::MODULEALIAS,
-        defTypeRef, name, module->id, module);
-    addUnique(alias);   // may throw
-    defs.add(alias);
+    objptr<ModuleAlias> alias = new ModuleAlias(name, module);
+    symbols.addUnique(alias);   // may throw
+    aliases.add(alias);
     modules.add(module);
-    if (module != queenBee)
+    if (module->id == 0)
     {
-        assert(defs[0]->getModule() == queenBee);
+        if (module != queenBee)
+            _fatal(0x5003);
+    }
+    else
+    {
         module->setName(name);
-        module->addUses(defs[0]);
+        module->addUses(aliases[0]);
     }
     return module;
 }
@@ -409,7 +407,7 @@ Module* Context::registerModule(const str& name, Module* module)
 
 Module* Context::addModule(const str& name)
 {
-    objptr<Module> module = new Module(this, defs.size());
+    objptr<Module> module = new Module(this, modules.size());
     return registerModule(name, module);
 }
 
@@ -428,10 +426,10 @@ variant Context::run()
         fatal(0x5002, "Execution context not ready");
 
     assert(datasegs.empty());
-    assert(modules.size() == defs.size());
+    assert(modules.size() == aliases.size());
 
     // Create data segments for all modules
-    mem count = defs.size();
+    mem count = modules.size();
     for (mem i = 0; i < count; i++)
         datasegs.add(modules[i]->newObject());
 

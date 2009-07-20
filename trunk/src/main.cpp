@@ -43,7 +43,7 @@ void Compiler::compile()
     started = true;
 
     Module* module = context.addModule("main");    // TODO: read the module name from the file
-    CodeGen mainCodeGen(*module);
+    CodeGen mainCodeGen(module);
     codegen = &mainCodeGen;
 
     successful = true;
