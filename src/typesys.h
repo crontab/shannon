@@ -51,6 +51,7 @@ class Context;
 class CodeSeg: noncopyable
 {
     friend class CodeGen;
+    friend class BlockScope;
     friend class State;
 
     // This object can be duplicated if necessary with a different context

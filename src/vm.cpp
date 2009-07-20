@@ -316,7 +316,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             // Jumps
             case opJumpTrue:    { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; POP(stk); } break;
             case opJumpFalse:   { mem o = ADV<joffs_t>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
-            case opJump:        ip += ADV<joffs_t>(ip); break;
+            case opJump:        { mem o = ADV<joffs_t>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
             case opJumpOr:      { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; else POP(stk); } break;
             case opJumpAnd:     { mem o = ADV<joffs_t>(ip); if (stk->_ord()) POP(stk); else ip += o; } break;
 
@@ -444,6 +444,11 @@ variant Context::run()
     }
     catch(eexit&)
     {
+    }
+    catch(exception&)
+    {
+        datasegs.clear();
+        throw;
     }
 
     // Get the result of the exit operator
