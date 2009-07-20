@@ -178,7 +178,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-            case opEqual:       SETPOD(stk, stk->_int() == 0); break; // TODO: optimize (just assign BOOL type)
+            case opEqual:       SETPOD(stk, stk->_int() == 0); break;
             case opNotEq:       SETPOD(stk, stk->_int() != 0); break;
             case opLessThan:    SETPOD(stk, stk->_int() < 0); break;
             case opLessEq:      SETPOD(stk, stk->_int() <= 0); break;
@@ -197,8 +197,6 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadArg:     PUSH(stk, stkbase[- ADV<uchar>(ip) - 1]); break; // not tested
             case opLoadStatic:
                 {
-                    // TODO: with precompiled libraries this won't work unless
-                    // all module refs are resolved at link time.
                     mem mod = ADV<uchar>(ip);
                     PUSH(stk, *context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }

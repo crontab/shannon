@@ -39,7 +39,7 @@ void Compiler::compile()
         fatal(0x7001, "Compiler object can't be used more than once");
     started = true;
 
-    Module* module = context.addModule("main");    // TODO: read from file
+    Module* module = context.addModule("main");    // TODO: read the module name from the file
     CodeGen mainCodeGen(*module);
     codegen = &mainCodeGen;
 

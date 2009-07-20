@@ -1,5 +1,8 @@
 
-* Initialize to zero objects which have a finally block.
+* Keep static data segments in their Module objects so that static address
+  resolution won't be needed at link time.
+
+* Run-time range checking (as well compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
@@ -7,6 +10,10 @@
 * Strings are immutable, and they are not references like containers. But any
   char vector is a string and thus it's not a reference. What to do? So this is
   a big TODO: implement a shared string class which is not copy-on-write.
+
+* Implement our own vector class with realloc()
+
+* Range types and ordinal sets should be mutually convertible
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
@@ -18,7 +25,7 @@
 * HTML embedded mode
 
 * Compiler directives: #!DEBUG ON|OFF  #!RANGE_CHECK ON|OFF  #!ASSERT ON|OFF
-  #!ECHO ON|OFF  #!EMBED ON|OFF
+  #!ECHO ON|OFF  #!EMBED ON|OFF  #!CURLY ON|OFF
 
 * := assignment as a function
 
@@ -40,3 +47,5 @@
 
 * A `pair` data type, which is a dictionary iteration element. But maybe not
   only. Can be a built-in state with two fields.
+
+* Forward declarations
