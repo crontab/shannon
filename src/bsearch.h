@@ -1,13 +1,6 @@
 #ifndef __BSEARCH_H
 #define __BSEARCH_H
 
-//
-// His Majesty, Binary Search. Normally generates around 100 bytes of code
-// instead of tons and tons of mess you get with STL, specifically with map
-// and friends.
-//
-
-
 template <class Container, class T>
 bool bsearch(const Container& cont, const T& t, int count, int& idx) {
     int l, h, i, c;
@@ -30,6 +23,5 @@ bool bsearch(const Container& cont, const T& t, int count, int& idx) {
     idx = l;
     return ret;
 }
-
 
 #endif
