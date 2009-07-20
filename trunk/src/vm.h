@@ -92,8 +92,8 @@ enum OpCode
     opInitLocal,        // [stack-index: 8]
     opInitThis,         // [this-index: 8]
 
-    // Loaders: each of these can be replaced by a corresponding storer if
-    // the object turns out to be a L-value.
+    // Loaders
+    // NOTE: opLoadRet through opLoadArg are in sync with Base::typeId
     opLoadRet,          // [ret-index] +var
     opLoadLocal,        // [stack-index: 8] +var
     opLoadThis,         // [this-index: 8] +var
@@ -234,6 +234,8 @@ class BlockScope;
 
 class CodeGen: noncopyable
 {
+    friend class BlockScope;
+
 protected:
 
     struct stkinfo
@@ -249,8 +251,7 @@ protected:
     void addOpPtr(OpCode, void*);
     void add8(uint8_t i);
     void add16(uint16_t i);
-    void addJumpOffs(joffs_t i)
-            { add16(uint16_t(i)); }
+    void addJumpOffs(joffs_t i);
     void addInt(integer i);
     void addPtr(void* p);
     bool revertLastLoad();

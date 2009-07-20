@@ -12,8 +12,11 @@
 #include <stdio.h>
 
 
+DEF_EXCEPTION(efail,"Test failed")
+
+
 #define fail(e) \
-    (printf("%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), exit(200))
+    (fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), throw efail())
 
 #define check(e) \
     { if (!(e)) fail(#e); }
@@ -645,11 +648,14 @@ void test_vm()
 {
     initTypeSys();
 
+    try
+    {
+
     {
         Context ctx;
         ctx.setReady();
         Module* mod = ctx.addModule("test");
-        
+
         Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
 
         // Arithmetic, typecasts
@@ -671,7 +677,7 @@ void test_vm()
         }
         seg.run(r);
         check(r.as_str() == "12");
-        
+
         // String operations
         c = mod->addConstant(queenBee->defStr, "s", "ef");
         seg.clear();
@@ -691,7 +697,7 @@ void test_vm()
         }
         seg.run(r);
         check(r.as_str() == "abcdef");
-        
+
         // Range operations
         seg.clear();
         {
@@ -812,7 +818,7 @@ void test_vm()
             gen.loadBool(true);
             gen.loadStr("def");
             gen.storeContainerElem();
-            
+
             Variable* v3 = block.addLocalVar(ordsetType, "v3");
             gen.loadNullContainer(ordsetType);
             gen.initLocalVar(v3);
@@ -847,19 +853,16 @@ void test_vm()
             gen.loadStr("key2");
             gen.loadContainerElem();
             gen.elemCat();
-            gen.loadDataseg(queenBee);
-            gen.loadMember(queenBee->siovar);
-            gen.elemCat();
             gen.loadVar(v1);
             gen.elemCat();
             gen.loadVar(v2);
             gen.elemCat();
             gen.dup();
-            gen.loadInt(7);
+            gen.loadInt(6);
             gen.loadInt(21);
             gen.storeContainerElem();
             gen.dup();
-            gen.loadInt(7);
+            gen.loadInt(6);
             gen.loadInt(22);
             gen.storeContainerElem();
             gen.loadVar(v3);
@@ -886,7 +889,7 @@ void test_vm()
             gen.loadVar(v4);
             gen.inSet();
             gen.elemCat();
-            
+
             gen.loadStr("k3");
             gen.loadVar(v1);
             gen.inDictKeys();
@@ -896,16 +899,20 @@ void test_vm()
             gen.loadVar(v1);
             gen.inDictKeys();
             gen.elemCat();
-            
+
             ThisVar* var = mod->addThisVar(queenBee->defInt, "var");
             gen.loadInt(200);
             gen.initThisVar(var);
             gen.loadVar(var);
             gen.elemCat();
-            
+
             gen.loadVar(v1);
             gen.loadStr("k2");
             gen.delDictElem();
+
+            gen.loadDataseg(queenBee);
+            gen.loadMember(queenBee->siovar);
+            gen.elemCat();
 
             gen.storeVar(queenBee->sresultvar);
             block.deinitLocals();
@@ -914,8 +921,8 @@ void test_vm()
         variant result = ctx.run();
         str s = result.to_string();
         check(s ==
-            "[10, 'y', 10, 3, [<char-fifo>], ['k1': 15], ['abc', 'def'], 22, "
-            "[97, 98], [100, 1000], true, false, true, false, false, true, 200]");
+            "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 1000], "
+            "true, false, true, false, false, true, 200, [<char-fifo>]]");
     }
 
     {
@@ -987,16 +994,16 @@ void test_vm()
             gen.swap();
             gen.discard();
             gen.elemCat();
-/*
-            gen.loadStr("The value of true is: ");
-            gen.echo();
-            gen.loadBool(true);
-            gen.echo();
-            gen.echoLn();
-            mem f = ctx.registerFileInfo(__FILE__);
-            gen.loadBool(false);
-            gen.assertion(f, __LINE__);
-*/
+
+//                gen.loadStr("The value of true is: ");
+//                gen.echo();
+//                gen.loadBool(true);
+//                gen.echo();
+//                gen.echoLn();
+//                mem f = ctx.registerFileInfo(__FILE__);
+//                gen.loadBool(false);
+//                gen.assertion(f, __LINE__);
+
             gen.exit();
 
             block.deinitLocals();   // not reached
@@ -1005,6 +1012,13 @@ void test_vm()
         variant result = ctx.run();
         str s = result.to_string();
         check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
+    }
+
+    }
+    catch (exception&)
+    {
+        doneTypeSys();
+        throw;
     }
 
     doneTypeSys();
@@ -1019,7 +1033,7 @@ int main()
          << "  double: " << sizeof(double) << '\n';
     sio << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
          << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
-         << "  object: " << sizeof(object) << '\n';
+         << "  object: " << sizeof(object) << "  joffs: " << sizeof(joffs_t) << '\n';
 
     check(sizeof(int) == 4);
     check(sizeof(mem) >= 4);
@@ -1036,6 +1050,7 @@ int main()
     check(sizeof(variant) == 8);
 #endif
 
+    int exitcode = 0;
     try
     {
         test_common();
@@ -1046,13 +1061,22 @@ int main()
         test_typesys();
         test_vm();
     }
-    catch (std::exception& e)
+    catch (efail&)
     {
-        fail(e.what());
+        exitcode = 200;
+    }
+    catch (exception& e)
+    {
+        fprintf(stderr, "Exception: %s\n", e.what());
+        exitcode = 201;
     }
 
-    check(object::alloc == 0);
+    if (object::alloc != 0)
+    {
+        fprintf(stderr, "Error: object::alloc = %d\n", object::alloc);
+        exitcode = 202;
+    }
 
-    return 0;
+    return exitcode;
 }
 

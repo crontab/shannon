@@ -7,6 +7,9 @@
 #include "vm.h"
 
 
+#include <stdlib.h>
+
+
 // --- HIS MAJESTY, THE COMPILER ------------------------------------------- //
 
 
@@ -88,7 +91,7 @@ int main()
     catch (std::exception& e)
     {
         serr << "Error: " << e.what() << endl;
-        exit(101);
+        exitcode = 101;
     }
     doneTypeSys();
 
@@ -96,6 +99,6 @@ int main()
     assert(object::alloc == 0);
 #endif
 
-    return 0;
+    return exitcode;
 }
 
