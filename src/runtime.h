@@ -24,11 +24,6 @@
 
 // Implementation is in variant.cpp and fifo.cpp.
 
-// TODO: at least the implementation of vector should be rewritten with
-// realloc(), because we always have a vector of variants and we never
-// hold pointers to vector members, so the pedantic pointer keeping
-// of the STL's vector<> template is overkill for us.
-
 class variant;
 class object;
 class fifo_intf;
@@ -123,7 +118,6 @@ public:
     str  to_string() const;
     bool operator< (const variant& v) const;
 
-    // TODO: is_int(int), is_real(real) ... or operator == maybe?
     Type getType()            const { return type; }
     bool is(Type t)           const { return type == t; }
     bool is_null()            const { return type == NONE; }
@@ -423,7 +417,6 @@ protected:
     static void _wronly_err();
     static void _rdonly_err();
     static void _fifo_type_err();
-    // TODO: _req() can be empty in RELEASE build
     void _req(bool req_char) const      { if (req_char != _char) _fifo_type_err(); }
     void _req_non_empty();
     void _req_non_empty(bool _char);

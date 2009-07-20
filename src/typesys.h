@@ -249,8 +249,6 @@ void typeMismatch();
 
 typedef Type* PType;
 
-// TODO: SEMFIFO: s fifo with a semaphore
-
 class Type: public object
 {
     friend class Scope;

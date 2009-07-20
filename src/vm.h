@@ -9,6 +9,7 @@
 #include <stack>
 #include <set>
 
+// Implementation is in codegen.cpp and vm.cpp
 
 enum OpCode
 {
@@ -122,7 +123,6 @@ enum OpCode
     // Container write operations
     opStoreDictElem,    // -val, -key, -dict
     opDelDictElem,      // -key, -dict
-    // TODO: implement a shared string class (not copy-on-write)
 //    opStoreStrElem,     // -char, -index, -str
     opStoreVecElem,     // -val, -index, -vector
     opStoreArrayElem,   // -val, -index, -array

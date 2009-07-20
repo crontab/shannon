@@ -474,7 +474,6 @@ char* buf_fifo::enq_space(mem count)
 }
 
 
-// TODO: this is a copy-paste of fifo::enq_chars(). Shame.
 mem buf_fifo::enq_chars(const char* p, mem count)
 {
     _req(true);

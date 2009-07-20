@@ -407,6 +407,7 @@ restart:
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
+            // TODO: allow colon in curly bracket mode
             if (curlyLevel > 0)
                 error("Colon is not allowed in curly-bracket mode");
             input->skip(wsChars);
