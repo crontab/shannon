@@ -587,6 +587,8 @@ void test_fifos()
 void test_typesys()
 {
     initTypeSys();
+    try
+    {
     check(defTypeRef->isTypeRef());
     check(defTypeRef->get_rt() == defTypeRef);
     check(queenBee->defNone->isNone());
@@ -639,7 +641,11 @@ void test_typesys()
         check(b->isResultVar());
         check(PVar(b)->type->isBool());
     }
-
+    }
+    catch(exception&)
+    {
+        doneTypeSys();
+    }
     doneTypeSys();
 }
 
@@ -914,6 +920,12 @@ void test_vm()
             gen.loadMember(queenBee->siovar);
             gen.elemCat();
 
+            Base* r = mod->deepFind("sresult");
+            check(r != NULL);
+            check(r->isVariable());
+            gen.loadVar(PVar(r));
+            gen.elemCat();
+
             gen.storeVar(queenBee->sresultvar);
             block.deinitLocals();
             gen.end();
@@ -922,7 +934,7 @@ void test_vm()
         str s = result.to_string();
         check(s ==
             "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 1000], "
-            "true, false, true, false, false, true, 200, [<char-fifo>]]");
+            "true, false, true, false, false, true, 200, [<char-fifo>], null]");
     }
 
     {

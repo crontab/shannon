@@ -3,7 +3,8 @@
 
 
 CodeGen::CodeGen(CodeSeg& _codeseg)
-    : codeseg(_codeseg), lastOpOffs(mem(-1)), stkMax(0), locals(0)
+  : codeseg(_codeseg), state(_codeseg.state),
+    lastOpOffs(mem(-1)), stkMax(0), locals(0)
 #ifdef DEBUG
     , stkSize(0)
 #endif    
@@ -874,11 +875,11 @@ void BlockScope::deinitLocals()
 
 Variable* BlockScope::addLocalVar(Type* type, const str& name)
 {
-    assert(gen->codeseg.state != NULL);
+    assert(gen->state != NULL);
     mem id = startId + localvars.size();
     if (id >= 255)
         throw emessage("Maximum number of local variables within this scope is reached");
-    objptr<Variable> v = new LocalVar(Base::LOCALVAR, type, name, id, gen->codeseg.state, false);
+    objptr<Variable> v = new LocalVar(Base::LOCALVAR, type, name, id, gen->state, false);
     addUnique(v);   // may throw
     localvars.add(v);
     return v;

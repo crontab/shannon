@@ -75,7 +75,9 @@ int main()
         context.setReady();
 
         variant result = context.run();
-        if (result.is_ordinal())
+        if (result.is_null())
+            exitcode = 0;
+        else if (result.is_ordinal())
             exitcode = result._ord();
         else if (result.is(variant::STR))
         {
