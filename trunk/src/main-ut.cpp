@@ -663,7 +663,7 @@ void test_vm()
         variant r;
         ConstCode seg;
         {
-            CodeGen gen(mod);
+            CodeGen gen(&seg);
             gen.loadConst(c->type, c->value);
             gen.explicitCastTo(queenBee->defVariant);
             gen.explicitCastTo(queenBee->defBool);
@@ -683,7 +683,7 @@ void test_vm()
         c = mod->addConstant(queenBee->defStr, "s", "ef");
         seg.clear();
         {
-            CodeGen gen(mod);
+            CodeGen gen(&seg);
             gen.loadChar('a');
             gen.elemToVec();
             gen.loadChar('b');
@@ -702,7 +702,7 @@ void test_vm()
         // Range operations
         seg.clear();
         {
-            CodeGen gen(mod);
+            CodeGen gen(&seg);
             gen.loadInt(6);
             gen.loadInt(5);
             gen.loadInt(10);
@@ -726,7 +726,7 @@ void test_vm()
         c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
         seg.clear();
         {
-            CodeGen gen(mod);
+            CodeGen gen(&seg);
             gen.loadInt(1);
             gen.elemToVec();
             gen.loadInt(2);
@@ -740,7 +740,7 @@ void test_vm()
 
         seg.clear();
         {
-            CodeGen gen(mod);
+            CodeGen gen(&seg);
             gen.loadBool(true);
             gen.elemToVec();
 
@@ -1022,7 +1022,6 @@ void test_vm()
         str s = result.to_string();
         check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
     }
-
     }
     catch (exception&)
     {

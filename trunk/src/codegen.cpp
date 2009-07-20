@@ -3,14 +3,14 @@
 #include "vm.h"
 
 
-CodeGen::CodeGen(State* _state)
-  : codeseg(*_state), state(_state),
+CodeGen::CodeGen(CodeSeg* _codeseg)
+  : codeseg(_codeseg), state(_codeseg->state),
     lastOpOffs(mem(-1)), stkMax(0), locals(0)
 #ifdef DEBUG
     , stkSize(0)
 #endif    
 {
-    assert(codeseg.empty());
+    assert(codeseg->empty());
 }
 
 
@@ -19,8 +19,8 @@ CodeGen::~CodeGen()  { }
 
 mem CodeGen::addOp(OpCode op)
 {
-    assert(!codeseg.closed);
-    lastOpOffs = codeseg.size();
+    assert(!codeseg->closed);
+    lastOpOffs = codeseg->size();
     add8(op);
     return lastOpOffs;
 }
@@ -30,39 +30,39 @@ void CodeGen::addOpPtr(OpCode op, void* p)
     { addOp(op); addPtr(p); }
 
 void CodeGen::add8(uchar i)
-    { codeseg.push_back(i); }
+    { codeseg->push_back(i); }
 
 void CodeGen::add16(uint16_t i)
-    { codeseg.append(&i, 2); }
+    { codeseg->append(&i, 2); }
 
 void CodeGen::addJumpOffs(joffs_t i)
-    { codeseg.append(&i, sizeof(i)); }
+    { codeseg->append(&i, sizeof(i)); }
 
 void CodeGen::addInt(integer i)
-    { codeseg.append(&i, sizeof(i)); }
+    { codeseg->append(&i, sizeof(i)); }
 
 void CodeGen::addPtr(void* p)
-    { codeseg.append(&p, sizeof(p)); }
+    { codeseg->append(&p, sizeof(p)); }
 
 
 void CodeGen::close()
 {
-    if (!codeseg.empty())
+    if (!codeseg->empty())
         add8(opEnd);
-    codeseg.close(stkMax);
+    codeseg->close(stkMax);
 }
 
 
 bool CodeGen::revertLastLoad()
 {
-    if (lastOpOffs == mem(-1) || !isLoadOp(OpCode(codeseg[lastOpOffs])))
+    if (lastOpOffs == mem(-1) || !isLoadOp(OpCode((*codeseg)[lastOpOffs])))
     {
         discard();
         return false;
     }
     else
     {
-        codeseg.resize(lastOpOffs);
+        codeseg->resize(lastOpOffs);
         lastOpOffs = mem(-1);
         return true;
     }
@@ -206,8 +206,8 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
 
     if (addToConsts)
     {
-        mem n = codeseg.consts.size();
-        codeseg.consts.push_back(value);
+        mem n = codeseg->consts.size();
+        codeseg->consts.push_back(value);
         if (n < 256)
         {
             addOp(opLoadConst);
@@ -279,7 +279,7 @@ void CodeGen::initRetVal(Type* expectType)
 void CodeGen::initLocalVar(Variable* var)
 {
     assert(var->isLocalVar());
-    if (codeseg.context == NULL || locals != genStack.size() - 1 || var->id != locals)
+    if (codeseg->context == NULL || locals != genStack.size() - 1 || var->id != locals)
         _fatal(0x6003);
     locals++;
     // Local var simply remains on the stack, so just check the types
@@ -292,7 +292,7 @@ void CodeGen::deinitLocalVar(Variable* var)
     // TODO: don't generate POPs if at the end of a function: just don't call
     // deinitLocalVar()
     assert(var->isLocalVar());
-    if (codeseg.context == NULL || locals != genStack.size() || var->id != locals - 1)
+    if (codeseg->context == NULL || locals != genStack.size() || var->id != locals - 1)
         _fatal(0x6004);
     locals--;
     discard();
@@ -399,7 +399,6 @@ void CodeGen::storeVar(Variable* var)
     }
     else
         notimpl();
-    stkPush(var->type);
 }
 
 
@@ -779,12 +778,11 @@ mem CodeGen::jumpForward(OpCode op)
 void CodeGen::resolveJump(mem jumpOffs)
 {
     assert(jumpOffs <= getCurPos() - 1 - sizeof(joffs_t));
-    assert(isJump(OpCode(codeseg.code[jumpOffs])));
+    assert(isJump(OpCode((*codeseg)[jumpOffs])));
     integer offs = integer(getCurPos()) - integer(jumpOffs + 1 + sizeof(joffs_t));
     if (offs > 32767)
         throw emessage("Jump target is too far away");
-    char* p = (char*)codeseg.code.data() + jumpOffs + 1;
-    *(joffs_t*)p = offs;
+    codeseg->putJumpOffs(jumpOffs + 1, offs);
 }
 
 

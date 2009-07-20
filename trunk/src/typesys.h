@@ -49,15 +49,21 @@ class Context;
 // Defined here because the State type contains code segments. The
 // implementation of CodeSeg is in vm.cpp.
 
+
+typedef int16_t joffs_t;
+
+
 class CodeSeg: noncopyable
 {
     friend class Context;
     friend class CodeGen;
 
-protected:
     str code;
+
+protected:
     varlist consts;
     mem stksize;
+    State* state;
     Context* context;
     int closed;     // for debugging mainly
 
@@ -69,7 +75,10 @@ protected:
             { code.resize(s); }
     void close(mem _stksize)
             { assert(++closed == 1); stksize = _stksize; }
-    uint8_t operator[] (mem i) const { return uint8_t(code[i]); }
+    uchar operator[] (mem i) const
+            { return uchar(code[i]); }
+    void putJumpOffs(mem i, joffs_t o)
+            { *(joffs_t*)(code.data() + i) = o; }
 
     // Execution
     static void vecCat(const variant& vec2, variant* vec1);
@@ -79,7 +88,7 @@ protected:
     void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
 
 public:
-    CodeSeg(Context*);
+    CodeSeg(State*, Context*);
     ~CodeSeg();
 
     // For unit tests:

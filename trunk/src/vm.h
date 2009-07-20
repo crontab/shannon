@@ -173,8 +173,6 @@ enum OpCode
 };
 
 
-typedef int16_t joffs_t;
-
 inline bool isLoadOp(OpCode op)
     { return (op >= opLoadNull && op <= opLoadDataseg)
         || (op >= opLoadRet && op <= opLoadOuter); }
@@ -192,7 +190,7 @@ DEF_EXCEPTION(eexit, "exit called");
 class ConstCode: public CodeSeg
 {
 public:
-    ConstCode(): CodeSeg(NULL) { }
+    ConstCode(): CodeSeg(NULL, NULL) { }
     void run(variant&) const;
 };
 
@@ -246,7 +244,7 @@ protected:
         stkinfo(Type* t): type(t) { }
     };
 
-    CodeSeg& codeseg;
+    CodeSeg* codeseg;
     State* state;
     mem lastOpOffs;
 
@@ -286,7 +284,7 @@ protected:
     void typeCast(Type* from, Type* to, const char* errmsg);
 
 public:
-    CodeGen(State*);
+    CodeGen(CodeSeg*);
     ~CodeGen();
 
     mem getLocals() { return locals; }
@@ -341,7 +339,7 @@ public:
     void lowHigh(bool high);
     
     mem  getCurPos()
-            { return codeseg.size(); }
+            { return codeseg->size(); }
     void genPop()  // pop a value off the generator's stack
             { stkPop(); }
     void jump(mem target);
