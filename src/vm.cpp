@@ -190,14 +190,12 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadLocal:   PUSH(stk, stkbase[ADV<uchar>(ip)]); break;
             case opLoadThis:    PUSH(stk, *self->var(ADV<uchar>(ip))); break;
             case opLoadArg:     PUSH(stk, stkbase[- ADV<uchar>(ip) - 1]); break; // not tested
-/*
             case opLoadStatic:
                 {
-                    mem mod = ADV<uchar>(ip);
-                    PUSH(stk, *context->datasegs[mod]->var(ADV<uchar>(ip)));
+                    Module* mod = ADV<Module*>(ip);
+                    PUSH(stk, *mod->instance->var(ADV<uchar>(ip)));
                 }
                 break;
-*/
             case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(ADV<uchar>(ip)); break;
             case opLoadOuter:   notimpl();
 
@@ -246,14 +244,13 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opStoreLocal:  STORETO(stk, stkbase + ADV<uchar>(ip)); break;
             case opStoreThis:   STORETO(stk, self->var(ADV<uchar>(ip))); break;
             case opStoreArg:    STORETO(stk, stkbase - ADV<uchar>(ip) - 1); break;
-/*
             case opStoreStatic:
                 {
-                    mem mod = ADV<uchar>(ip);
-                    STORETO(stk, context->datasegs[mod]->var(ADV<uchar>(ip)));
+                    Module* mod = ADV<Module*>(ip);
+                    STORETO(stk, mod->instance->var(ADV<uchar>(ip)));
                 }
                 break;
-*/
+
             case opStoreMember:  notimpl();
             case opStoreOuter:   notimpl();
 
@@ -371,96 +368,4 @@ void ConstCode::run(variant& result) const
     CodeSeg::run(stack, NULL, &result);
     assert(stack.size() == 0);
 }
-
-
-// --- EXECUTION CONTEXT --------------------------------------------------- //
-
-/*
-Context::Context()
-    : ready(false)
-{
-    registerModule("system", queenBee);
-}
-
-
-Context::~Context()  { }
-
-
-Module* Context::registerModule(const str& name, Module* module)
-{
-    assert(module->id == modules.size());
-    if (modules.size() == 255)
-        throw emessage("Maximum number of modules reached");
-    objptr<ModuleAlias> alias = new ModuleAlias(name, module);
-    symbols.addUnique(alias);   // may throw
-    aliases.add(alias);
-    modules.add(module);
-    if (module->id == 0)
-    {
-        if (module != queenBee)
-            _fatal(0x5003);
-    }
-    else
-    {
-        module->setName(name);
-        module->addUses(module);
-    }
-    return module;
-}
-
-
-Module* Context::addModule(const str& name)
-{
-    objptr<Module> module = new Module(this, modules.size());
-    return registerModule(name, module);
-}
-
-
-mem Context::registerFileInfo(const str& fileName)
-{
-    mem result = fileInfos.size();
-    fileInfos.add(new FileInfo(fileName));
-    return result;
-}
-
-
-variant Context::run()
-{
-    if (!ready)
-        fatal(0x5002, "Execution context not ready");
-
-    assert(datasegs.empty());
-    assert(modules.size() == aliases.size());
-
-    // Create data segments for all modules
-    mem count = modules.size();
-    for (mem i = 0; i < count; i++)
-        datasegs.add(modules[i]->newObject());
-
-    // Initialize the system module
-    assert(modules[0] == queenBee);
-    queenBee->initialize(datasegs[0]);
-
-    // Run main code for all modules
-    varstack stack;
-    try
-    {
-        for (mem i = 0; i < count; i++)
-            modules[i]->run(stack, datasegs[i], NULL);
-    }
-    catch(eexit&)
-    {
-    }
-    catch(exception&)
-    {
-        datasegs.clear();
-        throw;
-    }
-
-    // Get the result of the exit operator
-    variant result = *datasegs[0]->var(queenBee->sresultvar->id);
-    datasegs.clear();
-    return result;
-}
-*/
 

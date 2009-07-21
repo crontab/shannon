@@ -97,7 +97,7 @@ enum OpCode
     opLoadLocal,        // [stack-index: 8] +var
     opLoadThis,         // [this-index: 8] +var
     opLoadArg,          // [stack-neg-index: 8] +var
-    opLoadStatic,       // [module: 8, var-index: 8] +var
+    opLoadStatic,       // [Module*, var-index: 8] +var
     opLoadMember,       // [var-index: 8] -obj, +val
     opLoadOuter,        // [level: 8, var-index: 8] +var
 
@@ -116,7 +116,7 @@ enum OpCode
     opStoreLocal,       // [stack-index: 8] -var
     opStoreThis,        // [this-index: 8] -var
     opStoreArg,         // [stack-neg-index: 8] -var
-    opStoreStatic,      // [module: 8, var-index: 8] -var
+    opStoreStatic,      // [Module*, var-index: 8] -var
     opStoreMember,      // [var-index: 8] -val, -obj
     opStoreOuter,       // [level: 8, var-index: 8] -var
 

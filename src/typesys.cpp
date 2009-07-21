@@ -35,9 +35,12 @@ void langobj::_idx_err()
 
 langobj::~langobj()
 {
-    mem count = CAST(State*, get_rt())->thisSize();
-    while (count--)
-        vars[count].~variant();
+    if (get_rt() != NULL)
+    {
+        mem count = CAST(State*, get_rt())->thisSize();
+        while (count--)
+            vars[count].~variant();
+    }
 }
 
 
@@ -311,7 +314,8 @@ Module::Module(const str& _name)
     : State(this, NULL, NULL)
 {
     setName(_name);
-    addUses(queenBee);
+    if (queenBee != NULL)
+        addUses(queenBee);
 }
 
 
@@ -360,7 +364,6 @@ variant Module::run()
         varstack stack;
         for (mem i = 0; i < uses.size(); i++)
             uses[i]->initialize(stack);
-        assert(stack.empty());
         initialize(stack);
     }
     catch (eexit&)
@@ -369,9 +372,7 @@ variant Module::run()
     }
     catch (exception&)
     {
-        // This shows that unsigned ints actually suck big time - you can't
-        // even iterate backwards in a decent way.
-        for (mem i = uses.size(); i--; )
+        for (mem i = uses.size(); i--; ) // an example of how unsigned ints suck
             uses[i]->finalize();
         throw;
     }
@@ -618,11 +619,16 @@ Type* QueenBee::typeFromValue(const variant& v)
 }
 
 
-void QueenBee::initialize(langobj* self)
+void QueenBee::initialize(varstack& stack)
 {
-    ::new(self->var(siovar->id)) variant(&sio);
-    ::new(self->var(serrvar->id)) variant(&serr);
-    ::new(self->var(sresultvar->id)) variant();
+    if (instance == NULL)
+    {
+        instance = newObject();
+//        CodeSeg::run(stack, instance, NULL);
+        ::new(instance->var(siovar->id)) variant(&sio);
+        ::new(instance->var(serrvar->id)) variant(&serr);
+        ::new(instance->var(sresultvar->id)) variant();
+    }
 }
 
 

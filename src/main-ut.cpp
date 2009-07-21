@@ -610,7 +610,7 @@ void test_typesys()
     check(PDef(b)->type->isBool());
 
     {
-        State state(queenBee, NULL, queenBee->defBool);
+        State state(NULL, queenBee, queenBee->defBool);
         b = state.deepFind("true");
         check(b != NULL && b->isDefinition());
         check(state.deepFind("untrue") == NULL);
@@ -653,11 +653,9 @@ void test_vm()
     {
 
     {
-        Context ctx;
-        ctx.setReady();
-        Module* mod = ctx.addModule("test");
+        Module mod("test");
 
-        Constant* c = mod->addConstant(queenBee->defChar, "c", char(1));
+        Constant* c = mod.addConstant(queenBee->defChar, "c", char(1));
 
         // Arithmetic, typecasts
         variant r;
@@ -680,7 +678,7 @@ void test_vm()
         check(r.as_str() == "12");
 
         // String operations
-        c = mod->addConstant(queenBee->defStr, "s", "ef");
+        c = mod.addConstant(queenBee->defStr, "s", "ef");
         seg.clear();
         {
             CodeGen gen(&seg);
@@ -723,7 +721,7 @@ void test_vm()
         // Vector concatenation
         vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);
         t->push_back(4);
-        c = mod->addConstant(queenBee->defInt->deriveVector(), "v", t);
+        c = mod.addConstant(queenBee->defInt->deriveVector(), "v", t);
         seg.clear();
         {
             CodeGen gen(&seg);
@@ -780,21 +778,19 @@ void test_vm()
     }
 
     {
-        Context ctx;
-        ctx.setReady();
-        Module* mod = ctx.addModule("test2");
-        Dict* dictType = mod->registerType(new Dict(queenBee->defStr, queenBee->defInt));
+        Module mod("test2");
+        Dict* dictType = mod.registerType(new Dict(queenBee->defStr, queenBee->defInt));
         dict* d = new dict(dictType);
         d->tie("key1", 2);
         d->tie("key2", 3);
-        Constant* c = mod->addConstant(dictType, "dict", d);
-        Array* arrayType = mod->registerType(new Array(queenBee->defBool, queenBee->defStr));
+        Constant* c = mod.addConstant(dictType, "dict", d);
+        Array* arrayType = mod.registerType(new Array(queenBee->defBool, queenBee->defStr));
         Ordset* ordsetType = queenBee->defChar->deriveSet();
         Set* setType = queenBee->defInt->deriveSet();
         check(!setType->isOrdset());
         {
-            CodeGen gen(mod);
-            BlockScope block(mod, &gen);
+            CodeGen gen(&mod);
+            BlockScope block(&mod, &gen);
 
             Variable* v1 = block.addLocalVar(dictType, "v1");
             gen.loadNullContainer(dictType);
@@ -901,7 +897,7 @@ void test_vm()
             gen.inDictKeys();
             gen.elemCat();
 
-            ThisVar* var = mod->addThisVar(queenBee->defInt, "var");
+            ThisVar* var = mod.addThisVar(queenBee->defInt, "var");
             gen.loadInt(200);
             gen.initThisVar(var);
             gen.loadVar(var);
@@ -911,13 +907,13 @@ void test_vm()
             gen.loadStr("k2");
             gen.delDictElem();
 
-            Symbol* io = mod->deepFind("sio");
+            Symbol* io = mod.deepFind("sio");
             check(io != NULL);
             check(io->isVariable());
             gen.loadVar(PVar(io));
             gen.elemCat();
 
-            Symbol* r = mod->deepFind("sresult");
+            Symbol* r = mod.deepFind("sresult");
             check(r != NULL);
             check(r->isVariable());
             gen.loadVar(PVar(r));
@@ -927,7 +923,7 @@ void test_vm()
             block.deinitLocals();
             gen.end();
         }
-        variant result = ctx.run();
+        variant result = mod.run();
         str s = result.to_string();
         check(s ==
             "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 1000], "
@@ -935,12 +931,10 @@ void test_vm()
     }
 
     {
-        Context ctx;
-        ctx.setReady();
-        Module* mod = ctx.addModule("test2");
+        Module mod("test2");
         {
-            CodeGen gen(mod);
-            BlockScope block(mod, &gen);
+            CodeGen gen(&mod);
+            BlockScope block(&mod, &gen);
 
             Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
             gen.loadNullContainer(queenBee->defVariant->deriveVector());
@@ -1004,11 +998,11 @@ void test_vm()
             gen.discard();
             gen.elemCat();
 
-//                gen.loadStr("The value of true is: ");
-//                gen.echo();
-//                gen.loadBool(true);
-//                gen.echo();
-//                gen.echoLn();
+                gen.loadStr("The value of true is: ");
+                gen.echo();
+                gen.loadBool(true);
+                gen.echo();
+                gen.echoLn();
 //                mem f = ctx.registerFileInfo(__FILE__);
 //                gen.loadBool(false);
 //                gen.assertion(f, __LINE__);
@@ -1018,10 +1012,11 @@ void test_vm()
             block.deinitLocals();   // not reached
             gen.end();
         }
-        variant result = ctx.run();
+        variant result = mod.run();
         str s = result.to_string();
         check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
     }
+
     }
     catch (exception&)
     {
