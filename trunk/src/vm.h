@@ -38,7 +38,6 @@ enum OpCode
     opLoadConst,        // [const-index: 8] +var // compound values only
     opLoadConst2,       // [const-index: 16] +var // compound values only
     opLoadTypeRef,      // [Type*] +typeref
-    opLoadDataseg,      // [module-index: 8] +langobj
 
     opPop,              // -var
     opSwap,
@@ -174,7 +173,7 @@ enum OpCode
 
 
 inline bool isLoadOp(OpCode op)
-    { return (op >= opLoadNull && op <= opLoadDataseg)
+    { return (op >= opLoadNull && op <= opLoadTypeRef)
         || (op >= opLoadRet && op <= opLoadOuter); }
 
 inline bool isCmpOp(OpCode op)
@@ -194,7 +193,7 @@ public:
     void run(variant&) const;
 };
 
-
+/*
 class Context: noncopyable
 {
     friend class CodeSeg;
@@ -228,7 +227,7 @@ public:
     // returned. Can be called multiple times.
     variant run();
 };
-
+*/
 
 // --- CODE GENERATOR ------------------------------------------------------ //
 

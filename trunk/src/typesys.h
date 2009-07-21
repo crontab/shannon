@@ -44,27 +44,21 @@ typedef Container Set;
 // --- CODE SEGMENT ------------------------------------------------------- //
 
 class CodeGen;
-class Context;
 
 // Defined here because the State type contains code segments. The
 // implementation of CodeSeg is in vm.cpp.
 
-
-typedef int16_t joffs_t;
-
-
 class CodeSeg: noncopyable
 {
-    friend class Context;
     friend class CodeGen;
 
+protected:
     str code;
 
-protected:
     varlist consts;
     mem stksize;
+    Module* module; // for references to used modules and their datasegs
     State* state;
-    Context* context;
     int closed;     // for debugging mainly
 
     void push_back(uchar u)
@@ -88,7 +82,7 @@ protected:
     void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
 
 public:
-    CodeSeg(State*, Context*);
+    CodeSeg(Module*, State*);
     ~CodeSeg();
 
     // For unit tests:
@@ -270,14 +264,12 @@ class Scope: public SymbolTable<Symbol>
 protected:
     Scope* const outer;
     List<Definition> defs;
-    PtrList<Module> uses;
 public:
     Scope(Scope* outer);
     ~Scope();
-    Symbol* deepFind(const str&) const;
+    virtual Symbol* deepFind(const str&) const; // overridden in Module to look in linked modules
     Constant* addConstant(Type*, const str&, const variant&);
     TypeAlias* addTypeAlias(const str&, Type*);
-    void addUses(ModuleAlias*);
 };
 
 
@@ -315,8 +307,9 @@ public:
     
     bool empty(); // override
 
-    void setOwner(State* _owner)   { assert(owner == NULL); owner = _owner; }
-    void setName(const str _name)  { if (name.empty()) name = _name; }
+    void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
+    str  getName()                  { return name; }
+    void setName(const str _name)   { if (name.empty()) name = _name; }
 
     bool is(TypeId t)  { return typeId == t; }
     TypeId getTypeId()  { return typeId; }
@@ -373,7 +366,7 @@ public:
     int const level;
     State* const selfPtr;
 
-    State(State* _parent, Context*, Type* resultType);
+    State(Module*, State* parent, Type* resultType);
     ~State();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -392,10 +385,13 @@ typedef Module* PModule;
 
 class Module: public State
 {
+protected:
+    PtrList<Module> uses;
 public:
-    mem const id;
-    Module(Context* context, mem _id);
+    Module(const str& name);
     ~Module();
+    virtual Symbol* deepFind(const str&) const; // override
+    void addUses(Module*); // comes from the global module cache
 };
 
 

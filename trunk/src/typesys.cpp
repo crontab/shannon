@@ -220,15 +220,9 @@ Scope::~Scope()  { }
 
 Symbol* Scope::deepFind(const str& ident) const
 {
-    Symbol* b = find(ident);
-    if (b != NULL)
-        return b;
-    for (int i = uses.size() - 1; i >= 0; i--)
-    {
-        b = uses[i]->find(ident);
-        if (b != NULL)
-            return b;
-    }
+    Symbol* s = find(ident);
+    if (s != NULL)
+        return s;
     if (outer != NULL)
         return outer->deepFind(ident);
     return NULL;
@@ -254,27 +248,20 @@ TypeAlias* Scope::addTypeAlias(const str& name, Type* type)
 }
 
 
-void Scope::addUses(ModuleAlias* alias)
-{
-    addUnique(alias);
-    uses.add(alias->aliasedModule);
-}
-
-
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* _parent, Context* context, Type* resultType)
+State::State(Module* _module, State* _parent, Type* resultType)
   : Type(defTypeRef, STATE), Scope(_parent),
-    CodeSeg(this, context), startId(0),
+    CodeSeg(_module, this), startId(0),
     level(_parent == NULL ? 0 : _parent->level + 1),
     selfPtr(_parent == NULL ? this : _parent->selfPtr)
 {
     // TODO: functions returning self
-    setOwner(_parent);
+    // TODO: multiple result vars (result1, result2, ... ?)
+    setOwner(this);
     if (resultType != NULL)
     {
-        // TODO: multiple result vars (result1, result2, ... ?)
         resultvar = new ResultVar(Symbol::RESULTVAR, resultType, "result", 0, this, false);
         addUnique(resultvar);
     }
@@ -304,11 +291,6 @@ bool State::isMyType(variant& v)
     { return (v.is_object() && v._object()->get_rt()->canAssignTo(this)); }
 
 
-Module::Module(Context* context, mem _id)
-    : State(NULL, context, NULL), id(_id)  { }
-Module::~Module()  { }
-
-
 Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
 {
     mem id = startId + thisvars.size(); // startId will be used with derived classes
@@ -318,6 +300,45 @@ Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
     addUnique(v); // may throw
     thisvars.add(v);
     return v;
+}
+
+
+// --- Module -------------------------------------------------------------- //
+
+
+Module::Module(const str& _name)
+    : State(this, NULL, NULL)
+{
+    setName(_name);
+    addUses(queenBee);
+}
+
+
+Module::~Module()  { }
+
+
+Symbol* Module::deepFind(const str& ident) const
+{
+    assert(outer == NULL);
+    Symbol* s = Scope::deepFind(ident);
+    if (s != NULL)
+        return s;
+    for (int i = uses.size() - 1; i >= 0; i--)
+    {
+        s = uses[i]->find(ident);
+        if (s != NULL)
+            return s;
+    }
+    return NULL;
+}
+
+
+void Module::addUses(Module* module)
+{
+    assert(!module->getName().empty());
+    objptr<ModuleAlias> alias = new ModuleAlias(module->getName(), module);
+    addUnique(alias);
+    uses.add(module);
 }
 
 
@@ -502,7 +523,7 @@ TypeReference::TypeReference(): Type(this, TYPEREF)  { }
 
 
 QueenBee::QueenBee()
-  : Module(NULL, 0)
+  : Module("system")
 {
     registerType(defTypeRef);
     defNone = registerType(new None());

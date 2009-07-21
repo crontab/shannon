@@ -63,6 +63,7 @@
 
 
 typedef size_t mem;
+typedef int16_t joffs_t;    // jump offset in code
 typedef std::string str;
 
 typedef unsigned char uchar;

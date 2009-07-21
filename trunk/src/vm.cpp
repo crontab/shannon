@@ -7,8 +7,8 @@
 // --- CODE SEGMENT -------------------------------------------------------- //
 
 
-CodeSeg::CodeSeg(State* _state, Context* _context)
-  : stksize(0), state(_state), context(_context), closed(0)  { }
+CodeSeg::CodeSeg(Module* _module, State* _state)
+    : stksize(0), module(_module), state(_state), closed(0)  { }
 
 CodeSeg::~CodeSeg()  { }
 
@@ -73,8 +73,9 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 
 void CodeSeg::failAssertion(unsigned file, unsigned line) const
 {
-    throw emessage("Assertion failed: " + context->getFileName(file)
-        + " line " + to_string(line));
+    notimpl();
+//    throw emessage("Assertion failed: " + context->getFileName(file)
+//        + " line " + to_string(line));
 }
 
 
@@ -134,7 +135,6 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;
-            case opLoadDataseg:     PUSH(stk, context->datasegs[ADV<uchar>(ip)]); break;
 
             case opPop:             POP(stk); break;
             case opSwap:            varswap(stk, stk - 1); break;
@@ -190,12 +190,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opLoadLocal:   PUSH(stk, stkbase[ADV<uchar>(ip)]); break;
             case opLoadThis:    PUSH(stk, *self->var(ADV<uchar>(ip))); break;
             case opLoadArg:     PUSH(stk, stkbase[- ADV<uchar>(ip) - 1]); break; // not tested
+/*
             case opLoadStatic:
                 {
                     mem mod = ADV<uchar>(ip);
                     PUSH(stk, *context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }
                 break;
+*/
             case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(ADV<uchar>(ip)); break;
             case opLoadOuter:   notimpl();
 
@@ -244,12 +246,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             case opStoreLocal:  STORETO(stk, stkbase + ADV<uchar>(ip)); break;
             case opStoreThis:   STORETO(stk, self->var(ADV<uchar>(ip))); break;
             case opStoreArg:    STORETO(stk, stkbase - ADV<uchar>(ip) - 1); break;
+/*
             case opStoreStatic:
                 {
                     mem mod = ADV<uchar>(ip);
                     STORETO(stk, context->datasegs[mod]->var(ADV<uchar>(ip)));
                 }
                 break;
+*/
             case opStoreMember:  notimpl();
             case opStoreOuter:   notimpl();
 
@@ -371,7 +375,7 @@ void ConstCode::run(variant& result) const
 
 // --- EXECUTION CONTEXT --------------------------------------------------- //
 
-
+/*
 Context::Context()
     : ready(false)
 {
@@ -399,7 +403,7 @@ Module* Context::registerModule(const str& name, Module* module)
     else
     {
         module->setName(name);
-        module->addUses(aliases[0]);
+        module->addUses(module);
     }
     return module;
 }
@@ -458,5 +462,5 @@ variant Context::run()
     datasegs.clear();
     return result;
 }
-
+*/
 

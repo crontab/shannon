@@ -279,7 +279,7 @@ void CodeGen::initRetVal(Type* expectType)
 void CodeGen::initLocalVar(Variable* var)
 {
     assert(var->isLocalVar());
-    if (codeseg->context == NULL || locals != genStack.size() - 1 || var->id != locals)
+    if (locals != genStack.size() - 1 || var->id != locals)
         _fatal(0x6003);
     locals++;
     // Local var simply remains on the stack, so just check the types
@@ -292,7 +292,7 @@ void CodeGen::deinitLocalVar(Variable* var)
     // TODO: don't generate POPs if at the end of a function: just don't call
     // deinitLocalVar()
     assert(var->isLocalVar());
-    if (codeseg->context == NULL || locals != genStack.size() || var->id != locals - 1)
+    if (locals != genStack.size() || var->id != locals - 1)
         _fatal(0x6004);
     locals--;
     discard();
@@ -312,6 +312,8 @@ void CodeGen::initThisVar(Variable* var)
 
 void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 {
+    notimpl();
+/*
     assert(var->state != NULL && var->state != state);
     if (!var->isThisVar())
         notimpl();
@@ -320,6 +322,7 @@ void CodeGen::doStaticVar(ThisVar* var, OpCode op)
     addOp(op);
     add8(module->id);
     add8(var->id);
+*/
 }
 
 
