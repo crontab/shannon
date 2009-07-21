@@ -271,7 +271,8 @@ public:
 
     variant* reserve(mem);  // returns a stack base ptr for fast operation
     void free(mem);
-    
+
+    bool empty()          const { return podvar_impl::empty(); }
     mem size()            const { return podvar_impl::size(); }
     void push(variant);
     variant& top()              { return (variant&)back(); }
@@ -374,6 +375,7 @@ public:
     ~objptr()                           { release(obj); }
     void operator= (const objptr<T>& p) { replace(obj, p.obj); }
     void operator= (T* o)               { replace(obj, o); }
+    void clear()                        { release(obj); obj = NULL; }
     T* operator* () const               { return obj; }
     T* operator-> () const              { return obj; }
     T* get() const                      { return obj; }
@@ -638,6 +640,7 @@ class langobj: public object
 {
 protected:
     friend class State;
+    friend void initTypeSys();
 
     void* operator new(size_t, mem);
     langobj(State*);

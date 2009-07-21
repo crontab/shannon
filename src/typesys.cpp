@@ -1,6 +1,7 @@
 
 #include "version.h"
 #include "typesys.h"
+#include "vm.h"
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
@@ -16,7 +17,7 @@ void* langobj::operator new(size_t, mem datasize)
 langobj::langobj(State* type)
     : object(type)
 #ifdef DEBUG
-    , varcount(type->thisSize())
+    , varcount(type == NULL ? 0 : type->thisSize())
 #endif
 {
 //    memset(vars, 0, type->dataSize() * sizeof(variant));
@@ -282,7 +283,7 @@ langobj* State::newObject()
 {
     mem s = thisSize();
     if (s == 0)
-        return NULL;
+        return nullLangObj;
     return new(s) langobj(this);
 }
 
@@ -339,6 +340,46 @@ void Module::addUses(Module* module)
     objptr<ModuleAlias> alias = new ModuleAlias(module->getName(), module);
     addUnique(alias);
     uses.add(module);
+}
+
+
+void Module::initialize(varstack& stack)
+{
+    if (instance == NULL)
+    {
+        instance = newObject();
+        CodeSeg::run(stack, instance, NULL);
+    }
+}
+
+
+variant Module::run()
+{
+    try
+    {
+        varstack stack;
+        for (mem i = 0; i < uses.size(); i++)
+            uses[i]->initialize(stack);
+        assert(stack.empty());
+        initialize(stack);
+    }
+    catch (eexit&)
+    {
+        // exit operator called, we are ok with it
+    }
+    catch (exception&)
+    {
+        // This shows that unsigned ints actually suck big time - you can't
+        // even iterate backwards in a decent way.
+        for (mem i = uses.size(); i--; )
+            uses[i]->finalize();
+        throw;
+    }
+    variant result = *queenBee->instance->var(queenBee->sresultvar->id);
+    finalize();
+    for (mem i = uses.size(); i--; )
+        uses[i]->finalize();
+    return result;
 }
 
 
@@ -587,9 +628,11 @@ void QueenBee::initialize(langobj* self)
 
 TypeReference* defTypeRef;
 QueenBee* queenBee;
+langobj* nullLangObj;
 
 static objptr<TypeReference> _defTypeRef;
 static objptr<QueenBee> _queenBee;
+static objptr<langobj> _nullLangObj;
 
 
 void initTypeSys()
@@ -599,10 +642,10 @@ void initTypeSys()
     // itself and should be created before anything else in the type system.
     _defTypeRef = defTypeRef = new TypeReference();
     _queenBee = queenBee = new QueenBee();
+    _nullLangObj = new(0) langobj(NULL);
     queenBee->setup();
     sio.set_rt(queenBee->defCharFifo);
     serr.set_rt(queenBee->defCharFifo);
-//    fout->set_rt();
 }
 
 
@@ -610,6 +653,7 @@ void doneTypeSys()
 {
     sio.clear_rt();
     serr.clear_rt();
+    _nullLangObj = nullLangObj = NULL;
     _queenBee = queenBee = NULL;
     _defTypeRef = defTypeRef = NULL;
 }

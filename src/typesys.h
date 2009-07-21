@@ -387,11 +387,19 @@ class Module: public State
 {
 protected:
     PtrList<Module> uses;
+
+    objptr<langobj> instance;
+    void initialize(varstack&); // create instance and run the main code or skip if created already
+    void finalize()             // destroy instance
+            { instance.clear(); }
+
 public:
     Module(const str& name);
     ~Module();
     virtual Symbol* deepFind(const str&) const; // override
     void addUses(Module*); // comes from the global module cache
+
+    variant run();      // run as main and return the result value (system.sresult)
 };
 
 
@@ -554,6 +562,7 @@ public:
 
 extern TypeReference* defTypeRef;
 extern QueenBee* queenBee;
+extern langobj* nullLangObj;    // modules with empty static datasegs can use this
 
 
 void initTypeSys();
