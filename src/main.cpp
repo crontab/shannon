@@ -16,21 +16,20 @@
 class Compiler
 {
     Parser& parser;
-    Context& context;
     CodeGen* codegen;
     bool started;
     bool successful;
 
 public:
-    Compiler(Parser& _parser, Context& _context);
+    Compiler(Parser& _parser);
     ~Compiler();
     
     void compile();
 };
 
 
-Compiler::Compiler(Parser& _parser, Context& _context)
-  : parser(_parser), context(_context), codegen(NULL),
+Compiler::Compiler(Parser& _parser)
+  : parser(_parser), codegen(NULL),
     started(false), successful(false)  { }
 
 Compiler::~Compiler()  { }
@@ -42,9 +41,9 @@ void Compiler::compile()
         fatal(0x7001, "Compiler object can't be used more than once");
     started = true;
 
-    Module* module = context.addModule("main");    // TODO: read the module name from the file
-    CodeGen mainCodeGen(module);
-    codegen = &mainCodeGen;
+//    Module* module = context.addModule("main");    // TODO: read the module name from the file
+//    CodeGen mainCodeGen(module);
+//    codegen = &mainCodeGen;
 
     successful = true;
 }
@@ -69,10 +68,9 @@ int main()
 #endif
 
         Parser parser(fn, new in_text(NULL, fn));
-        Context context;
-        Compiler compiler(parser, context);
+/*
+        Compiler compiler(parser);
         compiler.compile();
-        context.setReady();
 
         variant result = context.run();
         if (result.is_null())
@@ -89,6 +87,7 @@ int main()
             serr << result << endl;
             exitcode = 102;
         }
+*/
     }
     catch (std::exception& e)
     {

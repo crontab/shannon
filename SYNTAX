@@ -19,10 +19,7 @@
 
 # ---------- Module
 
-module ::= [module-header <SEP>] statement-list
-
-module-header ::= "module" ident
-
+module ::= statement-list
 
 # ---------- Statements
 
