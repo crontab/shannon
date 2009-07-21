@@ -266,7 +266,7 @@ protected:
     List<Definition> defs;
 public:
     Scope(Scope* outer);
-    ~Scope();
+    virtual ~Scope();
     virtual Symbol* deepFind(const str&) const; // overridden in Module to look in linked modules
     Constant* addConstant(Type*, const str&, const variant&);
     TypeAlias* addTypeAlias(const str&, Type*);
@@ -385,21 +385,21 @@ typedef Module* PModule;
 
 class Module: public State
 {
+    friend class CodeSeg;
+
 protected:
     PtrList<Module> uses;
-
     objptr<langobj> instance;
-    void initialize(varstack&); // create instance and run the main code or skip if created already
-    void finalize()             // destroy instance
+    virtual void initialize(varstack&); // create instance and run the main code or skip if created already
+    virtual void finalize()             // destroy instance
             { instance.clear(); }
-
 public:
     Module(const str& name);
     ~Module();
-    virtual Symbol* deepFind(const str&) const; // override
+    Symbol* deepFind(const str&) const; // override
     void addUses(Module*); // comes from the global module cache
-
-    variant run();      // run as main and return the result value (system.sresult)
+    // Run as main and return the result value (system.sresult)
+    variant run();  // <-- execution of the whole thing starts here
 };
 
 
@@ -541,6 +541,7 @@ public:
 
 class QueenBee: public Module
 {
+    friend void initTypeSys();
 public:
     None* defNone;
     Ordinal* defInt;
@@ -553,10 +554,12 @@ public:
     Variable* serrvar;
     Variable* sresultvar;
 
+    Type* typeFromValue(const variant&);
+
+protected:
     QueenBee();
     void setup();
-    Type* typeFromValue(const variant&);
-    void initialize(langobj*);
+    void initialize(varstack&); // override
 };
 
 

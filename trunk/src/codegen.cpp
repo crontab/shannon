@@ -312,17 +312,13 @@ void CodeGen::initThisVar(Variable* var)
 
 void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 {
-    notimpl();
-/*
     assert(var->state != NULL && var->state != state);
     if (!var->isThisVar())
         notimpl();
     Module* module = CAST(Module*, var->state);
-    assert(module->id <= 255);
     addOp(op);
-    add8(module->id);
+    addPtr(module);
     add8(var->id);
-*/
 }
 
 
@@ -334,7 +330,7 @@ void CodeGen::loadVar(Variable* var)
     assert(var->state != NULL);
     if (var->state == state)
     {
-        // Result, local, this or arg variable of the current state
+        // opLoadRet, opLoadLocal, opLoadThis, opLoadArg
         addOp(OpCode(opLoadRet + (var->symbolId - Symbol::FIRSTVAR)));
         add8(var->id);
     }
@@ -375,7 +371,7 @@ void CodeGen::storeVar(Variable* var)
     stkPop();
     if (var->state == state)
     {
-        // Result, local, this or arg variable of the current state
+        // opStoreRet, opStoreLocal, opStoreThis, opStoreArg
         addOp(OpCode(opStoreRet + (var->symbolId - Symbol::FIRSTVAR)));
         add8(var->id);
     }
