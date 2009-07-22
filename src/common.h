@@ -108,6 +108,9 @@ template<class T>
 
 unsigned long long from_string(const char*, bool* error, bool* overflow, int base = 10);
 
+str remove_filename_path(const str&);
+str remove_filename_ext(const str&);
+
 
 class noncopyable 
 {

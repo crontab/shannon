@@ -13,23 +13,23 @@
 // --- HIS MAJESTY, THE COMPILER ------------------------------------------- //
 
 
-class Compiler
+class Compiler: noncopyable
 {
     Parser& parser;
+    Module& mainModule;
     CodeGen* codegen;
     bool started;
     bool successful;
 
 public:
-    Compiler(Parser& _parser);
+    Compiler(Parser&, Module&);
     ~Compiler();
-    
     void compile();
 };
 
 
-Compiler::Compiler(Parser& _parser)
-  : parser(_parser), codegen(NULL),
+Compiler::Compiler(Parser& _parser, Module& _main)
+  : parser(_parser), mainModule(_main), codegen(NULL),
     started(false), successful(false)  { }
 
 Compiler::~Compiler()  { }
@@ -68,11 +68,13 @@ int main()
 #endif
 
         Parser parser(fn, new in_text(NULL, fn));
-/*
-        Compiler compiler(parser);
+        Module module(remove_filename_path(remove_filename_ext(fn)));
+
+        Compiler compiler(parser, module);
         compiler.compile();
 
-        variant result = context.run();
+        variant result = module.run();
+
         if (result.is_null())
             exitcode = 0;
         else if (result.is_ordinal())
@@ -87,7 +89,7 @@ int main()
             serr << result << endl;
             exitcode = 102;
         }
-*/
+
     }
     catch (std::exception& e)
     {

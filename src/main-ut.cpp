@@ -67,6 +67,20 @@ void test_common()
     // syserror
     check(str(esyserr(2, "arg").what()) == "No such file or directory (arg)");
     check(str(esyserr(2).what()) == "No such file or directory");
+    
+    check(remove_filename_path("/usr/bin/true") == "true");
+    check(remove_filename_path("usr/bin/true") == "true");
+    check(remove_filename_path("/true") == "true");
+    check(remove_filename_path("true") == "true");
+    check(remove_filename_path("c:\\Windows\\false") == "false");
+    check(remove_filename_path("\\Windows\\false") == "false");
+    check(remove_filename_path("Windows\\false") == "false");
+    check(remove_filename_path("\\false") == "false");
+    check(remove_filename_path("false") == "false");
+
+    check(remove_filename_ext("/usr/bin/true.exe") == "/usr/bin/true");
+    check(remove_filename_ext("true.exe") == "true");
+    check(remove_filename_ext("true") == "true");
 }
 
 
