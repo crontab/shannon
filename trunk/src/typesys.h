@@ -386,10 +386,13 @@ typedef Module* PModule;
 class Module: public State
 {
     friend class CodeSeg;
+    friend class Compiler;
 
 protected:
     PtrList<Module> uses;
     objptr<langobj> instance;
+    std::vector<str> fileNames;         // for assert statements
+    
     virtual void initialize(varstack&); // create instance and run the main code or skip if created already
     virtual void finalize()             // destroy instance
             { instance.clear(); }

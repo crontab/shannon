@@ -206,6 +206,29 @@ unsigned long long from_string(const char* p, bool* error, bool* overflow, int b
 }
 
 
+str remove_filename_path(const str& fn)
+{
+    mem i = fn.rfind('/');
+    if (i == str::npos)
+    {
+        i = fn.rfind('\\');
+        if (i == str::npos)
+            return fn;
+    }
+    return fn.substr(i + 1);
+}
+
+
+str remove_filename_ext(const str& fn)
+{
+    mem i = fn.rfind('.');
+    if (i == str::npos)
+        return fn;
+    return fn.substr(0, i);
+}
+
+
+
 emessage::emessage(const str& m) throw(): message(m) { }
 emessage::emessage(const char* m) throw(): message(m) { }
 emessage::~emessage() throw() { }
