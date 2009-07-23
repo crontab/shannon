@@ -347,6 +347,13 @@ void Module::addUses(Module* module)
 }
 
 
+mem Module::registerAssertFileName(const str& fn)
+{
+    assertFileNames.push_back(fn);
+    return assertFileNames.size() - 1;
+}
+
+
 void Module::initialize(varstack& stack)
 {
     if (instance == NULL)

@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <vector>
 #include <map>
 
 
@@ -387,11 +388,10 @@ class Module: public State
 {
     friend class CodeSeg;
     friend class Compiler;
-
 protected:
     PtrList<Module> uses;
     objptr<langobj> instance;
-    std::vector<str> fileNames;         // for assert statements
+    std::vector<str> assertFileNames;
     
     virtual void initialize(varstack&); // create instance and run the main code or skip if created already
     virtual void finalize()             // destroy instance
@@ -401,6 +401,7 @@ public:
     ~Module();
     Symbol* deepFind(const str&) const; // override
     void addUses(Module*); // comes from the global module cache
+    mem registerAssertFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
 };
