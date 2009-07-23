@@ -1012,14 +1012,14 @@ void test_vm()
             gen.discard();
             gen.elemCat();
 
-                gen.loadStr("The value of true is: ");
-                gen.echo();
-                gen.loadBool(true);
-                gen.echo();
-                gen.echoLn();
-//                mem f = ctx.registerFileInfo(__FILE__);
-//                gen.loadBool(false);
-//                gen.assertion(f, __LINE__);
+//            gen.loadStr("The value of true is: ");
+//            gen.echo();
+//            gen.loadBool(true);
+//            gen.echo();
+//            gen.echoLn();
+//            mem f = mod.registerAssertFileName(__FILE__);
+//            gen.loadBool(false);
+//            gen.assertion(f, __LINE__);
 
             gen.exit();
 

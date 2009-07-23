@@ -73,9 +73,8 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 
 void CodeSeg::failAssertion(unsigned file, unsigned line) const
 {
-    notimpl();
-//    throw emessage("Assertion failed: " + context->getFileName(file)
-//        + " line " + to_string(line));
+    throw emessage("Assertion failed: " + module->assertFileNames[file]
+        + " line " + to_string(line));
 }
 
 
