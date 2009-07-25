@@ -416,7 +416,12 @@ dict::dict(Type* rt)
     : object(rt)  { }
 dict::dict(const dict& other)
     : object(other.runtime_type), impl(other.impl)  { }
-dict::~dict()   { }
+dict::~dict()  { }
+void dict::tie(const variant& key, const variant& value)
+                                                    { impl[key] = value; }
+void dict::untie(const variant& v)                  { impl.erase(v); }
+dict_iterator dict::find(const variant& v) const    { return impl.find(v); }
+bool dict::has(const variant& key) const            { return impl.find(key) != impl.end(); }
 
 void dict::dump(fifo_intf& s) const
 {
@@ -433,7 +438,7 @@ ordset::ordset(Type* rt)
     : object(rt)  { }
 ordset::ordset(const ordset& other)
     : object(other.runtime_type), impl(other.impl)  { }
-ordset::~ordset()     { }
+ordset::~ordset()  { }
 
 void ordset::dump(fifo_intf& s) const
 {
@@ -452,7 +457,10 @@ set::set(Type* rt)
     : object(rt)  { }
 set::set(const set& other)
     : object(other.runtime_type), impl(other.impl)  { }
-set::~set()     { }
+set::~set()  { }
+void set::tie(const variant& v)             { impl.insert(v); }
+void set::untie(const variant& v)           { impl.erase(v); }
+bool set::has(const variant& v) const       { return impl.find(v) != impl.end(); }
 
 void set::dump(fifo_intf& s) const
 {

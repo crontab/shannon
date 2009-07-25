@@ -205,6 +205,7 @@ class BlockScope;
 
 class CodeGen: noncopyable
 {
+    typedef std::map<str, mem> StringMap;
 protected:
 
     struct stkinfo
@@ -217,9 +218,10 @@ protected:
     CodeSeg* codeseg;
     State* state;
     mem lastOpOffs;
-
+    StringMap stringMap;
     typedef std::vector<stkinfo> stkImpl;
     stkImpl genStack;
+    
     mem stkMax;
     mem locals;
 #ifdef DEBUG
@@ -250,6 +252,8 @@ protected:
     void stkReplace(Type*);
     Type* stkPop();
 
+    void loadConstById(mem id);
+    mem  loadCompoundConst(const variant&);
     void doStaticVar(ThisVar* var, OpCode);
     void CodeGen::loadStoreVar(Variable* var, OpCode base);
     void typeCast(Type* from, Type* to, const char* errmsg);

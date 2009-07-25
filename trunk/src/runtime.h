@@ -307,13 +307,11 @@ public:
     dict(Type*);
     ~dict();
     virtual object* clone() const;
-//    mem size()                          const { return impl.size(); }
     bool empty()                              { return impl.empty(); }
-    void tie(const variant& key, const variant& value)
-                                              { impl[key] = value; }
-    void untie(const variant& v)              { impl.erase(v); }
-    dict_iterator find(const variant& v)const { return impl.find(v); }
-    bool has(const variant& key)        const { return impl.find(key) != impl.end(); }
+    void tie(const variant& key, const variant& value);
+    void untie(const variant& v);
+    dict_iterator find(const variant& v) const;
+    bool has(const variant& key) const;
     virtual void dump(fifo_intf&) const;
     dict_iterator begin()               const { return impl.begin(); }
     dict_iterator end()                 const { return impl.end(); }
@@ -330,11 +328,10 @@ public:
     ~set();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-//    mem size()                          const { return impl.size(); }
     bool empty()                              { return impl.empty(); }
-    void tie(const variant& v)                { impl.insert(v); }
-    void untie(const variant& v)              { impl.erase(v); }
-    bool has(const variant& v)          const { return impl.find(v) != impl.end(); }
+    void tie(const variant& v);
+    void untie(const variant& v);
+    bool has(const variant& v) const;
     set_iterator begin()                const { return impl.begin(); }
     set_iterator end()                  const { return impl.end(); }
 };
