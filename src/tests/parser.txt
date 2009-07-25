@@ -1,5 +1,5 @@
 Thunder,
-        module
+        assert
 	    Feel the magic
   	    Thundercats are const.
         42

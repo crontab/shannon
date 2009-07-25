@@ -56,3 +56,6 @@
   possible.
 
 * Global repository of string literals
+
+* Built-ins: empty(), ord(), typeof() etc.
+

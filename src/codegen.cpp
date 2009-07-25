@@ -53,20 +53,21 @@ void CodeGen::close()
 }
 
 
-bool CodeGen::revertLastLoad()
+void CodeGen::discardCode(mem from)
+{
+    codeseg->resize(from);
+    if (lastOpOffs >= from)
+        lastOpOffs = mem(-1);
+}
+
+
+void CodeGen::revertLastLoad()
 {
     if (lastOpOffs != mem(-1) && isLoadOp(OpCode((*codeseg)[lastOpOffs])))
-    {
-        codeseg->resize(lastOpOffs);
-        lastOpOffs = mem(-1);
-        return true;
-    }
+        discardCode(lastOpOffs);
     else
-    {
-        notimpl();
         // discard();
-        return false;
-    }
+        notimpl();
 }
 
 
@@ -208,6 +209,9 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
             addOp(opLoadNullStr);
         else
         {
+            // Detect duplicate string consts. The reason this is done here and
+            // not, say, in the host module is because of const expressions that
+            // don't have an execution context.
             StringMap::iterator i = stringMap.find(value._str_read());
             if (i == stringMap.end())
             {
@@ -358,7 +362,7 @@ void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 }
 
 
-void CodeGen::loadStoreVar(Variable* var, OpCode base)
+void CodeGen::loadStoreVar(Variable* var, bool load)
 {
     if (state == NULL)
         throw emessage("Not allowed in constant expressions");
@@ -366,13 +370,14 @@ void CodeGen::loadStoreVar(Variable* var, OpCode base)
     assert(var->state != NULL);
     if (var->state == state || (var->state == state->selfPtr && var->isThisVar()))
     {
+        OpCode base = load ? opLoadBase : opStoreBase;
         // opXxxRet, opXxxLocal, opXxxThis, opXxxArg
         addOp(OpCode(base + (var->symbolId - Symbol::FIRSTVAR)));
         add8(var->id);
     }
     else if (var->state != state && var->isThisVar() && var->state->isModule())
         // Static from another module
-        doStaticVar(var, base == opLoadBase ? opLoadStatic : opStoreStatic);
+        doStaticVar(var, load ? opLoadStatic : opStoreStatic);
     else
         notimpl();
 }
@@ -380,7 +385,7 @@ void CodeGen::loadStoreVar(Variable* var, OpCode base)
 
 void CodeGen::loadVar(Variable* var)
 {
-    loadStoreVar(var, opLoadBase);
+    loadStoreVar(var, true);
     stkPush(var->type);
 }
 
@@ -389,16 +394,16 @@ void CodeGen::storeVar(Variable* var)
 {
     implicitCastTo(var->type, "Expression type mismatch");
     stkPop();
-    loadStoreVar(var, opStoreBase);
+    loadStoreVar(var, false);
 }
 
 
 void CodeGen::loadMember(const str& ident)
 {
-    const stkinfo& info = stkTop();
-    if (info.type->isTypeRef())
+    Type* type = stkTopType();
+    if (type->isTypeRef())
     {
-        Type* type = CAST(Type*, info.value._object());
+        type = CAST(Type*, stkTopValue()._object());
         stkPop();
         if (type->isState())
         {

@@ -1,1 +1,2 @@
-def system.false
+echo 'The value is now', system.false
+assert false
