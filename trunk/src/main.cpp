@@ -48,6 +48,8 @@ protected:
     Type* expression()  { return designator(); }
     Type* expression(Type* hint);
 
+    void parseEcho();
+    void parseAssert();
     void parseBlock();
     void parseDefinition();
 
@@ -114,7 +116,8 @@ void Compiler::atom()
         codegen->loadSymbol(s);
         parser.next();
     }
-
+    // TODO: if function
+    // TODO: container ctor
     else
         errorWithLoc("Expression syntax");
 }
@@ -155,6 +158,43 @@ void Compiler::parseDefinition()
 }
 
 
+void Compiler::parseEcho()
+{
+    mem codeOffs = codegen->getCurPos();
+    if (parser.token != tokSep)
+    {
+        while (1)
+        {
+            expression();
+            codegen->echo();
+            if (parser.token == tokComma)
+            {
+                codegen->echoSpace();
+                parser.next();
+            }
+            else
+                break;
+        }
+    }
+    codegen->echoLn();
+    if (!options.enableEcho)
+        codegen->discardCode(codeOffs);
+    parser.skipSep();
+}
+
+
+void Compiler::parseAssert()
+{
+    mem codeOffs = codegen->getCurPos();
+    int linenum = parser.getLineNum();
+    expression();
+    codegen->assertion(fileId, linenum);
+    if (!options.enableAssert)
+        codegen->discardCode(codeOffs);
+    parser.skipSep();
+}
+
+
 void Compiler::parseBlock()
 {
     while (!parser.skipIf(tokBlockEnd))
@@ -166,6 +206,10 @@ void Compiler::parseBlock()
             ;
         else if (parser.skipIf(tokDef))
             parseDefinition();
+        else if (parser.skipIf(tokEcho))
+            parseEcho();
+        else if (parser.skipIf(tokAssert))
+            parseAssert();
         else
             notimpl();
     }

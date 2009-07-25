@@ -472,7 +472,7 @@ void test_source()
         Parser p(fn, new in_text(NULL, fn));
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
-            tokIndent, tokModule, tokSep,
+            tokIndent, tokAssert, tokSep,
             tokIndent, tokIdent, tokIdent, tokIdent, tokSep,
             tokIdent, tokIdent, tokConst, tokPeriod, tokSep,
             tokBlockEnd,

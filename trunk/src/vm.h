@@ -166,6 +166,7 @@ enum OpCode
 
     // Helpers
     opEcho,             // -var
+    opEchoSpace,
     opEchoLn,
     opLineNum,          // [file-id: 16, line-num: 16]
     opAssert,           // -bool
@@ -235,7 +236,7 @@ protected:
     void addJumpOffs(joffs_t i);
     void addInt(integer i);
     void addPtr(void* p);
-    bool revertLastLoad();
+    void revertLastLoad();
     void close();
 
     void stkPush(Type* t, const variant& v);
@@ -247,6 +248,8 @@ protected:
     const stkinfo& stkTop(mem) const;
     Type* stkTopType() const
             { return stkTop().type; }
+    const variant& stkTopValue() const
+            { return stkTop().value; }
     Type* stkTopType(mem i) const
             { return stkTop(i).type; }
     void stkReplace(Type*);
@@ -255,7 +258,7 @@ protected:
     void loadConstById(mem id);
     mem  loadCompoundConst(const variant&);
     void doStaticVar(ThisVar* var, OpCode);
-    void CodeGen::loadStoreVar(Variable* var, OpCode base);
+    void loadStoreVar(Variable* var, bool load);
     void typeCast(Type* from, Type* to, const char* errmsg);
 
 public:
@@ -320,6 +323,7 @@ public:
     
     mem  getCurPos()
             { return codeseg->size(); }
+    void discardCode(mem from);
     void genPop()  // pop a value off the generator's stack
             { stkPop(); }
     void jump(mem target);
@@ -332,6 +336,8 @@ public:
     
     void echo()
             { stkPop(); addOp(opEcho); }
+    void echoSpace()
+            { addOp(opEchoSpace); }
     void echoLn()
             { addOp(opEchoLn); }
     void assertion(integer file, integer line);
