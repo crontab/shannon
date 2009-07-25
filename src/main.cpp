@@ -43,7 +43,7 @@ protected:
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
 
     Symbol* getQualifiedName();
-    Type* atom();
+    void atom();
     Type* designator();
     Type* expression()  { return designator(); }
     Type* expression(Type* hint);
@@ -84,7 +84,7 @@ Compiler::~Compiler()  { }
 */
 
 
-Type* Compiler::atom()
+void Compiler::atom()
 {
     if (parser.skipIf(tokLParen))
     {
@@ -117,8 +117,6 @@ Type* Compiler::atom()
 
     else
         errorWithLoc("Expression syntax");
-
-    return codegen->getTopType();
 }
 
 

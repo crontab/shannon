@@ -136,11 +136,36 @@ void CodeGen::loadNullContainer(Container* contType)
 }
 
 
+void CodeGen::loadConstById(mem id)
+{
+    if (id < 256)
+    {
+        addOp(opLoadConst);
+        add8(uchar(id));
+    }
+    else if (id < 65536)
+    {
+        addOp(opLoadConst2);
+        add16(id);
+    }
+    else
+        throw emessage("Maximum number of constants in a block reached");
+}
+
+
+mem CodeGen::loadCompoundConst(const variant& value)
+{
+    mem id = codeseg->consts.size();
+    codeseg->consts.push_back(value);
+    loadConstById(id);
+    return id;
+}
+
+
 void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
 {
     // NONE, BOOL, CHAR, INT, ENUM, RANGE,
     //    DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE
-    bool addToConsts = false;
     bool isEmpty = value.empty();
 
     switch (type->getTypeId())
@@ -171,25 +196,43 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         }
         break;
     case Type::RANGE:
-        if (isEmpty) addOpPtr(opLoadNullRange, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullRange, type);
+        else loadCompoundConst(value);
         break;
     case Type::DICT:
-        if (isEmpty) addOpPtr(opLoadNullDict, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullDict, type);
+        else loadCompoundConst(value);
         break;
     case Type::STR:
-        if (isEmpty) addOp(opLoadNullStr); else addToConsts = true;
+        if (isEmpty)
+            addOp(opLoadNullStr);
+        else
+        {
+            StringMap::iterator i = stringMap.find(value._str_read());
+            if (i == stringMap.end())
+            {
+                mem id = loadCompoundConst(value);
+                stringMap.insert(i, std::pair<str, mem>(value._str_read(), id));
+            }
+            else
+                loadConstById(i->second);
+        }
         break;
     case Type::VEC:
-        if (isEmpty) addOpPtr(opLoadNullVec, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullVec, type);
+        else loadCompoundConst(value);
         break;
     case Type::ARRAY:
-        if (isEmpty) addOpPtr(opLoadNullArray, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullArray, type);
+        else loadCompoundConst(value);
         break;
     case Type::ORDSET:
-        if (isEmpty) addOpPtr(opLoadNullOrdset, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullOrdset, type);
+        else loadCompoundConst(value);
         break;
     case Type::SET:
-        if (isEmpty) addOpPtr(opLoadNullSet, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullSet, type);
+        else loadCompoundConst(value);
         break;
     case Type::VARFIFO:
     case Type::CHARFIFO:
@@ -202,24 +245,6 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     case Type::STATE:
         addOpPtr(opLoadTypeRef, value.as_object());
         break;
-    }
-
-    if (addToConsts)
-    {
-        mem n = codeseg->consts.size();
-        codeseg->consts.push_back(value);
-        if (n < 256)
-        {
-            addOp(opLoadConst);
-            add8(uchar(n));
-        }
-        else if (n < 65536)
-        {
-            addOp(opLoadConst2);
-            add16(n);
-        }
-        else
-            throw emessage("Maximum number of constants in a block reached");
     }
 
     stkPush(asVariant ? queenBee->defVariant : type, value);
