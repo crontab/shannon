@@ -4,7 +4,7 @@
 
 
 CodeGen::CodeGen(CodeSeg* _codeseg)
-  : codeseg(_codeseg), state(_codeseg->state),
+  : codeseg(_codeseg), state(_codeseg->ownState),
     lastOpOffs(mem(-1)), stkMax(0), locals(0)
 #ifdef DEBUG
     , stkSize(0)
@@ -55,23 +55,24 @@ void CodeGen::close()
 
 bool CodeGen::revertLastLoad()
 {
-    if (lastOpOffs == mem(-1) || !isLoadOp(OpCode((*codeseg)[lastOpOffs])))
-    {
-        discard();
-        return false;
-    }
-    else
+    if (lastOpOffs != mem(-1) && isLoadOp(OpCode((*codeseg)[lastOpOffs])))
     {
         codeseg->resize(lastOpOffs);
         lastOpOffs = mem(-1);
         return true;
     }
+    else
+    {
+        notimpl();
+        // discard();
+        return false;
+    }
 }
 
 
-void CodeGen::stkPush(Type* type, const variant&)
+void CodeGen::stkPush(Type* type, const variant& value)
 {
-    genStack.push_back(stkinfo(type));
+    genStack.push_back(stkinfo(type, value));
     if (genStack.size() > stkMax)
         stkMax = genStack.size();
 #ifdef DEBUG
@@ -140,7 +141,7 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     // NONE, BOOL, CHAR, INT, ENUM, RANGE,
     //    DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE
     bool addToConsts = false;
-    bool empty = value.empty();
+    bool isEmpty = value.empty();
 
     switch (type->getTypeId())
     {
@@ -148,7 +149,7 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         addOp(opLoadNull);
         break;
     case Type::BOOL:
-        addOp(empty ? opLoadFalse : opLoadTrue);
+        addOp(isEmpty ? opLoadFalse : opLoadTrue);
         break;
     case Type::CHAR:
         addOp(opLoadChar);
@@ -170,25 +171,25 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         }
         break;
     case Type::RANGE:
-        if (empty) addOpPtr(opLoadNullRange, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullRange, type); else addToConsts = true;
         break;
     case Type::DICT:
-        if (empty) addOpPtr(opLoadNullDict, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullDict, type); else addToConsts = true;
         break;
     case Type::STR:
-        if (empty) addOp(opLoadNullStr); else addToConsts = true;
+        if (isEmpty) addOp(opLoadNullStr); else addToConsts = true;
         break;
     case Type::VEC:
-        if (empty) addOpPtr(opLoadNullVec, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullVec, type); else addToConsts = true;
         break;
     case Type::ARRAY:
-        if (empty) addOpPtr(opLoadNullArray, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullArray, type); else addToConsts = true;
         break;
     case Type::ORDSET:
-        if (empty) addOpPtr(opLoadNullOrdset, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullOrdset, type); else addToConsts = true;
         break;
     case Type::SET:
-        if (empty) addOpPtr(opLoadNullSet, type); else addToConsts = true;
+        if (isEmpty) addOpPtr(opLoadNullSet, type); else addToConsts = true;
         break;
     case Type::VARFIFO:
     case Type::CHARFIFO:
@@ -202,7 +203,6 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         addOpPtr(opLoadTypeRef, value.as_object());
         break;
     }
-
 
     if (addToConsts)
     {
@@ -223,6 +223,17 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     }
 
     stkPush(asVariant ? queenBee->defVariant : type, value);
+}
+
+
+void CodeGen::loadSymbol(Symbol* symbol)
+{
+    if (symbol->isDefinition())
+        loadDefinition(PDef(symbol));
+    else if (symbol->isVariable())
+        loadVar(PVar(symbol));
+    else
+        fatal(0x6005, "Unknown symbol type");
 }
 
 
@@ -322,82 +333,66 @@ void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 }
 
 
-void CodeGen::loadVar(Variable* var)
+void CodeGen::loadStoreVar(Variable* var, OpCode base)
 {
     if (state == NULL)
         throw emessage("Not allowed in constant expressions");
     assert(var->id <= 255);
     assert(var->state != NULL);
-    if (var->state == state)
+    if (var->state == state || (var->state == state->selfPtr && var->isThisVar()))
     {
-        // opLoadRet, opLoadLocal, opLoadThis, opLoadArg
-        addOp(OpCode(opLoadRet + (var->symbolId - Symbol::FIRSTVAR)));
+        // opXxxRet, opXxxLocal, opXxxThis, opXxxArg
+        addOp(OpCode(base + (var->symbolId - Symbol::FIRSTVAR)));
         add8(var->id);
     }
-    else if (var->state == state->selfPtr)
-    {
-        // Load through the self pointer, whatever it is (can be outer scope
-        // or this scope - anything)
-        if (var->isThisVar())
-        {
-            addOp(opLoadThis);
-            add8(var->id);
-        }
-        else
-            notimpl();
-    }
-    else if (var->state != state)
-    {
-        if (var->state->isModule())
-            // Static from another module
-            doStaticVar(var, opLoadStatic);
-        else
-            // From somewhere else - not implemented yet
-            notimpl();
-    }
+    else if (var->state != state && var->isThisVar() && var->state->isModule())
+        // Static from another module
+        doStaticVar(var, base == opLoadBase ? opLoadStatic : opStoreStatic);
     else
         notimpl();
+}
+
+
+void CodeGen::loadVar(Variable* var)
+{
+    loadStoreVar(var, opLoadBase);
     stkPush(var->type);
 }
 
 
-// TODO: coomon code with loadVar(), just opcodes differ
 void CodeGen::storeVar(Variable* var)
 {
-    assert(var->id <= 255);
-    assert(var->state != NULL);
-
     implicitCastTo(var->type, "Expression type mismatch");
     stkPop();
-    if (var->state == state)
+    loadStoreVar(var, opStoreBase);
+}
+
+
+void CodeGen::loadMember(const str& ident)
+{
+    const stkinfo& info = stkTop();
+    if (info.type->isTypeRef())
     {
-        // opStoreRet, opStoreLocal, opStoreThis, opStoreArg
-        addOp(OpCode(opStoreRet + (var->symbolId - Symbol::FIRSTVAR)));
-        add8(var->id);
-    }
-    else if (var->state == state->selfPtr)
-    {
-        // Store through the self pointer, whatever it is (can be outer scope
-        // or this scope - anything)
-        if (var->isThisVar())
+        Type* type = CAST(Type*, info.value._object());
+        stkPop();
+        if (type->isState())
         {
-            addOp(opStoreThis);
-            add8(var->id);
+            Symbol* symbol = PState(type)->findShallow(ident);
+            if (type->isModule())
+            {
+                revertLastLoad();
+                loadSymbol(symbol);
+            }
+            else
+                // TODO: inherited call for states
+                notimpl();
         }
         else
-            notimpl();
+            throw emessage("Invalid member selection");
     }
-    else if (var->state != state)
-    {
-        if (var->state->isModule())
-            // Static from another module
-            doStaticVar(var, opStoreStatic);
-        else
-            // From somewhere else - not implemented yet
-            notimpl();
-    }
+    // TODO: do dictionary element selection?
     else
-        notimpl();
+        throw emessage("Invalid member selection");
 }
 
 
@@ -825,13 +820,20 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
 
 void CodeGen::assertion(integer file, integer line)
 {
-    if (file > 65535)
-        throw emessage("Too many files... how is this possible?");
-    if (line > 65535)
-        throw emessage("Line number too big for assert operation");
+    linenum(file, line);
     implicitCastTo(queenBee->defBool, "Boolean expression expected");
     stkPop();
     addOp(opAssert);
+}
+
+
+void CodeGen::linenum(integer file, integer line)
+{
+    if (file > 65535)
+        throw emessage("Too many files... testing me? Huh?");
+    if (line > 65535)
+        throw emessage("Line number too big");
+    addOp(opLineNum);
     add16(file);
     add16(line);
 }

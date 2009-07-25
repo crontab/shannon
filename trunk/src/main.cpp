@@ -6,33 +6,172 @@
 #include "typesys.h"
 #include "vm.h"
 
-
 #include <stdlib.h>
 
 
 // --- HIS MAJESTY, THE COMPILER ------------------------------------------- //
 
 
+struct CompilerOptions
+{
+    bool enableEcho;
+    bool enableAssert;
+    bool linenumInfo;
+    bool vmListing;
+
+    CompilerOptions()
+      : enableEcho(true), enableAssert(true), linenumInfo(true),
+        vmListing(true)  { }
+};
+
+
 class Compiler: noncopyable
 {
+protected:
     Parser& parser;
     Module& mainModule;
-    CodeGen* codegen;
+    CompilerOptions options;
+    mem fileId;
     bool started;
-    bool successful;
+
+    CodeGen* codegen;
+    Scope* scope;
+
+    void error(const str& msg)              { parser.error(msg); }
+    void error(const char* msg)             { parser.error(msg); }
+    void errorWithLoc(const str& msg)       { parser.errorWithLoc(msg); }
+    void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
+
+    Symbol* getQualifiedName();
+    Type* atom();
+    Type* designator();
+    Type* expression()  { return designator(); }
+    Type* expression(Type* hint);
+
+    void parseBlock();
+    void parseDefinition();
 
 public:
     Compiler(Parser&, Module&);
     ~Compiler();
+
     void compile();
 };
 
 
 Compiler::Compiler(Parser& _parser, Module& _main)
-  : parser(_parser), mainModule(_main), codegen(NULL),
-    started(false), successful(false)  { }
+  : parser(_parser), mainModule(_main), started(false),
+    codegen(NULL), scope(NULL)  { }
 
 Compiler::~Compiler()  { }
+
+
+// --- EXPRESSION ---------------------------------------------------------- //
+
+/*
+    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>,
+        true, false, null, compound-ctor
+    <array-sel>, <function-call>, <mute>
+    -
+    *, /, mod, as
+    +, –
+    |
+    ==, <>, != <, >, <=, >=, in, is
+    not
+    and
+    or, xor
+    ..
+*/
+
+
+Type* Compiler::atom()
+{
+    if (parser.skipIf(tokLParen))
+    {
+        expression();
+        parser.skip(tokRParen, ")");
+    }
+
+    else if (parser.token == tokIntValue)
+    {
+        codegen->loadInt(parser.intValue);
+        parser.next();
+    }
+
+    else if (parser.token == tokStrValue)
+    {
+        str value = parser.strValue;
+        if (value.size() == 1)
+            codegen->loadChar(value[0]);
+        else
+            codegen->loadStr(value);
+        parser.next();
+    }
+
+    else if (parser.token == tokIdent)
+    {
+        Symbol* s = scope->findDeep(parser.strValue);
+        codegen->loadSymbol(s);
+        parser.next();
+    }
+
+    else
+        errorWithLoc("Expression syntax");
+
+    return codegen->getTopType();
+}
+
+
+Type* Compiler::designator()
+{
+    atom();
+    
+    while (1)
+    {
+        if (parser.skipIf(tokPeriod))
+        {
+            codegen->loadMember(parser.getIdentifier());
+            parser.next();
+        }
+        else
+            break;
+    }
+    return codegen->getTopType();
+}
+
+
+Type* Compiler::expression(Type* hint)
+{
+    Type* type = expression();
+    return type;
+}
+
+
+// ------------------------------------------------------------------------- //
+
+
+void Compiler::parseDefinition()
+{
+    expression();
+    codegen->exit();
+}
+
+
+void Compiler::parseBlock()
+{
+    while (!parser.skipIf(tokBlockEnd))
+    {
+        if (options.linenumInfo)
+            codegen->linenum(fileId, parser.getLineNum());
+
+        if (parser.skipIf(tokSep))
+            ;
+        else if (parser.skipIf(tokDef))
+            parseDefinition();
+        else
+            notimpl();
+    }
+}
 
 
 void Compiler::compile()
@@ -41,11 +180,55 @@ void Compiler::compile()
         fatal(0x7001, "Compiler object can't be used more than once");
     started = true;
 
-//    Module* module = context.addModule("main");    // TODO: read the module name from the file
-//    CodeGen mainCodeGen(module);
-//    codegen = &mainCodeGen;
+    fileId = mainModule.registerFileName(parser.getFileName());
+    CodeGen mainCodeGen(&mainModule);
+    codegen = &mainCodeGen;
+    scope = &mainModule;
 
-    successful = true;
+    try
+    {
+        parser.next();
+        parseBlock();
+        parser.skip(tokEof, "<EOF>");
+    }
+    catch (EDuplicate& e)
+    {
+        parser.error("'" + e.ident + "' is already defined within this scope");
+    }
+    catch (EUnknownIdent& e)
+    {
+        parser.error("'" + e.ident + "' is unknown");
+    }
+
+    mainCodeGen.end();
+}
+
+
+int executeFile(const str& fileName)
+{
+    Parser parser(fileName, new in_text(NULL, fileName));
+    str moduleName = remove_filename_path(remove_filename_ext(fileName));
+    Module module(moduleName);
+    Compiler compiler(parser, module);
+
+    // Look at these two beautiful lines. Compiler, compile. Module, run. Love it.
+    compiler.compile();
+    variant result = module.run();
+
+    if (result.is_null())
+        return 0;
+    else if (result.is_ordinal())
+        return result._ord();
+    else if (result.is(variant::STR))
+    {
+        serr << result.as_str() << endl;
+        return 102;
+    }
+    else
+    {
+        serr << result << endl;
+        return 102;
+    }
 }
 
 
@@ -55,41 +238,19 @@ void Compiler::compile()
 #define check(x) assert(x)
 
 
+#ifdef XCODE
+    const char* fileName = "../../src/tests/test.shn";
+#else
+    const char* fileName = "tests/test.shn";
+#endif
+
 int main()
 {
     int exitcode = 0;
     initTypeSys();
     try
     {
-#ifdef XCODE
-        const char* fn = "../../src/tests/test.shn";
-#else
-        const char* fn = "tests/test.shn";
-#endif
-
-        Parser parser(fn, new in_text(NULL, fn));
-        Module module(remove_filename_path(remove_filename_ext(fn)));
-
-        Compiler compiler(parser, module);
-        compiler.compile();
-
-        variant result = module.run();
-
-        if (result.is_null())
-            exitcode = 0;
-        else if (result.is_ordinal())
-            exitcode = result._ord();
-        else if (result.is(variant::STR))
-        {
-            serr << result.as_str() << endl;
-            exitcode = 102;
-        }
-        else
-        {
-            serr << result << endl;
-            exitcode = 102;
-        }
-
+        exitcode = executeFile(fileName);
     }
     catch (std::exception& e)
     {

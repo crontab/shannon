@@ -618,35 +618,34 @@ void test_typesys()
     check(queenBee->defStr->isContainer());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
 
-    Symbol* b = queenBee->deepFind("true");
+    Symbol* b = queenBee->findDeep("true");
     check(b != NULL && b->isDefinition() && b->isConstant());
     check(PDef(b)->value.as_int() == 1);
     check(PDef(b)->type->isBool());
 
     {
         State state(NULL, queenBee, queenBee->defBool);
-        b = state.deepFind("true");
-        check(b != NULL && b->isDefinition());
-        check(state.deepFind("untrue") == NULL);
+        b = state.findDeep("true");
+        check(b->isDefinition());
+        check_throw(state.findDeep("untrue"));
         state.addThisVar(queenBee->defInt, "a");
         check_throw(state.addThisVar(queenBee->defInt, "a"));
         state.addThisVar(queenBee->defInt, "true");
         state.addTypeAlias("ool", queenBee->defBool);
-        b = state.deepFind("ool");
-        check(b != NULL && b->isDefinition());
+        b = state.findDeep("ool");
+        check(b->isDefinition());
         check(b->isTypeAlias());
         check(PTypeAlias(b)->aliasedType->isBool());
         state.addThisVar(queenBee->defInt, "v");
-        Symbol* v = state.deepFind("v");
+        Symbol* v = state.findDeep("v");
         check(v->isThisVar());
         check(PVar(v)->id == 2);
         state.addThisVar(queenBee->defChar, "c1");
         state.addThisVar(queenBee->defChar, "c2");
-        v = state.deepFind("c2");
+        v = state.findDeep("c2");
         check(v->isThisVar());
         check(PVar(v)->id == 4);
-        b = state.deepFind("result");
-        check(b != NULL);
+        b = state.findDeep("result");
         check(b->isResultVar());
         check(PVar(b)->type->isBool());
     }
@@ -921,14 +920,12 @@ void test_vm()
             gen.loadStr("k2");
             gen.delDictElem();
 
-            Symbol* io = mod.deepFind("sio");
-            check(io != NULL);
+            Symbol* io = mod.findDeep("sio");
             check(io->isVariable());
             gen.loadVar(PVar(io));
             gen.elemCat();
 
-            Symbol* r = mod.deepFind("sresult");
-            check(r != NULL);
+            Symbol* r = mod.findDeep("sresult");
             check(r->isVariable());
             gen.loadVar(PVar(r));
             gen.elemCat();

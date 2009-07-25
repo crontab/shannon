@@ -26,7 +26,7 @@ void charset::include(int min, int max)
     {
         data[lidx] |= lbits;
         for (int i = lidx + 1; i < ridx; i++)
-            data[i] = -1;
+            data[i] = uchar(-1);
         data[ridx] |= rbits;
     }
 }

@@ -50,13 +50,20 @@ langobj::~langobj()
 Symbol::Symbol(SymbolId _symbolId, Type* _type, const str& _name)
     : object(NULL), symbolId(_symbolId), type(_type), name(_name)  { }
 
-Symbol::~Symbol()  { }
+Symbol::~Symbol()
+{
+#ifdef DEBUG
+    (SymbolId&)symbolId = SymbolId(-1);
+#endif
+}
 
 bool Symbol::empty()  { return false; }
 
 
-EDuplicate::EDuplicate(const str& symbol) throw()
-    : emessage("Duplicate identifier: " + symbol)  { }
+EDuplicate::EDuplicate(const str& _ident) throw()
+    : exception(), ident(_ident)  { }
+
+EDuplicate::~EDuplicate() throw()  { }
 
 
 _SymbolTable::_SymbolTable()  { }
@@ -182,7 +189,12 @@ Type::Type(Type* rt, TypeId _t)
     assert(rt != NULL);
 }
 
-Type::~Type() { }
+Type::~Type()
+{
+#ifdef DEBUG
+    (TypeId&)typeId = TypeId(-1);
+#endif
+}
 
 bool Type::empty()  { return false; }
 
@@ -217,19 +229,51 @@ void Type::runtimeTypecast(variant& v)
 // --- Scope --------------------------------------------------------------- //
 
 
+EUnknownIdent::EUnknownIdent(const str& _ident) throw()
+    : exception(), ident(_ident)  { }
+EUnknownIdent::~EUnknownIdent() throw ()  { }
+
+
 Scope::Scope(Scope* _outer)
     : outer(_outer)  { }
 Scope::~Scope()  { }
 
 
-Symbol* Scope::deepFind(const str& ident) const
+Symbol* Scope::findShallow(const str& ident) const
 {
     Symbol* s = find(ident);
     if (s != NULL)
         return s;
+    throw EUnknownIdent(ident);
+}
+
+
+Symbol* Scope::findDeep(const str& ident) const
+{
+    Symbol* s = find(ident);
+    if (s != NULL)
+        return s;
+    for (mem i = uses.size(); i--; )
+    {
+        s = uses[i]->find(ident);
+        if (s != NULL)
+            return s;
+    }
     if (outer != NULL)
-        return outer->deepFind(ident);
-    return NULL;
+        return outer->findDeep(ident);
+    throw EUnknownIdent(ident);
+}
+
+
+void Scope::addUses(Module* module)
+{
+    if (uses.size() >= 255)
+        throw emessage("Too many used modules");
+    assert(!module->getName().empty());
+    objptr<ModuleAlias> alias = new ModuleAlias(module->getName(), module);
+    addUnique(alias);
+    defs.add(alias);
+    uses.add(module);
 }
 
 
@@ -295,12 +339,12 @@ bool State::isMyType(variant& v)
     { return (v.is_object() && v._object()->get_rt()->canAssignTo(this)); }
 
 
-Variable* State::addThisVar(Type* type, const str& name, bool readOnly)
+Variable* State::addThisVar(Type* type, const str& _name, bool readOnly)
 {
     mem id = startId + thisvars.size(); // startId will be used with derived classes
     if (id >= 255)
         throw emessage("Maximum number of variables within this object reached");
-    objptr<Variable> v = new ThisVar(Symbol::THISVAR, type, name, id, this, readOnly);
+    objptr<Variable> v = new ThisVar(Symbol::THISVAR, type, _name, id, this, readOnly);
     addUnique(v); // may throw
     thisvars.add(v);
     return v;
@@ -322,35 +366,10 @@ Module::Module(const str& _name)
 Module::~Module()  { }
 
 
-Symbol* Module::deepFind(const str& ident) const
+mem Module::registerFileName(const str& fn)
 {
-    assert(outer == NULL);
-    Symbol* s = Scope::deepFind(ident);
-    if (s != NULL)
-        return s;
-    for (int i = uses.size() - 1; i >= 0; i--)
-    {
-        s = uses[i]->find(ident);
-        if (s != NULL)
-            return s;
-    }
-    return NULL;
-}
-
-
-void Module::addUses(Module* module)
-{
-    assert(!module->getName().empty());
-    objptr<ModuleAlias> alias = new ModuleAlias(module->getName(), module);
-    addUnique(alias);
-    uses.add(module);
-}
-
-
-mem Module::registerAssertFileName(const str& fn)
-{
-    assertFileNames.push_back(fn);
-    return assertFileNames.size() - 1;
+    fileNames.push_back(fn);
+    return fileNames.size() - 1;
 }
 
 
@@ -482,11 +501,11 @@ Enumeration::Enumeration(EnumValues* _values, integer _left, integer _right)
 }
 
 
-void Enumeration::addValue(const str& name)
+void Enumeration::addValue(const str& _name)
 {
     reassignRight(
         values->add(
-            owner->addConstant(this, name, values->size())));
+            owner->addConstant(this, _name, values->size())));
 }
 
 
