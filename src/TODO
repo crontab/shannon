@@ -1,8 +1,5 @@
 
-* Keep static data segments in their Module objects so that static address
-  resolution won't be needed at link time.
-
-* Run-time range checking (as well compile-time)
+* Run-time range checking (as well as compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
@@ -55,3 +52,7 @@
 * Ordinal set operations: inversion (not), union (or), intersection (and),
   subtraction (-)
 
+* Have the code generator evaluate some operations at generation time if
+  possible.
+
+* Global repository of string literals

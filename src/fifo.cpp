@@ -33,8 +33,8 @@ bool fifo_intf::empty()                     { _rdonly_err(); return true; }
 void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
-fifo::fifo(Type* rt, bool _char)
-    : fifo_intf(rt, _char), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
+fifo::fifo(Type* rt, bool ch)
+    : fifo_intf(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
 void fifo_intf::_req_non_empty()
@@ -44,9 +44,9 @@ void fifo_intf::_req_non_empty()
 }
 
 
-void fifo_intf::_req_non_empty(bool _char)
+void fifo_intf::_req_non_empty(bool ch)
 {
-    _req(_char);
+    _req(ch);
     if (empty())
         _empty_err();
 }

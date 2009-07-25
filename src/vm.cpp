@@ -8,7 +8,8 @@
 
 
 CodeSeg::CodeSeg(Module* _module, State* _state)
-    : stksize(0), module(_module), state(_state), closed(0)  { }
+  : stksize(0), hostModule(_module), ownState(_state), closed(0),
+    fileId(mem(-1)), lineNum(mem(-1))  { }
 
 CodeSeg::~CodeSeg()  { }
 
@@ -71,10 +72,10 @@ void CodeSeg::vecCat(const variant& src, variant* dest)
 }
 
 
-void CodeSeg::failAssertion(unsigned file, unsigned line) const
+void CodeSeg::failAssertion()
 {
-    throw emessage("Assertion failed: " + module->assertFileNames[file]
-        + " line " + to_string(line));
+    throw emessage("Assertion failed: " + hostModule->fileNames[fileId]
+        + " line " + to_string(lineNum));
 }
 
 
@@ -95,7 +96,7 @@ void CodeSeg::echo(const variant& v)
 // --- The Virtual Machine ------------------------------------------------- //
 
 
-void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
+void CodeSeg::run(varstack& stack, langobj* self, variant* result)
 {
     if (code.empty())
         return;
@@ -332,15 +333,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result) const
             // Helpers
             case opEcho:        echo(*stk); POP(stk); break;
             case opEchoLn:      sio << endl; break;
-            case opAssert:
-                {
-                    unsigned file = ADV<uint16_t>(ip);
-                    unsigned line = ADV<uint16_t>(ip);
-                    if (!stk->_ord())
-                        failAssertion(file, line);
-                    POP(stk);
-                }
-                break;
+            case opLineNum:     { fileId = ADV<uint16_t>(ip); lineNum = ADV<uint16_t>(ip); } break;
+            case opAssert:      { if (!stk->_ord()) failAssertion(); POP(stk); } break;
 
             default: invOpcode(); break;
             }
@@ -360,7 +354,7 @@ exit:
 }
 
 
-void ConstCode::run(variant& result) const
+void ConstCode::run(variant& result)
 {
     result.clear();
     varstack stack;

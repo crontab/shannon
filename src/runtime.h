@@ -73,9 +73,9 @@ protected:
     void _init(char c)              { type = CHAR; val._int = uchar(c); }
     void _init(uchar c)             { type = CHAR; val._int = c; }
     void _init(int i)               { type = INT; val._int = i; }
-    void _init(long long i)         { type = INT; val._int = i; }
+    void _init(long long i)         { type = INT; val._int = integer(i); }
     void _init(mem i)               { type = INT; val._int = i; }
-    void _init(double r)            { type = REAL; val._real = r; }
+    void _init(double r)            { type = REAL; val._real = real(r); }
     void _init(const str&);
     void _init(const char*);
     void _init(object*);

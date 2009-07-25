@@ -100,10 +100,6 @@ EParser::EParser(const str& ifilename, int ilinenum, const str& msg)
     : emessage(parserErrorStr(ifilename, ilinenum, msg))  { }
 
 
-ENotFound::ENotFound(const str& ifilename, int ilinenum, const str& ientry)
-    : EParser(ifilename, ilinenum, "Unknown identifier '" + ientry + '\'')  { }
-
-
 const charset wsChars = "\t ";
 const charset identFirst = "A-Za-z_";
 const charset identRest = "0-9A-Za-z_";
@@ -136,8 +132,8 @@ str mkPrintable(const str& s)
 }
 
 
-Parser::Parser(const str& fn, fifo_intf* input)
-    : fileName(fn), input(input), newLine(true),
+Parser::Parser(const str& fn, fifo_intf* _input)
+    : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
       singleLineBlock(false), curlyLevel(0),
       token(tokUndefined), strValue(),
@@ -153,7 +149,7 @@ Parser::~Parser()
 
 
 void Parser::error(const str& msg)
-    { throw EParser(getFileName(), getLineNum(), "Error: " + msg); }
+    { throw EParser(getFileName(), getLineNum(), msg); }
 
 void Parser::errorWithLoc(const str& msg)
     { error(msg + errorLocation()); }
@@ -163,10 +159,6 @@ void Parser::error(const char* msg)
 
 void Parser::errorWithLoc(const char* msg)
     { errorWithLoc(str(msg)); }
-
-void Parser::errorNotFound(const str& ident)
-    { throw ENotFound(getFileName(), getLineNum(), ident); }
-
 
 
 void Parser::parseStringLiteral()
@@ -201,7 +193,7 @@ void Parser::parseStringLiteral()
                     if (hexDigits[input->preview()])
                         s += input->get();
                     bool e, o;
-                    uinteger value = from_string(s.c_str(), &e, &o, 16);
+                    uinteger value = uinteger(from_string(s.c_str(), &e, &o, 16));
                     strValue += char(value);
                 }
                 else
@@ -382,7 +374,7 @@ restart:
         bool isHex = s.size() > 2 && s[0] == '0' && s[1] == 'x';
         if (isHex)
             s.erase(0, 2);
-        uinteger v = from_string(s.c_str(), &e, &o, isHex ? 16 : 10);
+        uinteger v = uinteger(from_string(s.c_str(), &e, &o, isHex ? 16 : 10));
         if (e)
             error("'" + strValue + "' is not a valid number");
         if (o || (v > INTEGER_MAX))
@@ -455,12 +447,11 @@ restart:
 }
 
 
-str Parser::getIdent()
+str Parser::getIdentifier()
 {
     if (token != tokIdent)
         errorWithLoc("Identifier expected");
     str result = strValue;
-    next();
     return result;
 }
 

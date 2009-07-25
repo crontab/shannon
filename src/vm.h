@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "runtime.h"
+#include "source.h"
 #include "typesys.h"
 
 #include <stack>
@@ -166,9 +167,13 @@ enum OpCode
     // Helpers
     opEcho,             // -var
     opEchoLn,
-    opAssert,           // [file-id: 16, line-num: 16] -bool
+    opLineNum,          // [file-id: 16, line-num: 16]
+    opAssert,           // -bool
 
-    opMaxCode
+    opMaxCode,
+    
+    // Special values
+    opLoadBase = opLoadRet, opStoreBase = opStoreRet,
 };
 
 
@@ -190,44 +195,9 @@ class ConstCode: public CodeSeg
 {
 public:
     ConstCode(): CodeSeg(NULL, NULL) { }
-    void run(variant&) const;
+    void run(variant&);
 };
 
-/*
-class Context: noncopyable
-{
-    friend class CodeSeg;
-
-protected:
-    struct FileInfo: public object
-    {
-        str fileName;
-        FileInfo(const str& n): object(NULL), fileName(n)  { }
-    };
-
-    SymbolTable<ModuleAlias> symbols;
-    List<ModuleAlias> aliases;
-    List<Module> modules;
-    List<langobj> datasegs;
-    List<FileInfo> fileInfos;   // for assertion failure reporting
-    bool ready;
-
-    Module* registerModule(const str& name, Module*);   // for built-in modules
-
-public:
-    Context();
-    ~Context();
-    Module* addModule(const str& name);
-    mem registerFileInfo(const str& fileName);
-    str getFileName(mem id)
-            { return fileInfos[id]->fileName ;}
-    void setReady()
-            { ready = true; }
-    // Executation of the program starts here. The value of system.sresult is
-    // returned. Can be called multiple times.
-    variant run();
-};
-*/
 
 // --- CODE GENERATOR ------------------------------------------------------ //
 
@@ -240,7 +210,8 @@ protected:
     struct stkinfo
     {
         Type* type;
-        stkinfo(Type* t): type(t) { }
+        variant value;
+        stkinfo(Type* t, const variant& v): type(t), value(v) { }
     };
 
     CodeSeg* codeseg;
@@ -280,6 +251,7 @@ protected:
     Type* stkPop();
 
     void doStaticVar(ThisVar* var, OpCode);
+    void CodeGen::loadStoreVar(Variable* var, OpCode base);
     void typeCast(Type* from, Type* to, const char* errmsg);
 
 public:
@@ -288,6 +260,7 @@ public:
 
     mem getLocals() { return locals; }
     State* getState() { return state; }
+    Type* getTopType() { return stkTopType(); }
 
     void end();
     void endConstExpr(Type*);
@@ -301,6 +274,9 @@ public:
     void loadTypeRef(Type*);
     void loadNullContainer(Container*);
     void loadConst(Type*, const variant&, bool asVariant = false);
+    void loadDefinition(Definition* def)
+            { loadConst(def->type, def->value); }
+    void loadSymbol(Symbol*);
     void discard();
     void swap();    // not used currently
     void dup();
@@ -312,6 +288,7 @@ public:
     
     void loadVar(Variable*);
     void storeVar(Variable*);
+    void loadMember(const str& ident);
     void loadContainerElem();
     void storeContainerElem();
     void delDictElem();
@@ -354,6 +331,7 @@ public:
     void echoLn()
             { addOp(opEchoLn); }
     void assertion(integer file, integer line);
+    void linenum(integer file, integer line);
 };
 
 

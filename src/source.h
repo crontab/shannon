@@ -15,12 +15,6 @@ struct EParser: public emessage
 };
 
 
-struct ENotFound: public EParser
-{
-    ENotFound(const str& ifilename, int ilinenum, const str& ientry);
-};
-
-
 
 enum Token
 {
@@ -63,9 +57,6 @@ enum Token
 };
 
 
-enum SyntaxMode { syntaxIndent, syntaxCurly };
-
-
 class Parser
 {
 protected:
@@ -99,14 +90,13 @@ public:
     void errorWithLoc(const str& msg);
     void error(const char*);
     void errorWithLoc(const char*);
-    void errorNotFound(const str& ident);
     void skipSep();
     void skip(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
     void skipBlockBegin();
     void skipBlockEnd();
-    str getIdent();
+    str getIdentifier();
     
     str getFileName() const { return fileName; }
     int getLineNum() const { return linenum; }

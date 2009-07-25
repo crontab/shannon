@@ -10,6 +10,7 @@
 #include <map>
 
 
+class Symbol;
 class Type;
 class Variable;
 class Definition;
@@ -58,9 +59,11 @@ protected:
 
     varlist consts;
     mem stksize;
-    Module* module; // for references to used modules and their datasegs
-    State* state;
+    Module* hostModule; // for references to used modules and their datasegs
+    State* ownState;
     int closed;     // for debugging mainly
+    mem fileId;
+    mem lineNum;
 
     void push_back(uchar u)
             { code.push_back(u); }
@@ -77,10 +80,10 @@ protected:
 
     // Execution
     static void vecCat(const variant& vec2, variant* vec1);
-    void failAssertion(unsigned file, unsigned linenum) const;
+    void failAssertion();
     static void echo(const variant&);
 
-    void run(varstack& stack, langobj* self, variant* result) const; // <-- this is the VM itself
+    void run(varstack& stack, langobj* self, variant* result); // <-- this is the VM itself
 
 public:
     CodeSeg(Module*, State*);
@@ -92,6 +95,107 @@ public:
         { return code.empty(); }
     mem size() const
         { return code.size(); }
+};
+
+
+// --- SYMBOL TABLE, COLLECTIONS ------------------------------------------- //
+
+struct EDuplicate: public exception
+{
+    str ident;
+    EDuplicate(const str& _ident) throw();
+    ~EDuplicate() throw();
+};
+
+
+class _SymbolTable: public noncopyable
+{
+    typedef std::map<str, Symbol*> Impl;
+    Impl impl;
+public:
+    _SymbolTable();
+    ~_SymbolTable();
+    bool empty() const  { return impl.empty(); }
+    void addUnique(Symbol*);
+    Symbol* find(const str&) const;
+};
+
+
+template<class T>
+class SymbolTable: public _SymbolTable
+{
+public:
+    void addUnique(T* o)           { _SymbolTable::addUnique(o); }
+    T* find(const str& name) const { return (T*)_SymbolTable::find(name); }
+};
+
+
+class _PtrList: public noncopyable
+{
+    typedef std::vector<void*> Impl;
+    Impl impl;
+public:
+    _PtrList();
+    ~_PtrList();
+    mem add(void*);
+    bool empty()             const { return impl.empty(); }
+    mem size()               const { return impl.size(); }
+    void clear();
+    void* operator[] (mem i) const { return impl[i]; }
+};
+
+
+template<class T>
+class PtrList: public _PtrList
+{
+public:
+    mem add(T* p)               { return _PtrList::add(p); }
+    T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
+};
+
+
+class _List: public _PtrList  // responsible for freeing the objects
+{
+public:
+    _List();
+    ~_List();
+    void clear();
+    mem add(object* o);
+    object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
+};
+
+
+template<class T>
+class List: public _List
+{
+public:
+    mem add(T* p)               { return _List::add(p); }
+    T* operator[] (mem i) const { return (T*)_List::operator[](i); }
+};
+
+
+struct EUnknownIdent: public exception
+{
+    str const ident;
+    EUnknownIdent(const str& _ident) throw();
+    ~EUnknownIdent() throw();
+};
+
+
+class Scope: protected SymbolTable<Symbol>
+{
+protected:
+    Scope* const outer;
+    List<Definition> defs;
+    PtrList<Module> uses;
+public:
+    Scope(Scope* outer);
+    virtual ~Scope();
+    Symbol* findShallow(const str& _name) const;
+    Symbol* findDeep(const str&) const; // overridden in Module to look in linked modules
+    Constant* addConstant(Type*, const str&, const variant&);
+    TypeAlias* addTypeAlias(const str&, Type*);
+    void addUses(Module*); // comes from the global module cache
 };
 
 
@@ -188,92 +292,6 @@ public:
 };
 
 
-// --- SYMBOL TABLE, COLLECTIONS ------------------------------------------- //
-
-struct EDuplicate: public emessage
-    { EDuplicate(const str& symbol) throw(); };
-
-
-class _SymbolTable: public noncopyable
-{
-    typedef std::map<str, Symbol*> Impl;
-    Impl impl;
-public:
-    _SymbolTable();
-    ~_SymbolTable();
-    bool empty() const  { return impl.empty(); }
-    void addUnique(Symbol*);
-    Symbol* find(const str&) const;
-};
-
-
-template<class T>
-class SymbolTable: public _SymbolTable
-{
-public:
-    void addUnique(T* o)           { _SymbolTable::addUnique(o); }
-    T* find(const str& name) const { return (T*)_SymbolTable::find(name); }
-};
-
-
-class _PtrList: public noncopyable
-{
-    typedef std::vector<void*> Impl;
-    Impl impl;
-public:
-    _PtrList();
-    ~_PtrList();
-    mem add(void*);
-    bool empty()             const { return impl.empty(); }
-    mem size()               const { return impl.size(); }
-    void clear();
-    void* operator[] (mem i) const { return impl[i]; }
-};
-
-
-template<class T>
-class PtrList: public _PtrList
-{
-public:
-    mem add(T* p)               { return _PtrList::add(p); }
-    T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
-};
-
-
-class _List: public _PtrList  // responsible for freeing the objects
-{
-public:
-    _List();
-    ~_List();
-    void clear();
-    mem add(object* o);
-    object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
-};
-
-
-template<class T>
-class List: public _List
-{
-public:
-    mem add(T* p)               { return _List::add(p); }
-    T* operator[] (mem i) const { return (T*)_List::operator[](i); }
-};
-
-
-class Scope: public SymbolTable<Symbol>
-{
-protected:
-    Scope* const outer;
-    List<Definition> defs;
-public:
-    Scope(Scope* outer);
-    virtual ~Scope();
-    virtual Symbol* deepFind(const str&) const; // overridden in Module to look in linked modules
-    Constant* addConstant(Type*, const str&, const variant&);
-    TypeAlias* addTypeAlias(const str&, Type*);
-};
-
-
 // --- TYPE SYSTEM --------------------------------------------------------- //
 
 
@@ -286,7 +304,8 @@ class Type: public object
 {
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, VARIANT, TYPEREF, STATE };
+        DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, VARIANT,
+        TYPEREF, STATE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
@@ -389,9 +408,8 @@ class Module: public State
     friend class CodeSeg;
     friend class Compiler;
 protected:
-    PtrList<Module> uses;
     objptr<langobj> instance;
-    std::vector<str> assertFileNames;
+    std::vector<str> fileNames;
     
     virtual void initialize(varstack&); // create instance and run the main code or skip if created already
     virtual void finalize()             // destroy instance
@@ -399,9 +417,7 @@ protected:
 public:
     Module(const str& name);
     ~Module();
-    Symbol* deepFind(const str&) const; // override
-    void addUses(Module*); // comes from the global module cache
-    mem registerAssertFileName(const str&);
+    mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
 };
