@@ -151,6 +151,7 @@ class PtrList: public _PtrList
 public:
     mem add(T* p)               { return _PtrList::add(p); }
     T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
+    mem size() const            { return _PtrList::size(); }
 };
 
 
@@ -162,6 +163,7 @@ public:
     void clear();
     mem add(object* o);
     object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
+    void dump(fifo_intf&) const;
 };
 
 
@@ -215,7 +217,7 @@ public:
 
     Symbol(SymbolId, Type*, const str&);
     ~Symbol();
-    bool empty(); // override
+    void dump(fifo_intf&) const; // override
 
     bool isVariable()  { return symbolId <= ARGVAR; }
     bool isDefinition()  { return symbolId >= CONSTANT; }
@@ -253,6 +255,7 @@ public:
     variant const value;
     Definition(SymbolId, Type*, const str&, const variant&);
     ~Definition();
+    void dump(fifo_intf&) const; // override
 };
 
 
@@ -325,38 +328,38 @@ public:
     Type(Type* rt, TypeId);
     ~Type();
     
-    bool empty(); // override
+    void dump(fifo_intf&) const; //override
 
     void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
     str  getName()                  { return name; }
     void setName(const str _name)   { if (name.empty()) name = _name; }
 
-    bool is(TypeId t)  { return typeId == t; }
-    TypeId getTypeId()  { return typeId; }
-    bool isNone()  { return typeId == NONE; }
-    bool isBool()  { return typeId == BOOL; }
-    bool isChar()  { return typeId == CHAR; }
-    bool isInt()  { return typeId == INT; }
-    bool isEnum()  { return typeId == ENUM || isBool(); }
-    bool isRange()  { return typeId == RANGE; }
-    bool isDict()  { return typeId == DICT; }
-    bool isArray()  { return typeId == ARRAY; }
-    bool isString()  { return typeId == STR; }
-    bool isVector()  { return typeId == VEC || typeId == STR; }
-    bool isSet()  { return typeId == SET; }
-    bool isOrdset()  { return typeId == ORDSET; }
-    bool isCharSet();
-    bool isVarFifo()  { return typeId == VARFIFO; }
-    bool isCharFifo()  { return typeId == CHARFIFO; }
-    bool isVariant()  { return typeId == VARIANT; }
-    bool isTypeRef()  { return typeId == TYPEREF; }
-    bool isState()  { return typeId == STATE; }
+    bool is(TypeId t) const  { return typeId == t; }
+    TypeId getTypeId() const  { return typeId; }
+    bool isNone() const  { return typeId == NONE; }
+    bool isBool() const  { return typeId == BOOL; }
+    bool isChar() const  { return typeId == CHAR; }
+    bool isInt() const  { return typeId == INT; }
+    bool isEnum() const  { return typeId == ENUM || isBool(); }
+    bool isRange() const  { return typeId == RANGE; }
+    bool isDict() const  { return typeId == DICT; }
+    bool isArray() const  { return typeId == ARRAY; }
+    bool isString() const  { return typeId == STR; }
+    bool isVector() const  { return typeId == VEC || typeId == STR; }
+    bool isSet() const  { return typeId == SET; }
+    bool isOrdset() const  { return typeId == ORDSET; }
+    bool isCharSet() const;
+    bool isVarFifo() const  { return typeId == VARFIFO; }
+    bool isCharFifo() const  { return typeId == CHARFIFO; }
+    bool isVariant() const  { return typeId == VARIANT; }
+    bool isTypeRef() const  { return typeId == TYPEREF; }
+    bool isState() const  { return typeId == STATE; }
 
-    bool isOrdinal()  { return typeId >= BOOL && typeId <= ENUM; }
-    bool isContainer()  { return typeId >= DICT && typeId <= SET; }
-    bool isModule();
-    bool canBeArrayIndex();
-    bool canBeOrdsetIndex();
+    bool isOrdinal() const  { return typeId >= BOOL && typeId <= ENUM; }
+    bool isContainer() const  { return typeId >= DICT && typeId <= SET; }
+    bool isModule() const;
+    bool canBeArrayIndex() const;
+    bool canBeOrdsetIndex() const;
 
     Fifo* deriveFifo();
     Container* deriveVector();
@@ -378,8 +381,9 @@ class State: public Type, public Scope, public CodeSeg
 {
 protected:
     List<Type> types;
-    List<Variable> thisvars;
     objptr<Variable> resultvar;
+    List<Variable> args;
+    List<Variable> thisvars;
     mem startId;
 
 public:
@@ -388,6 +392,7 @@ public:
 
     State(Module*, State* parent, Type* resultType);
     ~State();
+    void dump(fifo_intf&) const; //override
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
     bool isMyType(variant&);
@@ -417,6 +422,8 @@ protected:
 public:
     Module(const str& name);
     ~Module();
+    void dump(fifo_intf&) const; //override
+    void dumpContents(fifo_intf&) const;
     mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
@@ -444,6 +451,8 @@ public:
     integer const right;
 
     Ordinal(TypeId, integer, integer);
+    ~Ordinal();
+    void dump(fifo_intf&) const; //override
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -471,15 +480,14 @@ protected:
     // Shared between enums: actually the main enum and its subranges; owned
     // by Enumeration objects, refcounted.
     struct EnumValues: public object, public PtrList<Constant>
-    {
-        EnumValues(): object(NULL) { }
-        bool empty() { return false; }
-    };
+            { EnumValues(): object(NULL) { } };
     objptr<EnumValues> values;
     Enumeration(TypeId _typeId); // built-in enums, e.g. bool
 public:
     Enumeration();  // user-defined enums
     Enumeration(EnumValues*, integer _left, integer _right);    // subrange
+    ~Enumeration();
+    void dump(fifo_intf&) const; //override
     void addValue(const str&);
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -495,6 +503,8 @@ class Range: public Type
 public:
     Ordinal* const base;
     Range(Ordinal*);
+    ~Range();
+    void dump(fifo_intf&) const; //override
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
 };
@@ -518,6 +528,8 @@ public:
     Type* const index;
     Type* const elem;
     Container(Type* _index, Type* _elem);
+    ~Container();
+    void dump(fifo_intf&) const; //override
     bool identicalTo(Type*);
     mem arrayIndexShift()
         { return CAST(Ordinal*, index)->left; }
@@ -534,14 +546,19 @@ protected:
     Type* elem;
 public:
     Fifo(Type*);
+    ~Fifo();
+    void dump(fifo_intf&) const; //override
     bool identicalTo(Type*);
 };
 
 
 class Variant: public Type
 {
-public:
+protected:
+    friend class QueenBee;
     Variant();
+public:
+    ~Variant();
     bool isMyType(variant&);
     void runtimeTypecast(variant&);
 };
@@ -551,8 +568,11 @@ typedef TypeReference* PTypeRef;
 
 class TypeReference: public Type
 {
-public:
+protected:
+    friend void initTypeSys();
     TypeReference();
+public:
+    ~TypeReference();
 };
 
 

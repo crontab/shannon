@@ -392,6 +392,11 @@ int executeFile(const str& fileName)
     compiler.compile();
     variant result = module.run();
 
+#ifdef DEBUG
+    queenBee->dumpContents(sio);
+    module.dumpContents(sio);
+#endif
+
     if (result.is_null())
         return 0;
     else if (result.is_ordinal())

@@ -243,7 +243,7 @@ object::~object()
 
 
 object* object::clone()                 const { throw emessage("Object can't be cloned"); }
-bool object::empty()                          { return false; }
+bool object::empty()                    const { return false; }
 void object::dump(fifo_intf& s)         const { s << "object"; }
 bool object::less_than(object* other)   const { return this < other; }
 

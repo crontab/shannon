@@ -90,7 +90,6 @@ public:
     void dump(fifo_intf& s) const
         { s << "test_obj"; }
     test_obj(): object(NULL)  { }
-    bool empty()  { return false; }
 };
 
 

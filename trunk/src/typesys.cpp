@@ -24,7 +24,7 @@ langobj::langobj(State* type)
 }
 
 
-bool langobj::empty()  { return false; }
+bool langobj::empty() const { return false; }
 
 
 void langobj::_idx_err()
@@ -47,6 +47,12 @@ langobj::~langobj()
 // --- BASE LANGUAGE OBJECTS AND COLLECTIONS ------------------------------- //
 
 
+EDuplicate::EDuplicate(const str& _ident) throw()
+    : exception(), ident(_ident)  { }
+
+EDuplicate::~EDuplicate() throw()  { }
+
+
 Symbol::Symbol(SymbolId _symbolId, Type* _type, const str& _name)
     : object(NULL), symbolId(_symbolId), type(_type), name(_name)  { }
 
@@ -57,13 +63,11 @@ Symbol::~Symbol()
 #endif
 }
 
-bool Symbol::empty()  { return false; }
 
-
-EDuplicate::EDuplicate(const str& _ident) throw()
-    : exception(), ident(_ident)  { }
-
-EDuplicate::~EDuplicate() throw()  { }
+void Symbol::dump(fifo_intf& stm) const
+{
+    stm << *type << ' ' << name;
+}
 
 
 _SymbolTable::_SymbolTable()  { }
@@ -107,6 +111,17 @@ void _List::clear()
 }
 
 
+void _List::dump(fifo_intf& stm) const
+{
+    for (mem i = 0; i < size(); i++)
+    {
+        if (i > 0)
+            stm << ", ";
+        stm << *(*this)[i];
+    }
+}
+
+
 // --- Variable ----------------------------------------------------------- //
 
 
@@ -130,6 +145,13 @@ Definition::Definition(SymbolId _symbolId, Type* _type, const str& _name, const 
 }
 
 Definition::~Definition()  { }
+
+
+void Definition::dump(fifo_intf& stm) const
+{
+    Symbol::dump(stm);
+    stm << " = " << value;
+}
 
 
 Constant::Constant(Type* _type, const str& _name, const variant& _value)
@@ -197,15 +219,21 @@ Type::~Type()
 #endif
 }
 
-bool Type::empty()  { return false; }
 
-bool Type::isModule()
+void Type::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        stm << name;
+}
+
+
+bool Type::isModule() const
     { return typeId == STATE && PState(this)->level == 0; }
 
-bool Type::canBeArrayIndex()
+bool Type::canBeArrayIndex() const
     { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
 
-bool Type::canBeOrdsetIndex()
+bool Type::canBeOrdsetIndex() const
     { return isOrdinal() && POrdinal(this)->rangeFits(charset::BITS); }
 
 
@@ -320,6 +348,14 @@ State::State(Module* _module, State* _parent, Type* resultType)
 State::~State()  { }
 
 
+void State::dump(fifo_intf& stm) const
+{
+    stm << *resultvar << '(';
+    args.dump(stm);
+    stm << ')';
+}
+
+
 bool State::identicalTo(Type* t)
     { return t == this; }
 
@@ -365,6 +401,24 @@ Module::Module(const str& _name)
 
 
 Module::~Module()  { }
+
+
+void Module::dump(fifo_intf& stm) const
+{
+    stm << "module " << name;
+}
+
+
+void Module::dumpContents(fifo_intf& stm) const
+{
+    stm << "module " << name << endl;
+    for (mem i = 0; i < types.size(); i++)
+        stm << "  # " << *types[i] << endl;
+    for (mem i = 0; i < defs.size(); i++)
+        stm << "  def " << *defs[i] << endl;
+    for (mem i = 0; i < thisvars.size(); i++)
+        stm << "  var " << *thisvars[i] << endl;
+}
 
 
 mem Module::registerFileName(const str& fn)
@@ -425,6 +479,19 @@ Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
     : Type(defTypeRef, _type), derivedRange(NULL), left(_left), right(_right)
 {
     assert(isOrdinal());
+}
+
+Ordinal::~Ordinal()  { }
+
+
+void Ordinal::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        Type::dump(stm);
+    else if (isChar())
+        stm << '\'' << mkPrintable(left) << '\'' << ".." << '\'' << mkPrintable(right) << '\'';
+    else
+        stm << left << ".." << right;
 }
 
 
@@ -502,11 +569,39 @@ Enumeration::Enumeration(EnumValues* _values, integer _left, integer _right)
 }
 
 
+Enumeration::~Enumeration()  { }
+
+
+void Enumeration::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        Type::dump(stm);
+    else if (left == 0 && right == integer(values->size() - 1))
+        stm << (*values)[0]->name << ".." << (*values)[right]->name;
+    else
+    {
+        stm << "enum(";
+        for (mem i = 0; i < values->size() - 1; i++)
+        {
+            if (i > 0)
+                stm << ", ";
+            stm << (*values)[i]->name;
+        }
+        stm << ')';
+    }
+}
+
+
 void Enumeration::addValue(const str& _name)
 {
-    reassignRight(
-        values->add(
-            owner->addConstant(this, _name, values->size())));
+    integer n = integer(values->size());
+    Constant* c;
+    if (isBool())
+        c = owner->addConstant(this, _name, bool(n));
+    else
+        c = owner->addConstant(this, _name, n);
+    reassignRight(values->add(c));
+    assert(right == n);
 }
 
 
@@ -532,7 +627,16 @@ Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
 
 Range::Range(Ordinal* _base)
     : Type(defTypeRef, RANGE), base(_base)  { }
+Range::~Range()  { }
 
+
+void Range::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        Type::dump(stm);
+    else
+        stm << *base << "[..]";
+}
 
 bool Range::identicalTo(Type* t)
         { return t->isRange() && base->identicalTo(PRange(t)->base); }
@@ -556,6 +660,18 @@ Container::Container(Type* _index, Type* _elem)
 }
 
 
+Container::~Container()  { }
+
+
+void Container::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        Type::dump(stm);
+    else
+        stm << *elem << '[' << *index << ']';
+}
+
+
 bool Container::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(CAST(Container*, t)->elem)
             && index->identicalTo(CAST(Container*, t)->index); }
@@ -569,6 +685,17 @@ Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
     setTypeId(elem->isChar() ? CHARFIFO : VARFIFO);
 }
 
+Fifo::~Fifo()  { }
+
+
+void Fifo::dump(fifo_intf& stm) const
+{
+    if (!name.empty())
+        Type::dump(stm);
+    else
+        stm << *elem << "<>";
+}
+
 
 bool Fifo::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
@@ -578,6 +705,7 @@ bool Fifo::identicalTo(Type* t)
 
 
 Variant::Variant(): Type(defTypeRef, VARIANT)  { }
+Variant::~Variant()  { }
 bool Variant::isMyType(variant&)  { return true; }
 void Variant::runtimeTypecast(variant&)  { }
 
@@ -586,6 +714,7 @@ void Variant::runtimeTypecast(variant&)  { }
 
 
 TypeReference::TypeReference(): Type(this, TYPEREF)  { }
+TypeReference::~TypeReference()  { }
 
 
 // --- QueenBee ------------------------------------------------------------ //
@@ -620,6 +749,7 @@ void QueenBee::setup()
     defBool->addValue("false");
     defBool->addValue("true");
     addTypeAlias("bool", defBool);
+    addTypeAlias("char", defChar);
     addTypeAlias("str", defStr);
     addTypeAlias("any", defVariant);
     siovar = addThisVar(defCharFifo, "sio");

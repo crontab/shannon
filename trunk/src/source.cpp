@@ -102,7 +102,7 @@ const charset identFirst = "A-Za-z_";
 const charset identRest = "0-9A-Za-z_";
 const charset digits = "0-9";
 const charset hexDigits = "0-9A-Fa-f";
-const charset printableChars = "~20-~FF";
+const charset printableChars = "~20-~FE";
 
 
 str mkPrintable(char c)
@@ -114,7 +114,7 @@ str mkPrintable(char c)
     else if (printableChars[c])
         return str(1, c);
     else
-        return "\\x" + to_string(unsigned(c), 16, 2, '0');
+        return "\\x" + to_string(uchar(c), 16, 2, '0');
 }
 
 
