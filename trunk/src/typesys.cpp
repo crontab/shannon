@@ -65,9 +65,7 @@ Symbol::~Symbol()
 
 
 void Symbol::dump(fifo_intf& stm) const
-{
-    stm << *type << ' ' << name;
-}
+    { stm << *type << ' ' << name; }
 
 
 _SymbolTable::_SymbolTable()  { }
@@ -146,16 +144,13 @@ Definition::Definition(SymbolId _symbolId, Type* _type, const str& _name, const 
 
 Definition::~Definition()  { }
 
-
 void Definition::dump(fifo_intf& stm) const
-{
-    Symbol::dump(stm);
-    stm << " = " << value;
-}
+    { stm << *type << ' ' << name << " = " << value; }
 
 
 Constant::Constant(Type* _type, const str& _name, const variant& _value)
     : Definition(CONSTANT, _type, _name, _value)  { }
+
 
 Constant::~Constant()  { }
 
@@ -165,6 +160,24 @@ TypeAlias::TypeAlias(const str& _name, Type* _aliasedType)
     aliasedType(_aliasedType)  { }
 
 TypeAlias::~TypeAlias()  { }
+
+void TypeAlias::dump(fifo_intf& stm) const
+{
+    if (name != aliasedType->getName())
+        Definition::dump(stm);
+    else
+    {
+        stm << name << " = ";
+        if (aliasedType->isEnum())
+            PEnum(aliasedType)->fullDump(stm);
+        else if (aliasedType->isOrdinal())
+            POrdinal(aliasedType)->fullDump(stm);
+        else if (aliasedType->isContainer())
+            PContainer(aliasedType)->fullDump(stm);
+        else
+            stm << "<builtin>";
+    }
+}
 
 
 StateAlias::StateAlias(const str& _name, State* _aliasedState)
@@ -179,6 +192,11 @@ ModuleAlias::ModuleAlias(const str& _name, Module* _aliasedModule)
     aliasedModule(_aliasedModule)  { }
 
 ModuleAlias::~ModuleAlias()  { }
+
+void ModuleAlias::dump(fifo_intf& stm) const
+{
+    stm << name << " = <used-module>";
+}
 
 
 // --- TYPE SYSTEM --------------------------------------------------------- //
@@ -224,8 +242,12 @@ void Type::dump(fifo_intf& stm) const
 {
     if (!name.empty())
         stm << name;
+    else
+        fullDump(stm);
 }
 
+void Type::fullDump(fifo_intf& stm) const
+    { stm << "<builtin>"; }
 
 bool Type::isModule() const
     { return typeId == STATE && PState(this)->level == 0; }
@@ -348,7 +370,7 @@ State::State(Module* _module, State* _parent, Type* resultType)
 State::~State()  { }
 
 
-void State::dump(fifo_intf& stm) const
+void State::fullDump(fifo_intf& stm) const
 {
     stm << *resultvar << '(';
     args.dump(stm);
@@ -412,8 +434,6 @@ void Module::dump(fifo_intf& stm) const
 void Module::dumpContents(fifo_intf& stm) const
 {
     stm << "module " << name << endl;
-    for (mem i = 0; i < types.size(); i++)
-        stm << "  # " << *types[i] << endl;
     for (mem i = 0; i < defs.size(); i++)
         stm << "  def " << *defs[i] << endl;
     for (mem i = 0; i < thisvars.size(); i++)
@@ -484,11 +504,9 @@ Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
 Ordinal::~Ordinal()  { }
 
 
-void Ordinal::dump(fifo_intf& stm) const
+void Ordinal::fullDump(fifo_intf& stm) const
 {
-    if (!name.empty())
-        Type::dump(stm);
-    else if (isChar())
+    if (isChar())
         stm << '\'' << mkPrintable(left) << '\'' << ".." << '\'' << mkPrintable(right) << '\'';
     else
         stm << left << ".." << right;
@@ -572,11 +590,9 @@ Enumeration::Enumeration(EnumValues* _values, integer _left, integer _right)
 Enumeration::~Enumeration()  { }
 
 
-void Enumeration::dump(fifo_intf& stm) const
+void Enumeration::fullDump(fifo_intf& stm) const
 {
-    if (!name.empty())
-        Type::dump(stm);
-    else if (left == 0 && right == integer(values->size() - 1))
+    if (left == 0 && right == integer(values->size() - 1))
         stm << (*values)[0]->name << ".." << (*values)[right]->name;
     else
     {
@@ -630,12 +646,9 @@ Range::Range(Ordinal* _base)
 Range::~Range()  { }
 
 
-void Range::dump(fifo_intf& stm) const
+void Range::fullDump(fifo_intf& stm) const
 {
-    if (!name.empty())
-        Type::dump(stm);
-    else
-        stm << *base << "[..]";
+    stm << *base << "[..]";
 }
 
 bool Range::identicalTo(Type* t)
@@ -663,12 +676,12 @@ Container::Container(Type* _index, Type* _elem)
 Container::~Container()  { }
 
 
-void Container::dump(fifo_intf& stm) const
+void Container::fullDump(fifo_intf& stm) const
 {
-    if (!name.empty())
-        Type::dump(stm);
-    else
-        stm << *elem << '[' << *index << ']';
+    stm << *elem << '[';
+    if (!index->isNone())
+        stm << *index;
+    stm << ']';
 }
 
 
@@ -687,15 +700,8 @@ Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
 
 Fifo::~Fifo()  { }
 
-
-void Fifo::dump(fifo_intf& stm) const
-{
-    if (!name.empty())
-        Type::dump(stm);
-    else
-        stm << *elem << "<>";
-}
-
+void Fifo::fullDump(fifo_intf& stm) const
+    { stm << *elem << "<>"; }
 
 bool Fifo::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
