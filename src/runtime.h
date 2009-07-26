@@ -114,7 +114,7 @@ public:
                               const { return !(this->operator==(v)); }
 
     void dump(fifo_intf&) const;
-    bool to_bool()                  { return !empty(); }
+    bool to_bool() const            { return !empty(); }
     str  to_string() const;
     bool operator< (const variant& v) const;
 
@@ -180,7 +180,7 @@ public:
     object(Type*);
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
-    virtual bool empty();   // non-const because fifo's can be modified when getting the eof status
+    virtual bool empty() const;
     virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
@@ -218,7 +218,7 @@ public:
     ~range();
     virtual object* clone() const;
     void assign(integer l, integer r)   { left = l; right = r; }
-    bool empty()                        { return left > right; }
+    bool empty() const                  { return left > right; }
     mem diff() const                    { return right - left; }
     bool has(integer i) const           { return i >= left && i <= right; }
     bool equals(integer l, integer r) const;
@@ -240,7 +240,7 @@ public:
     varlist();
     ~varlist()                                { clear(); }
     mem size()                          const { return impl.size(); }
-    bool empty()                              { return impl.empty(); }
+    bool empty() const                        { return impl.empty(); }
     void resize(mem);
     void clear();
     void push_back(const variant& v);
@@ -291,7 +291,7 @@ public:
     vector(Type*, mem, const variant&);
     ~vector();
     virtual object* clone() const;
-    bool empty()  { return varlist::empty(); }
+    bool empty() const { return varlist::empty(); }
     virtual void dump(fifo_intf&) const;
 };
 
@@ -307,7 +307,7 @@ public:
     dict(Type*);
     ~dict();
     virtual object* clone() const;
-    bool empty()                              { return impl.empty(); }
+    bool empty() const                        { return impl.empty(); }
     void tie(const variant& key, const variant& value);
     void untie(const variant& v);
     dict_iterator find(const variant& v) const;
@@ -328,7 +328,7 @@ public:
     ~set();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-    bool empty()                              { return impl.empty(); }
+    bool empty() const                        { return impl.empty(); }
     void tie(const variant& v);
     void untie(const variant& v);
     bool has(const variant& v) const;
@@ -350,7 +350,7 @@ public:
     ~ordset();
     virtual object* clone() const;
     virtual void dump(fifo_intf&) const;
-    bool empty()                              { return impl.empty(); }
+    bool empty() const                        { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
@@ -373,7 +373,8 @@ public:
     void operator= (const objptr<T>& p) { replace(obj, p.obj); }
     void operator= (T* o)               { replace(obj, o); }
     void clear()                        { release(obj); obj = NULL; }
-    T* operator* () const               { return obj; }
+    T& operator* ()                     { return *obj; }
+    const T& operator* () const         { return *obj; }
     T* operator-> () const              { return obj; }
     T* get() const                      { return obj; }
     operator T*() const                 { return obj; }
@@ -407,6 +408,9 @@ inline void variant::unique()  { if (is_refcnt()) _unique(val._obj); }
 // implemented in descendant classes but are not supported by default.
 class fifo_intf: public object
 {
+    fifo_intf& operator<< (bool);           // compiler trap
+    fifo_intf& operator<< (void*);          // compiler trap
+
 protected:
     enum { TAB_SIZE = 8 };
 
@@ -417,8 +421,8 @@ protected:
     static void _rdonly_err();
     static void _fifo_type_err();
     void _req(bool req_char) const      { if (req_char != _char) _fifo_type_err(); }
-    void _req_non_empty();
-    void _req_non_empty(bool _char);
+    void _req_non_empty() const;
+    void _req_non_empty(bool _char) const;
 
     // Minimal set of methods required for both character and variant FIFO
     // operations. Implementations should guarantee variants will never be
@@ -439,8 +443,8 @@ public:
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
 
-    virtual void dump(fifo_intf&) const; // just displays <fifo>
-    virtual bool empty();   // throws efifowronly
+    void dump(fifo_intf&) const; // just displays <fifo>
+    bool empty() const;   // throws efifowronly
 
     // Main FIFO operations, work on both char and variant fifos
     void var_enq(const variant&);
@@ -463,7 +467,7 @@ public:
     void skip_eol();
     bool is_eol_char(char c)            { return c == '\r' || c == '\n'; }
     int  skip_indent(); // spaces and tabs, tab lenghts are properly calculated
-    bool eof()                          { return empty(); }
+    bool eof() const                    { return empty(); }
 
     mem  enq(const char* p, mem count)  { return enq_chars(p, count); }
     void enq(const char* s);
@@ -479,6 +483,7 @@ public:
     fifo_intf& operator<< (long long i)     { enq((long long)i); return *this; }
     fifo_intf& operator<< (int i)           { enq((long long)i); return *this; }
     fifo_intf& operator<< (mem i)           { enq((long long)i); return *this; }
+    fifo_intf& operator<< (const object& o) { o.dump(*this); return *this; }
 };
 
 const char endl = '\n';
@@ -537,8 +542,7 @@ public:
     ~fifo();
 
     void clear();
-
-    virtual bool empty();
+    bool empty() const;
     // virtual void dump(fifo_intf&) const;
 };
 
@@ -570,7 +574,7 @@ public:
     buf_fifo(Type*, bool is_char);
     ~buf_fifo();
 
-    virtual bool empty(); // throws efifowronly
+    bool empty() const; // throws efifowronly
     virtual void flush(); // throws efifordonly
 };
 
@@ -579,12 +583,13 @@ class str_fifo: public buf_fifo
 {
 protected:
     str string;
+    void clear();
 public:
     str_fifo(Type*);
     str_fifo(Type*, const str&);
     ~str_fifo();
-    bool empty();
-    void flush();
+    bool empty() const; // override
+    void flush(); // override
     str all() const;
 };
 
@@ -600,12 +605,14 @@ protected:
     bool _eof;
 
     void error(int code); // throws esyserr
+    void doopen();
+    void doread();
 
 public:
     in_text(Type*, const str& fn);
     ~in_text();
     
-    bool empty(); //override
+    bool empty() const; //override
     str  get_file_name() const { return file_name; }
     void open()                { empty(); /* attempt to fill the buffer */ }
 };
@@ -642,7 +649,7 @@ protected:
     void* operator new(size_t, mem);
     langobj(State*);
     ~langobj();
-    bool empty(); // override
+    bool empty() const; // override
     void _idx_err();
     
 #ifdef DEBUG
