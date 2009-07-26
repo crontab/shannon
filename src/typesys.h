@@ -190,7 +190,7 @@ protected:
     PtrList<Module> uses;
 public:
     Scope(Scope* outer);
-    virtual ~Scope();
+    ~Scope();
     Symbol* findShallow(const str& _name) const;
     Symbol* findDeep(const str&) const; // overridden in Module to look in linked modules
     Constant* addConstant(Type*, const str&, const variant&);
@@ -341,8 +341,8 @@ public:
     bool isRange()  { return typeId == RANGE; }
     bool isDict()  { return typeId == DICT; }
     bool isArray()  { return typeId == ARRAY; }
-    bool isStr()  { return typeId == STR; }
-    bool isVec()  { return typeId == VEC; }
+    bool isString()  { return typeId == STR; }
+    bool isVector()  { return typeId == VEC || typeId == STR; }
     bool isSet()  { return typeId == SET; }
     bool isOrdset()  { return typeId == ORDSET; }
     bool isCharSet();

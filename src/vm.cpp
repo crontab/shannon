@@ -160,9 +160,10 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opBitXor:      BINARY_INT(^=); break;
             case opBitShl:      BINARY_INT(<<=); break;
             case opBitShr:      BINARY_INT(>>=); break;
+            case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPORD(stk); break;
             case opNeg:         UNARY_INT(-); break;
             case opBitNot:      UNARY_INT(~); break;
-            case opNot:         UNARY_INT(-); break;
+            case opNot:         SETPOD(stk, ! stk->_ord()); break;
 
             // Range operations
             case opMkRange:     *(stk - 1) = new range(ADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
@@ -310,9 +311,9 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opRangeHigh:   *stk = CAST(range*, stk->_object())->right; break;
 
             // Jumps
+            case opJump:        { mem o = ADV<joffs_t>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
             case opJumpTrue:    { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; POP(stk); } break;
             case opJumpFalse:   { mem o = ADV<joffs_t>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
-            case opJump:        { mem o = ADV<joffs_t>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
             case opJumpOr:      { mem o = ADV<joffs_t>(ip); if (stk->_ord()) ip += o; else POP(stk); } break;
             case opJumpAnd:     { mem o = ADV<joffs_t>(ip); if (stk->_ord()) POP(stk); else ip += o; } break;
 

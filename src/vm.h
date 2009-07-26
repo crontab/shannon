@@ -63,11 +63,15 @@ enum OpCode
     opBitXor,           // -int, +int, +int
     opBitShl,           // -int, +int, +int
     opBitShr,           // -int, +int, +int
+
+    // Boolean operations are performed with short evaluation using jumps,
+    // except NOT and XOR
+    opBoolXor,          // -bool, -bool, +bool
     
     // Arithmetic unary: -ord, +ord
     opNeg,              // -int, +int
     opBitNot,           // -int, +int
-    opNot,              // -int, +int
+    opNot,              // -bool, +bool
 
     // Range operations (work for all ordinals)
     opMkRange,          // [Ordinal*] -right-int, -left-int, +range
@@ -147,9 +151,9 @@ enum OpCode
     opRangeHigh,        // -range, +ord
 
     // Jumps; [dst] is a relative 16-bit offset.
+    opJump,             // [dst 16]
     opJumpTrue,         // [dst 16] -bool
     opJumpFalse,        // [dst 16] -bool
-    opJump,             // [dst 16]
     // Short bool evaluation: pop if jump, leave it otherwise
     opJumpOr,           // [dst 16] (-)bool
     opJumpAnd,          // [dst 16] (-)bool
@@ -175,6 +179,7 @@ enum OpCode
     
     // Special values
     opLoadBase = opLoadRet, opStoreBase = opStoreRet,
+    opCmpFirst = opEqual, opCmpLast = opGreaterEq,
 };
 
 
@@ -183,9 +188,12 @@ inline bool isLoadOp(OpCode op)
         || (op >= opLoadRet && op <= opLoadOuter); }
 
 inline bool isCmpOp(OpCode op)
-    { return op >= opEqual && op <= opGreaterEq; }
+    { return op >= opCmpFirst && op <= opCmpLast; }
 
 inline bool isJump(OpCode op)
+    { return op >= opJump && op <= opJumpAnd; }
+
+inline bool isBoolJump(OpCode op)
     { return op >= opJumpTrue && op <= opJumpAnd; }
 
 
@@ -310,6 +318,8 @@ public:
     void testType();
     void arithmBinary(OpCode);
     void arithmUnary(OpCode);
+    void _not();
+    void boolXor();
     void elemToVec();
     void elemCat();
     void cat();
@@ -328,7 +338,7 @@ public:
             { stkPop(); }
     void jump(mem target);
     mem  jumpForward(OpCode op = opJump);
-    mem  boolJumpForward(bool);
+    mem  boolJumpForward(OpCode);
     void resolveJump(mem jumpOffs);
     void nop()  // my favorite
             { addOp(opNop); }

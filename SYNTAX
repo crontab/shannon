@@ -27,6 +27,7 @@ statement-list ::= { ( statement | definition ) <SEP> }
 
 statement ::= call | pipe | assignment | compount-statement | if-clause
     | while-clause | "break" | "continue" | case-clause | "return"
+    | var-def
 
 assignment ::= designator "=" expr
 
@@ -53,7 +54,6 @@ case-label ::= const-expr | subrange
 # ---------- Definitions
 
 
-
 # ---------- Expressions
 
 expr ::= and-expr { ( "or" | "xor" ) and-expr }
@@ -70,7 +70,7 @@ arithm-expr ::= term { ( "+" | "-" ) term }
 
 term ::= factor { ( "*" | "/" | "mod" ) factor }
 
-factor ::= [ "-" | "not" ] designator
+factor ::= [ "-" ] designator
 
 designator ::= atom { array-item-selection | member-selection | function-call }
 

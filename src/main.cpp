@@ -44,14 +44,20 @@ protected:
 
     Symbol* getQualifiedName();
     void atom();
-    Type* designator();
-    Type* expression()  { return designator(); }
-    Type* expression(Type* hint);
+    void designator();
+    void factor();
+    void term();
+    void arithmExpr();
+    void simpleExpr();
+    void relation();
+    void notLevel();
+    void andLevel();
+    void orLevel();
+    void expression()  { orLevel(); }
 
-    void parseEcho();
-    void parseAssert();
-    void parseBlock();
-    void parseDefinition();
+    void echo();
+    void assertion();
+    void block();
 
 public:
     Compiler(Parser&, Module&);
@@ -123,7 +129,7 @@ void Compiler::atom()
 }
 
 
-Type* Compiler::designator()
+void Compiler::designator()
 {
     atom();
     
@@ -137,28 +143,151 @@ Type* Compiler::designator()
         else
             break;
     }
-    return codegen->getTopType();
 }
 
 
-Type* Compiler::expression(Type* hint)
+void Compiler::factor()
 {
-    Type* type = expression();
-    return type;
+    bool isNeg = parser.skipIf(tokMinus);
+    designator();
+    if (isNeg)
+        codegen->arithmUnary(opNeg);
+}
+
+
+void Compiler::term()
+{
+    factor();
+    while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
+    {
+        OpCode op = parser.token == tokMul ? opMul
+                : parser.token == tokDiv ? opDiv : opMod;
+        parser.next();
+        factor();
+        codegen->arithmBinary(op);
+    }
+}
+
+
+void Compiler::arithmExpr()
+{
+    term();
+    while (parser.token == tokPlus || parser.token == tokMinus)
+    {
+        OpCode op = parser.token == tokPlus ? opAdd : opSub;
+        parser.next();
+        term();
+        codegen->arithmBinary(op);
+    }
+}
+
+
+void Compiler::simpleExpr()
+{
+    arithmExpr();
+    if (parser.skipIf(tokCat))
+    {
+        Type* type = codegen->getTopType();
+        if (!type->isVector())
+            codegen->elemToVec();
+        do
+        {
+            arithmExpr();
+            type = codegen->getTopType();
+            if (!type->isVector())
+                codegen->elemCat();
+            else
+                codegen->cat();
+        }
+        while (parser.skipIf(tokCat));
+    }
+}
+
+
+void Compiler::relation()
+{
+    simpleExpr();
+    if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
+    {
+        OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
+        parser.next();
+        simpleExpr();
+        codegen->cmp(op);
+    }
+}
+
+
+void Compiler::notLevel()
+{
+    bool isNot = parser.skipIf(tokNot);
+    relation();
+    if (isNot)
+        codegen->_not(); // 'not' is something reserved, probably only with Apple's GCC
+}
+
+
+void Compiler::andLevel()
+{
+    notLevel();
+    Type* type = codegen->getTopType();
+    if (type->isBool())
+    {
+        if (parser.skipIf(tokAnd))
+        {
+            mem offs = codegen->boolJumpForward(opJumpAnd);
+            andLevel();
+            codegen->resolveJump(offs);
+        }
+    }
+    else if (type->isInt())
+    {
+        while (parser.token == tokShl || parser.token == tokShr || parser.token == tokAnd)
+        {
+            OpCode op = parser.token == tokShl ? opBitShl
+                    : parser.token == tokShr ? opBitShr : opBitAnd;
+            parser.next();
+            notLevel();
+            codegen->arithmBinary(op);
+        }
+    }
+}
+
+
+void Compiler::orLevel()
+{
+    andLevel();
+    Type* type = codegen->getTopType();
+    if (type->isBool())
+    {
+        if (parser.skipIf(tokOr))
+        {
+            mem offs = codegen->boolJumpForward(opJumpOr);
+            orLevel();
+            codegen->resolveJump(offs);
+        }
+        else if (parser.skipIf(tokXor))
+        {
+            orLevel();
+            codegen->boolXor();
+        }
+    }
+    else if (type->isInt())
+    {
+        while (parser.token == tokOr || parser.token == tokXor)
+        {
+            OpCode op = parser.token == tokOr ? opBitOr : opBitXor;
+            parser.next();
+            andLevel();
+            codegen->arithmBinary(op);
+        }
+    }
 }
 
 
 // ------------------------------------------------------------------------- //
 
 
-void Compiler::parseDefinition()
-{
-    expression();
-    codegen->exit();
-}
-
-
-void Compiler::parseEcho()
+void Compiler::echo()
 {
     mem codeOffs = codegen->getCurPos();
     if (parser.token != tokSep)
@@ -183,7 +312,7 @@ void Compiler::parseEcho()
 }
 
 
-void Compiler::parseAssert()
+void Compiler::assertion()
 {
     mem codeOffs = codegen->getCurPos();
     int linenum = parser.getLineNum();
@@ -195,7 +324,7 @@ void Compiler::parseAssert()
 }
 
 
-void Compiler::parseBlock()
+void Compiler::block()
 {
     while (!parser.skipIf(tokBlockEnd))
     {
@@ -204,12 +333,10 @@ void Compiler::parseBlock()
 
         if (parser.skipIf(tokSep))
             ;
-        else if (parser.skipIf(tokDef))
-            parseDefinition();
         else if (parser.skipIf(tokEcho))
-            parseEcho();
+            echo();
         else if (parser.skipIf(tokAssert))
-            parseAssert();
+            assertion();
         else
             notimpl();
     }
@@ -230,7 +357,7 @@ void Compiler::compile()
     try
     {
         parser.next();
-        parseBlock();
+        block();
         parser.skip(tokEof, "<EOF>");
     }
     catch (EDuplicate& e)
@@ -240,6 +367,14 @@ void Compiler::compile()
     catch (EUnknownIdent& e)
     {
         parser.error("'" + e.ident + "' is unknown");
+    }
+    catch (EParser&)
+    {
+        throw;  // comes with file name and line no. already
+    }
+    catch (exception& e)
+    {
+        parser.error(e.what());
     }
 
     mainCodeGen.end();
