@@ -431,12 +431,12 @@ void CodeGen::loadContainerElem()
 {
     Type* idxType = stkPop();
     Type* contType = stkPop();
-    if (contType->isVec() || contType->isStr())
+    if (contType->isVector())
     {
         if (!idxType->isInt())
             throw emessage("Vector/string index must be integer");
         idxType = queenBee->defNone;
-        addOp(contType->isStr() ? opLoadStrElem : opLoadVecElem);
+        addOp(contType->isString() ? opLoadStrElem : opLoadVecElem);
     }
     else if (contType->isDict())
         addOp(opLoadDictElem);
@@ -455,9 +455,9 @@ void CodeGen::storeContainerElem()
     Type* elemType = stkPop();
     Type* idxType = stkPop();
     Type* contType = stkPop();
-    if (contType->isStr())
+    if (contType->isString())
         throw emessage("Operation not allowed on strings");
-    else if (contType->isVec())
+    else if (contType->isVector())
     {
         idxType = queenBee->defNone;
         addOp(opStoreVecElem);
@@ -554,7 +554,7 @@ void CodeGen::explicitCastTo(Type* to)
     stkPop();
     if (to->isBool())
         addOp(opToBool);    // everything can be cast to bool
-    else if (to->isStr())
+    else if (to->isString())
         addOp(opToStr); // explicit cast to string: any object goes
     else if (
         // Variants should be typecast'ed to other types explicitly
@@ -611,11 +611,10 @@ void CodeGen::testType()
 void CodeGen::arithmBinary(OpCode op)
 {
     assert(op >= opAdd && op <= opBitShr);
-    Type* t1 = stkPop(), * t2 = stkPop();
-    if (!t1->isInt() || !t2->isInt())
+    Type* type = stkPop();
+    if (!type->isInt() || !stkTopType()->isInt())
         throw emessage("Operand types do not match operator");
     addOp(op);
-    stkPush(t1);
 }
 
 
@@ -625,6 +624,28 @@ void CodeGen::arithmUnary(OpCode op)
     if (!stkTopType()->isInt())
         throw emessage("Operand type doesn't match operator");
     addOp(op);
+}
+
+
+void CodeGen::_not()
+{
+    Type* type = stkTopType();
+    if (type->isInt())
+        addOp(opBitNot);
+    else
+    {
+        implicitCastTo(queenBee->defBool, "Boolean or integer operand expected");
+        addOp(opNot);
+    }
+}
+
+
+void CodeGen::boolXor()
+{
+    Type* type = stkPop();
+    if (!type->isBool() || !stkTopType()->isBool())
+        throw emessage("Operand types do not match operator");
+    addOp(opBoolXor);
 }
 
 
@@ -644,7 +665,7 @@ void CodeGen::elemCat()
 {
     Type* elemType = stkTopType();
     Type* vecType = stkTopType(1);
-    if (!vecType->isVec() && !vecType->isStr())
+    if (!vecType->isVector())
         throw emessage("Vector/string type expected");
     implicitCastTo(CAST(Vec*, vecType)->elem, "Vector/string element type mismatch");
     elemType = stkPop();
@@ -656,11 +677,11 @@ void CodeGen::cat()
 {
     Type* right = stkPop();
     Type* left = stkTopType();
-    if ((!left->isVec() || !right->isVec()) && (!left->isStr() || !right->isStr()))
+    if (!left->isVector() || !right->isVector())
         throw emessage("Vector/string type expected");
     if (!right->canAssignTo(left))
         throw emessage("Vector/string types do not match");
-    addOp(left->isStr() ? opStrCat : opVecCat);
+    addOp(left->isString() ? opStrCat : opVecCat);
 }
 
 
@@ -700,7 +721,7 @@ void CodeGen::cmp(OpCode op)
         throw emessage("Types mismatch in comparison");
     if (left->isOrdinal() && right->isOrdinal())
         addOp(opCmpOrd);
-    else if (left->isStr() && right->isStr())
+    else if (left->isString() && right->isString())
         addOp(opCmpStr);
     else
     {
@@ -744,9 +765,9 @@ void CodeGen::count()
     }
     else if (type->isRange())
         addOp(opRangeDiff);
-    else if (type->isStr())
+    else if (type->isString())
         addOp(opStrLen);
-    else if (type->isVec())
+    else if (type->isVector())
         addOp(opVecLen);
     else
         throw emessage("Operation not available for this type");
@@ -781,17 +802,18 @@ void CodeGen::jump(mem target)
 }
 
 
-mem CodeGen::boolJumpForward(bool jumpTrue)
+mem CodeGen::boolJumpForward(OpCode op)
 {
+    assert(isBoolJump(op));
     implicitCastTo(queenBee->defBool, "Boolean expression expected");
     stkPop();
-    return jumpForward(jumpTrue ? opJumpTrue : opJumpFalse);
+    return jumpForward(op);
 }
 
 
 mem CodeGen::jumpForward(OpCode op)
 {
-    assert(op == opJump || op == opJumpTrue || op == opJumpFalse);
+    assert(isJump(op));
     mem pos = getCurPos();
     addOp(op);
     addJumpOffs(0);
@@ -829,7 +851,7 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
             addOp(opCaseInt);
             addInt(label._ord());
         }
-        else if (labelType->isStr())
+        else if (labelType->isString())
         {
             loadStr(label._str_read());
             addOp(opCaseStr);

@@ -613,10 +613,13 @@ void test_typesys()
     check(queenBee->defChar->isChar());
     check(queenBee->defChar->get_rt() == defTypeRef);
     check(queenBee->defChar->isOrdinal());
-    check(queenBee->defStr->isStr());
+    check(queenBee->defStr->isString());
     check(queenBee->defStr->get_rt() == defTypeRef);
     check(queenBee->defStr->isContainer());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
+    check_throw(queenBee->defNone->deriveFifo());
+    check_throw(queenBee->defNone->deriveSet());
+    check_throw(queenBee->defNone->deriveVector());
 
     Symbol* b = queenBee->findDeep("true");
     check(b != NULL && b->isDefinition() && b->isConstant());
@@ -976,7 +979,7 @@ void test_vm()
 
             // if(true, 10, 20)
             gen.loadBool(true);
-            mem of = gen.boolJumpForward(false);
+            mem of = gen.boolJumpForward(opJumpFalse);
             gen.loadInt(10);
             gen.genPop();
             mem oj = gen.jumpForward();

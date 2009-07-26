@@ -1,2 +1,12 @@
-echo 'The value is now', system.false
-assert false
+assert true
+assert 1 + 2 * 2 == 5
+assert 'o' | 'ne' | ' tw' | 'o' == 'one two'
+assert 'three' | ' four' == 'three four'
+assert not true == false
+assert not 1 == -2
+assert not (1 == 1 and 2 == 1)
+assert 1 == 1 and 2 == 2
+assert true or false
+assert not (false or false)
+assert (1 xor 3) == 2
+assert (1 or 2) == 3

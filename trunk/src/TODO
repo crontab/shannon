@@ -1,4 +1,8 @@
 
+* Defer line number update to make error message location more sensible.
+
+* dump() for as many classes as possible, also code listing
+
 * Run-time range checking (as well as compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
