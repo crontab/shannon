@@ -274,6 +274,7 @@ public:
     Type* const aliasedType;
     TypeAlias(const str&, Type*);
     ~TypeAlias();
+    void dump(fifo_intf&) const; // override
 };
 
 
@@ -283,6 +284,7 @@ public:
     State* const aliasedState;
     StateAlias(const str&, State*);
     ~StateAlias();
+    // void dump(fifo_intf&) const; // override
 };
 
 
@@ -292,6 +294,7 @@ public:
     Module* const aliasedModule;
     ModuleAlias(const str&, Module*);
     ~ModuleAlias();
+    void dump(fifo_intf&) const; // override
 };
 
 
@@ -329,6 +332,7 @@ public:
     ~Type();
     
     void dump(fifo_intf&) const; //override
+    virtual void fullDump(fifo_intf&) const;
 
     void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
     str  getName()                  { return name; }
@@ -392,7 +396,7 @@ public:
 
     State(Module*, State* parent, Type* resultType);
     ~State();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const; //override
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
     bool isMyType(variant&);
@@ -452,7 +456,7 @@ public:
 
     Ordinal(TypeId, integer, integer);
     ~Ordinal();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const;
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -487,7 +491,7 @@ public:
     Enumeration();  // user-defined enums
     Enumeration(EnumValues*, integer _left, integer _right);    // subrange
     ~Enumeration();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const;
     void addValue(const str&);
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -504,13 +508,14 @@ public:
     Ordinal* const base;
     Range(Ordinal*);
     ~Range();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const; //override
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
 };
 
 
 // typedef Container* PContainer;
+typedef Container* PContainer;
 typedef Vec* PVec;
 typedef Dict* PDict;
 typedef Str* PStr;
@@ -529,7 +534,7 @@ public:
     Type* const elem;
     Container(Type* _index, Type* _elem);
     ~Container();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const;
     bool identicalTo(Type*);
     mem arrayIndexShift()
         { return CAST(Ordinal*, index)->left; }
@@ -547,7 +552,7 @@ protected:
 public:
     Fifo(Type*);
     ~Fifo();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const; //override
     bool identicalTo(Type*);
 };
 
