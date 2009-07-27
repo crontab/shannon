@@ -378,6 +378,12 @@ void Compiler::compile()
     }
 
     mainCodeGen.end();
+
+    if (options.vmListing)
+    {
+        out_text f(NULL, remove_filename_ext(parser.getFileName()) + ".lst");
+        mainModule.listing(f);
+    }
 }
 
 
@@ -393,8 +399,8 @@ int executeFile(const str& fileName)
     variant result = module.run();
 
 #ifdef DEBUG
-    queenBee->dumpContents(sio);
-    module.dumpContents(sio);
+//    queenBee->dumpContents(sio);
+//    module.dumpContents(sio);
 #endif
 
     if (result.is_null())

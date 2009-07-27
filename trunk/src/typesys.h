@@ -95,6 +95,7 @@ public:
         { return code.empty(); }
     mem size() const
         { return code.size(); }
+    void listing(fifo_intf&) const;
 };
 
 
@@ -397,6 +398,7 @@ public:
     State(Module*, State* parent, Type* resultType);
     ~State();
     void fullDump(fifo_intf&) const; //override
+    void listing(fifo_intf&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
     bool isMyType(variant&);
@@ -426,7 +428,7 @@ protected:
 public:
     Module(const str& name);
     ~Module();
-    void dump(fifo_intf&) const; //override
+    void fullDump(fifo_intf&) const; //override
     void dumpContents(fifo_intf&) const;
     mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)

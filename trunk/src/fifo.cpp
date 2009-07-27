@@ -18,18 +18,20 @@ mem fifo::CHUNK_SIZE = sizeof(variant) * 16;
 
 fifo_intf::fifo_intf(Type* rt, bool is_char)
     : object(rt), _char(is_char)  { }
-fifo_intf::~fifo_intf() { }
+fifo_intf::~fifo_intf()
+    { }
 
-void fifo_intf::_empty_err()          { throw emessage("FIFO empty"); }
-void fifo_intf::_wronly_err()         { throw emessage("FIFO is write-only"); }
-void fifo_intf::_rdonly_err()         { throw emessage("FIFO is read-only"); }
-void fifo_intf::_fifo_type_err()      { fatal(0x1002, "FIFO type mismatch"); }
+void fifo_intf::_empty_err()                { throw emessage("FIFO empty"); }
+void fifo_intf::_wronly_err()               { throw emessage("FIFO is write-only"); }
+void fifo_intf::_rdonly_err()               { throw emessage("FIFO is read-only"); }
+void fifo_intf::_fifo_type_err()            { fatal(0x1002, "FIFO type mismatch"); }
 const char* fifo_intf::get_tail()           { _wronly_err(); return NULL; }
 const char* fifo_intf::get_tail(mem*)       { _wronly_err(); return NULL; }
 void fifo_intf::deq_bytes(mem)              { _wronly_err(); }
 variant* fifo_intf::enq_var()               { _rdonly_err(); return NULL; }
 mem fifo_intf::enq_chars(const char*, mem)  { _rdonly_err(); return 0; }
 bool fifo_intf::empty() const               { _rdonly_err(); return true; }
+void fifo_intf::flush()                     { }
 void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
@@ -574,8 +576,10 @@ std_file serr(-1, STDERR_FILENO);
 
 in_text::in_text(Type* rt, const str& fn)
     : buf_fifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
-in_text::~in_text()             { if (_fd > 2) ::close(_fd); }
-void in_text::error(int code)   { _eof = true; throw esyserr(code, file_name); }
+in_text::~in_text()
+    { if (_fd > 2) ::close(_fd); }
+void in_text::error(int code)
+    { _eof = true; throw esyserr(code, file_name); }
 
 
 void in_text::doopen()
@@ -609,5 +613,56 @@ bool in_text::empty() const
     if (buftail == bufhead)
         ((in_text*)this)->doread();
     return _eof;
+}
+
+
+// --- out_text ------------------------------------------------------------- //
+
+
+out_text::out_text(Type* rt, const str& fn)
+    : buf_fifo(rt, true), file_name(fn), _fd(-1), _err(false)
+{
+    filebuf.resize(out_text::BUF_SIZE);
+    buffer = (char*)filebuf.data();
+    bufsize = out_text::BUF_SIZE;
+}
+
+out_text::~out_text()
+{
+    try
+    {
+        flush();
+    }
+    catch (exception&)
+    {
+    }
+    if (_fd > 2)
+    {
+        ::close(_fd);
+    }
+}
+
+
+void out_text::error(int code)
+    { _err = true; throw esyserr(code, file_name); }
+
+
+void out_text::flush()
+{
+    if (_err)
+        return;
+    if (bufhead > 0)
+    {
+        if (_fd < 0)
+        {
+            _fd = ::open(file_name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_LARGEFILE, 0644);
+            if (_fd < 0)
+                error(errno);
+        }
+        int ret = ::write(_fd, buffer, bufhead);
+        if (ret < 0)
+            error(errno);
+        bufhead = 0;
+    }
 }
 

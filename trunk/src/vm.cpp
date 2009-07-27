@@ -48,10 +48,6 @@ inline void STORETO(variant*& stk, variant* dest)
         { dest->~variant(); POPTO(stk, dest); }
 //        { *dest = *stk; POP(stk); }
 
-template<class T>
-    inline T ADV(const uchar*& ip)
-        { T t = *(T*)ip; ip += sizeof(T); return t; }
-
 #define SETPOD(dest,v) (::new(dest) variant(v))
 
 #define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POPORD(stk); }
