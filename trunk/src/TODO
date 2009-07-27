@@ -1,8 +1,6 @@
 
 * Defer line number update to make error message location more sensible.
 
-* dump() for as many classes as possible, also code listing
-
 * Run-time range checking (as well as compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
@@ -39,14 +37,16 @@
   drivers can be written this way.
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will work
-  for dynamic states too (?)
+  for dynamic states too (?). Actually dict.key might work too.
 
 * Include for sets? set s['item'] (set is a keyword anyway - get/set property)
+  But it's a "soft" keyword that can be used as an identifier. So something
+  else maybe.
 
 * Operator delete, e.g.: delete d['key'] (applies to sets too)
 
 * Iterators for all container types. Iterators should lock the container to
-  preevent modification.
+  prevent modification.
 
 * A `pair` data type, which is a dictionary iteration element. But maybe not
   only. Can be a built-in state with two fields.
@@ -57,9 +57,10 @@
   subtraction (-)
 
 * Have the code generator evaluate some operations at generation time if
-  possible.
-
-* Global repository of string literals
+  possible. Need to store codeseg offset with each genstack element.
 
 * Built-ins: empty(), ord(), typeof() etc.
+
+* Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
+  and, or, etc.
 
