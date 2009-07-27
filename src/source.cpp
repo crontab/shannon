@@ -129,6 +129,12 @@ str mkPrintable(const str& s)
 }
 
 
+str mkQuotedPrintable(char c)
+{
+    return '\'' + mkPrintable(c) + '\'';
+}
+
+
 Parser::Parser(const str& fn, fifo_intf* _input)
     : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
@@ -200,7 +206,7 @@ void Parser::parseStringLiteral()
                 strValue += c;
         }
         else
-            error("Illegal character in string literal '" + mkPrintable(c) + "'");
+            error("Illegal character in string literal " + mkQuotedPrintable(c));
     }
 }
 
@@ -228,7 +234,7 @@ void Parser::skipMultilineComment()
             }
         }
         else
-            error("Illegal character in comments '" + mkPrintable(e) + "'");
+            error("Illegal character in comments " + mkQuotedPrintable(e));
     }
     input->skip(wsChars);
     if (!input->eol())
@@ -241,7 +247,7 @@ void Parser::skipSinglelineComment()
     static const charset commentChars = printableChars + wsChars;
     input->skip(commentChars);
     if (!input->eol())
-        error("Illegal character in comments '" + mkPrintable(input->preview()) + "'");
+        error("Illegal character in comments " + mkQuotedPrintable(input->preview()));
 }
 
 
@@ -438,7 +444,7 @@ restart:
         }
     }
 
-    error("Illegal character '" + mkPrintable(c) + "'");
+    error("Illegal character " + mkQuotedPrintable(c));
 
     return tokUndefined;
 }

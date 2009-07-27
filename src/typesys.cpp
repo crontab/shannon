@@ -168,14 +168,7 @@ void TypeAlias::dump(fifo_intf& stm) const
     else
     {
         stm << name << " = ";
-        if (aliasedType->isEnum())
-            PEnum(aliasedType)->fullDump(stm);
-        else if (aliasedType->isOrdinal())
-            POrdinal(aliasedType)->fullDump(stm);
-        else if (aliasedType->isContainer())
-            PContainer(aliasedType)->fullDump(stm);
-        else
-            stm << "<builtin>";
+        aliasedType->fullDump(stm);
     }
 }
 
@@ -378,6 +371,13 @@ void State::fullDump(fifo_intf& stm) const
 }
 
 
+void State::listing(fifo_intf& stm) const
+{
+    stm << ";--- SHANNON MODULE " << name << endl;
+    CodeSeg::listing(stm);
+}
+
+
 bool State::identicalTo(Type* t)
     { return t == this; }
 
@@ -425,7 +425,7 @@ Module::Module(const str& _name)
 Module::~Module()  { }
 
 
-void Module::dump(fifo_intf& stm) const
+void Module::fullDump(fifo_intf& stm) const
 {
     stm << "module " << name;
 }
@@ -507,7 +507,7 @@ Ordinal::~Ordinal()  { }
 void Ordinal::fullDump(fifo_intf& stm) const
 {
     if (isChar())
-        stm << '\'' << mkPrintable(left) << '\'' << ".." << '\'' << mkPrintable(right) << '\'';
+        stm << mkQuotedPrintable(left) << ".." << mkQuotedPrintable(right);
     else
         stm << left << ".." << right;
 }

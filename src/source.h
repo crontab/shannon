@@ -108,6 +108,7 @@ public:
 
 str extractFileName(str filepath);
 str mkPrintable(char c);
+str mkQuotedPrintable(char c);
 str mkPrintable(const str&);
 
 // Exposed for unit tests

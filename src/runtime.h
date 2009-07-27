@@ -445,6 +445,7 @@ public:
 
     void dump(fifo_intf&) const; // just displays <fifo>
     bool empty() const;   // throws efifowronly
+    virtual void flush(); // empty, overridden in file fifos
 
     // Main FIFO operations, work on both char and variant fifos
     void var_enq(const variant&);
@@ -575,7 +576,7 @@ public:
     ~buf_fifo();
 
     bool empty() const; // throws efifowronly
-    virtual void flush(); // throws efifordonly
+    void flush(); // throws efifordonly
 };
 
 
@@ -613,8 +614,31 @@ public:
     ~in_text();
     
     bool empty() const; //override
+    bool eof()                 { return empty(); }
     str  get_file_name() const { return file_name; }
     void open()                { empty(); /* attempt to fill the buffer */ }
+};
+
+
+class out_text: public buf_fifo
+{
+protected:
+    enum { BUF_SIZE = 1024 * sizeof(integer) };
+
+    const str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _err;
+
+    void error(int code); // throws esyserr
+
+public:
+    out_text(Type*, const str& fn);
+    ~out_text();
+
+    str  get_file_name() const { return file_name; }
+    void flush(); // override
+    void open()                { flush(); }
 };
 
 

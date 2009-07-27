@@ -197,6 +197,11 @@ inline bool isBoolJump(OpCode op)
     { return op >= opJumpTrue && op <= opJumpAnd; }
 
 
+template<class T>
+    inline T ADV(const uchar*& ip)
+        { T t = *(T*)ip; ip += sizeof(T); return t; }
+
+
 DEF_EXCEPTION(eexit, "exit called");
 
 
