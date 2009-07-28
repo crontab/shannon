@@ -54,7 +54,9 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    void expression()  { orLevel(); }
+    Type* expression();
+    Type* constExpr(variant& result);
+    Type* typeExpr();
 
     void definition();
     void echo();
@@ -74,6 +76,11 @@ Compiler::Compiler(Parser& _parser, Module& _main)
     codegen(NULL), scope(NULL)  { }
 
 Compiler::~Compiler()  { }
+
+
+template <class T>
+    inline T exchange(T& target, const T& value)
+        { T temp = target; target = value; return temp; }
 
 
 // --- EXPRESSION ---------------------------------------------------------- //
@@ -210,6 +217,7 @@ void Compiler::arithmExpr()
 void Compiler::simpleExpr()
 {
     arithmExpr();
+    // TODO: range
     if (parser.skipIf(tokCat))
     {
         Type* type = codegen->getTopType();
@@ -309,12 +317,44 @@ void Compiler::orLevel()
 }
 
 
+Type* Compiler::expression()
+{
+    orLevel();
+    return codegen->getTopType();
+}
+
+
+Type* Compiler::constExpr(variant& result)
+{
+    ConstCode constCode;
+    CodeGen constCodeGen(&constCode);
+    CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
+    Type* resultType = expression();
+    constCode.run(result);
+    codegen = prevCodeGen;
+    return resultType;
+}
+
+
+Type* Compiler::typeExpr()
+{
+    variant result;
+    Type* resultType = constExpr(result);
+    if (!resultType->isTypeRef())
+        throw emessage("Type expression expected");
+    return CAST(Type*, result._object());
+}
+
+
 // ------------------------------------------------------------------------- //
 
 
 void Compiler::definition()
 {
-    
+    // definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
+    Type* type = NULL;
+    Symbol* symbol = NULL;
+    notimpl();
 }
 
 
