@@ -263,7 +263,7 @@ bool Type::identicalTo(Type* t)  // for comparing container elements, indexes
 bool Type::canAssignTo(Type* t)  // can assign or automatically convert the type without changing the value
     { return identicalTo(t); }
 
-bool Type::isMyType(variant& v)
+bool Type::isMyType(const variant& v)
     { return (v.is_object() && identicalTo(v._object()->get_rt())); }
 
 void Type::runtimeTypecast(variant& v)
@@ -394,7 +394,7 @@ langobj* State::newObject()
 }
 
 
-bool State::isMyType(variant& v)
+bool State::isMyType(const variant& v)
     { return (v.is_object() && v._object()->get_rt()->canAssignTo(this)); }
 
 
@@ -489,7 +489,7 @@ variant Module::run()
 
 
 None::None(): Type(defTypeRef, NONE)  { }
-bool None::isMyType(variant& v)  { return v.is_null(); }
+bool None::isMyType(const variant& v)  { return v.is_null(); }
 
 
 // --- Ordinal ------------------------------------------------------------- //
@@ -540,23 +540,25 @@ Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
 bool Ordinal::identicalTo(Type* t)
     { return t->is(typeId) && rangeEq(POrdinal(t)); }
 
+
 bool Ordinal::canAssignTo(Type* t)
     { return t->is(typeId); }
 
 
-bool Ordinal::isMyType(variant& v)
+bool Ordinal::isMyType(const variant& v)
 {
-    return isBool() || (v.is_ordinal() && isInRange(v.as_ordinal()));
+    switch (v.type)
+    {
+    case BOOL: return isBool();
+    case CHAR: return isChar();
+    case INT: return isInt();
+    default: return false;
+    }
 }
 
 
 void Ordinal::runtimeTypecast(variant& v)
 {
-    if (isBool())
-    {
-        v = v.to_bool();
-        return;
-    }
     if (!v.is_ordinal())
         typeMismatch();
     if (!isInRange(v.as_ordinal()))
@@ -630,8 +632,10 @@ bool Enumeration::canAssignTo(Type* t)
 
 Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
 {
-    if (_left == left && _right == right)
+    if (rangeEq(_left, _right))
         return this;
+    if (isBool())
+        throw emessage("Can't derive subrange from bool");
     if (_left < left || _right > right)
         throw emessage("Subrange error");
     return new Enumeration(values, _left, _right);
@@ -712,7 +716,7 @@ bool Fifo::identicalTo(Type* t)
 
 Variant::Variant(): Type(defTypeRef, VARIANT)  { }
 Variant::~Variant()  { }
-bool Variant::isMyType(variant&)  { return true; }
+bool Variant::isMyType(const variant&)  { return true; }
 void Variant::runtimeTypecast(variant&)  { }
 
 
@@ -737,6 +741,7 @@ QueenBee::QueenBee()
     defStr = NULL;
     defVariant = registerType(new Variant());
     defCharFifo = NULL;
+    defNullContainer = registerType(new Container(defNone, defNone));
     siovar = NULL;
     serrvar = NULL;
 }

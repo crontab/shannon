@@ -281,6 +281,7 @@ public:
     mem getLocals() { return locals; }
     State* getState() { return state; }
     Type* getTopType() { return stkTopType(); }
+    Type* getTopTypeRefValue();
 
     void end();
     void endConstExpr(Type*);

@@ -1,4 +1,7 @@
 
+* Compound constructor always builds a variant vector, which is then
+  transformed into something else depending on the consumer.
+
 * Defer line number update to make error message location more sensible.
 
 * Run-time range checking (as well as compile-time)
@@ -59,7 +62,7 @@
 * Have the code generator evaluate some operations at generation time if
   possible. Need to store codeseg offset with each genstack element.
 
-* Built-ins: empty(), ord(), typeof() etc.
+* Built-ins: empty(), ord(), typeof(), if() etc.
 
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.

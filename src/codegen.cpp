@@ -114,6 +114,18 @@ void CodeGen::end()
 }
 
 
+Type* CodeGen::getTopTypeRefValue()
+{
+    const stkinfo& info = stkTop();
+    if (!info.type->isTypeRef() || !info.value.is_object())
+        return NULL;
+    Type* result = CAST(Type*, info.value._object());
+    stkPop();
+    revertLastLoad();
+    return result;
+}
+
+
 void CodeGen::endConstExpr(Type* expectType)
 {
     if (expectType != NULL)
@@ -420,6 +432,7 @@ void CodeGen::loadMember(const str& ident)
         else
             throw emessage("Invalid member selection");
     }
+    // TODO: state member selection
     // TODO: do dictionary element selection?
     else
         throw emessage("Invalid member selection");
