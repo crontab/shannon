@@ -42,7 +42,8 @@ protected:
     void errorWithLoc(const str& msg)       { parser.errorWithLoc(msg); }
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
 
-    Symbol* getQualifiedName();
+    Type* getTypeDerivators(Type*);
+    void compoundCtor();
     void atom();
     void designator();
     void factor();
@@ -55,6 +56,7 @@ protected:
     void orLevel();
     void expression()  { orLevel(); }
 
+    void definition();
     void echo();
     void assertion();
     void block();
@@ -77,30 +79,44 @@ Compiler::~Compiler()  { }
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    <nested-expr>, <typecast>, <ident>, <number>, <string>, <char>,
-        true, false, null, compound-ctor
-    <array-sel>, <function-call>, <mute>
+    1. <nested-expr>, <ident>, <number>, <string>, <char>, <compound-ctor>
+    2. <array-sel>, <member-sel>, <function-call>
+    3. <array-derivator>, <fifo-derivator>, <function-derivator>
     -
     *, /, mod, as
     +, –
-    |
+    |, ..
     ==, <>, != <, >, <=, >=, in, is
     not
     and
     or, xor
-    ..
 */
+
+
+void Compiler::compoundCtor()
+{
+    parser.skip(tokLSquare, "[");
+    if (parser.skipIf(tokRSquare))
+        codegen->loadNullContainer(queenBee->defNullContainer);
+    else
+    {
+        notimpl();
+    }
+}
+
+
+Type* Compiler::getTypeDerivators(Type* type)
+{
+    // TODO: container derivator
+    // TODO: fifo derivator
+    // TODO: function derivator
+    return type;
+}
 
 
 void Compiler::atom()
 {
-    if (parser.skipIf(tokLParen))
-    {
-        expression();
-        parser.skip(tokRParen, ")");
-    }
-
-    else if (parser.token == tokIntValue)
+    if (parser.token == tokIntValue)
     {
         codegen->loadInt(parser.intValue);
         parser.next();
@@ -122,8 +138,16 @@ void Compiler::atom()
         codegen->loadSymbol(s);
         parser.next();
     }
-    // TODO: if function
-    // TODO: container ctor
+
+    else if (parser.skipIf(tokLParen))
+    {
+        expression();
+        parser.skip(tokRParen, ")");
+    }
+
+    else if (parser.token == tokLSquare)
+        compoundCtor();
+
     else
         errorWithLoc("Expression syntax");
 }
@@ -132,7 +156,6 @@ void Compiler::atom()
 void Compiler::designator()
 {
     atom();
-    
     while (1)
     {
         if (parser.skipIf(tokPeriod))
@@ -140,6 +163,8 @@ void Compiler::designator()
             codegen->loadMember(parser.getIdentifier());
             parser.next();
         }
+        // TODO: array item selection
+        // TODO: function call
         else
             break;
     }
@@ -287,6 +312,12 @@ void Compiler::orLevel()
 // ------------------------------------------------------------------------- //
 
 
+void Compiler::definition()
+{
+    
+}
+
+
 void Compiler::echo()
 {
     mem codeOffs = codegen->getCurPos();
@@ -333,6 +364,8 @@ void Compiler::block()
 
         if (parser.skipIf(tokSep))
             ;
+        else if (parser.skipIf(tokDef))
+            definition();
         else if (parser.skipIf(tokEcho))
             echo();
         else if (parser.skipIf(tokAssert))

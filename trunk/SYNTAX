@@ -17,15 +17,15 @@
 #
 
 
-# ---------- Module
-
 module ::= statement-list
 
 # ---------- Statements
 
-statement-list ::= { ( statement | definition ) <SEP> }
+statement-list ::= { ( definition | statement ) <SEP> }
 
-statement ::= call | pipe | assignment | compount-statement | if-clause
+definition ::= 'def' [ expr ] ident { type-derivator } '=' expr
+
+statement ::= call | pipe | assignment | compound-statement | if-clause
     | while-clause | "break" | "continue" | case-clause | "return"
     | var-def
 
@@ -50,10 +50,6 @@ case-clause ::= "case" expr <BEGIN>
 case-label ::= const-expr | subrange
 
 
-
-# ---------- Definitions
-
-
 # ---------- Expressions
 
 expr ::= and-expr { ( "or" | "xor" ) and-expr }
@@ -70,11 +66,15 @@ arithm-expr ::= term { ( "+" | "-" ) term }
 
 term ::= factor { ( "*" | "/" | "mod" ) factor }
 
-factor ::= [ "-" ] designator
+factor ::= [ "-" ] type-expr
+
+type-expr ::= designator { type-derivator }
+
+type-derivator ::= array-derivator | fifo-derivator | function-derivator
 
 designator ::= atom { array-item-selection | member-selection | function-call }
 
-atom ::= number | string | ident | subexpr | compound-ctor | type | if-expr
+atom ::= number | string | ident | subexpr | compound-ctor
 
 subexpr ::= "(" expr ")"
 

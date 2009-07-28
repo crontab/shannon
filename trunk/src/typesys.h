@@ -372,7 +372,7 @@ public:
 
     virtual bool identicalTo(Type*);  // for comparing container elements, indexes
     virtual bool canAssignTo(Type*);  // can assign or automatically convert the type without changing the value
-    virtual bool isMyType(variant&);
+    virtual bool isMyType(const variant&);
     virtual void runtimeTypecast(variant&);
 };
 
@@ -401,7 +401,7 @@ public:
     void listing(fifo_intf&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
-    bool isMyType(variant&);
+    bool isMyType(const variant&);
     template<class T>
         T* registerType(T* t)
             { t->setOwner(this); types.add(t); return t; }
@@ -440,7 +440,7 @@ class None: public Type
 {
 public:
     None();
-    bool isMyType(variant&);
+    bool isMyType(const variant&);
 };
 
 
@@ -462,7 +462,7 @@ public:
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
-    bool isMyType(variant&);
+    bool isMyType(const variant&);
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
@@ -566,7 +566,7 @@ protected:
     Variant();
 public:
     ~Variant();
-    bool isMyType(variant&);
+    bool isMyType(const variant&);
     void runtimeTypecast(variant&);
 };
 
@@ -597,6 +597,7 @@ public:
     Container* defStr;
     Variant* defVariant;
     Fifo* defCharFifo;
+    Container* defNullContainer;
     Variable* siovar;
     Variable* serrvar;
     Variable* sresultvar;
