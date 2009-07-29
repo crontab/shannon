@@ -226,7 +226,9 @@ protected:
     {
         Type* type;
         variant value;
-        stkinfo(Type* t, const variant& v): type(t), value(v) { }
+        bool hasValue;
+        stkinfo(Type* t): type(t), value(), hasValue(false) { }
+        stkinfo(Type* t, const variant& v): type(t), value(v), hasValue(true) { }
     };
 
     CodeSeg* codeseg;
@@ -253,14 +255,15 @@ protected:
     void close();
 
     void stkPush(Type* t, const variant& v);
-    void stkPush(Type* t)
-            { stkPush(t, null); }
+    void stkPush(Type* t);
     void stkPush(Constant* c)
             { stkPush(c->type, c->value); }
     const stkinfo& stkTop() const;
     const stkinfo& stkTop(mem) const;
     Type* stkTopType() const
             { return stkTop().type; }
+    bool  stkTopIsValue() const
+            { return stkTop().hasValue; }
     const variant& stkTopValue() const
             { return stkTop().value; }
     Type* stkTopType(mem i) const

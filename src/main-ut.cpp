@@ -621,7 +621,7 @@ void test_typesys()
     check_throw(queenBee->defNone->deriveVector());
 
     Symbol* b = queenBee->findDeep("true");
-    check(b != NULL && b->isDefinition() && b->isConstant());
+    check(b != NULL && b->isDefinition());
     check(PDef(b)->value.as_int() == 1);
     check(PDef(b)->type->isBool());
 

@@ -209,7 +209,7 @@ class Symbol: public object
 {
 public:
     enum SymbolId { RESULTVAR, LOCALVAR, THISVAR, ARGVAR, // in sync with loaders and storers
-                    CONSTANT, TYPEALIAS, STATEALIAS, MODULEALIAS,
+                    DEFINITION,
                     FIRSTVAR = RESULTVAR };
 
     SymbolId const symbolId;
@@ -221,17 +221,16 @@ public:
     void dump(fifo_intf&) const; // override
 
     bool isVariable() const  { return symbolId <= ARGVAR; }
-    bool isDefinition() const  { return symbolId >= CONSTANT; }
+    bool isDefinition() const  { return symbolId == DEFINITION; }
 
     bool isThisVar() const  { return symbolId == THISVAR; }
     bool isResultVar() const  { return symbolId == RESULTVAR; }
     bool isLocalVar() const  { return symbolId == LOCALVAR; }
     bool isArgVar() const  { return symbolId == ARGVAR; }
 
-    bool isConstant() const  { return symbolId == CONSTANT; }
-    bool isTypeAlias() const  { return symbolId == TYPEALIAS; }
-    bool isStateAlias() const  { return symbolId == STATEALIAS; }
-    bool isModuleAlias() const  { return symbolId == MODULEALIAS; }
+    bool isTypeAlias() const;
+    bool isStateAlias() const;
+    bool isModuleAlias() const;
 };
 
 
@@ -254,11 +253,8 @@ class Definition: public Symbol
 {
 public:
     variant const value;
-//    Definition(SymbolId, Type*, const str&, const variant&);
     Definition(Type*, const str&, const variant&);
     Definition(const str&, Type*);
-    Definition(const str&, State*);
-    Definition(const str&, Module*);
     ~Definition();
     void dump(fifo_intf&) const; // override
     Type* aliasedType();
@@ -337,6 +333,7 @@ public:
     Fifo* deriveFifo();
     Container* deriveVector();
     Container* deriveSet();
+    Container* createContainer(Type* indexType);
 
     virtual bool identicalTo(Type*);  // for comparing container elements, indexes
     virtual bool canAssignTo(Type*);  // can assign or automatically convert the type without changing the value
