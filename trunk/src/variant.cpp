@@ -11,8 +11,8 @@ const variant null;
 const str null_str;
 
 
-void variant::_init(const str& s)   { type = STR; ::new(&_str_write()) str(s); }
-void variant::_init(const char* s)  { type = STR; ::new(&_str_write()) str(s); }
+void variant::_init(const str& s)   { type = STR; ::new(&_strw()) str(s); }
+void variant::_init(const char* s)  { type = STR; ::new(&_strw()) str(s); }
 void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
 
 
@@ -32,7 +32,7 @@ void variant::_init(const variant& other)
         val._real = other.val._real;
         break;
     case STR:
-        ::new(&_str_write()) str(other._str_read());
+        ::new(&_strw()) str(other._str());
         break;
     case OBJECT:
         val._obj = grab(other.val._obj);
@@ -90,7 +90,7 @@ void variant::_fin2()
     case REAL:
         break;
     case STR:
-        _str_write().~str();
+        _strw().~str();
         break;
     case OBJECT:
         release(val._obj);
@@ -108,7 +108,7 @@ void variant::dump(fifo_intf& s) const
     case CHAR: s << '\'' << uchar(val._int) << '\''; break;
     case INT:  s << val._int; break;
     case REAL: s << integer(val._real); break; // TODO: !!!
-    case STR:  s << '\'' << _str_read() << '\''; break;
+    case STR:  s << '\'' << _str() << '\''; break;
     case OBJECT:
         s << '[';
         if (val._obj != NULL)
@@ -138,7 +138,7 @@ bool variant::operator== (const variant& other) const
     case CHAR:
     case INT:       return val._int == other.val._int;
     case REAL:      return val._real == other.val._real;
-    case STR:       return _str_read() == other._str_read();
+    case STR:       return _str() == other._str();
     case OBJECT:    return val._obj == other.val._obj; // TODO: a virtual call?
     }
     return false;
@@ -156,7 +156,7 @@ bool variant::operator< (const variant& other) const
     case CHAR:
     case INT:  return val._int < other.val._int;
     case REAL: return val._real < other.val._real;
-    case STR:  return _str_read() < other._str_read();
+    case STR:  return _str() < other._str();
     case OBJECT:
         if (val._obj == NULL)
             return other.val._obj != NULL;
@@ -181,7 +181,7 @@ void variant::_index_err() { throw emessage("Variant index error"); }
 
 unsigned variant::as_char_int() const
 {
-    integer i = as_ordinal();
+    integer i = as_ord();
     if (i < 0 || i >= charset::BITS)
         _range_err();
     return i;
@@ -197,7 +197,7 @@ bool variant::empty() const
     case CHAR:
     case INT:       return val._int == 0;
     case REAL:      return val._real == 0.0;
-    case STR:       return _str_read().empty();
+    case STR:       return _str().empty();
     case OBJECT:    return val._obj == NULL || val._obj->empty();
     }
     return true;

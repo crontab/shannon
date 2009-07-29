@@ -54,8 +54,10 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    Type* expression();
-    Type* constExpr(variant& result);
+    void expression()
+            { orLevel(); }
+    Type* expression(Type* expectType);
+    Type* constExpr(Type* expectType, variant& result);
     Type* typeExpr();
 
     void definition();
@@ -123,7 +125,14 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::atom()
 {
-    if (parser.token == tokIntValue)
+    if (!parser.prevIdent.empty())  // from incomplete definition
+    {
+        Symbol* s = scope->findDeep(parser.prevIdent);
+        codegen->loadSymbol(s);
+        parser.redoIdent();
+    }
+
+    else if (parser.token == tokIntValue)
     {
         codegen->loadInt(parser.intValue);
         parser.next();
@@ -317,32 +326,38 @@ void Compiler::orLevel()
 }
 
 
-Type* Compiler::expression()
+Type* Compiler::expression(Type* expectType)
 {
-    orLevel();
-    return codegen->getTopType();
+    expression();
+    Type* resultType = codegen->getTopType();
+    // TODO: convert range to Range type
+    if (expectType != NULL && !resultType->canAssignTo(expectType))
+        throw emessage("Expression type mismatch");
+    return resultType;
 }
 
 
-Type* Compiler::constExpr(variant& result)
+Type* Compiler::constExpr(Type* expectType, variant& result)
 {
     ConstCode constCode;
     CodeGen constCodeGen(&constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    Type* resultType = expression();
+    Type* valueType = expression(expectType);
+    constCodeGen.endConstExpr(NULL);
     constCode.run(result);
     codegen = prevCodeGen;
-    return resultType;
+    return valueType;
 }
 
 
 Type* Compiler::typeExpr()
 {
     variant result;
-    Type* resultType = constExpr(result);
+    // TODO: shorter path?
+    Type* resultType = constExpr(defTypeRef, result);
     if (!resultType->isTypeRef())
         throw emessage("Type expression expected");
-    return CAST(Type*, result._object());
+    return CAST(Type*, result._obj());
 }
 
 
@@ -352,9 +367,31 @@ Type* Compiler::typeExpr()
 void Compiler::definition()
 {
     // definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
+    str ident;
     Type* type = NULL;
-    Symbol* symbol = NULL;
-    notimpl();
+    if (parser.token == tokIdent)
+    {
+        ident = parser.strValue;
+        if (parser.next() != tokAssign)
+        {
+            parser.undoIdent(ident);
+            type = typeExpr();
+            ident = parser.getIdentifier();
+            parser.next();
+        }
+    }
+    else
+        type = typeExpr();
+    parser.skip(tokAssign, "Initialization expected");
+    variant value;
+    Type* valueType = constExpr(type, value);
+    if (type == NULL)
+        type = valueType;
+    if (type->isTypeRef())
+        scope->addTypeAlias(ident, CAST(Type*, value._obj()));
+    else
+        scope->addConstant(type, ident, value);
+    parser.skipSep();
 }
 
 
@@ -478,7 +515,7 @@ int executeFile(const str& fileName)
 
     if (result.is_null())
         return 0;
-    else if (result.is_ordinal())
+    else if (result.is_ord())
         return result._ord();
     else if (result.is(variant::STR))
     {

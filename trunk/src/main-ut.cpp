@@ -111,14 +111,14 @@ void test_variant()
         str s1 = "def";
         variant vst = s1;               check(vst.as_str() == s1);
         object* o = new test_obj();
-        variant vo = o;                 check(vo.is_object());  check(vo.as_object() == o);
+        variant vo = o;                 check(vo.is_obj());  check(vo.as_obj() == o);
 
         check_throw(v1.as_int());
         check_throw(v1.as_real());
         check_throw(v1.as_bool());
         check_throw(v1.as_char());
         check_throw(v1.as_str());
-        check_throw(v1.as_object());
+        check_throw(v1.as_obj());
         
         check(v1.to_string() == "null");
         check(v2.to_string() == "0");
@@ -152,7 +152,7 @@ void test_variant()
         v = "";                check(v.as_str().empty());           check(v == "");
         v = "abc";             check(v.as_str() == "abc");          check(v == "abc");
         v = s1;                check(v.as_str() == s1);             check(v == s1);
-        v = o;                 check(v.as_object() == o);
+        v = o;                 check(v.as_obj() == o);
         check(v != null);
         v = null;
         check(!v.is(variant::OBJECT));
@@ -576,13 +576,13 @@ void test_fifos()
     // f.dump(std::cout); std::cout << std::endl;
     variant x;
     f.var_deq(x);
-    check(x.is_object());
+    check(x.is_obj());
     f.var_deq(w);
     check(w.is(variant::STR));
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is_object());
+    check(vr.is_obj());
 
     fifo fc(NULL, true);
     test_bidir_char_fifo(fc);
@@ -637,7 +637,7 @@ void test_typesys()
         b = state.findDeep("ool");
         check(b->isDefinition());
         check(b->isTypeAlias());
-        check(PTypeAlias(b)->aliasedType->isBool());
+        check(PDef(b)->aliasedType()->isBool());
         state.addThisVar(queenBee->defInt, "v");
         Symbol* v = state.findDeep("v");
         check(v->isThisVar());
@@ -730,8 +730,8 @@ void test_vm()
             gen.endConstExpr(queenBee->defBool->deriveRange());
         }
         seg.run(r);
-        check(prange(r.as_object())->get_rt()->isRange()
-            && prange(r.as_object())->equals(1, 0));
+        check(prange(r.as_obj())->get_rt()->isRange()
+            && prange(r.as_obj())->equals(1, 0));
 
         // Vector concatenation
         vector* t = new vector(queenBee->defInt->deriveVector(), 1, 3);

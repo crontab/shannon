@@ -61,7 +61,7 @@ protected:
 
 #ifdef DEBUG
     void _dbg(Type t) const         { if (type != t) _type_err(); }
-    void _dbg_ord() const           { if (!is_ordinal()) _type_err(); }
+    void _dbg_ord() const           { if (!is_ord()) _type_err(); }
 #else
     void _dbg(Type t) const         { }
     void _dbg_ord() const           { }
@@ -91,7 +91,7 @@ protected:
     static void _index_err();
     void _req(Type t) const         { if (type != t) _type_err(); }
     void _req_refcnt() const        { if (!is_refcnt()) _type_err(); }
-    void _req_obj() const           { if (!is_object()) _type_err(); }
+    void _req_obj() const           { if (!is_obj()) _type_err(); }
 
     unsigned as_char_int() const;
 
@@ -118,37 +118,37 @@ public:
     str  to_string() const;
     bool operator< (const variant& v) const;
 
-    Type getType()            const { return type; }
-    bool is(Type t)           const { return type == t; }
-    bool is_null()            const { return type == NONE; }
-    bool is_ordinal()         const { return type >= BOOL && type <= INT; }
-    bool is_nonpod()          const { return type >= NONPOD; }
-    bool is_refcnt()          const { return type >= REFCNT; }
-    bool is_object()          const { return type >= ANYOBJ; }
+    Type getType()              const { return type; }
+    bool is(Type t)             const { return type == t; }
+    bool is_null()              const { return type == NONE; }
+    bool is_ord()               const { return type >= BOOL && type <= INT; }
+    bool is_nonpod()            const { return type >= NONPOD; }
+    bool is_refcnt()            const { return type >= REFCNT; }
+    bool is_obj()               const { return type >= ANYOBJ; }
 
     bool is_unique() const;
     void unique();
 
     // Type conversions
-    bool as_bool()            const { _req(BOOL); return val._int; }
-    uchar as_char()           const { _req(CHAR); return val._int; }
-    integer as_int()          const { _req(INT); return val._int; }
-    integer as_ordinal()      const { if (!is_ordinal()) _type_err(); return val._int; }
-    real as_real()            const { _req(REAL); return val._real; }
-    const str& as_str()       const { _req(STR); return _str_read(); }
-    object* as_object()       const { _req_obj(); return val._obj; }
+    bool as_bool()              const { _req(BOOL); return val._int; }
+    uchar as_char()             const { _req(CHAR); return val._int; }
+    integer as_int()            const { _req(INT); return val._int; }
+    integer as_ord()            const { if (!is_ord()) _type_err(); return val._int; }
+    real as_real()              const { _req(REAL); return val._real; }
+    const str& as_str()         const { _req(STR); return _str(); }
+    object* as_obj()            const { _req_obj(); return val._obj; }
 
     bool empty() const;
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
-    bool     _bool()            const { _dbg(BOOL); return val._int; }
-    uchar    _uchar()           const { _dbg(CHAR); return val._int; }
-    integer  _int()             const { _dbg(INT); return val._int; }
-    integer& _int_write()             { _dbg(INT); return val._int; }
-    integer  _ord()             const { _dbg_ord(); return val._int; }
-    const str& _str_read()      const { _dbg(STR); return *(str*)val._str; }
-    str&     _str_write()             { _dbg(STR); return *(str*)val._str; }
-    object*  _object()          const { _dbg(OBJECT); return val._obj; }
+    bool       _bool()          const { _dbg(BOOL); return val._int; }
+    uchar      _uchar()         const { _dbg(CHAR); return val._int; }
+    integer    _int()           const { _dbg(INT); return val._int; }
+    integer&   _intw()                { _dbg(INT); return val._int; }
+    integer    _ord()           const { _dbg_ord(); return val._int; }
+    const str& _str()           const { _dbg(STR); return *(str*)val._str; }
+    str&       _strw()                { _dbg(STR); return *(str*)val._str; }
+    object*    _obj()           const { _dbg(OBJECT); return val._obj; }
 };
 
 

@@ -139,8 +139,7 @@ Parser::Parser(const str& fn, fifo_intf* _input)
     : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
       singleLineBlock(false), curlyLevel(0),
-      token(tokUndefined), strValue(),
-      intValue(0)
+      token(tokUndefined), strValue(), intValue(0)
 {
     indentStack.push(0);
 }
