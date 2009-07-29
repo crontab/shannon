@@ -230,7 +230,12 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 
 
 Container* Type::createContainer(Type* indexType)
-    { return owner->registerType(new Container(indexType, this)); }
+{
+    if (isNone() && indexType->isNone())
+        return queenBee->defNullContainer;
+    else
+        return owner->registerType(new Container(indexType, this));
+}
 
 
 bool Type::identicalTo(Type* t)  // for comparing container elements, indexes
@@ -240,7 +245,7 @@ bool Type::canAssignTo(Type* t)  // can assign or automatically convert the type
     { return identicalTo(t); }
 
 bool Type::isMyType(const variant& v)
-    { return (v.is_obj() && identicalTo(v._obj()->get_rt())); }
+    { return v.is_obj() && v._obj()->get_rt()->canAssignTo(this); }
 
 void Type::runtimeTypecast(variant& v)
     { if (!isMyType(v)) typeMismatch(); }
@@ -370,10 +375,6 @@ langobj* State::newObject()
         return nullLangObj;
     return new(s) langobj(this);
 }
-
-
-bool State::isMyType(const variant& v)
-    { return (v.is_obj() && v._obj()->get_rt()->canAssignTo(this)); }
 
 
 Variable* State::addThisVar(Type* type, const str& _name, bool readOnly)
@@ -628,15 +629,13 @@ Range::~Range()  { }
 
 
 void Range::fullDump(fifo_intf& stm) const
-{
-    stm << *base << " *[..]";
-}
+    { stm << *base << " *[..]"; }
 
 bool Range::identicalTo(Type* t)
-        { return t->isRange() && base->identicalTo(PRange(t)->base); }
+    { return t->isRange() && base->identicalTo(PRange(t)->base); }
 
 bool Range::canAssignTo(Type* t)
-        { return t->isRange() && base->canAssignTo(PRange(t)->base); }
+    { return t->isRange() && base->canAssignTo(PRange(t)->base); }
 
 
 // --- Container ---------------------------------------------------------- //
@@ -671,15 +670,28 @@ bool Container::identicalTo(Type* t)
             && index->identicalTo(CAST(Container*, t)->index); }
 
 
+void Container::runtimeTypecast(variant& value)
+{
+    if (isMyType(value))
+        return;
+    else if (isString())
+    {
+        if (!value.is(variant::STR))
+            value = value.to_string();
+    }
+    else
+        typeMismatch();
+}
+
+
 // --- Fifo ---------------------------------------------------------------- //
 
 
 Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
-{
-    setTypeId(elem->isChar() ? CHARFIFO : VARFIFO);
-}
+    { setTypeId(elem->isChar() ? CHARFIFO : VARFIFO); }
 
-Fifo::~Fifo()  { }
+Fifo::~Fifo()
+    { }
 
 void Fifo::fullDump(fifo_intf& stm) const
     { stm << *elem << " *<>"; }

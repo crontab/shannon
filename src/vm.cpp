@@ -122,6 +122,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoad1:           PUSH(stk, integer(1)); break;
             case opLoadInt:         PUSH(stk, ADV<integer>(ip)); break;
             case opLoadNullRange:   PUSH(stk, new range(ADV<Range*>(ip))); break;
+            case opLoadNullCont:    fatal(0x5002, "Null container"); // PUSH(stk, new vector(queenBee->defNullContainer)); break;
             case opLoadNullDict:    PUSH(stk, new dict(ADV<Dict*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
             case opLoadNullVec:     PUSH(stk, new vector(ADV<Vec*>(ip))); break;

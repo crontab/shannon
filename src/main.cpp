@@ -106,7 +106,7 @@ void Compiler::compoundCtor()
 {
     parser.skip(tokLSquare, "[");
     if (parser.skipIf(tokRSquare))
-        codegen->loadNullContainer(queenBee->defNullContainer);
+        codegen->loadNullContainer();
     else
     {
         notimpl();
@@ -357,8 +357,8 @@ Type* Compiler::expression(Type* expectType)
     expression();
     Type* resultType = codegen->getTopType();
     // TODO: convert range to Range type
-    if (expectType != NULL && !resultType->canAssignTo(expectType))
-        throw emessage("Expression type mismatch");
+    if (expectType != NULL)
+        codegen->explicitCastTo(expectType, "Expression type mismatch");
     return resultType;
 }
 

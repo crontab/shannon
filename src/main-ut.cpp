@@ -678,15 +678,15 @@ void test_vm()
         {
             CodeGen gen(&seg);
             gen.loadConst(c->type, c->value);
-            gen.explicitCastTo(queenBee->defVariant);
-            gen.explicitCastTo(queenBee->defBool);
-            gen.explicitCastTo(queenBee->defInt);
+            gen.explicitCastTo(queenBee->defVariant, "Huh?");
+            gen.toBool();
+            gen.explicitCastTo(queenBee->defInt, "Huh?");
             gen.loadInt(9);
             gen.arithmBinary(opAdd);
             gen.loadInt(2);
             gen.arithmUnary(opNeg);
             gen.arithmBinary(opSub);
-            gen.explicitCastTo(queenBee->defStr);
+            gen.explicitCastTo(queenBee->defStr, "Huh?");
             gen.endConstExpr(queenBee->defStr);
         }
         seg.run(r);
@@ -781,10 +781,10 @@ void test_vm()
             gen.testType(queenBee->defVariant);
             gen.elemCat();
             gen.loadStr("");
-            gen.explicitCastTo(queenBee->defBool);
+            gen.toBool();
             gen.elemCat();
             gen.loadStr("abc");
-            gen.explicitCastTo(queenBee->defBool);
+            gen.toBool();
             gen.elemCat();
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
@@ -808,7 +808,8 @@ void test_vm()
             BlockScope block(&mod, &gen);
 
             Variable* v1 = block.addLocalVar(dictType, "v1");
-            gen.loadNullContainer(dictType);
+            gen.loadNullContainer();
+            gen.explicitCastTo(dictType, "Huh?");
             gen.initLocalVar(v1);
             gen.loadVar(v1);
             gen.loadStr("k1");
@@ -820,7 +821,8 @@ void test_vm()
             gen.storeContainerElem();
 
             Variable* v2 = block.addLocalVar(arrayType, "v2");
-            gen.loadNullContainer(arrayType);
+            gen.loadNullContainer();
+            gen.explicitCastTo(arrayType, "Huh?");
             gen.initLocalVar(v2);
             gen.loadVar(v2);
             gen.loadBool(false);
@@ -832,7 +834,8 @@ void test_vm()
             gen.storeContainerElem();
 
             Variable* v3 = block.addLocalVar(ordsetType, "v3");
-            gen.loadNullContainer(ordsetType);
+            gen.loadNullContainer();
+            gen.explicitCastTo(ordsetType, "Huh?");
             gen.initLocalVar(v3);
             gen.loadVar(v3);
             gen.loadChar('a');
@@ -842,7 +845,8 @@ void test_vm()
             gen.addToSet();
 
             Variable* v4 = block.addLocalVar(setType, "v4");
-            gen.loadNullContainer(setType);
+            gen.loadNullContainer();
+            gen.explicitCastTo(setType, "Huh?");
             gen.initLocalVar(v4);
             gen.loadVar(v4);
             gen.loadInt(100);
@@ -950,7 +954,8 @@ void test_vm()
             BlockScope block(&mod, &gen);
 
             Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
-            gen.loadNullContainer(queenBee->defVariant->deriveVector());
+            gen.loadNullContainer();
+            gen.explicitCastTo(queenBee->defVariant->deriveVector(), "Huh?");
             gen.initLocalVar(s0);
 
             Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
