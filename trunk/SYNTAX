@@ -66,15 +66,13 @@ arithm-expr ::= term { ( "+" | "-" ) term }
 
 term ::= factor { ( "*" | "/" | "mod" ) factor }
 
-factor ::= [ "-" ] type-expr
-
-type-expr ::= designator { type-derivator }
-
-type-derivator ::= array-derivator | fifo-derivator | function-derivator
+factor ::= [ "-" ] designator [ '*' { type-derivator } ]
 
 designator ::= atom { array-item-selection | member-selection | function-call }
 
 atom ::= number | string | ident | subexpr | compound-ctor
+
+type-derivator ::= array-derivator | fifo-derivator | function-derivator
 
 subexpr ::= "(" expr ")"
 

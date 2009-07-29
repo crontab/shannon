@@ -67,6 +67,17 @@ Symbol::~Symbol()
 void Symbol::dump(fifo_intf& stm) const
     { stm << *type << ' ' << name; }
 
+bool Symbol::isTypeAlias() const
+    { return isDefinition() && type->isTypeRef(); }
+
+bool Symbol::isStateAlias() const
+    { return isTypeAlias()
+        && CAST(Type*, PDef(this)->value._obj())->isState(); }
+
+bool Symbol::isModuleAlias() const
+    { return isTypeAlias()
+        && CAST(Type*, PDef(this)->value._obj())->isModule(); }
+
 
 _SymbolTable::_SymbolTable()  { }
 _SymbolTable::~_SymbolTable()  { }
@@ -137,16 +148,10 @@ Variable::~Variable()  { }
 
 
 Definition::Definition(Type* _type, const str& _name, const variant& _value)
-    : Symbol(CONSTANT, _type, _name), value(_value) { }
+    : Symbol(DEFINITION, _type, _name), value(_value) { }
 
 Definition::Definition(const str& _name, Type* _type)
-    : Symbol(TYPEALIAS, defTypeRef, _name), value(_type) { }
-
-Definition::Definition(const str& _name, State* _type)
-    : Symbol(STATEALIAS, defTypeRef, _name), value(_type) { }
-
-Definition::Definition(const str& _name, Module* _type)
-    : Symbol(MODULEALIAS, defTypeRef, _name), value(_type) { }
+    : Symbol(DEFINITION, defTypeRef, _name), value(_type) { }
 
 Definition::~Definition()  { }
 
@@ -222,6 +227,10 @@ bool Type::canBeOrdsetIndex() const
 Fifo* Type::deriveFifo()        { DERIVEX(Fifo) }
 Container* Type::deriveVector() { DERIVEX(Vector) }
 Container* Type::deriveSet()    { DERIVEX(Set) }
+
+
+Container* Type::createContainer(Type* indexType)
+    { return owner->registerType(new Container(indexType, this)); }
 
 
 bool Type::identicalTo(Type* t)  // for comparing container elements, indexes

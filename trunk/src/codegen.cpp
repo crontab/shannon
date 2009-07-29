@@ -82,6 +82,17 @@ void CodeGen::stkPush(Type* type, const variant& value)
 }
 
 
+void CodeGen::stkPush(Type* type)
+{
+    genStack.push_back(stkinfo(type));
+    if (genStack.size() > stkMax)
+        stkMax = genStack.size();
+#ifdef DEBUG
+    stkSize++;
+#endif
+}
+
+
 const CodeGen::stkinfo& CodeGen::stkTop() const
     { return genStack.back(); }
 
@@ -117,7 +128,7 @@ void CodeGen::end()
 Type* CodeGen::getTopTypeRefValue()
 {
     const stkinfo& info = stkTop();
-    if (!info.type->isTypeRef() || !info.value.is_obj())
+    if (!info.type->isTypeRef() || !info.hasValue)
         return NULL;
     Type* result = CAST(Type*, info.value._obj());
     stkPop();
@@ -412,25 +423,31 @@ void CodeGen::storeVar(Variable* var)
 
 void CodeGen::loadMember(const str& ident)
 {
-    Type* type = stkTopType();
-    if (type->isTypeRef())
+    const stkinfo& info = stkTop();
+    if (info.type->isTypeRef())
     {
-        type = CAST(Type*, stkTopValue()._obj());
-        stkPop();
-        if (type->isState())
+        if (info.hasValue)
         {
-            Symbol* symbol = PState(type)->findShallow(ident);
-            if (type->isModule())
+            Type* type = CAST(Type*, info.value._obj());
+            stkPop();
+            if (type->isState())
             {
-                revertLastLoad();
-                loadSymbol(symbol);
+                Symbol* symbol = PState(type)->findShallow(ident);
+                if (type->isModule())
+                {
+                    revertLastLoad();
+                    loadSymbol(symbol);
+                }
+                else
+                    // TODO: inherited call for states
+                    notimpl();
             }
             else
-                // TODO: inherited call for states
-                notimpl();
+                throw emessage("Invalid member selection");
         }
         else
-            throw emessage("Invalid member selection");
+            // TODO: typeref variable that points to a module
+            notimpl();
     }
     // TODO: state member selection
     // TODO: do dictionary element selection?

@@ -116,7 +116,23 @@ void Compiler::compoundCtor()
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
-    // TODO: container derivator
+    if (parser.skipIf(tokLSquare))
+    {
+        if (parser.skipIf(tokRSquare))
+            type = type->deriveVector();
+        else
+        {
+            Type* indexType = typeExpr();
+            if (type->isNone())
+                type = type->deriveSet();
+            else if (indexType->isNone())
+                type = type->deriveVector();
+            else
+                type = type->createContainer(indexType);
+            parser.skip(tokRSquare, "]");
+        }
+        return getTypeDerivators(type);
+    }
     // TODO: fifo derivator
     // TODO: function derivator
     return type;
@@ -125,7 +141,7 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::atom()
 {
-    if (!parser.prevIdent.empty())  // from incomplete definition
+    if (!parser.prevIdent.empty())  // from partial (typeless) definition
     {
         Symbol* s = scope->findDeep(parser.prevIdent);
         codegen->loadSymbol(s);
@@ -193,6 +209,16 @@ void Compiler::factor()
     designator();
     if (isNeg)
         codegen->arithmUnary(opNeg);
+    else if (parser.token == tokWildcard)
+    {
+        // anonymous type spec
+        Type* type = codegen->getTopTypeRefValue();
+        if (type != NULL)
+        {
+            parser.next();
+            codegen->loadTypeRef(getTypeDerivators(type));
+        }
+    }
 }
 
 
@@ -382,6 +408,8 @@ void Compiler::definition()
     }
     else
         type = typeExpr();
+    if (type != NULL && parser.token != tokAssign)
+        type = getTypeDerivators(type);
     parser.skip(tokAssign, "Initialization expected");
     variant value;
     Type* valueType = constExpr(type, value);
