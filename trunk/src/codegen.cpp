@@ -112,7 +112,7 @@ Type* CodeGen::stkPop()
 }
 
 
-void CodeGen::stkReplace(Type* type)
+inline void CodeGen::stkReplace(Type* type)
 {
     genStack.back().type = type;
 }
@@ -154,9 +154,10 @@ void CodeGen::exit()
 }
 
 
-void CodeGen::loadNullContainer(Container* contType)
+void CodeGen::loadNullContainer()
 {
-    loadConst(contType, (object*)NULL);
+    addOp(opLoadNullCont);
+    stkPush(queenBee->defNullContainer);
 }
 
 
@@ -246,8 +247,15 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         }
         break;
     case Type::VEC:
-        if (isEmpty) addOpPtr(opLoadNullVec, type);
-        else loadCompoundConst(value);
+        if (isEmpty)
+        {
+            if (type->isNullContainer())
+                addOp(opLoadNullCont);
+            else
+                addOpPtr(opLoadNullVec, type);
+        }
+        else
+            loadCompoundConst(value);
         break;
     case Type::ARRAY:
         if (isEmpty) addOpPtr(opLoadNullArray, type);
@@ -263,6 +271,7 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         break;
     case Type::VARFIFO:
     case Type::CHARFIFO:
+        // There are no fifo literals (yet)
         _fatal(0x6002);
         break;
     case Type::VARIANT:
@@ -570,7 +579,7 @@ void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 }
 
 
-void CodeGen::explicitCastTo(Type* to)
+void CodeGen::explicitCastTo(Type* to, const char* errmsg)
 {
     Type* from = stkTopType();
 
@@ -581,10 +590,15 @@ void CodeGen::explicitCastTo(Type* to)
         return;
     }
     stkPop();
-    if (to->isBool())
-        addOp(opToBool);    // everything can be cast to bool
-    else if (to->isString())
-        addOp(opToStr); // explicit cast to string: any object goes
+    if (to->isString())
+        // explicit cast to string: any object goes
+        addOp(from->isChar() ? opCharToStr : opToStr);
+    else if (from->isNullContainer() && to->isContainer())
+    {
+        revertLastLoad();
+        loadConst(to, (object*)NULL);
+        return;
+    }
     else if (
         // Variants should be typecast'ed to other types explicitly
         from->isVariant()
@@ -595,8 +609,16 @@ void CodeGen::explicitCastTo(Type* to)
         || (from->isState() && to->isState()))
             addOpPtr(opToType, to);    // calls to->runtimeTypecast(v)
     else
-        throw emessage("Invalid typecast");
+        throw emessage(errmsg ? errmsg : "Invalid typecast");
     stkPush(to);
+}
+
+
+void CodeGen::toBool()
+{
+    stkPop();
+    addOp(opToBool);
+    stkPush(queenBee->defBool);
 }
 
 

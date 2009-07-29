@@ -35,6 +35,7 @@ static OpInfo opTable[] =
     OP(Load1, None),            // +1
     OP(LoadInt, Int),           // [int] +int
     OP(LoadNullRange, Type),    // [Range*] +range
+    OP(LoadNullCont, None),     // +nullcont
     OP(LoadNullDict, Type),     // [Dict*] +dict
     OP(LoadNullStr, None),      // +str
     OP(LoadNullVec, Type),      // [Vector*] +vec

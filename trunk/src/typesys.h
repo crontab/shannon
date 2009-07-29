@@ -257,9 +257,9 @@ public:
     Definition(const str&, Type*);
     ~Definition();
     void dump(fifo_intf&) const; // override
-    Type* aliasedType();
-    State* aliasedState();
-    Module* aliasedModule();
+    Type* aliasedType() const;
+    State* aliasedState() const;
+    Module* aliasedModule() const;
 };
 
 
@@ -281,6 +281,8 @@ public:
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
 
 protected:
+    Type(Type* rt, TypeId);
+
     str name;       // some types have a name for better diagnostics (int, str, ...)
     TypeId const typeId;
 
@@ -293,7 +295,6 @@ protected:
             { (TypeId&)typeId = t; }
 
 public:
-    Type(Type* rt, TypeId);
     ~Type();
     
     void dump(fifo_intf&) const; //override
@@ -318,6 +319,7 @@ public:
     bool isSet() const  { return typeId == SET; }
     bool isOrdset() const  { return typeId == ORDSET; }
     bool isCharSet() const;
+    bool isNullContainer() const;
     bool isVarFifo() const  { return typeId == VARFIFO; }
     bool isCharFifo() const  { return typeId == CHARFIFO; }
     bool isVariant() const  { return typeId == VARIANT; }
@@ -368,7 +370,6 @@ public:
     void listing(fifo_intf&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
-    bool isMyType(const variant&);
     template<class T>
         T* registerType(T* t)
             { t->setOwner(this); types.add(t); return t; }
@@ -414,15 +415,16 @@ typedef Ordinal* POrdinal;
 
 class Ordinal: public Type
 {
+    friend class QueenBee;
     Range* derivedRange;
 protected:
+    Ordinal(TypeId, integer, integer);
     void reassignRight(integer r) // for enums during their definition
         { assert(r >= left); (integer&)right = r; }
 public:
     integer const left;
     integer const right;
 
-    Ordinal(TypeId, integer, integer);
     ~Ordinal();
     void fullDump(fifo_intf&) const;
     Range* deriveRange();
@@ -455,9 +457,9 @@ protected:
             { EnumValues(): object(NULL) { } };
     objptr<EnumValues> values;
     Enumeration(TypeId _typeId); // built-in enums, e.g. bool
+    Enumeration(EnumValues*, integer _left, integer _right);    // subrange
 public:
     Enumeration();  // user-defined enums
-    Enumeration(EnumValues*, integer _left, integer _right);    // subrange
     ~Enumeration();
     void fullDump(fifo_intf&) const;
     void addValue(const str&);
@@ -471,10 +473,12 @@ typedef Range* PRange;
 
 class Range: public Type
 {
+    friend class Ordinal;
     // TODO: implicit conversion to set
+protected:
+    Range(Ordinal*);
 public:
     Ordinal* const base;
-    Range(Ordinal*);
     ~Range();
     void fullDump(fifo_intf&) const; //override
     bool identicalTo(Type*);
@@ -492,15 +496,17 @@ typedef Set* PSet;
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any
 //   ARRAY:     ord(256), any
-//   VECTOR:    void, any
-//   SET:       any, void
-//   EMPTYCONT: void, void
+//   VECTOR:    none, any
+//   SET:       any, none
 class Container: public Type
 {
+    friend class Type;
+    friend class QueenBee;
+protected:
+    Container(Type* _index, Type* _elem);
 public:
     Type* const index;
     Type* const elem;
-    Container(Type* _index, Type* _elem);
     ~Container();
     void fullDump(fifo_intf&) const;
     bool identicalTo(Type*);
@@ -508,6 +514,7 @@ public:
         { return CAST(Ordinal*, index)->left; }
     mem ordsetIndexShift()
         { return CAST(Ordinal*, index)->left; }
+    void runtimeTypecast(variant&);
 };
 
 
@@ -515,10 +522,11 @@ typedef Fifo* PFifo;
 
 class Fifo: public Type
 {
+    friend class Type;
 protected:
     Type* elem;
-public:
     Fifo(Type*);
+public:
     ~Fifo();
     void fullDump(fifo_intf&) const; //override
     bool identicalTo(Type*);
@@ -527,8 +535,8 @@ public:
 
 class Variant: public Type
 {
-protected:
     friend class QueenBee;
+protected:
     Variant();
 public:
     ~Variant();
@@ -541,22 +549,12 @@ typedef TypeReference* PTypeRef;
 
 class TypeReference: public Type
 {
-protected:
     friend void initTypeSys();
+protected:
     TypeReference();
 public:
     ~TypeReference();
 };
-
-
-inline Type* Definition::aliasedType()
-    { return CAST(Type*, value._obj()); }
-
-inline State* Definition::aliasedState()
-    { return CAST(State*, value._obj()); }
-
-inline Module* Definition::aliasedModule()
-    { return CAST(Module*, value._obj()); }
 
 
 // --- QUEEN BEE ---
@@ -594,6 +592,21 @@ extern langobj* nullLangObj;    // modules with empty static datasegs can use th
 
 void initTypeSys();
 void doneTypeSys();
+
+// ------------------------------------------------------------------------- //
+
+
+inline Type* Definition::aliasedType() const
+    { return CAST(Type*, value._obj()); }
+
+inline State* Definition::aliasedState() const
+    { return CAST(State*, value._obj()); }
+
+inline Module* Definition::aliasedModule() const
+    { return CAST(Module*, value._obj()); }
+
+inline bool Type::isNullContainer() const
+    { return this == queenBee->defNullContainer; }
 
 
 #endif // __TYPESYS_H

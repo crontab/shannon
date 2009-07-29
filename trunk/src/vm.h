@@ -30,6 +30,7 @@ enum OpCode
     opLoad1,            // +1
     opLoadInt,          // [int] +int
     opLoadNullRange,    // [Range*] +range
+    opLoadNullCont,     // +nullcont
     opLoadNullDict,     // [Dict*] +dict
     opLoadNullStr,      // +str
     opLoadNullVec,      // [Vector*] +vec
@@ -296,7 +297,7 @@ public:
     void loadInt(integer i);
     void loadStr(const str& s);
     void loadTypeRef(Type*);
-    void loadNullContainer(Container*);
+    void loadNullContainer();
     void loadConst(Type*, const variant&, bool asVariant = false);
     void loadDefinition(Definition* def)
             { loadConst(def->type, def->value); }
@@ -321,7 +322,8 @@ public:
     void inDictKeys();
 
     void implicitCastTo(Type*, const char* errmsg);
-    void explicitCastTo(Type*);
+    void explicitCastTo(Type*, const char* errmsg);
+    void toBool();
     void dynamicCast();
     void testType(Type*);
     void testType();
