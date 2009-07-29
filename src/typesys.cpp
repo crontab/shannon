@@ -136,59 +136,26 @@ Variable::~Variable()  { }
 // --- Definition ---------------------------------------------------------- //
 
 
-Definition::Definition(SymbolId _symbolId, Type* _type, const str& _name, const variant& _value)
-    : Symbol(_symbolId, _type, _name), value(_value)
-{
-    assert(isDefinition());
-}
+Definition::Definition(Type* _type, const str& _name, const variant& _value)
+    : Symbol(CONSTANT, _type, _name), value(_value) { }
+
+Definition::Definition(const str& _name, Type* _type)
+    : Symbol(TYPEALIAS, defTypeRef, _name), value(_type) { }
+
+Definition::Definition(const str& _name, State* _type)
+    : Symbol(STATEALIAS, defTypeRef, _name), value(_type) { }
+
+Definition::Definition(const str& _name, Module* _type)
+    : Symbol(MODULEALIAS, defTypeRef, _name), value(_type) { }
 
 Definition::~Definition()  { }
 
 void Definition::dump(fifo_intf& stm) const
-    { stm << *type << ' ' << name << " = " << value; }
-
-
-Constant::Constant(Type* _type, const str& _name, const variant& _value)
-    : Definition(CONSTANT, _type, _name, _value)  { }
-
-
-Constant::~Constant()  { }
-
-
-TypeAlias::TypeAlias(const str& _name, Type* _aliasedType)
-  : Definition(TYPEALIAS, defTypeRef, _name, variant(_aliasedType)),
-    aliasedType(_aliasedType)  { }
-
-TypeAlias::~TypeAlias()  { }
-
-void TypeAlias::dump(fifo_intf& stm) const
 {
-    if (name != aliasedType->getName())
-        Definition::dump(stm);
+    if (isModuleAlias())
+        stm << name << " = <used-module>";
     else
-    {
-        stm << name << " = ";
-        aliasedType->fullDump(stm);
-    }
-}
-
-
-StateAlias::StateAlias(const str& _name, State* _aliasedState)
-  : Definition(STATEALIAS, defTypeRef, _name, variant(_aliasedState)),
-    aliasedState(_aliasedState)  { }
-
-StateAlias::~StateAlias()  { }
-
-
-ModuleAlias::ModuleAlias(const str& _name, Module* _aliasedModule)
-  : Definition(MODULEALIAS, defTypeRef, _name, variant(_aliasedModule)),
-    aliasedModule(_aliasedModule)  { }
-
-ModuleAlias::~ModuleAlias()  { }
-
-void ModuleAlias::dump(fifo_intf& stm) const
-{
-    stm << name << " = <used-module>";
+        stm << *type << ' ' << name << " = " << value;
 }
 
 
@@ -264,7 +231,7 @@ bool Type::canAssignTo(Type* t)  // can assign or automatically convert the type
     { return identicalTo(t); }
 
 bool Type::isMyType(const variant& v)
-    { return (v.is_object() && identicalTo(v._object()->get_rt())); }
+    { return (v.is_obj() && identicalTo(v._obj()->get_rt())); }
 
 void Type::runtimeTypecast(variant& v)
     { if (!isMyType(v)) typeMismatch(); }
@@ -365,7 +332,7 @@ State::~State()  { }
 
 void State::fullDump(fifo_intf& stm) const
 {
-    stm << *resultvar << '(';
+    stm << *resultvar << " *(";
     args.dump(stm);
     stm << ')';
 }
@@ -373,8 +340,10 @@ void State::fullDump(fifo_intf& stm) const
 
 void State::listing(fifo_intf& stm) const
 {
-    stm << ";--- SHANNON MODULE " << name << endl;
+    stm << ";--------- STATE " << name << endl;
     CodeSeg::listing(stm);
+    stm << ";--- Definitions in " << name << endl;
+    dumpDefinitions(stm);
 }
 
 
@@ -395,7 +364,7 @@ langobj* State::newObject()
 
 
 bool State::isMyType(const variant& v)
-    { return (v.is_object() && v._object()->get_rt()->canAssignTo(this)); }
+    { return (v.is_obj() && v._obj()->get_rt()->canAssignTo(this)); }
 
 
 Variable* State::addThisVar(Type* type, const str& _name, bool readOnly)
@@ -431,9 +400,8 @@ void Module::fullDump(fifo_intf& stm) const
 }
 
 
-void Module::dumpContents(fifo_intf& stm) const
+void State::dumpDefinitions(fifo_intf& stm) const
 {
-    stm << "module " << name << endl;
     for (mem i = 0; i < defs.size(); i++)
         stm << "  def " << *defs[i] << endl;
     for (mem i = 0; i < thisvars.size(); i++)
@@ -559,9 +527,9 @@ bool Ordinal::isMyType(const variant& v)
 
 void Ordinal::runtimeTypecast(variant& v)
 {
-    if (!v.is_ordinal())
+    if (!v.is_ord())
         typeMismatch();
-    if (!isInRange(v.as_ordinal()))
+    if (!isInRange(v._ord()))
         throw emessage("Out of range");
     if (isChar())
         v.type = variant::CHAR;
@@ -652,7 +620,7 @@ Range::~Range()  { }
 
 void Range::fullDump(fifo_intf& stm) const
 {
-    stm << *base << "[..]";
+    stm << *base << " *[..]";
 }
 
 bool Range::identicalTo(Type* t)
@@ -682,7 +650,7 @@ Container::~Container()  { }
 
 void Container::fullDump(fifo_intf& stm) const
 {
-    stm << *elem << '[';
+    stm << *elem << " *[";
     if (!index->isNone())
         stm << *index;
     stm << ']';
@@ -705,7 +673,7 @@ Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
 Fifo::~Fifo()  { }
 
 void Fifo::fullDump(fifo_intf& stm) const
-    { stm << *elem << "<>"; }
+    { stm << *elem << " *<>"; }
 
 bool Fifo::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
@@ -781,7 +749,7 @@ Type* QueenBee::typeFromValue(const variant& v)
     case variant::INT:  return defInt;
     case variant::REAL: notimpl(); break;
     case variant::STR:  return defStr;
-    case variant::OBJECT: return v._object()->get_rt();
+    case variant::OBJECT: return v._obj()->get_rt();
     }
     return NULL;
 }

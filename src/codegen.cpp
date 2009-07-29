@@ -117,9 +117,9 @@ void CodeGen::end()
 Type* CodeGen::getTopTypeRefValue()
 {
     const stkinfo& info = stkTop();
-    if (!info.type->isTypeRef() || !info.value.is_object())
+    if (!info.type->isTypeRef() || !info.value.is_obj())
         return NULL;
-    Type* result = CAST(Type*, info.value._object());
+    Type* result = CAST(Type*, info.value._obj());
     stkPop();
     revertLastLoad();
     return result;
@@ -224,11 +224,11 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
             // Detect duplicate string consts. The reason this is done here and
             // not, say, in the host module is because of const expressions that
             // don't have an execution context.
-            StringMap::iterator i = stringMap.find(value._str_read());
+            StringMap::iterator i = stringMap.find(value._str());
             if (i == stringMap.end())
             {
                 mem id = loadCompoundConst(value);
-                stringMap.insert(i, std::pair<str, mem>(value._str_read(), id));
+                stringMap.insert(i, std::pair<str, mem>(value._str(), id));
             }
             else
                 loadConstById(i->second);
@@ -259,7 +259,7 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         return;
     case Type::TYPEREF:
     case Type::STATE:
-        addOpPtr(opLoadTypeRef, value.as_object());
+        addOpPtr(opLoadTypeRef, value._obj());
         break;
     }
 
@@ -415,7 +415,7 @@ void CodeGen::loadMember(const str& ident)
     Type* type = stkTopType();
     if (type->isTypeRef())
     {
-        type = CAST(Type*, stkTopValue()._object());
+        type = CAST(Type*, stkTopValue()._obj());
         stkPop();
         if (type->isState())
         {
@@ -446,9 +446,8 @@ void CodeGen::loadContainerElem()
     Type* contType = stkPop();
     if (contType->isVector())
     {
-        if (!idxType->isInt())
-            throw emessage("Vector/string index must be integer");
-        idxType = queenBee->defNone;
+        if (idxType->isInt())
+            idxType = queenBee->defNone;
         addOp(contType->isString() ? opLoadStrElem : opLoadVecElem);
     }
     else if (contType->isDict())
@@ -852,7 +851,7 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
     {
         typeCast(caseType, CAST(Range*, labelType)->base, "Case label type mismatch");
         addOp(opCaseRange);
-        range* r = CAST(range*, label._object());
+        range* r = CAST(range*, label._obj());
         addInt(r->left);
         addInt(r->right);
     }
@@ -866,13 +865,13 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
         }
         else if (labelType->isString())
         {
-            loadStr(label._str_read());
+            loadStr(label._str());
             addOp(opCaseStr);
             stkPop();
         }
         else if (labelType->isTypeRef())
         {
-            loadTypeRef(CAST(Type*, label._object()));
+            loadTypeRef(CAST(Type*, label._obj()));
             addOp(opCaseTypeRef);
             stkPop();
         }

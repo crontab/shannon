@@ -14,10 +14,6 @@ class Symbol;
 class Type;
 class Variable;
 class Definition;
-class Constant;
-class TypeAlias;
-class StateAlias;
-class ModuleAlias;
 
 class None;
 class Ordinal;
@@ -31,6 +27,10 @@ class State;
 class Module;
 class QueenBee;
 
+typedef Definition Constant;
+typedef Definition TypeAlias;
+typedef Definition StateAlias;
+typedef Definition ModuleAlias;
 typedef Variable ThisVar;
 typedef Variable ResultVar;
 typedef Variable LocalVar;
@@ -195,7 +195,7 @@ public:
     Scope(Scope* outer);
     ~Scope();
     Symbol* findShallow(const str& _name) const;
-    Symbol* findDeep(const str&) const; // overridden in Module to look in linked modules
+    Symbol* findDeep(const str&) const;
     Constant* addConstant(Type*, const str&, const variant&);
     TypeAlias* addTypeAlias(const str&, Type*);
     void addUses(Module*); // comes from the global module cache
@@ -220,18 +220,18 @@ public:
     ~Symbol();
     void dump(fifo_intf&) const; // override
 
-    bool isVariable()  { return symbolId <= ARGVAR; }
-    bool isDefinition()  { return symbolId >= CONSTANT; }
+    bool isVariable() const  { return symbolId <= ARGVAR; }
+    bool isDefinition() const  { return symbolId >= CONSTANT; }
 
-    bool isThisVar()  { return symbolId == THISVAR; }
-    bool isResultVar()  { return symbolId == RESULTVAR; }
-    bool isLocalVar()  { return symbolId == LOCALVAR; }
-    bool isArgVar()  { return symbolId == ARGVAR; }
+    bool isThisVar() const  { return symbolId == THISVAR; }
+    bool isResultVar() const  { return symbolId == RESULTVAR; }
+    bool isLocalVar() const  { return symbolId == LOCALVAR; }
+    bool isArgVar() const  { return symbolId == ARGVAR; }
 
-    bool isConstant()  { return symbolId == CONSTANT; }
-    bool isTypeAlias()  { return symbolId == TYPEALIAS; }
-    bool isStateAlias()  { return symbolId == STATEALIAS; }
-    bool isModuleAlias()  { return symbolId == MODULEALIAS; }
+    bool isConstant() const  { return symbolId == CONSTANT; }
+    bool isTypeAlias() const  { return symbolId == TYPEALIAS; }
+    bool isStateAlias() const  { return symbolId == STATEALIAS; }
+    bool isModuleAlias() const  { return symbolId == MODULEALIAS; }
 };
 
 
@@ -254,48 +254,16 @@ class Definition: public Symbol
 {
 public:
     variant const value;
-    Definition(SymbolId, Type*, const str&, const variant&);
+//    Definition(SymbolId, Type*, const str&, const variant&);
+    Definition(Type*, const str&, const variant&);
+    Definition(const str&, Type*);
+    Definition(const str&, State*);
+    Definition(const str&, Module*);
     ~Definition();
     void dump(fifo_intf&) const; // override
-};
-
-
-class Constant: public Definition
-{
-public:
-    Constant(Type*, const str&, const variant&);
-    ~Constant();
-};
-
-typedef TypeAlias* PTypeAlias;
-
-class TypeAlias: public Definition
-{
-public:
-    Type* const aliasedType;
-    TypeAlias(const str&, Type*);
-    ~TypeAlias();
-    void dump(fifo_intf&) const; // override
-};
-
-
-class StateAlias: public Definition
-{
-public:
-    State* const aliasedState;
-    StateAlias(const str&, State*);
-    ~StateAlias();
-    // void dump(fifo_intf&) const; // override
-};
-
-
-class ModuleAlias: public Definition
-{
-public:
-    Module* const aliasedModule;
-    ModuleAlias(const str&, Module*);
-    ~ModuleAlias();
-    void dump(fifo_intf&) const; // override
+    Type* aliasedType();
+    State* aliasedState();
+    Module* aliasedModule();
 };
 
 
@@ -391,6 +359,8 @@ protected:
     List<Variable> thisvars;
     mem startId;
 
+    void dumpDefinitions(fifo_intf&) const;
+
 public:
     int const level;
     State* const selfPtr;
@@ -429,7 +399,6 @@ public:
     Module(const str& name);
     ~Module();
     void fullDump(fifo_intf&) const; //override
-    void dumpContents(fifo_intf&) const;
     mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
@@ -581,6 +550,16 @@ protected:
 public:
     ~TypeReference();
 };
+
+
+inline Type* Definition::aliasedType()
+    { return CAST(Type*, value._obj()); }
+
+inline State* Definition::aliasedState()
+    { return CAST(State*, value._obj()); }
+
+inline Module* Definition::aliasedModule()
+    { return CAST(Module*, value._obj()); }
 
 
 // --- QUEEN BEE ---

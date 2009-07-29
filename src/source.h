@@ -78,12 +78,16 @@ public:
     Token token;
     str strValue;
     uinteger intValue;
+    str prevIdent; // undo()
     
     Parser(const str&, fifo_intf*);
     ~Parser();
     
     Token next();
-
+    void undoIdent(const str& ident)
+            { prevIdent = ident; }
+    void redoIdent()
+            { prevIdent.clear(); }
     bool isAssignment()
             { return token == tokAssign; }
     void error(const str& msg);
@@ -101,7 +105,7 @@ public:
     str getFileName() const { return fileName; }
     int getLineNum() const { return linenum; }
     int getIndent() const { return indent; }
-    
+
     void skipEol();
 };
 

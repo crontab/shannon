@@ -167,7 +167,7 @@ void CodeSeg::listing(fifo_intf& stm) const
         ip++;
         if (info.op == opLineNum)
         {
-            stm << ";--- " << hostModule->fileNames[ADV<uint16_t>(ip)];
+            stm << "; " << hostModule->fileNames[ADV<uint16_t>(ip)];
             stm << '(' << ADV<uint16_t>(ip) << ')';
         }
         else

@@ -50,16 +50,16 @@ inline void STORETO(variant*& stk, variant* dest)
 
 #define SETPOD(dest,v) (::new(dest) variant(v))
 
-#define BINARY_INT(op) { (stk - 1)->_int_write() op stk->_int(); POPORD(stk); }
-#define UNARY_INT(op)  { stk->_int_write() = op stk->_int(); }
+#define BINARY_INT(op) { (stk - 1)->_intw() op stk->_int(); POPORD(stk); }
+#define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
 
 
 void CodeSeg::vecCat(const variant& src, variant* dest)
 {
-    vector* ts = CAST(vector*, src._object());
+    vector* ts = CAST(vector*, src._obj());
     if (!ts->empty())
     {
-        vector* td = CAST(vector*, dest->_object());
+        vector* td = CAST(vector*, dest->_obj());
         if (td->empty())
             *dest = src;
         else
@@ -83,7 +83,7 @@ void CodeSeg::echo(const variant& v)
     if (v.is(variant::CHAR))
         sio << uchar(v._ord());
     else if (v.is(variant::STR))
-        sio << v._str_read();
+        sio << v._str();
     else
         sio << v;
 }
@@ -140,9 +140,9 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opToBool:      *stk = stk->to_bool(); break;
             case opToStr:       *stk = stk->to_string(); break;
             case opToType:      ADV<Type*>(ip)->runtimeTypecast(*stk); break;
-            case opToTypeRef:   CAST(Type*, stk->_object())->runtimeTypecast(*(stk - 1)); POP(stk); break;
+            case opToTypeRef:   CAST(Type*, stk->_obj())->runtimeTypecast(*(stk - 1)); POP(stk); break;
             case opIsType:      *stk = ADV<Type*>(ip)->isMyType(*stk); break;
-            case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->_object())->isMyType(*(stk - 1)); POP(stk); break;
+            case opIsTypeRef:   *(stk - 1) = CAST(Type*, stk->_obj())->isMyType(*(stk - 1)); POP(stk); break;
 
             // Arithmetic
             // TODO: range checking in debug mode
@@ -163,11 +163,11 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
 
             // Range operations
             case opMkRange:     *(stk - 1) = new range(ADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
-            case opInRange:     SETPOD(stk - 1, CAST(range*, stk->_object())->has((stk - 1)->_ord())); POP(stk); break;
+            case opInRange:     SETPOD(stk - 1, CAST(range*, stk->_obj())->has((stk - 1)->_ord())); POP(stk); break;
 
             // Comparators
             case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPORD(stk); break;
-            case opCmpStr:      *(stk - 1) = (stk - 1)->_str_read().compare(stk->_str_read()); POP(stk); break;
+            case opCmpStr:      *(stk - 1) = (stk - 1)->_str().compare(stk->_str()); POP(stk); break;
             case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
             case opEqual:       SETPOD(stk, stk->_int() == 0); break;
@@ -193,25 +193,25 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     PUSH(stk, *mod->instance->var(ADV<uchar>(ip)));
                 }
                 break;
-            case opLoadMember: *stk = *CAST(langobj*, stk->_object())->var(ADV<uchar>(ip)); break;
+            case opLoadMember: *stk = *CAST(langobj*, stk->_obj())->var(ADV<uchar>(ip)); break;
             case opLoadOuter:   notimpl();
 
             // Container read operations
             case opLoadDictElem:
                 {
-                    dict* d = CAST(dict*, (stk - 1)->_object());
+                    dict* d = CAST(dict*, (stk - 1)->_obj());
                     dict_impl::const_iterator i = d->find(*stk);
                     POP(stk);
                     if (i == d->end()) stk->clear();
                     else *stk = i->second;
                 }
                 break;
-            case opInDictKeys: *(stk - 1) = CAST(dict*, stk->_object())->has(*(stk - 1)); POP(stk); break;
+            case opInDictKeys: *(stk - 1) = CAST(dict*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
             case opLoadStrElem:
                 {
                     mem idx = stk->_int();
                     POPORD(stk);
-                    const str& s = stk->_str_read();
+                    const str& s = stk->_str();
                     if (idx >= s.size()) idxOverflow();
                     *stk = s[idx];
                 }
@@ -221,7 +221,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 {
                     mem idx = stk->_ord();
                     POPORD(stk);
-                    vector* v = CAST(vector*, stk->_object());
+                    vector* v = CAST(vector*, stk->_obj());
                     if (*(ip - 1) == opLoadArrayElem)
                         idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
                     if (idx >= v->size()) idxOverflow();
@@ -230,11 +230,11 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opInOrdset:
                 {
-                    SETPOD(stk - 1, CAST(ordset*, stk->_object())->has((stk - 1)->_ord()));
+                    SETPOD(stk - 1, CAST(ordset*, stk->_obj())->has((stk - 1)->_ord()));
                     POP(stk);
                 }
                 break;
-            case opInSet: *(stk - 1) = CAST(set*, stk->_object())->has(*(stk - 1)); POP(stk); break;
+            case opInSet: *(stk - 1) = CAST(set*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
 
             // Storers
             case opStoreRet:    STORETO(stk, result + ADV<uchar>(ip)); break;
@@ -254,16 +254,16 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             // Container write operations
             case opStoreDictElem:
                 {
-                    dict* d = CAST(dict*, (stk - 2)->_object());
+                    dict* d = CAST(dict*, (stk - 2)->_obj());
                     d->tie(*(stk - 1), *stk);
                     POP(stk); POP(stk); POP(stk);
                 }
                 break;
-            case opDelDictElem: CAST(dict*, (stk - 1)->_object())->untie(*stk); POP(stk); POP(stk); break;
+            case opDelDictElem: CAST(dict*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
             case opStoreVecElem:
             case opStoreArrayElem:
                 {
-                    vector* v = CAST(vector*, (stk - 2)->_object());
+                    vector* v = CAST(vector*, (stk - 2)->_obj());
                     mem idx = (stk - 1)->_ord();
                     if (*(ip - 1) == opStoreArrayElem)
                         idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
@@ -280,7 +280,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 {
                     mem idx = stk->_ord();
                     POPORD(stk);
-                    ordset* s = CAST(ordset*, stk->_object());
+                    ordset* s = CAST(ordset*, stk->_obj());
                     idx -= CAST(Set*, s->get_rt())->ordsetIndexShift();
                     if (idx >= charset::BITS)
                         idxOverflow();
@@ -288,23 +288,23 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     POP(stk);
                 }
                 break;
-            case opAddToSet: CAST(set*, (stk - 1)->_object())->tie(*stk);  POP(stk); POP(stk); break;
+            case opAddToSet: CAST(set*, (stk - 1)->_obj())->tie(*stk);  POP(stk); POP(stk); break;
 
             // Concatenation
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
-            case opCharCat:     (stk - 1)->_str_write().push_back(stk->_uchar()); POPORD(stk); break;
-            case opStrCat:      (stk - 1)->_str_write().append(stk->_str_read()); POP(stk); break;
+            case opCharCat:     (stk - 1)->_strw().push_back(stk->_uchar()); POPORD(stk); break;
+            case opStrCat:      (stk - 1)->_strw().append(stk->_str()); POP(stk); break;
             case opVarToVec:    *stk = new vector(ADV<Vec*>(ip), 1, *stk); break;
-            case opVarCat:      CAST(vector*, (stk - 1)->_object())->push_back(*stk); POP(stk); break;
+            case opVarCat:      CAST(vector*, (stk - 1)->_obj())->push_back(*stk); POP(stk); break;
             case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 
             // Misc. built-ins
             case opEmpty:       *stk = stk->empty(); break;
-            case opStrLen:      *stk = stk->_str_read().size(); break;
-            case opVecLen:      *stk = CAST(vector*, stk->_object())->size(); break;
-            case opRangeDiff:   *stk = CAST(range*, stk->_object())->diff(); break;
-            case opRangeLow:    *stk = CAST(range*, stk->_object())->left; break;
-            case opRangeHigh:   *stk = CAST(range*, stk->_object())->right; break;
+            case opStrLen:      *stk = stk->_str().size(); break;
+            case opVecLen:      *stk = CAST(vector*, stk->_obj())->size(); break;
+            case opRangeDiff:   *stk = CAST(range*, stk->_obj())->diff(); break;
+            case opRangeLow:    *stk = CAST(range*, stk->_obj())->left; break;
+            case opRangeHigh:   *stk = CAST(range*, stk->_obj())->right; break;
 
             // Jumps
             case opJump:        { mem o = ADV<joffs_t>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
@@ -321,8 +321,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     PUSH(stk, stk->_ord() >= l && stk->_ord() <= ADV<integer>(ip));
                 }
                 break;
-            case opCaseStr:     *stk = stk->_str_read() == (stk - 1)->_str_read(); break;
-            case opCaseTypeRef: *stk = CAST(Type*, stk->_object())->identicalTo(CAST(Type*, (stk - 1)->_object())); break;
+            case opCaseStr:     *stk = stk->_str() == (stk - 1)->_str(); break;
+            case opCaseTypeRef: *stk = CAST(Type*, stk->_obj())->identicalTo(CAST(Type*, (stk - 1)->_obj())); break;
 
             // Function call
             case opCall: notimpl();
