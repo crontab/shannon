@@ -25,7 +25,7 @@ enum Token
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
 
-    tokConst, tokDef,
+    tokConst, tokDef, tokVar,
     tokEnum, tokEcho, tokAssert, tokBegin, tokIf, tokElif, tokElse,
     tokWhile, tokBreak, tokContinue, tokCase, tokReturn, tokExit,
     

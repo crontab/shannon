@@ -193,7 +193,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
 
             // Initializers:
             case opInitRet:     POPTO(stk, result + ADV<uchar>(ip)); break;
-            case opInitLocal:   POPTO(stk, stkbase + ADV<uchar>(ip)); break;
+            // case opInitLocal:   POPTO(stk, stkbase + ADV<uchar>(ip)); break;
             case opInitThis:    POPTO(stk, self->var(ADV<uchar>(ip))); break;
 
             // Loaders

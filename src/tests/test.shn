@@ -16,3 +16,5 @@ def int intarray[] = []
 def int*[] intarray2 = []
 # def nullcont = []
 def r1 = 0..9
+var v1 = 1
+var int v2 = []
