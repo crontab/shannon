@@ -582,18 +582,32 @@ void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 }
 
 
-void CodeGen::implicitCastTo(Type* to, const char* errmsg)
+bool CodeGen::tryImplicitCastTo(Type* to)
 {
+    Type* from = stkTopType();
     if (to->isVariant())
         stkReplace(to);
-    else if (stkTopType()->canAssignTo(to))
+    else if (from->canAssignTo(to))
         ;
-    else if (stkTopType()->isChar() && to->isString())
+    else if (from->isChar() && to->isString())
     {
         addOp(opCharToStr);
         stkReplace(to);
     }
+    else if (from->isNullContainer() && to->isContainer())
+    {
+        revertLastLoad();
+        loadConst(to, (object*)NULL);
+    }
     else
+        return false;
+    return true;
+}
+
+
+void CodeGen::implicitCastTo(Type* to, const char* errmsg)
+{
+    if (!tryImplicitCastTo(to));
         throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
@@ -601,24 +615,18 @@ void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 void CodeGen::explicitCastTo(Type* to, const char* errmsg)
 {
     Type* from = stkTopType();
-
-    // Try implicit cast first
-    if (to->isVariant() || from->canAssignTo(to))
-    {
-        stkReplace(to);
+    if (tryImplicitCastTo(to))
         return;
-    }
-    stkPop();
-    if (to->isBool())
+    else if (to->isBool())
+    {
         addOp(opToBool);
+        stkReplace(queenBee->defBool);
+    }
     else if (to->isString())
+    {
         // explicit cast to string: any object goes
         addOp(from->isChar() ? opCharToStr : opToStr);
-    else if (from->isNullContainer() && to->isContainer())
-    {
-        revertLastLoad();
-        loadConst(to, (object*)NULL);
-        return;
+        stkReplace(queenBee->defStr);
     }
     else if (
         // Variants should be typecast'ed to other types explicitly
@@ -628,10 +636,10 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
         || (from->isOrdinal() && to->isOrdinal())
         // States: implicit type cast wasn't possible, so try run-time typecast
         || (from->isState() && to->isState()))
+    {
             addOpPtr(opToType, to);    // calls to->runtimeTypecast(v)
-    else
-        throw emessage(errmsg ? errmsg : "Invalid typecast");
-    stkPush(to);
+            stkReplace(to);
+    }
 }
 
 
