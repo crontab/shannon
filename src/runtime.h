@@ -466,7 +466,7 @@ public:
     str  line();
     bool eol();
     void skip_eol();
-    bool is_eol_char(char c)            { return c == '\r' || c == '\n'; }
+    static bool is_eol_char(char c)     { return c == '\r' || c == '\n'; }
     int  skip_indent(); // spaces and tabs, tab lenghts are properly calculated
     bool eof() const                    { return empty(); }
 

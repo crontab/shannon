@@ -510,15 +510,16 @@ void test_source()
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
         check(p.next() == tokSep);
-        check(p.getLineNum() == 2);
-        check(p.getIndent() == 2);
+        check(p.getLineNum() == 1);
         check(p.next() == tokIndent);
+        check(p.getIndent() == 2);
+        check(p.getLineNum() == 2);
         check_throw(p.next()); // integer overflow
         check(p.next() == tokSep);
-        check(p.getLineNum() == 3);
+        check(p.getLineNum() == 2);
         check(p.next() == tokIf);
         check(p.next() == tokSep);
-        check(p.getLineNum() == 4);
+        check(p.getLineNum() == 3);
         check_throw(p.next()); // unmatched unindent
         check(p.next() == tokIndent);
         check(p.next() == tokIdent);
