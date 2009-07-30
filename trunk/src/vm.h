@@ -94,7 +94,7 @@ enum OpCode
 
     // Initializers
     opInitRet,          // [ret-index] -var
-    opInitLocal,        // [stack-index: 8]
+    // opInitLocal,        // [stack-index: 8]
     opInitThis,         // [this-index: 8]
 
     // Loaders
@@ -255,6 +255,7 @@ protected:
     void addInt(integer i);
     void addPtr(void* p);
     void revertLastLoad();
+    OpCode lastOp();
     void close();
 
     void stkPush(Type* t, const variant& v);
@@ -370,7 +371,7 @@ public:
             { addOp(opEchoSpace); }
     void echoLn()
             { addOp(opEchoLn); }
-    void assertion(integer file, integer line);
+    void assertion();
     void linenum(integer file, integer line);
 };
 

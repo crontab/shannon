@@ -23,11 +23,13 @@ module ::= statement-list
 
 statement-list ::= { ( definition | statement ) <SEP> }
 
-definition ::= 'def' [ expr ] ident { type-derivator } '=' expr
+definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr
 
 statement ::= call | pipe | assignment | compound-statement | if-clause
     | while-clause | "break" | "continue" | case-clause | "return"
     | var-def
+
+var-def ::= 'var' [ const-expr ] ident { type-derivator } '=' expr
 
 assignment ::= designator "=" expr
 
@@ -51,6 +53,8 @@ case-label ::= const-expr | subrange
 
 
 # ---------- Expressions
+
+const-expr ::= expr [ ".." arithm-expr ]
 
 expr ::= and-expr { ( "or" | "xor" ) and-expr }
 

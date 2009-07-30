@@ -80,7 +80,7 @@ static OpInfo opTable[] =
     OP(GreaterThan, None),      // -int, +bool
     OP(GreaterEq, None),        // -int, +bool
     OP(InitRet, Index),         // [ret-index] -var
-    OP(InitLocal, Index),       // [stack-index: 8]
+//    OP(InitLocal, Index),       // [stack-index: 8]
     OP(InitThis, Index),        // [this-index: 8]
     OP(LoadRet, Index),         // [ret-index] +var
     OP(LoadLocal, Index),       // [stack-index: 8] +var

@@ -35,7 +35,9 @@ protected:
     bool started;
 
     CodeGen* codegen;
-    Scope* scope;
+    Scope* scope;           // for storing definitions
+    BlockScope* blockScope; // for local vars in nested blocks
+    State* state;           // for this-vars
 
     void error(const str& msg)              { parser.error(msg); }
     void error(const char* msg)             { parser.error(msg); }
@@ -60,7 +62,9 @@ protected:
     Type* constExpr(Type* expectType, variant& result);
     Type* typeExpr();
 
+    Type* getTypeAndIdent(str& ident);
     void definition();
+    void variable();
     void echo();
     void assertion();
     void block();
@@ -75,7 +79,7 @@ public:
 
 Compiler::Compiler(Parser& _parser, Module& _main)
   : parser(_parser), mainModule(_main), started(false),
-    codegen(NULL), scope(NULL)  { }
+    codegen(NULL), scope(NULL), blockScope(NULL), state(NULL)  { }
 
 Compiler::~Compiler()  { }
 
@@ -362,7 +366,7 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
     if (parser.skipIf(tokRange))
     {
         if (expectType != NULL && !expectType->isTypeRef())
-            throw emessage("Subrange type is not expected here");
+            error("Subrange type is not expected here");
         arithmExpr();
         codegen->mkRange();
         constCodeGen.endConstExpr(NULL);
@@ -387,7 +391,7 @@ Type* Compiler::typeExpr()
     // TODO: shorter path?
     Type* resultType = constExpr(defTypeRef, result);
     if (!resultType->isTypeRef())
-        throw emessage("Type expression expected");
+        error("Type expression expected");
     return CAST(Type*, result._obj());
 }
 
@@ -395,10 +399,8 @@ Type* Compiler::typeExpr()
 // ------------------------------------------------------------------------- //
 
 
-void Compiler::definition()
+Type* Compiler::getTypeAndIdent(str& ident)
 {
-    // definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
-    str ident;
     Type* type = NULL;
     if (parser.token == tokIdent)
     {
@@ -413,21 +415,60 @@ void Compiler::definition()
     }
     else
         type = typeExpr();
-    if (type != NULL && parser.token != tokAssign)
+    if (type != NULL)
         type = getTypeDerivators(type);
-    parser.skip(tokAssign, "=");
+    if (parser.token != tokAssign)
+        error("Initialization is mandatory");
+    parser.next();
+    return type;
+}
+
+
+void Compiler::definition()
+{
+    // definition ::= 'def' [ type-expr ] ident { type-derivator } '=' type-expr
+    str ident;
+    Type* type = getTypeAndIdent(ident);
     variant value;
     Type* valueType = constExpr(type, value);
     if (type == NULL)
     {
         if (valueType->isNullCont())
-            throw emessage("Undefined type (empty container)");
+            error("Undefined type (empty container)");
         type = valueType;
     }
     if (type->isTypeRef())
         scope->addTypeAlias(ident, CAST(Type*, value._obj()));
     else
         scope->addConstant(type, ident, value);
+    parser.skipSep();
+}
+
+
+void Compiler::variable()
+{
+    // definition ::= 'var' [ type-expr ] ident { type-derivator } '=' expr
+    str ident;
+    Type* type = getTypeAndIdent(ident);
+    expression();
+    if (type == NULL)
+    {
+        type = codegen->getTopType();
+        if (type->isNullCont())
+            error("Undefined type (empty container)");
+    }
+    else
+        codegen->implicitCastTo(type, "Type mismatch in initialization");
+    if (blockScope != NULL)
+    {
+        Variable* var = blockScope->addLocalVar(type, ident);
+        codegen->initLocalVar(var);
+    }
+    else
+    {
+        Variable* var = state->addThisVar(type, ident);
+        codegen->initThisVar(var);
+    }
     parser.skipSep();
 }
 
@@ -460,9 +501,10 @@ void Compiler::echo()
 void Compiler::assertion()
 {
     mem codeOffs = codegen->getCurPos();
-    int linenum = parser.getLineNum();
     expression();
-    codegen->assertion(fileId, linenum);
+    if (!options.linenumInfo)
+        codegen->linenum(fileId, parser.getLineNum());
+    codegen->assertion();
     if (!options.enableAssert)
         codegen->discardCode(codeOffs);
     parser.skipSep();
@@ -480,6 +522,8 @@ void Compiler::block()
             ;
         else if (parser.skipIf(tokDef))
             definition();
+        else if (parser.skipIf(tokVar))
+            variable();
         else if (parser.skipIf(tokEcho))
             echo();
         else if (parser.skipIf(tokAssert))
@@ -499,7 +543,7 @@ void Compiler::compile()
     fileId = mainModule.registerFileName(parser.getFileName());
     CodeGen mainCodeGen(&mainModule);
     codegen = &mainCodeGen;
-    scope = &mainModule;
+    scope = state = &mainModule;
 
     try
     {
@@ -513,7 +557,7 @@ void Compiler::compile()
     }
     catch (EUnknownIdent& e)
     {
-        parser.error("'" + e.ident + "' is unknown");
+        parser.error("'" + e.ident + "' is unknown in this context");
     }
     catch (EParser&)
     {

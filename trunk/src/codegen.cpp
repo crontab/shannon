@@ -63,11 +63,19 @@ void CodeGen::discardCode(mem from)
 
 void CodeGen::revertLastLoad()
 {
-    if (lastOpOffs != mem(-1) && isLoadOp(OpCode((*codeseg)[lastOpOffs])))
+    if (isLoadOp(lastOp()))
         discardCode(lastOpOffs);
     else
         // discard();
         notimpl();
+}
+
+
+OpCode CodeGen::lastOp()
+{
+    if (lastOpOffs == mem(-1))
+        return opInv;
+    return OpCode((*codeseg)[lastOpOffs]);
 }
 
 
@@ -398,6 +406,7 @@ void CodeGen::loadStoreVar(Variable* var, bool load)
         throw emessage("Not allowed in constant expressions");
     assert(var->id <= 255);
     assert(var->state != NULL);
+    // If loval or self-var
     if (var->state == state || (var->state == state->selfPtr && var->isThisVar()))
     {
         OpCode base = load ? opLoadBase : opStoreBase;
@@ -949,9 +958,8 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
 }
 
 
-void CodeGen::assertion(integer file, integer line)
+void CodeGen::assertion()
 {
-    linenum(file, line);
     implicitCastTo(queenBee->defBool, "Boolean expression expected");
     stkPop();
     addOp(opAssert);
@@ -961,9 +969,11 @@ void CodeGen::assertion(integer file, integer line)
 void CodeGen::linenum(integer file, integer line)
 {
     if (file > 65535)
-        throw emessage("Too many files... testing me? Huh?");
+        throw emessage("Too many files... this is madness!");
     if (line > 65535)
-        throw emessage("Line number too big");
+        throw emessage("Line number too big... testing me? Huh?!");
+    if (lastOp() == opLineNum)
+        discardCode(lastOpOffs);
     addOp(opLineNum);
     add16(file);
     add16(line);
