@@ -114,7 +114,9 @@ Type* CodeGen::stkPop()
 
 inline void CodeGen::stkReplace(Type* type)
 {
-    genStack.back().type = type;
+    stkinfo& info = genStack.back();
+    info.type = type;
+    info.hasValue = false;
 }
 
 
@@ -468,104 +470,112 @@ void CodeGen::loadMember(const str& ident)
 // This is square brackets op - can be string, vector, array or dictionary
 void CodeGen::loadContainerElem()
 {
-    Type* idxType = stkPop();
-    Type* contType = stkPop();
+    Type* contType = stkTopType(1);
     if (contType->isVector())
     {
-        if (idxType->isInt())
-            idxType = queenBee->defNone;
+        implicitCastTo(queenBee->defInt, "Vector index must be integer");
         addOp(contType->isString() ? opLoadStrElem : opLoadVecElem);
     }
     else if (contType->isDict())
+    {
+        implicitCastTo(PDict(contType)->index, "Dictionary key type mismatch");
         addOp(opLoadDictElem);
+    }
     else if (contType->isArray())
-        // TODO: check the index at compile time if possible
+    {
+        // TODO: check the index at compile time if possible (compile time evaluation)
+        implicitCastTo(PArray(contType)->index, "Array index type mismatch");
         addOp(opLoadArrayElem);
+    }
     else
-        throw emessage("Container/string type expected");
-    typeCast(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
+        throw emessage("Vector/array/dictionary type expected");
+    stkPop();
+    stkPop();
     stkPush(CAST(Container*, contType)->elem);
 }
 
 
 void CodeGen::storeContainerElem()
 {
-    Type* elemType = stkPop();
-    Type* idxType = stkPop();
-    Type* contType = stkPop();
+    Type* idxType = stkTopType(1);
+    Type* contType = stkTopType(2);
     if (contType->isString())
         throw emessage("Operation not allowed on strings");
     else if (contType->isVector())
     {
         idxType = queenBee->defNone;
+        implicitCastTo(PVec(contType)->elem, "Vector element type mismatch");
         addOp(opStoreVecElem);
     }
     else if (contType->isArray())
+    {
+        implicitCastTo(PArray(contType)->elem, "Array element type mismatch");
         addOp(opStoreArrayElem);
+    }
     else if (contType->isDict())
+    {
+        implicitCastTo(PDict(contType)->elem, "Dictionary element type mismatch");
         addOp(opStoreDictElem);
+    }
     else
-        throw emessage("Container type expected");
-    typeCast(idxType, CAST(Container*, contType)->index, "Container key type mismatch");
-    typeCast(elemType, CAST(Container*, contType)->elem, "Container element type mismatch");
+        throw emessage("Vector/array/dictionary type expected");
+    // This works in the hope that index type was already checked and typecasted
+    // if necessary in loadContainerElem() and reverted with revertLastLoad().
+    // Can't do it here because index is not the top element on the stack.
+    canAssign(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
+    stkPop();
+    stkPop();
+    stkPop();
 }
 
 
-void CodeGen::delDictElem()
+void CodeGen::dictOp(OpCode op)
 {
-    Type* idxType = stkPop();
-    Type* dictType = stkPop();
+    Type* dictType = stkTopType(1);
     if (!dictType->isDict())
         throw emessage("Dictionary type expected");
-    typeCast(idxType, CAST(Dict*, dictType)->index, "Dictionary key type mismatch");
-    addOp(opDelDictElem);
+    implicitCastTo(PDict(dictType)->index, "Dictionary key type mismatch");
+    addOp(op);
+    stkPop();
+    stkPop();
 }
 
 
-void CodeGen::addToSet()
+void CodeGen::dictHas()
 {
-    Type* idxType = stkPop();
-    Type* setType = stkPop();
-    if (setType->isOrdset())
-        addOp(opAddToOrdset);
-    else if (setType->isSet())
-        addOp(opAddToSet);
-    else
-        throw emessage("Set type expected");
-    typeCast(idxType, CAST(Set*, setType)->index, "Set element type mismatch");
-}
-
-
-void CodeGen::inSet()
-{
-    // Operator `in`: elem in set
-    Type* setType = stkPop();
-    Type* idxType = stkPop();
-    if (setType->isOrdset())
-        addOp(opInOrdset);
-    else if (setType->isSet())
-        addOp(opInSet);
-    else
-        throw emessage("Set type expected");
-    typeCast(idxType, CAST(Set*, setType)->index, "Set element type mismatch");
+    dictOp(opDictHas);
     stkPush(queenBee->defBool);
 }
 
 
-void CodeGen::inDictKeys()
+void CodeGen::setOp(OpCode ordsOp, OpCode sOp)
 {
-    // Operator `in`: key in dict
-    Type* dictType = stkPop();
-    Type* idxType = stkPop();
-    if (!dictType->isDict())
-        throw emessage("Dictionary type expected");
-    typeCast(idxType, CAST(Dict*, dictType)->index, "Dictionary key type mismatch");
-    addOp(opInDictKeys);
+    Type* setType = stkTopType(1);
+    if (setType->isOrdset())
+    {
+        implicitCastTo(POrdset(setType)->index, "Ordinal set element type mismatch");
+        addOp(ordsOp);
+    }
+    else if (setType->isSet())
+    {
+        implicitCastTo(PSet(setType)->index, "Set element type mismatch");
+        addOp(sOp);
+    }
+    else
+        throw emessage("Set type expected");
+    stkPop();
+    stkPop();
+}
+
+
+void CodeGen::setHas()
+{
+    setOp(opOrdsetHas, opSetHas);
     stkPush(queenBee->defBool);
 }
 
 
-void CodeGen::typeCast(Type* from, Type* to, const char* errmsg)
+void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 {
     if (!to->isVariant() && !from->canAssignTo(to))
         throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
@@ -574,8 +584,17 @@ void CodeGen::typeCast(Type* from, Type* to, const char* errmsg)
 
 void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 {
-    typeCast(stkTopType(), to, errmsg);
-    stkReplace(to);
+    if (to->isVariant())
+        stkReplace(to);
+    else if (stkTopType()->canAssignTo(to))
+        ;
+    else if (stkTopType()->isChar() && to->isString())
+    {
+        addOp(opCharToStr);
+        stkReplace(to);
+    }
+    else
+        throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
 
@@ -590,7 +609,9 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
         return;
     }
     stkPop();
-    if (to->isString())
+    if (to->isBool())
+        addOp(opToBool);
+    else if (to->isString())
         // explicit cast to string: any object goes
         addOp(from->isChar() ? opCharToStr : opToStr);
     else if (from->isNullContainer() && to->isContainer())
@@ -888,15 +909,15 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
     Type* caseType = stkTopType();
     if (labelType->isRange())
     {
-        typeCast(caseType, CAST(Range*, labelType)->base, "Case label type mismatch");
-        addOp(opCaseRange);
+        canAssign(caseType, CAST(Range*, labelType)->base, "Case label type mismatch");
         range* r = CAST(range*, label._obj());
+        addOp(opCaseRange);
         addInt(r->left);
         addInt(r->right);
     }
     else
     {
-        typeCast(caseType, labelType, "Case label type mismatch");
+        canAssign(caseType, labelType, "Case label type mismatch");
         if (labelType->isOrdinal())
         {
             addOp(opCaseInt);
@@ -915,7 +936,7 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
             stkPop();
         }
         else
-            throw emessage("Only ordinals, strings and typerefs are allowed in case statement");
+            throw emessage("Only ordinal, string and typeref constants are allowed in case statement");
     }
     stkPush(queenBee->defBool);
 }

@@ -794,12 +794,12 @@ void test_vm()
 
     {
         Module mod("test2");
-        Dict* dictType = mod.registerType(new Dict(queenBee->defStr, queenBee->defInt));
+        Dict* dictType = queenBee->defInt->createContainer(queenBee->defStr);
         dict* d = new dict(dictType);
         d->tie("key1", 2);
         d->tie("key2", 3);
         Constant* c = mod.addConstant(dictType, "dict", d);
-        Array* arrayType = mod.registerType(new Array(queenBee->defBool, queenBee->defStr));
+        Array* arrayType = queenBee->defStr->createContainer(queenBee->defBool);
         Ordset* ordsetType = queenBee->defChar->deriveSet();
         Set* setType = queenBee->defInt->deriveSet();
         check(!setType->isOrdset());
@@ -854,6 +854,12 @@ void test_vm()
             gen.loadVar(v4);
             gen.loadInt(1000);
             gen.addToSet();
+            gen.loadVar(v4);
+            gen.loadInt(2000);
+            gen.addToSet();
+            gen.loadVar(v4);
+            gen.loadInt(1000);
+            gen.delSetElem();
 
             gen.loadConst(queenBee->defVariant, 10);
             gen.elemToVec();
@@ -886,34 +892,34 @@ void test_vm()
             gen.loadVar(v4);
             gen.elemCat();
 
+            gen.loadVar(v3);
             gen.loadChar('a');
-            gen.loadVar(v3);
-            gen.inSet();
+            gen.setHas();
             gen.elemCat();
 
+            gen.loadVar(v3);
             gen.loadChar('c');
-            gen.loadVar(v3);
-            gen.inSet();
+            gen.setHas();
             gen.elemCat();
 
+            gen.loadVar(v4);
+            gen.loadInt(2000);
+            gen.setHas();
+            gen.elemCat();
+
+            gen.loadVar(v4);
             gen.loadInt(1000);
-            gen.loadVar(v4);
-            gen.inSet();
+            gen.setHas();
             gen.elemCat();
 
-            gen.loadInt(1001);
-            gen.loadVar(v4);
-            gen.inSet();
-            gen.elemCat();
-
+            gen.loadVar(v1);
             gen.loadStr("k3");
-            gen.loadVar(v1);
-            gen.inDictKeys();
+            gen.dictHas();
             gen.elemCat();
 
-            gen.loadStr("k1");
             gen.loadVar(v1);
-            gen.inDictKeys();
+            gen.loadStr("k1");
+            gen.dictHas();
             gen.elemCat();
 
             ThisVar* var = mod.addThisVar(queenBee->defInt, "var");
@@ -943,7 +949,7 @@ void test_vm()
         variant result = mod.run();
         str s = result.to_string();
         check(s ==
-            "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 1000], "
+            "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 2000], "
             "true, false, true, false, false, true, 200, [<char-fifo>], null]");
     }
 

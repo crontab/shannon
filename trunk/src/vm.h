@@ -109,12 +109,12 @@ enum OpCode
 
     // Container read operations
     opLoadDictElem,     // -key, -dict, +val
-    opInDictKeys,       // -dict, -key, +bool
+    opDictHas,          // -key, -dict, +bool
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
     opLoadArrayElem,    // -index, -array, +val
-    opInOrdset,         // -ordset, -ord, +bool
-    opInSet,            // -ordset, -key, +bool
+    opOrdsetHas,        // -ord, -ordset, +bool
+    opSetHas,           // -key, -ordset, +bool
 
     // Storers
     // NOTE: opStoreRet through opStoreArg are in sync with Symbol::symbolId
@@ -133,7 +133,9 @@ enum OpCode
     opStoreVecElem,     // -val, -index, -vector
     opStoreArrayElem,   // -val, -index, -array
     opAddToOrdset,      // -ord, -ordset
+    opDelOrdsetElem,    // -key, -ordset
     opAddToSet,         // -key, -set
+    opDelSetElem,       // -key, -set
 
     // Concatenation
     opCharToStr,        // -char, +str
@@ -269,14 +271,16 @@ protected:
             { return stkTop().value; }
     Type* stkTopType(mem i) const
             { return stkTop(i).type; }
-    void stkReplace(Type*);
     Type* stkPop();
+    void stkReplace(Type*);
 
     void loadConstById(mem id);
     mem  loadCompoundConst(const variant&);
     void doStaticVar(ThisVar* var, OpCode);
     void loadStoreVar(Variable* var, bool load);
-    void typeCast(Type* from, Type* to, const char* errmsg);
+    void canAssign(Type* from, Type* to, const char* errmsg);
+    void setOp(OpCode ordsOp, OpCode sOp);
+    void dictOp(OpCode op);
 
 public:
     CodeGen(CodeSeg*);
@@ -316,10 +320,14 @@ public:
     void loadMember(const str& ident);
     void loadContainerElem();
     void storeContainerElem();
-    void delDictElem();
-    void addToSet();
-    void inSet();
-    void inDictKeys();
+    void delDictElem()
+            { dictOp(opDelDictElem); }
+    void dictHas();
+    void addToSet()
+            { setOp(opAddToOrdset, opAddToSet); }
+    void delSetElem()
+            { setOp(opDelOrdsetElem, opDelSetElem); }
+    void setHas();
 
     void implicitCastTo(Type*, const char* errmsg);
     void explicitCastTo(Type*, const char* errmsg);
