@@ -79,9 +79,7 @@ protected:
             { *(joffs_t*)(code.data() + i) = o; }
 
     // Execution
-    static void vecCat(const variant& vec2, variant* vec1);
     void failAssertion();
-    static void echo(const variant&);
 
     void run(varstack& stack, langobj* self, variant* result); // <-- this is the VM itself
 
@@ -490,8 +488,10 @@ public:
 typedef Container* PContainer;
 typedef Vec* PVec;
 typedef Dict* PDict;
+typedef Array* PArray;
 typedef Str* PStr;
 typedef Set* PSet;
+typedef Ordset* POrdset;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any

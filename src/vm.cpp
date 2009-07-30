@@ -54,7 +54,7 @@ inline void STORETO(variant*& stk, variant* dest)
 #define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
 
 
-void CodeSeg::vecCat(const variant& src, variant* dest)
+static void vecCat(const variant& src, variant* dest)
 {
     vector* ts = CAST(vector*, src._obj());
     if (!ts->empty())
@@ -75,7 +75,7 @@ void CodeSeg::failAssertion()
 }
 
 
-void CodeSeg::echo(const variant& v)
+static void echo(const variant& v)
 {
     // The default dump() method uses apostrophes, which we don't need here,
     // or at least at the top level (nested strings and chars in containers
@@ -86,6 +86,19 @@ void CodeSeg::echo(const variant& v)
         sio << v._str();
     else
         sio << v;
+}
+
+
+static void ordsetAddDel(variant*& stk, bool del)
+{
+    mem idx = stk->_ord();
+    POPORD(stk);
+    ordset* s = CAST(ordset*, stk->_obj());
+    idx -= CAST(Ordset*, s->get_rt())->ordsetIndexShift();
+    if (idx >= charset::BITS)
+        idxOverflow();
+    if (del) s->untie(idx); else s->tie(idx);
+    POP(stk);
 }
 
 
@@ -207,7 +220,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     else *stk = i->second;
                 }
                 break;
-            case opInDictKeys: *(stk - 1) = CAST(dict*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
+            case opDictHas: *(stk - 1) = CAST(dict*, (stk - 1)->_obj())->has(*stk); POP(stk); break;
             case opLoadStrElem:
                 {
                     mem idx = stk->_int();
@@ -229,13 +242,18 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     *stk = (*v)[idx];
                 }
                 break;
-            case opInOrdset:
+            case opOrdsetHas:
                 {
-                    SETPOD(stk - 1, CAST(ordset*, stk->_obj())->has((stk - 1)->_ord()));
-                    POP(stk);
+                    mem idx = stk->_ord();
+                    POPORD(stk);
+                    ordset* s = CAST(ordset*, stk->_obj());
+                    idx -= CAST(Set*, s->get_rt())->ordsetIndexShift();
+                    if (idx >= charset::BITS)
+                        idxOverflow();
+                    *stk = s->has(idx);
                 }
                 break;
-            case opInSet: *(stk - 1) = CAST(set*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
+            case opSetHas: *(stk - 1) = CAST(set*, (stk - 1)->_obj())->has(*stk); POP(stk); break;
 
             // Storers
             case opStoreRet:    STORETO(stk, result + ADV<uchar>(ip)); break;
@@ -277,19 +295,10 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     POP(stk); POP(stk); POP(stk);
                 }
                 break;
-            case opAddToOrdset:
-                {
-                    mem idx = stk->_ord();
-                    POPORD(stk);
-                    ordset* s = CAST(ordset*, stk->_obj());
-                    idx -= CAST(Set*, s->get_rt())->ordsetIndexShift();
-                    if (idx >= charset::BITS)
-                        idxOverflow();
-                    s->tie(idx);
-                    POP(stk);
-                }
-                break;
+            case opAddToOrdset: ordsetAddDel(stk, false); break;
+            case opDelOrdsetElem: ordsetAddDel(stk, true); break;
             case opAddToSet: CAST(set*, (stk - 1)->_obj())->tie(*stk);  POP(stk); POP(stk); break;
+            case opDelSetElem: CAST(set*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
 
             // Concatenation
             case opCharToStr:   *stk = str(1, stk->_uchar()); break;
