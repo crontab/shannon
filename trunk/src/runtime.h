@@ -614,7 +614,6 @@ public:
     ~in_text();
     
     bool empty() const; //override
-    bool eof()                 { return empty(); }
     str  get_file_name() const { return file_name; }
     void open()                { empty(); /* attempt to fill the buffer */ }
 };

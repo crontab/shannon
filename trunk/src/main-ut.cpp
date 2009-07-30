@@ -480,9 +480,11 @@ void test_source()
             tokIdent, tokComma, tokSep,
             tokIdent, tokSep,
             tokBlockEnd, tokBlockEnd,
-            tokIdent, tokBlockBegin, tokIdent, tokBlockEnd,
+            tokIdent, tokSingle, tokIdent, tokSep,
             tokIdent, tokBlockBegin, tokIdent, tokSep, 
             tokIdent, tokSep, tokBlockEnd,
+            tokBlockBegin, tokIdent, tokSep,   // curly
+            tokIdent, tokSingle, tokIdent, tokSep, tokBlockEnd,
             tokBlockEnd,
             tokEof
         };

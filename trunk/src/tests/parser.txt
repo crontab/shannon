@@ -23,3 +23,8 @@ magic:
     cats
     thundercats
 
+{
+    cats
+      thunder: thundercats
+}
+

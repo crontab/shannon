@@ -21,7 +21,7 @@ enum Token
     tokUndefined = -1,
     // Blocks: for the compiler, these tokens are transparent wrt to C-style
     // vs. Python-style modes
-    tokBlockBegin, tokBlockEnd, tokSep, tokIndent,
+    tokBlockBegin, tokBlockEnd, tokSingle, tokSep, tokIndent,
     tokEof,
     tokIdent, tokIntValue, tokStrValue,
 
@@ -67,13 +67,14 @@ protected:
     std::stack<int> indentStack;
     int linenum;
     int indent;
-    bool singleLineBlock; // if a: b = c
     int curlyLevel;
 
     str errorLocation() const;
     void parseStringLiteral();
     void skipMultilineComment();
     void skipSinglelineComment();
+    void skipEol();
+    void skipWsAndEol();
 
 public:
     Token token;
@@ -106,8 +107,6 @@ public:
     str getFileName() const { return fileName; }
     int getLineNum() const { return linenum; }
     int getIndent() const { return indent; }
-
-    void skipEol();
 };
 
 
