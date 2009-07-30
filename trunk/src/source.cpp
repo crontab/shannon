@@ -280,7 +280,7 @@ restart:
     input->skip(wsChars);
 
     int c = input->preview();
-
+    
     // --- Handle EOF and EOL ---
     if (c == -1)
     {
@@ -298,17 +298,23 @@ restart:
         return token = tokEof;
     }
 
-    else if (input->eol())
+    else if (input->is_eol_char(c))
     {
-        skipEol();
-        if (newLine)
-            goto restart;       // Ignore blank lines, no matter what indent.
-        newLine = true;         // Start from a new line.
-        strValue = "<SEP>";
-        return token = tokSep;
+        if (token == tokSep)
+        {
+            skipEol();
+            newLine = true;
+            goto restart;
+        }
+        else
+        {
+            strValue = "<SEP>";
+            return token = tokSep;
+        }
     }
 
-    else if (c == '#')  // single- or multiline comments
+    // --- Comments ---
+    else if (c == '#')
     {
         input->get();
         // both functions stop exactly at EOL
@@ -321,6 +327,7 @@ restart:
         goto restart;
     }
 
+    // --- New line (indent) ---
     else if (curlyLevel == 0 && newLine)
     {
         // This is a new line, blanks are skipped, so we are at the first 
@@ -356,7 +363,7 @@ restart:
 
     newLine = false;
 
-    // --- Handle ordinary tokens ---
+    // --- Ordinary tokens ---
     if (identFirst[c])  // identifier or keyword
     {
         strValue = input->get();
