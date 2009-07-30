@@ -132,7 +132,7 @@ void test_variant()
         check(v10.to_string() == "'abc'");
         check(vst.to_string() == "'def'");
         check(v12.to_string() == "'x'");
-        check(vo.to_string() == "[test_obj]");
+        check(vo.to_string() == "test_obj");
 
         check(v1 < v2); check(!(v2 < v1));
         check(v2 < v3);
@@ -950,7 +950,7 @@ void test_vm()
         str s = result.to_string();
         check(s ==
             "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 2000], "
-            "true, false, true, false, false, true, 200, [<char-fifo>], null]");
+            "true, false, true, false, false, true, 200, <char-fifo>, null]");
     }
 
     {

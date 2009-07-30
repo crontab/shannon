@@ -112,7 +112,7 @@ Type* CodeGen::stkPop()
 }
 
 
-inline void CodeGen::stkReplace(Type* type)
+void CodeGen::stkReplace(Type* type)
 {
     stkinfo& info = genStack.back();
     info.type = type;
@@ -159,7 +159,7 @@ void CodeGen::exit()
 void CodeGen::loadNullContainer()
 {
     addOp(opLoadNullCont);
-    stkPush(queenBee->defNullContainer);
+    stkPush(queenBee->defNullCont);
 }
 
 
@@ -249,15 +249,8 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         }
         break;
     case Type::VEC:
-        if (isEmpty)
-        {
-            if (type->isNullContainer())
-                addOp(opLoadNullCont);
-            else
-                addOpPtr(opLoadNullVec, type);
-        }
-        else
-            loadCompoundConst(value);
+        if (isEmpty) addOpPtr(opLoadNullVec, type);
+        else loadCompoundConst(value);
         break;
     case Type::ARRAY:
         if (isEmpty) addOpPtr(opLoadNullArray, type);
@@ -270,6 +263,9 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     case Type::SET:
         if (isEmpty) addOpPtr(opLoadNullSet, type);
         else loadCompoundConst(value);
+        break;
+    case Type::NULLCONT:
+        addOp(opLoadNullCont);
         break;
     case Type::VARFIFO:
     case Type::CHARFIFO:
@@ -585,17 +581,18 @@ void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 bool CodeGen::tryImplicitCastTo(Type* to)
 {
     Type* from = stkTopType();
-    if (to->isVariant())
+    if (from->canAssignTo(to))
         stkReplace(to);
-    else if (from->canAssignTo(to))
-        ;
+    else if (to->isVariant())
+        stkReplace(to);
     else if (from->isChar() && to->isString())
     {
         addOp(opCharToStr);
         stkReplace(to);
     }
-    else if (from->isNullContainer() && to->isContainer())
+    else if (from->isNullCont() && to->isContainer())
     {
+        stkPop();
         revertLastLoad();
         loadConst(to, (object*)NULL);
     }
@@ -607,7 +604,7 @@ bool CodeGen::tryImplicitCastTo(Type* to)
 
 void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 {
-    if (!tryImplicitCastTo(to));
+    if (!tryImplicitCastTo(to))
         throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
@@ -914,6 +911,8 @@ void CodeGen::resolveJump(mem jumpOffs)
 
 void CodeGen::caseLabel(Type* labelType, const variant& label)
 {
+    // TODO: the compiler should do type checking and typecasts for labels
+    // itself, as we can't do it here (it's not on the stack).
     Type* caseType = stkTopType();
     if (labelType->isRange())
     {

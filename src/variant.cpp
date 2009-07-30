@@ -110,10 +110,8 @@ void variant::dump(fifo_intf& s) const
     case REAL: s << integer(val._real); break; // TODO: !!!
     case STR:  s << '\'' << _str() << '\''; break;
     case OBJECT:
-        s << '[';
         if (val._obj != NULL)
             val._obj->dump(s);
-        s << ']';
         break;
     }
 }
@@ -244,7 +242,7 @@ object::~object()
 
 object* object::clone()                 const { throw emessage("Object can't be cloned"); }
 bool object::empty()                    const { return false; }
-void object::dump(fifo_intf& s)         const { s << "object"; }
+void object::dump(fifo_intf& s)         const { s << "<object>"; }
 bool object::less_than(object* other)   const { return this < other; }
 
 
@@ -320,7 +318,7 @@ bool range::less_than(object* o) const
 
 void range::dump(fifo_intf& s) const
 {
-    s << left << ".." << right;
+    s << '[' << left << ".." << right << ']';
 }
 
 
@@ -403,12 +401,14 @@ vector::vector(Type* rt, mem count, const variant& v)
 
 void vector::dump(fifo_intf& s) const
 {
+    s << '[';
     for(mem i = 0; i < size(); i++)
     {
         if (i != 0)
             s << ", ";
         s << (*this)[i];
     }
+    s << ']';
 }
 
 
@@ -425,12 +425,14 @@ bool dict::has(const variant& key) const            { return impl.find(key) != i
 
 void dict::dump(fifo_intf& s) const
 {
+    s << '[';
     foreach(dict_impl::const_iterator, i, impl)
     {
         if (i != impl.begin())
             s << ", ";
         s << i->first << ": " << i->second;
     }
+    s << ']';
 }
 
 
@@ -442,6 +444,7 @@ ordset::~ordset()  { }
 
 void ordset::dump(fifo_intf& s) const
 {
+    s << '[';
     int cnt = 0;
     for (int i = 0; i < charset::BITS; i++)
         if (impl[i])
@@ -450,6 +453,7 @@ void ordset::dump(fifo_intf& s) const
                 s << ", ";
             s << integer(i);
         }
+    s << ']';
 }
 
 
@@ -464,11 +468,13 @@ bool set::has(const variant& v) const       { return impl.find(v) != impl.end();
 
 void set::dump(fifo_intf& s) const
 {
+    s << '[';
     foreach(set_impl::const_iterator, i, impl)
     {
         if (i != impl.begin())
             s << ", ";
         s << *i;
     }
+    s << ']';
 }
 

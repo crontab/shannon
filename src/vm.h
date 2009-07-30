@@ -302,10 +302,10 @@ public:
     void loadInt(integer i);
     void loadStr(const str& s);
     void loadTypeRef(Type*);
-    void loadNullContainer();
     void loadConst(Type*, const variant&, bool asVariant = false);
     void loadDefinition(Definition* def)
             { loadConst(def->type, def->value); }
+    void loadNullContainer();
     void loadSymbol(Symbol*);
     void discard();
     void swap();    // not used currently

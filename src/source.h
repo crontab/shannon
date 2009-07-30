@@ -44,7 +44,7 @@ enum Token
     // OR level
     tokOr, tokXor,
     
-    tokIn, tokIs, tokAs,
+    tokIn, tokIs, tokAs, tokHas,
 
     // Special chars and sequences
     tokComma, tokPeriod, tokRange,
