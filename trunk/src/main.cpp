@@ -56,7 +56,7 @@ protected:
     void orLevel();
     void expression()
             { orLevel(); }
-    Type* expression(Type* expectType);
+    void expression(Type* expectType);
     Type* constExpr(Type* expectType, variant& result);
     Type* typeExpr();
 
@@ -88,17 +88,17 @@ template <class T>
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    1. <nested-expr>, <ident>, <number>, <string>, <char>, <compound-ctor>
-    2. <array-sel>, <member-sel>, <function-call>
-    3. <array-derivator>, <fifo-derivator>, <function-derivator>
-    -
-    *, /, mod, as
-    +, –
-    |, ..
-    ==, <>, != <, >, <=, >=, in, is
-    not
-    and
-    or, xor
+    1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>
+    2. <array-sel>  <member-sel>  <function-call>
+    3. unary-  <type-derivators>  as  is
+    4. *  /  mod
+    5. +  –
+    6. ..
+    7. |
+    8. ==  <>  !=  <  >  <=  >=  has
+    9. not
+    10. and
+    11. or  xor
 */
 
 
@@ -252,7 +252,6 @@ void Compiler::arithmExpr()
 void Compiler::simpleExpr()
 {
     arithmExpr();
-    // TODO: range
     if (parser.skipIf(tokCat))
     {
         Type* type = codegen->getTopType();
@@ -352,25 +351,31 @@ void Compiler::orLevel()
 }
 
 
-Type* Compiler::expression(Type* expectType)
-{
-    expression();
-    Type* resultType = codegen->getTopType();
-    // TODO: convert range to Range type
-    if (expectType != NULL)
-        codegen->implicitCastTo(expectType, "Expression type mismatch");
-    return resultType;
-}
-
-
 Type* Compiler::constExpr(Type* expectType, variant& result)
 {
     ConstCode constCode;
     CodeGen constCodeGen(&constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    Type* valueType = expression(expectType);
-    constCodeGen.endConstExpr(NULL);
-    constCode.run(result);
+
+    expression();
+    Type* valueType = codegen->getTopType();
+    if (parser.skipIf(tokRange))
+    {
+        if (expectType != NULL && !expectType->isTypeRef())
+            throw emessage("Subrange type is not expected here");
+        arithmExpr();
+        codegen->mkRange();
+        constCodeGen.endConstExpr(NULL);
+        constCode.run(result);
+        range* r = CAST(range*, result.as_obj());
+        result = CAST(Ordinal*, valueType)->createSubrange(r->left, r->right);
+        valueType = defTypeRef;
+    }
+    else
+    {
+        constCodeGen.endConstExpr(expectType);
+        constCode.run(result);
+    }
     codegen = prevCodeGen;
     return valueType;
 }
@@ -410,11 +415,15 @@ void Compiler::definition()
         type = typeExpr();
     if (type != NULL && parser.token != tokAssign)
         type = getTypeDerivators(type);
-    parser.skip(tokAssign, "Initialization expected");
+    parser.skip(tokAssign, "=");
     variant value;
     Type* valueType = constExpr(type, value);
     if (type == NULL)
+    {
+        if (valueType->isNullCont())
+            throw emessage("Undefined type (empty container)");
         type = valueType;
+    }
     if (type->isTypeRef())
         scope->addTypeAlias(ident, CAST(Type*, value._obj()));
     else

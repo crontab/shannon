@@ -13,3 +13,6 @@ assert (1 or 2) == 3
 def a = 0
 def int b = 1
 def int intarray[] = []
+def int*[] intarray2 = []
+# def nullcont = []
+def r1 = 0..9

@@ -273,7 +273,7 @@ class Type: public object
 {
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM, RANGE,
-        DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, VARIANT,
+        DICT, VEC, STR, ARRAY, ORDSET, SET, NULLCONT, VARFIFO, CHARFIFO, VARIANT,
         TYPEREF, STATE };
 
     enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
@@ -317,7 +317,7 @@ public:
     bool isSet() const  { return typeId == SET; }
     bool isOrdset() const  { return typeId == ORDSET; }
     bool isCharSet() const;
-    bool isNullContainer() const;
+    bool isNullCont() const  { return typeId == NULLCONT; }
     bool isVarFifo() const  { return typeId == VARFIFO; }
     bool isCharFifo() const  { return typeId == CHARFIFO; }
     bool isVariant() const  { return typeId == VARIANT; }
@@ -439,7 +439,7 @@ public:
             { return rangeEq(t->left, t->right); }
     bool isInRange(integer v)
             { return v >= left && v <= right; }
-    virtual Ordinal* deriveSubrange(integer _left, integer _right);
+    virtual Ordinal* createSubrange(integer _left, integer _right);
 };
 
 
@@ -463,7 +463,7 @@ public:
     void addValue(const str&);
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
-    Ordinal* deriveSubrange(integer _left, integer _right);
+    Ordinal* createSubrange(integer _left, integer _right);
 };
 
 
@@ -571,7 +571,7 @@ public:
     Container* defStr;
     Variant* defVariant;
     Fifo* defCharFifo;
-    Container* defNullContainer;
+    Container* defNullCont;
     Variable* siovar;
     Variable* serrvar;
     Variable* sresultvar;
@@ -604,9 +604,6 @@ inline State* Definition::aliasedState() const
 
 inline Module* Definition::aliasedModule() const
     { return CAST(Module*, value._obj()); }
-
-inline bool Type::isNullContainer() const
-    { return this == queenBee->defNullContainer; }
 
 
 #endif // __TYPESYS_H

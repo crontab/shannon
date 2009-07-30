@@ -159,6 +159,11 @@ void Definition::dump(fifo_intf& stm) const
 {
     if (isModuleAlias())
         stm << name << " = <used-module>";
+    else if (isTypeAlias())
+    {
+        stm << name << " = ";
+        aliasedType()->fullDump(stm);
+    }
     else
         stm << *type << ' ' << name << " = " << value;
 }
@@ -231,10 +236,11 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 
 Container* Type::createContainer(Type* indexType)
 {
-    if (isNone() && indexType->isNone())
-        return queenBee->defNullContainer;
-    else
-        return owner->registerType(new Container(indexType, this));
+    if (indexType->isNone())
+        return deriveVector();
+    if (isNone())
+        return deriveSet();
+    return owner->registerType(new Container(indexType, this));
 }
 
 
@@ -505,7 +511,7 @@ bool Ordinal::rangeFits(integer i)
 }
 
 
-Ordinal* Ordinal::deriveSubrange(integer _left, integer _right)
+Ordinal* Ordinal::createSubrange(integer _left, integer _right)
 {
     if (rangeEq(_left, _right))
         return this;
@@ -608,7 +614,7 @@ bool Enumeration::canAssignTo(Type* t)
     { return t->isEnum() && values == PEnum(t)->values; }
 
 
-Ordinal* Enumeration::deriveSubrange(integer _left, integer _right)
+Ordinal* Enumeration::createSubrange(integer _left, integer _right)
 {
     if (rangeEq(_left, _right))
         return this;
@@ -645,7 +651,7 @@ Container::Container(Type* _index, Type* _elem)
     : Type(defTypeRef, NONE), index(_index), elem(_elem)
 {
     if (index->isNone())
-        setTypeId(elem->isChar() ? STR : VEC);
+        setTypeId(elem->isChar() ? STR : elem->isNone() ? NULLCONT : VEC);
     else if (elem->isNone())
         setTypeId(index->canBeOrdsetIndex() ? ORDSET : SET);
     else
@@ -666,8 +672,8 @@ void Container::fullDump(fifo_intf& stm) const
 
 
 bool Container::identicalTo(Type* t)
-    { return t->is(typeId) && elem->identicalTo(CAST(Container*, t)->elem)
-            && index->identicalTo(CAST(Container*, t)->index); }
+    { return (t == this) || (t->is(typeId) && elem->identicalTo(CAST(Container*, t)->elem)
+            && index->identicalTo(CAST(Container*, t)->index)); }
 
 
 void Container::runtimeTypecast(variant& value)
@@ -730,7 +736,7 @@ QueenBee::QueenBee()
     defStr = NULL;
     defVariant = registerType(new Variant());
     defCharFifo = NULL;
-    defNullContainer = registerType(new Container(defNone, defNone));
+    defNullCont = registerType(new Container(defNone, defNone));
     siovar = NULL;
     serrvar = NULL;
 }
