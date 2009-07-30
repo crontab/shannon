@@ -140,7 +140,7 @@ str mkQuotedPrintable(char c)
 Parser::Parser(const str& fn, fifo_intf* _input)
     : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
-      singleLineBlock(false), curlyLevel(0),
+      curlyLevel(0),
       token(tokUndefined), strValue(), intValue(0)
 {
     indentStack.push(0);
@@ -261,6 +261,14 @@ void Parser::skipEol()
 }
 
 
+void Parser::skipWsAndEol()
+{
+    input->skip(wsChars);
+    while (!input->eof() && input->eol())
+        skipEol();
+}
+
+
 // TODO: test curly mode
 
 Token Parser::next()
@@ -296,17 +304,8 @@ restart:
         if (newLine)
             goto restart;       // Ignore blank lines, no matter what indent.
         newLine = true;         // Start from a new line.
-        if (singleLineBlock)    // Only possible in Python mode
-        {
-            strValue = "<END>";
-            singleLineBlock = false;
-            return token = tokBlockEnd;
-        }
-        else
-        {
-            strValue = "<SEP>";
-            return token = tokSep;
-        }
+        strValue = "<SEP>";
+        return token = tokSep;
     }
 
     else if (c == '#')  // single- or multiline comments
@@ -403,13 +402,11 @@ restart:
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': strValue = "<SEP>"; return token = tokSep;
         case ':':
-            // TODO: allow colon in curly bracket mode
             if (curlyLevel > 0)
-                error("Colon is not allowed in curly-bracket mode");
+                return token = tokSingle;
             input->skip(wsChars);
-            singleLineBlock = !input->eol();
-            if (singleLineBlock)
-                return token = tokBlockBegin;
+            if (!input->eol())
+                return token = tokSingle;
             else
             {
                 if (next() != tokSep || next() != tokIndent)
@@ -431,10 +428,14 @@ restart:
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;
         case ')': return token = tokRParen;
-        case '{': curlyLevel++; return token = tokBlockBegin;
+        case '{':
+            curlyLevel++;
+            skipWsAndEol();
+            return token = tokBlockBegin;
         case '}':
             if (--curlyLevel < 0)
                 error("Unbalanced }");
+            skipWsAndEol();
             return token = tokBlockEnd;
         case '<': return token = (input->get_if('=') ? tokLessEq
                     : (input->get_if('>') ? tokNotEq : tokLAngle));
