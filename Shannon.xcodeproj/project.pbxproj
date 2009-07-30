@@ -10,8 +10,8 @@
 		3600A4E410052B4D00EE555A /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3600A4E210052B4D00EE555A /* typesys.cpp */; };
 		3600A4E510052B6B00EE555A /* source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36668F541003CD8600FF0C90 /* source.cpp */; };
 		3600A4E610052B6E00EE555A /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3600A4E210052B4D00EE555A /* typesys.cpp */; };
-		3606CB43101D02D900267D43 /* vmdebug.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3606CB42101D02D800267D43 /* vmdebug.cpp */; };
-		3606CB44101D02D900267D43 /* vmdebug.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3606CB42101D02D800267D43 /* vmdebug.cpp */; };
+		3609388B10225EFF002AF152 /* vminfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3609388A10225EFF002AF152 /* vminfo.cpp */; };
+		3609388C10225EFF002AF152 /* vminfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3609388A10225EFF002AF152 /* vminfo.cpp */; };
 		360D2ABB100A2FBE008F7C98 /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 360D2ABA100A2FBE008F7C98 /* vm.cpp */; };
 		360D2ABC100A2FBE008F7C98 /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 360D2ABA100A2FBE008F7C98 /* vm.cpp */; };
 		361AF94A1000DF4200E12EAE /* variant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 361AF9481000DF4200E12EAE /* variant.cpp */; };
@@ -53,7 +53,7 @@
 /* Begin PBXFileReference section */
 		3600A4E210052B4D00EE555A /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
 		3600A4E310052B4D00EE555A /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
-		3606CB42101D02D800267D43 /* vmdebug.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vmdebug.cpp; path = src/vmdebug.cpp; sourceTree = "<group>"; };
+		3609388A10225EFF002AF152 /* vminfo.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vminfo.cpp; path = src/vminfo.cpp; sourceTree = "<group>"; };
 		360D2ABA100A2FBE008F7C98 /* vm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vm.cpp; path = src/vm.cpp; sourceTree = "<group>"; };
 		361AF9481000DF4200E12EAE /* variant.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = variant.cpp; path = src/variant.cpp; sourceTree = "<group>"; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
@@ -107,7 +107,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				3606CB42101D02D800267D43 /* vmdebug.cpp */,
+				3609388A10225EFF002AF152 /* vminfo.cpp */,
 				369DD0361013E14F00A44143 /* codegen.cpp */,
 				36C8E962100EA94D00117341 /* version.h */,
 				360D2ABA100A2FBE008F7C98 /* vm.cpp */,
@@ -219,7 +219,7 @@
 				36E5DC9210078F00001E0761 /* fifo.cpp in Sources */,
 				360D2ABC100A2FBE008F7C98 /* vm.cpp in Sources */,
 				369DD0381013E14F00A44143 /* codegen.cpp in Sources */,
-				3606CB44101D02D900267D43 /* vmdebug.cpp in Sources */,
+				3609388C10225EFF002AF152 /* vminfo.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,7 +236,7 @@
 				36E5DC9310078F00001E0761 /* fifo.cpp in Sources */,
 				360D2ABB100A2FBE008F7C98 /* vm.cpp in Sources */,
 				369DD0371013E14F00A44143 /* codegen.cpp in Sources */,
-				3606CB43101D02D900267D43 /* vmdebug.cpp in Sources */,
+				3609388B10225EFF002AF152 /* vminfo.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
