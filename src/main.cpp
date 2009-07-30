@@ -358,7 +358,7 @@ Type* Compiler::expression(Type* expectType)
     Type* resultType = codegen->getTopType();
     // TODO: convert range to Range type
     if (expectType != NULL)
-        codegen->explicitCastTo(expectType, "Expression type mismatch");
+        codegen->implicitCastTo(expectType, "Expression type mismatch");
     return resultType;
 }
 

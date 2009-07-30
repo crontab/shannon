@@ -279,6 +279,7 @@ protected:
     void doStaticVar(ThisVar* var, OpCode);
     void loadStoreVar(Variable* var, bool load);
     void canAssign(Type* from, Type* to, const char* errmsg);
+    bool tryImplicitCastTo(Type* to);
     void setOp(OpCode ordsOp, OpCode sOp);
     void dictOp(OpCode op);
 
