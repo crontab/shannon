@@ -8,7 +8,7 @@ debug/fifo.o: runtime.h common.h charset.h
 debug/typesys.o: version.h typesys.h common.h runtime.h charset.h vm.h
 debug/typesys.o: source.h
 debug/vm.o: common.h typesys.h runtime.h charset.h vm.h source.h
-debug/vmdebug.o: vm.h common.h runtime.h charset.h source.h typesys.h
+debug/vminfo.o: vm.h common.h runtime.h charset.h source.h typesys.h
 debug/codegen.o: vm.h common.h runtime.h charset.h source.h typesys.h
 debug/main.o: common.h runtime.h charset.h source.h typesys.h vm.h
 debug/main-ut.o: common.h runtime.h charset.h source.h typesys.h vm.h

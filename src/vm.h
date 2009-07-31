@@ -306,7 +306,7 @@ public:
     void loadConst(Type*, const variant&, bool asVariant = false);
     void loadDefinition(Definition* def)
             { loadConst(def->type, def->value); }
-    void loadNullContainer();
+    void loadNullContOrRange(Type* type);
     void loadSymbol(Symbol*);
     void discard();
     void swap();    // not used currently

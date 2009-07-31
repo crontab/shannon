@@ -45,7 +45,8 @@ protected:
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
 
     Type* getTypeDerivators(Type*);
-    void compoundCtor();
+    void compoundCtorElem(Type*&);
+    void compoundCtor(Type*);
     void atom();
     void designator();
     void factor();
@@ -97,25 +98,12 @@ template <class T>
     3. unary-  <type-derivators>  as  is
     4. *  /  mod
     5. +  –
-    6. ..
-    7. |
-    8. ==  <>  !=  <  >  <=  >=  has
-    9. not
-    10. and
-    11. or  xor
+    6. |
+    7. ==  <>  !=  <  >  <=  >=  has
+    8. not
+    9. and
+    10. or  xor
 */
-
-
-void Compiler::compoundCtor()
-{
-    parser.skip(tokLSquare, "[");
-    if (parser.skipIf(tokRSquare))
-        codegen->loadNullContainer();
-    else
-    {
-        notimpl();
-    }
-}
 
 
 Type* Compiler::getTypeDerivators(Type* type)
@@ -137,9 +125,55 @@ Type* Compiler::getTypeDerivators(Type* type)
         }
         return getTypeDerivators(type);
     }
-    // TODO: fifo derivator
+
+    else if (parser.skipIf(tokNotEq)) // <>
+        return getTypeDerivators(type->deriveFifo());
+
+    else if (parser.skipIf(tokLAngle))
+    {
+        parser.skip(tokRAngle, ">");
+        return getTypeDerivators(type->deriveFifo());
+    }
+
     // TODO: function derivator
     return type;
+}
+
+
+void Compiler::compoundCtorElem(Type*& type)
+{
+    expression();
+    if (parser.skipIf(tokEqual))
+    {
+        Type* idxType = codegen->getTopType();
+        if (type != NULL)
+        {
+            if (!type->isDict())
+                error("Invalid compound constructor");
+            codegen->implicitCastTo(PContainer(type)->index, "Dictionary key type mismatch");
+        }
+        expression();
+        Type* elemType = codegen->getTopType();
+        if (type != NULL)
+            codegen->implicitCastTo(PContainer(type)->elem, "Dictionary element type mismatch");
+        else
+            type = elemType->createContainer(idxType);
+    }
+    else
+        // TODO: create a variant vector which will be transformed later
+        notimpl();
+}
+
+
+void Compiler::compoundCtor(Type* type)
+{
+    parser.skip(tokLSquare, "[");
+    if (parser.skipIf(tokRSquare))
+        codegen->loadNullContOrRange(type);
+    else
+    {
+        notimpl();
+    }
 }
 
 
@@ -182,7 +216,7 @@ void Compiler::atom()
     }
 
     else if (parser.token == tokLSquare)
-        compoundCtor();
+        compoundCtor(NULL);
 
     else
         errorWithLoc("Expression syntax");
@@ -361,13 +395,17 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
     CodeGen constCodeGen(&constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
 
-    expression();
+    if (expectType != NULL && expectType->isContainer() && parser.token == tokLSquare)
+        compoundCtor(PContainer(expectType));
+    else
+        expression();
+
     Type* valueType = codegen->getTopType();
     if (parser.skipIf(tokRange))
     {
         if (expectType != NULL && !expectType->isTypeRef())
             error("Subrange type is not expected here");
-        arithmExpr();
+        expression();
         codegen->mkRange();
         constCodeGen.endConstExpr(NULL);
         constCode.run(result);
