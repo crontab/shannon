@@ -269,8 +269,6 @@ void Parser::skipWsAndEol()
 }
 
 
-// TODO: test curly mode
-
 Token Parser::next()
 {
 restart:
@@ -428,7 +426,7 @@ restart:
                 skipSinglelineComment();
                 goto restart;
             }
-            // TODO: C-style multi-line comments
+            // TODO: C-style multi-line comments?
             return token = tokDiv;
         case '*': return token = tokMul;
         case '[': return token = tokLSquare;
