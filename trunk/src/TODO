@@ -1,9 +1,4 @@
 
-* Compound constructor always builds a variant vector, which is then
-  transformed into something else depending on the consumer.
-
-* Defer line number update to make error message location more sensible.
-
 * Run-time range checking (as well as compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
@@ -32,8 +27,6 @@
   #$ECHO ON|OFF  #$EMBED ON|OFF  #$CURLY ON|OFF
 
 * := assignment as a function?
-
-* Colon ':' can be used in curly bracket mode for a single-statement block
 
 * Abstract module and module inheritance paradigm. Modules can be loaded at run
   time, but they should be inherited from some known module type. Database
