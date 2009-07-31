@@ -164,12 +164,12 @@ void CodeGen::exit()
 }
 
 
-void CodeGen::loadNullContOrRange(Type* type)
+void CodeGen::loadNullComp(Type* type)
 {
     if (type == NULL)
     {
-        addOp(opLoadNullCont);
-        stkPush(queenBee->defNullCont);
+        addOp(opLoadNullComp);
+        stkPush(queenBee->defNullComp);
     }
     else
         loadConst(type, (object*)NULL);
@@ -277,8 +277,8 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
         if (isEmpty) addOpPtr(opLoadNullSet, type);
         else loadCompoundConst(value);
         break;
-    case Type::NULLCONT:
-        addOp(opLoadNullCont);
+    case Type::NULLCOMP:
+        addOp(opLoadNullComp);
         break;
     case Type::VARFIFO:
     case Type::CHARFIFO:
@@ -604,7 +604,7 @@ bool CodeGen::tryImplicitCastTo(Type* to)
         addOp(opCharToStr);
         stkReplace(to);
     }
-    else if (from->isNullCont() && to->isContainer())
+    else if (from->isNullComp() && to->isCompound())
     {
         stkPop();
         revertLastLoad();

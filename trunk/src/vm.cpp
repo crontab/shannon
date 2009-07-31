@@ -135,13 +135,13 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoad1:           PUSH(stk, integer(1)); break;
             case opLoadInt:         PUSH(stk, ADV<integer>(ip)); break;
             case opLoadNullRange:   PUSH(stk, new range(ADV<Range*>(ip))); break;
-            case opLoadNullCont:    PUSH(stk, new vector(queenBee->defNullCont)); break;
             case opLoadNullDict:    PUSH(stk, new dict(ADV<Dict*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
             case opLoadNullVec:     PUSH(stk, new vector(ADV<Vec*>(ip))); break;
             case opLoadNullArray:   PUSH(stk, new vector(ADV<Array*>(ip))); break;
             case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
             case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
+            case opLoadNullComp:    throw emessage("Null compound object"); // PUSH(stk, (object*)NULL); break;
             case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;

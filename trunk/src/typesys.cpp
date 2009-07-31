@@ -651,7 +651,11 @@ Container::Container(Type* _index, Type* _elem)
     : Type(defTypeRef, NONE), index(_index), elem(_elem)
 {
     if (index->isNone())
-        setTypeId(elem->isChar() ? STR : elem->isNone() ? NULLCONT : VEC);
+    {
+        if (elem->isNone())
+            throw emessage("Invalid container type");
+        setTypeId(elem->isChar() ? STR : VEC);
+    }
     else if (elem->isNone())
         setTypeId(index->canBeOrdsetIndex() ? ORDSET : SET);
     else
@@ -706,6 +710,13 @@ bool Fifo::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }
 
 
+// --- NullCompound -------------------------------------------------------- //
+
+
+NullCompound::NullCompound(): Type(defTypeRef, NULLCOMP)  { }
+NullCompound::~NullCompound()  { }
+
+
 // --- Variant ------------------------------------------------------------- //
 
 
@@ -736,7 +747,7 @@ QueenBee::QueenBee()
     defStr = NULL;
     defVariant = registerType(new Variant());
     defCharFifo = NULL;
-    defNullCont = registerType(new Container(defNone, defNone));
+    defNullComp = registerType(new NullCompound());
     siovar = NULL;
     serrvar = NULL;
 }

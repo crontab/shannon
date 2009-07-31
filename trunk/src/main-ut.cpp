@@ -617,7 +617,7 @@ void test_typesys()
     check(queenBee->defChar->isOrdinal());
     check(queenBee->defStr->isString());
     check(queenBee->defStr->get_rt() == defTypeRef);
-    check(queenBee->defStr->isContainer());
+    check(queenBee->defStr->isVector());
     check(queenBee->defChar->deriveVector() == queenBee->defStr);
     check_throw(queenBee->defNone->deriveFifo());
     check_throw(queenBee->defNone->deriveSet());
@@ -811,7 +811,7 @@ void test_vm()
             BlockScope block(&mod, &gen);
 
             Variable* v1 = block.addLocalVar(dictType, "v1");
-            gen.loadNullContOrRange(NULL);
+            gen.loadNullComp(NULL);
             gen.implicitCastTo(dictType, "Huh?");
             gen.initLocalVar(v1);
             gen.loadVar(v1);
@@ -824,7 +824,7 @@ void test_vm()
             gen.storeContainerElem();
 
             Variable* v2 = block.addLocalVar(arrayType, "v2");
-            gen.loadNullContOrRange(arrayType);
+            gen.loadNullComp(arrayType);
             gen.initLocalVar(v2);
             gen.loadVar(v2);
             gen.loadBool(false);
@@ -836,7 +836,7 @@ void test_vm()
             gen.storeContainerElem();
 
             Variable* v3 = block.addLocalVar(ordsetType, "v3");
-            gen.loadNullContOrRange(NULL);
+            gen.loadNullComp(NULL);
             gen.implicitCastTo(ordsetType, "Huh?");
             gen.initLocalVar(v3);
             gen.loadVar(v3);
@@ -847,7 +847,7 @@ void test_vm()
             gen.addToSet();
 
             Variable* v4 = block.addLocalVar(setType, "v4");
-            gen.loadNullContOrRange(setType);
+            gen.loadNullComp(setType);
             gen.initLocalVar(v4);
             gen.loadVar(v4);
             gen.loadInt(100);
@@ -961,7 +961,7 @@ void test_vm()
             BlockScope block(&mod, &gen);
 
             Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
-            gen.loadNullContOrRange(NULL);
+            gen.loadNullComp(NULL);
             gen.implicitCastTo(queenBee->defVariant->deriveVector(), "Huh?");
             gen.initLocalVar(s0);
 

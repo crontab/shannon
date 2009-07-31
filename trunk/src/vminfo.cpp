@@ -35,13 +35,13 @@ static OpInfo opTable[] =
     OP(Load1, None),            // +1
     OP(LoadInt, Int),           // [int] +int
     OP(LoadNullRange, Type),    // [Range*] +range
-    OP(LoadNullCont, None),     // +nullcont
     OP(LoadNullDict, Type),     // [Dict*] +dict
     OP(LoadNullStr, None),      // +str
     OP(LoadNullVec, Type),      // [Vector*] +vec
     OP(LoadNullArray, Type),    // [Array*] +array
     OP(LoadNullOrdset, Type),   // [Ordset*] +ordset
     OP(LoadNullSet, Type),      // [Set*] +set
+    OP(LoadNullComp, None),     // +nullcont
     OP(LoadConst, Const),       // [const-index: 8] +var // compound values only
     OP(LoadConst2, Const16),    // [const-index: 16] +var // compound values only
     OP(LoadTypeRef, Type),      // [Type*] +typeref

@@ -30,13 +30,13 @@ enum OpCode
     opLoad1,            // +1
     opLoadInt,          // [int] +int
     opLoadNullRange,    // [Range*] +range
-    opLoadNullCont,     // +nullcont
     opLoadNullDict,     // [Dict*] +dict
     opLoadNullStr,      // +str
     opLoadNullVec,      // [Vector*] +vec
     opLoadNullArray,    // [Array*] +array
     opLoadNullOrdset,   // [Ordset*] +ordset
     opLoadNullSet,      // [Set*] +set
+    opLoadNullComp,     // +null-obj
     opLoadConst,        // [const-index: 8] +var // compound values only
     opLoadConst2,       // [const-index: 16] +var // compound values only
     opLoadTypeRef,      // [Type*] +typeref
@@ -306,7 +306,7 @@ public:
     void loadConst(Type*, const variant&, bool asVariant = false);
     void loadDefinition(Definition* def)
             { loadConst(def->type, def->value); }
-    void loadNullContOrRange(Type* type);
+    void loadNullComp(Type* type);
     void loadSymbol(Symbol*);
     void discard();
     void swap();    // not used currently
