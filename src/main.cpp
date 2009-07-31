@@ -143,25 +143,64 @@ Type* Compiler::getTypeDerivators(Type* type)
 void Compiler::compoundCtorElem(Type*& type)
 {
     expression();
+    Type* elemType = codegen->getTopType();
+
     if (parser.skipIf(tokEqual))
     {
-        Type* idxType = codegen->getTopType();
         if (type != NULL)
         {
-            if (!type->isDict())
-                error("Invalid compound constructor");
-            codegen->implicitCastTo(PContainer(type)->index, "Dictionary key type mismatch");
+            if (type->isDict())
+                codegen->implicitCastTo(PDict(type)->index, "Dictionary key type mismatch");
+            else
+                error("Key/value pair not allowed here");
         }
         expression();
-        Type* elemType = codegen->getTopType();
         if (type != NULL)
             codegen->implicitCastTo(PContainer(type)->elem, "Dictionary element type mismatch");
         else
-            type = elemType->createContainer(idxType);
+        {
+            Type* keyType = elemType;
+            elemType = codegen->getTopType();
+            type = elemType->createContainer(keyType);
+        }
     }
+
+    else if (parser.skipIf(tokRange))
+    {
+        if (type != NULL)
+        {
+            if (type->isOrdset())
+                elemType = POrdset(type)->index;
+            else if (type->isSet())
+                elemType = PSet(type)->index;
+            else if (type->isRange())
+                elemType = PRange(type)->base;
+            else
+                error("Range not allowed here");
+            codegen->implicitCastTo(elemType, "Range boundary type mismatch");
+        }
+        expression();
+        codegen->implicitCastTo(elemType, "Range boundary type mismatch");
+        codegen->mkRange();
+    }
+
     else
-        // TODO: create a variant vector which will be transformed later
-        notimpl();
+    {
+        if (type != NULL)
+        {
+            if (type->isOrdset())
+                elemType = POrdset(type)->index;
+            else if (type->isSet())
+                elemType = PSet(type)->index;
+            else if (type->isVector())
+                elemType = PVec(type)->elem;
+            else
+                error("Invalid container constructor");
+            codegen->implicitCastTo(elemType, "Element type mismatch");
+        }
+        else
+            type = queenBee->defVariant->deriveVector();
+    }
 }
 
 
@@ -172,6 +211,8 @@ void Compiler::compoundCtor(Type* type)
         codegen->loadNullContOrRange(type);
     else
     {
+        // TODO: opPairToDict
+        // TODO: make sure null container can't be initialized
         notimpl();
     }
 }
