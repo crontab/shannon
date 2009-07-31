@@ -45,7 +45,7 @@ protected:
     void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
 
     Type* getTypeDerivators(Type*);
-    void compoundCtorElem(Type*&);
+    Type* compoundCtorElem(Type*);
     void compoundCtor(Type*);
     void atom();
     void designator();
@@ -140,8 +140,13 @@ Type* Compiler::getTypeDerivators(Type* type)
 }
 
 
-void Compiler::compoundCtorElem(Type*& type)
+Type* Compiler::compoundCtorElem(Type* type)
 {
+    // If the type of this container is not known then it is assumed to be of:
+    // * dictionary, if elements are key/value pairs
+    // * range, if the constructor consists of a single range
+    // * vector otherwise (and ranges are not allowed)
+    // So sets are not possible to define if type is not given beforehand.
     expression();
     Type* elemType = codegen->getTopType();
 
@@ -149,14 +154,13 @@ void Compiler::compoundCtorElem(Type*& type)
     {
         if (type != NULL)
         {
-            if (type->isDict())
-                codegen->implicitCastTo(PDict(type)->index, "Dictionary key type mismatch");
-            else
+            if (!type->isDict())
                 error("Key/value pair not allowed here");
+            codegen->implicitCastTo(PDict(type)->index, "Dictionary key type mismatch");
         }
         expression();
         if (type != NULL)
-            codegen->implicitCastTo(PContainer(type)->elem, "Dictionary element type mismatch");
+            codegen->implicitCastTo(PDict(type)->elem, "Dictionary element type mismatch");
         else
         {
             Type* keyType = elemType;
@@ -171,13 +175,17 @@ void Compiler::compoundCtorElem(Type*& type)
         {
             if (type->isOrdset())
                 elemType = POrdset(type)->index;
-            else if (type->isSet())
-                elemType = PSet(type)->index;
             else if (type->isRange())
                 elemType = PRange(type)->base;
             else
                 error("Range not allowed here");
             codegen->implicitCastTo(elemType, "Range boundary type mismatch");
+        }
+        else
+        {
+            if (!elemType->isOrdinal())
+                error("Ordinal expected as range boundary");
+            type = POrdinal(type)->deriveRange();
         }
         expression();
         codegen->implicitCastTo(elemType, "Range boundary type mismatch");
@@ -199,8 +207,10 @@ void Compiler::compoundCtorElem(Type*& type)
             codegen->implicitCastTo(elemType, "Element type mismatch");
         }
         else
-            type = queenBee->defVariant->deriveVector();
+            type = elemType->deriveVector();
     }
+
+    return type;
 }
 
 
@@ -208,7 +218,7 @@ void Compiler::compoundCtor(Type* type)
 {
     parser.skip(tokLSquare, "[");
     if (parser.skipIf(tokRSquare))
-        codegen->loadNullContOrRange(type);
+        codegen->loadNullComp(type);
     else
     {
         // TODO: opPairToDict
@@ -436,8 +446,8 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
     CodeGen constCodeGen(&constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
 
-    if (expectType != NULL && expectType->isContainer() && parser.token == tokLSquare)
-        compoundCtor(PContainer(expectType));
+    if (expectType != NULL && expectType->isCompound() && parser.token == tokLSquare)
+        compoundCtor(expectType);
     else
         expression();
 
@@ -511,11 +521,7 @@ void Compiler::definition()
     variant value;
     Type* valueType = constExpr(type, value);
     if (type == NULL)
-    {
-        if (valueType->isNullCont())
-            error("Undefined type (empty container)");
         type = valueType;
-    }
     if (type->isTypeRef())
         scope->addTypeAlias(ident, CAST(Type*, value._obj()));
     else
@@ -531,11 +537,7 @@ void Compiler::variable()
     Type* type = getTypeAndIdent(ident);
     expression();
     if (type == NULL)
-    {
         type = codegen->getTopType();
-        if (type->isNullCont())
-            error("Undefined type (empty container)");
-    }
     else
         codegen->implicitCastTo(type, "Type mismatch in initialization");
     if (blockScope != NULL)
