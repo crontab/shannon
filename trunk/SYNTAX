@@ -54,7 +54,7 @@ case-label ::= const-expr | subrange
 
 # ---------- Expressions
 
-const-expr ::= expr [ ".." arithm-expr ]
+const-expr ::= expr [ ".." expr ]
 
 expr ::= and-expr { ( "or" | "xor" ) and-expr }
 

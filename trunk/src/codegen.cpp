@@ -164,10 +164,15 @@ void CodeGen::exit()
 }
 
 
-void CodeGen::loadNullContainer()
+void CodeGen::loadNullContOrRange(Type* type)
 {
-    addOp(opLoadNullCont);
-    stkPush(queenBee->defNullCont);
+    if (type == NULL)
+    {
+        addOp(opLoadNullCont);
+        stkPush(queenBee->defNullCont);
+    }
+    else
+        loadConst(type, (object*)NULL);
 }
 
 
@@ -605,6 +610,7 @@ bool CodeGen::tryImplicitCastTo(Type* to)
         revertLastLoad();
         loadConst(to, (object*)NULL);
     }
+    // TODO: container to fifo
     else
         return false;
     return true;
