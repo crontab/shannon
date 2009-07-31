@@ -779,6 +779,7 @@ void CodeGen::cat()
 
 void CodeGen::mkRange()
 {
+    // TODO: calculate at compile time
     Type* right = stkPop();
     Type* left = stkPop();
     if (!left->isOrdinal() || !right->isOrdinal())
