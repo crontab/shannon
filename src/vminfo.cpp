@@ -1,5 +1,6 @@
 
 #include "vm.h"
+#include "parser.h"
 
 
 typedef void (*argfunc)(uchar*& ip);
@@ -41,6 +42,8 @@ static OpInfo opTable[] =
     OP(LoadNullArray, Type),    // [Array*] +array
     OP(LoadNullOrdset, Type),   // [Ordset*] +ordset
     OP(LoadNullSet, Type),      // [Set*] +set
+    OP(LoadNullVarFifo, Type),  // [Fifo*] +varfifo
+    OP(LoadNullCharFifo, Type), // [Fifo*] +charfifo
     OP(LoadNullComp, None),     // +nullcont
     OP(LoadConst, Const),       // [const-index: 8] +var // compound values only
     OP(LoadConst2, Const16),    // [const-index: 16] +var // compound values only
@@ -104,6 +107,7 @@ static OpInfo opTable[] =
     OP(StoreMember, Index),     // [var-index: 8] -val, -obj
     OP(StoreOuter, LevelIndex), // [level: 8, var-index: 8] -var
     OP(StoreDictElem, None),    // -val, -key, -dict
+    OP(PairToDict, Type),       // -val, -key, +dict
     OP(DelDictElem, None),      // -key, -dict
     OP(StoreVecElem, None),     // -val, -index, -vector
     OP(StoreArrayElem, None),   // -val, -index, -array

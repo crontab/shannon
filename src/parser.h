@@ -1,5 +1,5 @@
-#ifndef __SOURCE_H
-#define __SOURCE_H
+#ifndef __PARSER_H
+#define __PARSER_H
 
 
 #include "common.h"
@@ -58,7 +58,7 @@ enum Token
 };
 
 
-class Parser
+class Parser: noncopyable
 {
 protected:
     str fileName;

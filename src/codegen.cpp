@@ -193,12 +193,20 @@ void CodeGen::loadConstById(mem id)
 }
 
 
-mem CodeGen::loadCompoundConst(const variant& value)
+mem CodeGen::loadCompoundConst(Type* type, const variant& value, OpCode nullOp)
 {
-    mem id = codeseg->consts.size();
-    codeseg->consts.push_back(value);
-    loadConstById(id);
-    return id;
+    if (value.empty())
+    {
+        addOpPtr(nullOp, type);
+        return mem(-1);
+    }
+    else
+    {
+        mem id = codeseg->consts.size();
+        codeseg->consts.push_back(value);
+        loadConstById(id);
+        return id;
+    }
 }
 
 
@@ -206,15 +214,13 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
 {
     // NONE, BOOL, CHAR, INT, ENUM, RANGE,
     //    DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE
-    bool isEmpty = value.empty();
-
     switch (type->getTypeId())
     {
     case Type::NONE:
         addOp(opLoadNull);
         break;
     case Type::BOOL:
-        addOp(isEmpty ? opLoadFalse : opLoadTrue);
+        addOp(value.as_bool() ? opLoadTrue : opLoadFalse);
         break;
     case Type::CHAR:
         addOp(opLoadChar);
@@ -235,16 +241,10 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
             }
         }
         break;
-    case Type::RANGE:
-        if (isEmpty) addOpPtr(opLoadNullRange, type);
-        else loadCompoundConst(value);
-        break;
-    case Type::DICT:
-        if (isEmpty) addOpPtr(opLoadNullDict, type);
-        else loadCompoundConst(value);
-        break;
+    case Type::RANGE: loadCompoundConst(type, value, opLoadNullRange); break;
+    case Type::DICT: loadCompoundConst(type, value, opLoadNullDict); break;
     case Type::STR:
-        if (isEmpty)
+        if (value.as_str().empty())
             addOp(opLoadNullStr);
         else
         {
@@ -254,44 +254,23 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
             StringMap::iterator i = stringMap.find(value._str());
             if (i == stringMap.end())
             {
-                mem id = loadCompoundConst(value);
+                mem id = loadCompoundConst(queenBee->defStr, value, opInv);
                 stringMap.insert(i, std::pair<str, mem>(value._str(), id));
             }
             else
                 loadConstById(i->second);
         }
         break;
-    case Type::VEC:
-        if (isEmpty) addOpPtr(opLoadNullVec, type);
-        else loadCompoundConst(value);
-        break;
-    case Type::ARRAY:
-        if (isEmpty) addOpPtr(opLoadNullArray, type);
-        else loadCompoundConst(value);
-        break;
-    case Type::ORDSET:
-        if (isEmpty) addOpPtr(opLoadNullOrdset, type);
-        else loadCompoundConst(value);
-        break;
-    case Type::SET:
-        if (isEmpty) addOpPtr(opLoadNullSet, type);
-        else loadCompoundConst(value);
-        break;
-    case Type::NULLCOMP:
-        addOp(opLoadNullComp);
-        break;
-    case Type::VARFIFO:
-    case Type::CHARFIFO:
-        // There are no fifo literals (yet)
-        _fatal(0x6002);
-        break;
-    case Type::VARIANT:
-        loadConst(queenBee->typeFromValue(value), value, true);
-        return;
+    case Type::VEC: loadCompoundConst(type, value, opLoadNullVec); break;
+    case Type::ARRAY: loadCompoundConst(type, value, opLoadNullArray); break;
+    case Type::ORDSET: loadCompoundConst(type, value, opLoadNullOrdset); break;
+    case Type::SET: loadCompoundConst(type, value, opLoadNullSet); break;
+    case Type::VARFIFO: loadCompoundConst(type, value, opLoadNullVarFifo); break;
+    case Type::CHARFIFO: loadCompoundConst(type, value, opLoadNullCharFifo); break;
+    case Type::NULLCOMP: addOp(opLoadNullComp); break;
+    case Type::VARIANT: loadConst(queenBee->typeFromValue(value), value, true); return;
     case Type::TYPEREF:
-    case Type::STATE:
-        addOpPtr(opLoadTypeRef, value._obj());
-        break;
+    case Type::STATE: addOpPtr(opLoadTypeRef, value._obj()); break;
     }
 
     stkPush(asVariant ? queenBee->defVariant : type, value);
@@ -505,7 +484,7 @@ void CodeGen::loadContainerElem()
 }
 
 
-void CodeGen::storeContainerElem()
+void CodeGen::storeContainerElem(bool pop)
 {
     Type* idxType = stkTopType(1);
     Type* contType = stkTopType(2);
@@ -516,16 +495,19 @@ void CodeGen::storeContainerElem()
         idxType = queenBee->defNone;
         implicitCastTo(PVec(contType)->elem, "Vector element type mismatch");
         addOp(opStoreVecElem);
+        add8(pop);
     }
     else if (contType->isArray())
     {
         implicitCastTo(PArray(contType)->elem, "Array element type mismatch");
         addOp(opStoreArrayElem);
+        add8(pop);
     }
     else if (contType->isDict())
     {
         implicitCastTo(PDict(contType)->elem, "Dictionary element type mismatch");
         addOp(opStoreDictElem);
+        add8(pop);
     }
     else
         throw emessage("Vector/array/dictionary type expected");
@@ -535,7 +517,8 @@ void CodeGen::storeContainerElem()
     canAssign(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
     stkPop();
     stkPop();
-    stkPop();
+    if (pop)
+        stkPop();
 }
 
 
@@ -555,6 +538,20 @@ void CodeGen::dictHas()
 {
     dictOp(opDictHas);
     stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::pairToDict(Dict* dictType)
+{
+    Type* elemType = stkPop();
+    Type* keyType = stkPop();
+    // implicit casts should be done in the compiler
+    if (!elemType->canAssignTo(dictType->elem))
+        throw emessage("Dictionary element type mismatch");
+    if (!keyType->canAssignTo(dictType->index))
+        throw emessage("Dictionary key type mismatch");
+    addOpPtr(opPairToDict, dictType);
+    stkPush(dictType);
 }
 
 
@@ -582,6 +579,18 @@ void CodeGen::setHas()
 {
     setOp(opOrdsetHas, opSetHas);
     stkPush(queenBee->defBool);
+}
+
+
+void CodeGen::elemToSet(Container* setType)
+{
+    Type* elemType = stkTopType();
+    if (setType == NULL)
+        setType = elemType->deriveSet();
+    else
+        implicitCastTo(setType->elem, "Set element type mismatch");
+    stkPop();
+    stkPush(setType);
 }
 
 
@@ -741,14 +750,18 @@ void CodeGen::boolXor()
 }
 
 
-void CodeGen::elemToVec()
+void CodeGen::elemToVec(Vec* vecType)
 {
-    Type* elemType = stkPop();
-    Type* vecType = elemType->deriveVector();
+    Type* elemType = stkTopType();
+    if (vecType == NULL)
+        vecType = elemType->deriveVector();
+    else
+        implicitCastTo(vecType->elem, "Vector element type mismatch");
     if (elemType->isChar())
         addOp(opCharToStr);
     else
         addOpPtr(opVarToVec, vecType);
+    stkPop();
     stkPush(vecType);
 }
 

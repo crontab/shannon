@@ -141,6 +141,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoadNullArray:   PUSH(stk, new vector(ADV<Array*>(ip))); break;
             case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
             case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
+            case opLoadNullVarFifo: PUSH(stk, new fifo(ADV<Fifo*>(ip), false)); break;
+            case opLoadNullCharFifo:PUSH(stk, new fifo(ADV<Fifo*>(ip), true)); break;
             case opLoadNullComp:    throw emessage("Null compound object"); // PUSH(stk, (object*)NULL); break;
             case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
@@ -275,7 +277,16 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 {
                     dict* d = CAST(dict*, (stk - 2)->_obj());
                     d->tie(*(stk - 1), *stk);
-                    POP(stk); POP(stk); POP(stk);
+                    POP(stk); POP(stk);
+                    if (ADV<uchar>(ip)) POP(stk); break;
+                }
+                break;
+            case opPairToDict:
+                {
+                    dict* d = new dict(ADV<Dict*>(ip));
+                    d->tie(*(stk - 1), *stk);
+                    POP(stk);
+                    *stk = d;
                 }
                 break;
             case opDelDictElem: CAST(dict*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
@@ -292,7 +303,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                         v->push_back(*stk);
                     else
                         v->put(idx, *stk);
-                    POP(stk); POP(stk); POP(stk);
+                    POP(stk); POP(stk);
+                    if (ADV<uchar>(ip)) POP(stk); break;
                 }
                 break;
             case opAddToOrdset: ordsetAddDel(stk, false); break;

@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "source.h"
+#include "parser.h"
 #include "typesys.h"
 #include "vm.h"
 
@@ -158,232 +158,6 @@ void test_variant()
         check(!v.is(variant::OBJECT));
         check(v == null);
 
-/*
-        // str
-        vst = "";
-        check(vst.empty()); check(vst.size() == 0);
-        vst.append("abc");
-        vst.append("");
-        vst.append(s1);
-        vst.append("ghijkl");
-        check(vst.as_str() == "abcdefghijkl");
-        check(vst.substr(5, 3) == "fgh");
-        check(vst.substr(5) == "fghijkl");
-        vst.erase(1);
-        check(vst.as_str() == "acdefghijkl");
-        vst.erase(3, 4);
-        check(vst.as_str() == "acdijkl");
-        check(vst.getch(2) == 'd');
-        vst.resize(10, '-');
-        check(vst.as_str() == "acdijkl---");
-        check(vst.size() == 10);
-        vst.resize(5, '-');
-        check(vst.as_str() == "acdij");
-
-        // range
-        vr = new_range();
-        check(vr.empty());
-        vr = new_range(-1, 1);
-        check(vr.left() == -1 && vr.right() == 1);
-        check(vr.has(0));
-        check(!vr.has(-2));
-        vr = new_range(5, 2);
-        check(vr.left() == 5 && vr.right() == 2);
-        check(!vr.has(-2));
-        variant vr4 = 0;
-        vr4.assign(0, 5);
-        check(vr4.left() == 0 && vr4.right() == 5);
-        check_throw(vr4.has("abc"));
-        variant vra = vr;
-        check(vra == vr);
-
-        // vector
-        check(vt.empty()); check(vt.size() == 0);
-        check_throw(vt.insert(1, 0));
-        vt.push_back(0);
-        vt.push_back("abc");
-        vt.insert(vt.size(), 'd');
-        vt.push_back(vs);
-        vt.insert(1, true);
-        check(vt.to_string() == "[0, true, \"abc\", 'd', []]");
-        check(!vt.empty()); check(vt.size() == 5);
-        check_throw(vt.insert(10, 0));
-        check_throw(vt.insert(mem(-1), 0));
-        vt.erase(2);
-        check(vt.to_string() == "[0, true, 'd', []]");
-        check(vt[2] == 'd');
-        vt.put(2, "asd");
-        check(vt.to_string() == "[0, true, \"asd\", []]");
-        check_throw(vt.put(4, 0));
-        vt.resize(2);
-        check(vt.to_string() == "[0, true]");
-        vt.resize(4);
-        check(vt.to_string() == "[0, true, null, null]");
-        vt.put(2, "abc");
-        vt.put(3, new_range(1, 2));
-        check(vt.to_string() == "[0, true, \"abc\", [1..2]]");
-        check(vt.size() == 4);
-        variant vta = vt;
-        check(vta == vt);
-        vt.put(0, 100);
-        check(!vt.is_unique()); check(!vta.is_unique());
-        check(vt.to_string() == "[100, true, \"abc\", [1..2]]");
-        check(vta.to_string() == "[100, true, \"abc\", [1..2]]");
-        vta.unique();
-        check(vt.is_unique()); check(vta.is_unique());
-        check(vta.to_string() == "[100, true, \"abc\", [1..2]]");
-        vta.put(2, "def");
-        check(vt.to_string() == "[100, true, \"abc\", [1..2]]");
-        check(vta.to_string() == "[100, true, \"def\", [1..2]]");
-
-        // dict
-        check(vd.empty()); check(vd.size() == 0);
-        vd.tie("k1", "abc");
-        vd.tie("k2", true);
-        vd.tie("k3", new_set());
-        check(vd.to_string() == "[\"k1\": \"abc\", \"k2\": true, \"k3\": []]");
-        check(!vd.empty()); check(vd.size() == 3);
-        vd.tie("k2", null);
-        check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
-        vd.tie("kz", null);
-        check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
-        str_fifo vds;
-        vforeach(dict, i, vd)
-            vds << ' ' << i->first << ": " << i->second;
-        check(vds.all() == " \"k1\": \"abc\" \"k3\": []");
-        vd.untie("k2");
-        check(vd.to_string() == "[\"k1\": \"abc\", \"k3\": []]");
-        vd.untie("k3");
-        check(vd.to_string() == "[\"k1\": \"abc\"]");
-        check(vd["k1"] == "abc");
-        check(vd["k2"] == null);
-        check(vd["kz"] == null);
-        check(vd.has("k1"));
-        check(!vd.has("k2"));
-        
-        variant vda = vd;
-        check(vda == vd);
-        vda.tie(1, true);
-        check(vd.to_string() == "[1: true, \"k1\": \"abc\"]");
-        check(vda.to_string() == "[1: true, \"k1\": \"abc\"]");
-        vda.unique();
-        vda.untie("k1");
-        check(vd.to_string() == "[1: true, \"k1\": \"abc\"]");
-        check(vda.to_string() == "[1: true]");
-        check(vd.is_unique());  check(vd.is_unique());
-
-        variant vdb = new_dict();
-        variant vdc = new_dict();
-        vdb.tie(1, 2);
-        vd.tie(vdb, 100);
-        vd.tie(vdc, 101);
-        // non-deterministic, depends on addresses: check(vd.to_string() == "[[1: 2]: false, []: true]");
-        check(vd[vdb] == 100);
-        check(vd[vdc] == 101);
-
-        vd = new_dict();
-        vd.tie(new_dict(), 6);
-        vd.tie("abc", 5);
-        // vd.tie(1.1, 4);
-        vd.tie(10, 3);
-        vd.tie('a', 2);
-        vd.tie(false, 1);
-        vd.tie(null, 0);
-        check(vd.to_string() == "[null: 0, false: 1, 'a': 2, 10: 3, \"abc\": 5, []: 6]");
-        
-        // dict[range]
-        vd = new_dict();
-        vd.tie(new_range(0, 4), new_range(0, 1));
-        vd.tie(new_range(5, 6), "abc");
-        check(vd.has(new_range(5, 6)));
-        check(!vd.has(new_range()));
-        check(!vd.has(new_range(0, 6)));
-        
-        // ordset
-        check(vos.empty()); check_throw(vos.size());
-        vos.tie(5);
-        vos.tie(131);
-        vos.tie(255);
-        check_throw(vos.tie(256));
-        check_throw(vos.tie(1000));
-        check_throw(vos.tie(-1));
-        check_throw(vos.untie(1000));
-        check_throw(vos.untie(-1));
-        check_throw(vos.tie("abc"));
-        check(vos.to_string() == "[5, 131, 255]");
-        check(!vos.empty());
-        vos.untie(131);
-        vos.untie(30);
-        check(vos.to_string() == "[5, 255]");
-        check(vos.has(5));
-        check(vos.has(char(255)));
-        check(!vos.has(26));
-        variant vosa = vos;
-        check(vosa == vos);
-        check(vosa.to_string() == "[5, 255]");
-        check(!vosa.is_unique()); check(!vos.is_unique()); 
-        vosa.tie(100);
-        check(vos.to_string() == "[5, 100, 255]");
-        check(vosa.to_string() == "[5, 100, 255]");
-        vosa.unique();
-        vosa.untie(255);
-        check(vos.is_unique()); check(vos.to_string() == "[5, 100, 255]");
-        check(vos.is_unique()); check(vosa.to_string() == "[5, 100]");
-
-        // set
-        check(vs.empty()); check_throw(vs.size());
-        vs.tie(5);
-        vs.tie(26);
-        vs.tie(127);
-        check(vs.to_string() == "[5, 26, 127]");
-        str_fifo vdss;
-        vforeach(set, i, vs)
-            vdss << ' ' << *i;
-        check(vdss.all() == " 5 26 127");
-        check(!vs.empty());
-        vs.untie(26);
-        vs.untie(226);
-        check(vs.to_string() == "[5, 127]");
-        check(vs.has(5));
-        check(vs.has(127));
-        check(!vs.has(26));
-        
-        vs.tie("abc");
-        vs.tie("abc");
-        vs.tie("def");
-        check(vs.to_string() == "[5, 127, \"abc\", \"def\"]")
-        check(vs.has("abc"));
-        // vs.tie(1.1);
-        // vs.tie(2.2);
-        vs.tie(true);
-        vs.tie(null);
-        check(vs.to_string() == "[null, true, 5, 127, \"abc\", \"def\"]")
-        // check(vs.has(1.1));
-
-        str_fifo ss;
-        ss << vs;
-        check(ss.all() == "[null, true, 5, 127, \"abc\", \"def\"]");
-        
-        // ref counting & cloning
-        vs = new_set();
-        vs.tie(0);
-        check(vs.as_set().is_unique());
-        variant vss = vs;
-        check(vss == vs);
-        check(vss.has(0));
-        check(!vs.as_set().is_unique());
-        check(!vss.as_set().is_unique());
-        check(vs.to_string() == "[0]");
-        check(vss.to_string() == "[0]");
-        vs.tie(1);
-        check(vs.to_string() == "[0, 1]");
-        check(vss.to_string() == "[0, 1]");
-        variant vsa = vs;
-        vsa.unique();
-        vsa.tie(2);
-        check(vsa.to_string() == "[0, 1, 2]");
-        check(vs.to_string() == "[0, 1]");
-*/        
         variant voa = vo;
         check_throw(voa.unique());
         
@@ -811,13 +585,10 @@ void test_vm()
             BlockScope block(&mod, &gen);
 
             Variable* v1 = block.addLocalVar(dictType, "v1");
-            gen.loadNullComp(NULL);
-            gen.implicitCastTo(dictType, "Huh?");
-            gen.initLocalVar(v1);
-            gen.loadVar(v1);
             gen.loadStr("k1");
             gen.loadInt(15);
-            gen.storeContainerElem();
+            gen.pairToDict(dictType);
+            gen.initLocalVar(v1);
             gen.loadVar(v1);
             gen.loadStr("k2");
             gen.loadInt(25);
@@ -829,8 +600,7 @@ void test_vm()
             gen.loadVar(v2);
             gen.loadBool(false);
             gen.loadStr("abc");
-            gen.storeContainerElem();
-            gen.loadVar(v2);
+            gen.storeContainerElem(false);
             gen.loadBool(true);
             gen.loadStr("def");
             gen.storeContainerElem();

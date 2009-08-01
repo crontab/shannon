@@ -4,7 +4,6 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "source.h"
 #include "typesys.h"
 
 #include <stack>
@@ -36,6 +35,8 @@ enum OpCode
     opLoadNullArray,    // [Array*] +array
     opLoadNullOrdset,   // [Ordset*] +ordset
     opLoadNullSet,      // [Set*] +set
+    opLoadNullVarFifo,  // [Fifo*] +varfifo
+    opLoadNullCharFifo, // [Fifo*] +charfifo
     opLoadNullComp,     // +null-obj
     opLoadConst,        // [const-index: 8] +var // compound values only
     opLoadConst2,       // [const-index: 16] +var // compound values only
@@ -127,11 +128,12 @@ enum OpCode
     opStoreOuter,       // [level: 8, var-index: 8] -var
 
     // Container write operations
-    opStoreDictElem,    // -val, -key, -dict
+    opStoreDictElem,    // [bool pop] -val, -key, (-dict)
+    opPairToDict,       // -val, -key, +dict
     opDelDictElem,      // -key, -dict
 //    opStoreStrElem,     // -char, -index, -str
-    opStoreVecElem,     // -val, -index, -vector
-    opStoreArrayElem,   // -val, -index, -array
+    opStoreVecElem,     // [bool pop] -val, -index, (-vector)
+    opStoreArrayElem,   // [bool pop] -val, -index, (-array)
     opAddToOrdset,      // -ord, -ordset
     opDelOrdsetElem,    // -key, -ordset
     opAddToSet,         // -key, -set
@@ -276,7 +278,7 @@ protected:
     void stkReplace(Type*);
 
     void loadConstById(mem id);
-    mem  loadCompoundConst(const variant&);
+    mem  loadCompoundConst(Type*, const variant&, OpCode);
     void doStaticVar(ThisVar* var, OpCode);
     void loadStoreVar(Variable* var, bool load);
     void canAssign(Type* from, Type* to, const char* errmsg);
@@ -316,20 +318,22 @@ public:
     void initLocalVar(Variable*);
     void deinitLocalVar(Variable*);
     void initThisVar(Variable*);
-    
+
     void loadVar(Variable*);
     void storeVar(Variable*);
     void loadMember(const str& ident);
     void loadContainerElem();
-    void storeContainerElem();
+    void storeContainerElem(bool pop = true);
     void delDictElem()
             { dictOp(opDelDictElem); }
     void dictHas();
+    void pairToDict(Dict*);
     void addToSet()
             { setOp(opAddToOrdset, opAddToSet); }
     void delSetElem()
             { setOp(opDelOrdsetElem, opDelSetElem); }
     void setHas();
+    void elemToSet(Container* setType = NULL);
 
     void implicitCastTo(Type*, const char* errmsg);
     void explicitCastTo(Type*, const char* errmsg);
@@ -341,17 +345,17 @@ public:
     void arithmUnary(OpCode);
     void _not();
     void boolXor();
-    void elemToVec();
+    void elemToVec(Vec* vecType = NULL);
     void elemCat();
     void cat();
     void mkRange();
     void inRange();
     void cmp(OpCode op);
-    
+
     void empty();
     void count();
     void lowHigh(bool high);
-    
+
     mem  getCurPos()
             { return codeseg->size(); }
     void discardCode(mem from);
