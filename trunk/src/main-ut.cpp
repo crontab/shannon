@@ -712,7 +712,7 @@ void test_vm()
             check(r->isVariable());
             gen.loadVar(PVar(r));
             gen.elemCat();
-
+            
             gen.storeVar(queenBee->sresultvar);
             block.deinitLocals();
             gen.end();
@@ -745,6 +745,11 @@ void test_vm()
             gen.loadInt(123);
             gen.initLocalVar(s2);
 
+            Variable* s3 = block.addLocalVar(queenBee->defStr->deriveSet(), "s3");
+            gen.loadStr("abc");
+            gen.elemToSet();
+            gen.initLocalVar(s3);
+            
             gen.loadVar(s0);
             gen.loadVar(s1);
             gen.elemCat();
@@ -793,6 +798,14 @@ void test_vm()
             gen.discard();
             gen.elemCat();
 
+            gen.loadVar(s3);
+            gen.loadChar('d');
+            gen.addToSet();
+            gen.loadChar('d');
+            gen.loadVar(s3);
+            gen.inSet();
+            gen.elemCat();
+
 //            gen.loadStr("The value of true is: ");
 //            gen.echo();
 //            gen.loadBool(true);
@@ -809,7 +822,7 @@ void test_vm()
         }
         variant result = mod.run();
         str s = result.to_string();
-        check(s == "['abcdef', 123, 2, 10, true, true, true, true]");
+        check(s == "['abcdef', 123, 2, 10, true, true, true, true, true]");
     }
 
     }

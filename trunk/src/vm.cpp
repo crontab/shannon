@@ -89,14 +89,21 @@ static void echo(const variant& v)
 }
 
 
+static mem ordsetIndex(ordset* s, mem idx)
+{
+    idx -= CAST(Ordset*, s->get_rt())->ordsetIndexShift();
+    if (idx >= charset::BITS)
+        idxOverflow();
+    return idx;
+}
+
+
 static void ordsetAddDel(variant*& stk, bool del)
 {
     mem idx = stk->_ord();
     POPORD(stk);
     ordset* s = CAST(ordset*, stk->_obj());
-    idx -= CAST(Ordset*, s->get_rt())->ordsetIndexShift();
-    if (idx >= charset::BITS)
-        idxOverflow();
+    idx = ordsetIndex(s, idx);
     if (del) s->untie(idx); else s->tie(idx);
     POP(stk);
 }
@@ -308,8 +315,16 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 }
                 break;
             case opAddToOrdset: ordsetAddDel(stk, false); break;
+            case opElemToOrdset:
+                {
+                    ordset* s = new ordset(ADV<Ordset*>(ip));
+                    s->tie(ordsetIndex(s, stk->_ord()));
+                    *stk = s;
+                }
+                break;
             case opDelOrdsetElem: ordsetAddDel(stk, true); break;
             case opAddToSet: CAST(set*, (stk - 1)->_obj())->tie(*stk);  POP(stk); POP(stk); break;
+            case opElemToSet: { set* s = new set(ADV<Set*>(ip)); s->tie(*stk); *stk = s; } break;
             case opDelSetElem: CAST(set*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
 
             // Concatenation
