@@ -568,10 +568,23 @@ void test_vm()
             gen.loadStr("abc");
             gen.toBool();
             gen.elemCat();
+            
+            gen.loadInt(2);
+            gen.loadInt(1);
+            gen.loadInt(3);
+            gen.inBounds();
+            gen.elemCat();
+            
+            gen.loadInt(4);
+            gen.loadInt(1);
+            gen.loadInt(3);
+            gen.inBounds();
+            gen.elemCat();
+            
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[true, true, true, true, true, true, false, true]");
+        check(r.to_string() == "[true, true, true, true, true, true, false, true, true, false]");
     }
 
     {

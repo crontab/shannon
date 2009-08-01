@@ -187,6 +187,13 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             // Range operations
             case opMkRange:     *(stk - 1) = new range(ADV<Ordinal*>(ip), (stk - 1)->_ord(), stk->_ord()); POPORD(stk); break;
             case opInRange:     SETPOD(stk - 1, CAST(range*, stk->_obj())->has((stk - 1)->_ord())); POP(stk); break;
+            case opInBounds:
+                {
+                    integer e = (stk - 2)->_ord();
+                    SETPOD(stk - 2, e >= (stk - 1)->_ord() && e <= stk->_ord());
+                    POP(stk); POP(stk);
+                }
+                break;
 
             // Comparators
             case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPORD(stk); break;

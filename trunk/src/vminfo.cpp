@@ -72,7 +72,8 @@ static OpInfo opTable[] =
     OP(BitNot, None),           // -int, +int
     OP(Not, None),              // -bool, +bool
     OP(MkRange, Type),          // [Ordinal*] -right-int, -left-int, +range
-    OP(InRange, None),          // -range, -int, +bool
+    OP(InRange, None),          // -range, -ord, +bool
+    OP(InBounds, None),         // -ord, -ord, -ord, +bool
     OP(CmpOrd, None),           // -ord, -ord, +{-1,0,1}
     OP(CmpStr, None),           // -str, -str, +{-1,0,1}
     OP(CmpVar, None),           // -var, -var, +{0,1}

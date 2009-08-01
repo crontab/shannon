@@ -856,6 +856,20 @@ void CodeGen::inRange()
 }
 
 
+void CodeGen::inBounds()
+{
+    // NOTE: the compiler should check compatibility of the left boundary
+    Type* left = stkTopType(1);
+    if (!left->isOrdinal())
+        throw emessage("Ordinal type expected in range");
+    implicitCastTo(left, "Right boundary type mismatch");
+    addOp(opInBounds);
+    stkPop();
+    stkPop();
+    stkReplace(queenBee->defBool);
+}
+
+
 void CodeGen::cmp(OpCode op)
 {
     assert(isCmpOp(op));
