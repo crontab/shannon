@@ -53,6 +53,12 @@ void CodeGen::close()
 }
 
 
+void CodeGen::error(const char* errmsg)
+{
+    throw emessage(errmsg);
+}
+
+
 void CodeGen::discardCode(mem from)
 {
     codeseg->resize(from);
@@ -197,7 +203,7 @@ void CodeGen::loadConstById(mem id)
         add16(id);
     }
     else
-        throw emessage("Maximum number of constants in a block reached");
+        error("Maximum number of constants in a block reached");
 }
 
 
@@ -396,7 +402,7 @@ void CodeGen::doStaticVar(ThisVar* var, OpCode op)
 void CodeGen::loadStoreVar(Variable* var, bool load)
 {
     if (state == NULL)
-        throw emessage("Not allowed in constant expressions");
+        error("Not allowed in constant expressions");
     assert(var->id <= 255);
     assert(var->state != NULL);
     // If loval or self-var
@@ -452,7 +458,7 @@ void CodeGen::loadMember(const str& ident)
                     notimpl();
             }
             else
-                throw emessage("Invalid member selection");
+                error("Invalid member selection");
         }
         else
             // TODO: typeref variable that points to a module
@@ -461,7 +467,7 @@ void CodeGen::loadMember(const str& ident)
     // TODO: state member selection
     // TODO: do dictionary element selection?
     else
-        throw emessage("Invalid member selection");
+        error("Invalid member selection");
 }
 
 
@@ -486,7 +492,7 @@ void CodeGen::loadContainerElem()
         addOp(opLoadArrayElem);
     }
     else
-        throw emessage("Vector/array/dictionary type expected");
+        error("Vector/array/dictionary type expected");
     stkPop();
     stkReplace(CAST(Container*, contType)->elem);
 }
@@ -497,7 +503,7 @@ void CodeGen::storeContainerElem(bool pop)
     Type* contType = stkTopType(2);
 
     if (contType->isString())
-        throw emessage("Operation not allowed on strings");
+        error("Operation not allowed on strings");
 
     OpCode op = opInv;
     Type* idxType = NULL;
@@ -517,7 +523,7 @@ void CodeGen::storeContainerElem(bool pop)
         op = opStoreDictElem;
     }
     else
-        throw emessage("Vector/array/dictionary type expected");
+        error("Vector/array/dictionary type expected");
         
     implicitCastTo2(idxType, "Container index type mismatch");
     implicitCastTo(PCont(contType)->elem, "Container element type mismatch");
@@ -535,7 +541,7 @@ void CodeGen::delDictElem()
 {
     Type* dictType = stkTopType(1);
     if (!dictType->isDict())
-        throw emessage("Dictionary type expected");
+        error("Dictionary type expected");
     implicitCastTo(PDict(dictType)->index, "Dictionary key type mismatch");
     addOp(opDelDictElem);
     stkPop();
@@ -547,7 +553,7 @@ void CodeGen::keyInDict()
 {
     Type* dictType = stkTopType();
     if (!dictType->isDict())
-        throw emessage("Dictionary type expected");
+        error("Dictionary type expected");
     implicitCastTo2(PDict(dictType)->index, "Dictionary key type mismatch");
     addOp(opKeyInDict);
     stkPop();
@@ -581,7 +587,7 @@ void CodeGen::setOp(OpCode ordsOp, OpCode sOp, bool pop)
         add8(pop);
     }
     else
-        throw emessage("Set type expected");
+        error("Set type expected");
     stkPop();
     if (pop)
         stkPop();
@@ -597,7 +603,7 @@ void CodeGen::inSet()
     else if (setType->isSet())
         op = opInSet;
     else
-        throw emessage("Set type expected");
+        error("Set type expected");
     implicitCastTo2(PCont(setType)->index, "Set element type mismatch");
     addOp(op);
     stkPop();
@@ -618,7 +624,7 @@ void CodeGen::elemToSet(Container* setType)
     else if (setType->isSet())
         addOpPtr(opElemToSet, setType);
     else
-        throw emessage("Set type expected");
+        error("Set type expected");
     stkPop();
     stkPush(setType);
 }
@@ -628,7 +634,7 @@ void CodeGen::rangeToOrdset(Ordset* setType)
 {
     Type* rangeType = stkPop();
     if (!rangeType->isRange())
-        throw emessage("Range type expected");
+        error("Range type expected");
     canAssign(PRange(rangeType)->base, setType->index, "Range element type mismatch");
     addOp(opRangeToOrdset);
     stkPush(setType);
@@ -640,9 +646,9 @@ void CodeGen::addRangeToOrdset(bool pop)
     Type* rangeType = stkPop();
     Type* setType = stkTopType();
     if (!rangeType->isRange())
-        throw emessage("Range type expected");
+        error("Range type expected");
     if (!setType->isOrdset())
-        throw emessage("Ordinal set expected");
+        error("Ordinal set expected");
     canAssign(PRange(rangeType)->base, POrdset(setType)->index, "Range element type mismatch");
     addOp(opAddRangeToOrdset);
     add8(pop);
@@ -654,7 +660,7 @@ void CodeGen::addRangeToOrdset(bool pop)
 void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 {
     if (!to->isVariant() && !from->canAssignTo(to))
-        throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
+        error(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
 
@@ -673,7 +679,7 @@ bool CodeGen::tryImplicitCastTo(Type* to, bool under)
     else if (from->isNullComp() && to->isCompound())
     {
         if (under)
-            throw emessage("Type of null compound is undefined");
+            error("Type of null compound is undefined");
         stkPop();
         revertLastLoad();
         loadConst(to, (object*)NULL);
@@ -688,14 +694,14 @@ bool CodeGen::tryImplicitCastTo(Type* to, bool under)
 void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 {
     if (!tryImplicitCastTo(to, false))
-        throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
+        error(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
 
 void CodeGen::implicitCastTo2(Type* to, const char* errmsg)
 {
     if (!tryImplicitCastTo(to, true))
-        throw emessage(errmsg == NULL ? "Left operand type mismatch" : errmsg);
+        error(errmsg == NULL ? "Left operand type mismatch" : errmsg);
 }
 
 
@@ -743,7 +749,7 @@ void CodeGen::dynamicCast()
     Type* typeref = stkPop();
     stkPop();
     if (!typeref->isTypeRef())
-        throw emessage("Typeref expected in dynamic typecast");
+        error("Typeref expected in dynamic typecast");
     addOp(opToTypeRef);
     stkPush(queenBee->defVariant);
 }
@@ -769,7 +775,7 @@ void CodeGen::testType()
     Type* typeref = stkPop();
     stkPop();
     if (!typeref->isTypeRef())
-        throw emessage("Typeref expected in dynamic typecast");
+        error("Typeref expected in dynamic typecast");
     addOp(opIsTypeRef);
     stkPush(queenBee->defBool);
 }
@@ -780,7 +786,7 @@ void CodeGen::arithmBinary(OpCode op)
     assert(op >= opAdd && op <= opBitShr);
     Type* type = stkPop();
     if (!type->isInt() || !stkTopType()->isInt())
-        throw emessage("Operand types do not match operator");
+        error("Operand types do not match operator");
     addOp(op);
 }
 
@@ -789,7 +795,7 @@ void CodeGen::arithmUnary(OpCode op)
 {
     assert(op >= opNeg && op <= opNot);
     if (!stkTopType()->isInt())
-        throw emessage("Operand type doesn't match operator");
+        error("Operand type doesn't match operator");
     addOp(op);
 }
 
@@ -811,7 +817,7 @@ void CodeGen::boolXor()
 {
     Type* type = stkPop();
     if (!type->isBool() || !stkTopType()->isBool())
-        throw emessage("Operand types do not match operator");
+        error("Operand types do not match operator");
     addOp(opBoolXor);
 }
 
@@ -837,7 +843,7 @@ void CodeGen::elemCat()
     Type* elemType = stkTopType();
     Type* vecType = stkTopType(1);
     if (!vecType->isVector())
-        throw emessage("Vector/string type expected");
+        error("Vector/string type expected");
     implicitCastTo(CAST(Vec*, vecType)->elem, "Vector/string element type mismatch");
     elemType = stkPop();
     addOp(elemType->isChar() ? opCharCat: opVarCat);
@@ -848,7 +854,7 @@ void CodeGen::cat()
 {
     Type* left = stkTopType(1);
     if (!left->isVector())
-        throw emessage("Left operand is not a vector");
+        error("Left operand is not a vector");
     implicitCastTo(left, "Vector/string types do not match");
     stkPop();
     addOp(left->isString() ? opStrCat : opVecCat);
@@ -862,7 +868,7 @@ void CodeGen::mkRange(Range* rangeType)
     if (rangeType == NULL)
     {
         if (!left->isOrdinal())
-            throw emessage("Range boundaries must be ordinal");
+            error("Range boundaries must be ordinal");
         rangeType = POrdinal(left)->deriveRange();
     }
     else
@@ -878,7 +884,7 @@ void CodeGen::inRange()
 {
     Type* rangeType = stkTopType();
     if (!rangeType->isRange())
-        throw emessage("Range type expected");
+        error("Range type expected");
     implicitCastTo2(PRange(rangeType)->base, "Range element types do not match");
     addOp(opInRange);
     stkPop();
@@ -891,7 +897,7 @@ void CodeGen::inBounds()
     // NOTE: the compiler should check compatibility of the left boundary
     Type* left = stkTopType(1);
     if (!left->isOrdinal())
-        throw emessage("Ordinal type expected in range");
+        error("Ordinal type expected in range");
     implicitCastTo(left, "Right boundary type mismatch");
     addOp(opInBounds);
     stkPop();
@@ -914,7 +920,7 @@ void CodeGen::cmp(OpCode op)
     {
         // Only == and != are allowed for all other types
         if (op != opEqual && op != opNotEq)
-            throw emessage("Only equality can be tested for this type");
+            error("Only equality can be tested for this type");
         addOp(opCmpVar);
     }
     addOp(op);
@@ -958,7 +964,7 @@ void CodeGen::count()
     else if (type->isVector())
         addOp(opVecLen);
     else
-        throw emessage("Operation not available for this type");
+        error("Operation not available for this type");
     stkPush(queenBee->defInt);
 }
 
@@ -974,7 +980,7 @@ void CodeGen::lowHigh(bool high)
     else if (type->isRange())
         addOp(high ? opRangeHigh : opRangeLow);
     else
-        throw emessage("Operation not available for this type");
+        error("Operation not available for this type");
     stkPush(queenBee->defInt);
 }
 
@@ -984,7 +990,7 @@ void CodeGen::jump(mem target)
     assert(target < getCurPos());
     integer offs = integer(target) - integer(getCurPos() + 1 + sizeof(joffs_t));
     if (offs < -32768)
-        throw emessage("Jump target is too far away");
+        error("Jump target is too far away");
     addOp(opJump);
     addJumpOffs(offs);
 }
@@ -1015,7 +1021,7 @@ void CodeGen::resolveJump(mem jumpOffs)
     assert(isJump(OpCode((*codeseg)[jumpOffs])));
     integer offs = integer(getCurPos()) - integer(jumpOffs + 1 + sizeof(joffs_t));
     if (offs > 32767)
-        throw emessage("Jump target is too far away");
+        error("Jump target is too far away");
     codeseg->putJumpOffs(jumpOffs + 1, offs);
 }
 
@@ -1060,7 +1066,7 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
             stkPop();
         }
         else
-            throw emessage("Only ordinal, string and typeref constants are allowed in case statement");
+            error("Only ordinal, string and typeref constants are allowed in case statement");
     }
     stkPush(queenBee->defBool);
 }
@@ -1077,9 +1083,9 @@ void CodeGen::assertion()
 void CodeGen::linenum(integer file, integer line)
 {
     if (file > 65535)
-        throw emessage("Too many files... this is madness!");
+        error("Too many files... this is madness!");
     if (line > 65535)
-        throw emessage("Line number too big... testing me? Huh?!");
+        error("Line number too big... testing me? Huh?!");
     if (lastOp() == opLineNum)
         discardCode(lastOpOffs);
     addOp(opLineNum);
