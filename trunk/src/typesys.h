@@ -511,10 +511,6 @@ public:
     ~Container();
     void fullDump(fifo_intf&) const;
     bool identicalTo(Type*);
-    mem arrayIndexShift()
-        { return CAST(Ordinal*, index)->left; }
-    mem ordsetIndexShift()
-        { return CAST(Ordinal*, index)->left; }
     void runtimeTypecast(variant&);
 };
 

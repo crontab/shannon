@@ -159,19 +159,21 @@ Type* Compiler::compoundCtorElem(Type* type)
 
     else if (skipIf(tokRange))
     {
+        if (!elemType->isOrdinal())
+            error("Ordinal expected as range boundary");
         if (type != NULL)
         {
-            if (!type->isOrdset() && !type->isRange())
-                error("Range not allowed: not a set");
+            if (type->isOrdset())
+                type = CAST(Ordinal*, POrdset(type)->index)->deriveRange();
+            else if (type->isRange())
+                ;
+            else
+                error("Range not allowed: not an ordinal set");
         }
         else
-        {
-            if (!elemType->isOrdinal())
-                error("Ordinal expected as range boundary");
             type = POrdinal(elemType)->deriveRange();
-        }
         expression();
-        codegen->mkRange(type->isRange() ? PRange(type) : NULL);
+        codegen->mkRange(PRange(type));
     }
 
     else
@@ -191,6 +193,9 @@ Type* Compiler::compoundCtorElem(Type* type)
 
 void Compiler::compoundCtor(Type* expectType)
 {
+    // compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
+    // element-ctor ::= [ expr ( "=" | ".." ) ] expr
+
     skip(tokLSquare, "[");
     if (skipIf(tokRSquare))
     {
@@ -198,14 +203,15 @@ void Compiler::compoundCtor(Type* expectType)
         return;
     }
 
+    // First element
     Type* type = compoundCtorElem(expectType);
 
     if (type->isRange())
     {
+        // If type is know and it's ordset
         if (expectType != NULL && expectType->isOrdset())
-        {
-            notimpl();
-        }
+            codegen->rangeToOrdset(POrdset(expectType));
+        // Otherwise we allow only a single range
         else
         {
             if (token != tokRSquare)
@@ -225,10 +231,17 @@ void Compiler::compoundCtor(Type* expectType)
 
     while (skipIf(tokComma))
     {
-        if (token == tokRSquare)
+        // TODO: array constructor (with ellipsis)
+        if (token == tokRSquare)    // allow trailing comma
             break;
-        compoundCtorElem(type);
-        if (type->isDict())
+        // The rest of elements: type is known already, either from the first
+        // element, or it was known beforehand. Note that if an element is a 
+        // range compondElemCtor() returns that range type; in all other cases
+        // container type is returned.
+        type = compoundCtorElem(type);
+        if (type->isRange())
+            codegen->addRangeToOrdset(false);
+        else if (type->isDict())
             codegen->storeContainerElem(false);
         else if (type->isVector() || type->isArray())
             codegen->elemCat();

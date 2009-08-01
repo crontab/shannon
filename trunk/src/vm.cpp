@@ -89,22 +89,33 @@ static void echo(const variant& v)
 }
 
 
-static mem ordsetIndex(ordset* s, mem idx)
+static integer ordsetIndex(ordset* s, integer idx)
 {
-    idx -= CAST(Ordset*, s->get_rt())->ordsetIndexShift();
-    if (idx >= charset::BITS)
+    Ordinal* ordType = CAST(Ordinal*, CAST(Ordset*, s->get_rt())->index);
+    if (!ordType->isInRange(idx))
         idxOverflow();
+    idx -= ordType->left;
+    assert(idx < charset::BITS);
     return idx;
 }
 
 
 static void ordsetAddDel(variant*& stk, bool del)
 {
-    mem idx = stk->_ord();
+    integer idx = stk->_ord();
     POPORD(stk);
     ordset* s = CAST(ordset*, stk->_obj());
     idx = ordsetIndex(s, idx);
     if (del) s->untie(idx); else s->tie(idx);
+}
+
+
+static integer arrayIndex(vector* v, integer idx)
+{
+    Ordinal* ordType = CAST(Ordinal*, CAST(Vec*, v->get_rt())->index);
+    idx -= ordType->left;
+    if (idx < 0) idxOverflow();
+    return idx;
 }
 
 
@@ -248,12 +259,12 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoadVecElem:
             case opLoadArrayElem:
                 {
-                    mem idx = stk->_ord();
+                    integer idx = stk->_ord();
                     POPORD(stk);
                     vector* v = CAST(vector*, stk->_obj());
                     if (*(ip - 1) == opLoadArrayElem)
-                        idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
-                    if (idx >= v->size()) idxOverflow();
+                        idx = arrayIndex(v, idx);
+                    if (mem(idx) >= v->size()) idxOverflow();
                     *stk = (*v)[idx];
                 }
                 break;
@@ -261,10 +272,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 {
                     objptr<ordset> s = CAST(ordset*, stk->_obj());
                     POP(stk);
-                    mem idx = stk->_ord();
-                    idx -= CAST(Set*, s->get_rt())->ordsetIndexShift();
-                    if (idx >= charset::BITS)
-                        idxOverflow();
+                    integer idx = ordsetIndex(s, stk->_ord());
                     SETPOD(stk, s->has(idx));
                 }
                 break;
@@ -296,10 +304,10 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opPairToDict:
                 {
-                    dict* d = new dict(ADV<Dict*>(ip));
+                    objptr<dict> d = new dict(ADV<Dict*>(ip));
                     d->tie(*(stk - 1), *stk);
                     POP(stk);
-                    *stk = d;
+                    *stk = d.get();
                 }
                 break;
             case opDelDictElem: CAST(dict*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
@@ -309,9 +317,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     vector* v = CAST(vector*, (stk - 2)->_obj());
                     mem idx = (stk - 1)->_ord();
                     if (*(ip - 1) == opStoreArrayElem)
-                        idx -= CAST(Vec*, v->get_rt())->arrayIndexShift();
-                    if (idx > v->size())
-                        idxOverflow();
+                        idx = arrayIndex(v, idx);
+                    if (idx > v->size()) idxOverflow();
                     if (idx == v->size())
                         v->push_back(*stk);
                     else
@@ -326,9 +333,26 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opElemToOrdset:
                 {
-                    ordset* s = new ordset(ADV<Ordset*>(ip));
+                    objptr<ordset> s = new ordset(ADV<Ordset*>(ip));
                     s->tie(ordsetIndex(s, stk->_ord()));
-                    *stk = s;
+                    *stk = s.get();
+                }
+                break;
+            case opRangeToOrdset:
+                {
+                    range* r = CAST(range*, stk->_obj());
+                    ordset* s;
+                    *stk = s = new ordset(CAST(Range*, r->get_rt())->base->deriveSet());
+                    s->tie(ordsetIndex(s, r->left), ordsetIndex(s, r->right));
+                }
+                break;
+            case opAddRangeToOrdset:
+                {
+                    range* r = CAST(range*, stk->_obj());
+                    ordset* s = CAST(ordset*, (stk - 1)->_obj());
+                    s->tie(ordsetIndex(s, r->left), ordsetIndex(s, r->right));
+                    POP(stk);
+                    if (ADV<uchar>(ip)) POP(stk);
                 }
                 break;
             case opDelOrdsetElem: ordsetAddDel(stk, true); POP(stk); break;
@@ -337,7 +361,13 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 POP(stk);
                 if (ADV<uchar>(ip)) POP(stk);
                 break;
-            case opElemToSet: { set* s = new set(ADV<Set*>(ip)); s->tie(*stk); *stk = s; } break;
+            case opElemToSet:
+                {
+                    set* s = new set(ADV<Set*>(ip));
+                    s->tie(*stk);
+                    *stk = s;
+                }
+                break;
             case opDelSetElem: CAST(set*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
 
             // Concatenation
