@@ -550,6 +550,8 @@ void Ordinal::runtimeTypecast(variant& v)
         throw emessage("Out of range");
     if (isChar())
         v.type = variant::CHAR;
+    else if (isBool())
+        v = v.to_bool();
     else if (isInt() || isEnum())
         v.type = variant::INT;
     else

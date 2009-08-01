@@ -93,12 +93,12 @@ static OpInfo opTable[] =
     OP(LoadMember, Index),      // [var-index: 8] -obj, +val
     OP(LoadOuter, LevelIndex),  // [level: 8, var-index: 8] +var
     OP(LoadDictElem, None),     // -key, -dict, +val
-    OP(DictHas, None),          // -key, -dict, +bool
+    OP(KeyInDict, None),        // -dict, -key, +bool
     OP(LoadStrElem, None),      // -index, -str, +char
     OP(LoadVecElem, None),      // -index, -vector, +val
     OP(LoadArrayElem, None),    // -index, -array, +val
-    OP(OrdsetHas, None),        // -ord, -ordset, +bool
-    OP(SetHas, None),           // -key, -ordset, +bool
+    OP(InOrdset, None),         // -ordset, -ord, +bool
+    OP(InSet, None),            // -ordset, -key, +bool
     OP(StoreRet, Index),        // [ret-index] -var
     OP(StoreLocal, Index),      // [stack-index: 8] -var
     OP(StoreThis, Index),       // [this-index: 8] -var

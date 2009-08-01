@@ -522,21 +522,27 @@ void CodeGen::storeContainerElem(bool pop)
 }
 
 
-void CodeGen::dictOp(OpCode op)
+void CodeGen::delDictElem()
 {
     Type* dictType = stkTopType(1);
     if (!dictType->isDict())
         throw emessage("Dictionary type expected");
     implicitCastTo(PDict(dictType)->index, "Dictionary key type mismatch");
-    addOp(op);
+    addOp(opDelDictElem);
     stkPop();
     stkPop();
 }
 
 
-void CodeGen::dictHas()
+void CodeGen::keyInDict()
 {
-    dictOp(opDictHas);
+    Type* dictType = stkPop();
+    Type* keyType = stkPop();
+    if (!dictType->isDict())
+        throw emessage("Dictionary type expected");
+    if (!keyType->canAssignTo(PDict(dictType)->index))
+        throw emessage("Dictionary key type mismatch");
+    addOp(opKeyInDict);
     stkPush(queenBee->defBool);
 }
 
@@ -559,25 +565,29 @@ void CodeGen::setOp(OpCode ordsOp, OpCode sOp)
 {
     Type* setType = stkTopType(1);
     if (setType->isOrdset())
-    {
-        implicitCastTo(POrdset(setType)->index, "Ordinal set element type mismatch");
         addOp(ordsOp);
-    }
     else if (setType->isSet())
-    {
-        implicitCastTo(PSet(setType)->index, "Set element type mismatch");
         addOp(sOp);
-    }
     else
         throw emessage("Set type expected");
+    implicitCastTo(PCont(setType)->index, "Set element type mismatch");
     stkPop();
     stkPop();
 }
 
 
-void CodeGen::setHas()
+void CodeGen::inSet()
 {
-    setOp(opOrdsetHas, opSetHas);
+    Type* setType = stkPop();
+    Type* elemType = stkPop();
+    if (setType->isOrdset())
+        addOp(opInOrdset);
+    else if (setType->isSet())
+        addOp(opInSet);
+    else
+        throw emessage("Set type expected");
+    if (!elemType->canAssignTo(PCont(setType)->index))
+        throw emessage("Set element type mismatch");
     stkPush(queenBee->defBool);
 }
 

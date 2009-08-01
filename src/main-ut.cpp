@@ -663,34 +663,34 @@ void test_vm()
             gen.loadVar(v4);
             gen.elemCat();
 
-            gen.loadVar(v3);
             gen.loadChar('a');
-            gen.setHas();
-            gen.elemCat();
-
             gen.loadVar(v3);
+            gen.inSet();
+            gen.elemCat();
+
             gen.loadChar('c');
-            gen.setHas();
+            gen.loadVar(v3);
+            gen.inSet();
             gen.elemCat();
 
-            gen.loadVar(v4);
             gen.loadInt(2000);
-            gen.setHas();
-            gen.elemCat();
-
             gen.loadVar(v4);
+            gen.inSet();
+            gen.elemCat();
+
             gen.loadInt(1000);
-            gen.setHas();
+            gen.loadVar(v4);
+            gen.inSet();
             gen.elemCat();
 
-            gen.loadVar(v1);
             gen.loadStr("k3");
-            gen.dictHas();
+            gen.loadVar(v1);
+            gen.keyInDict();
             gen.elemCat();
 
-            gen.loadVar(v1);
             gen.loadStr("k1");
-            gen.dictHas();
+            gen.loadVar(v1);
+            gen.keyInDict();
             gen.elemCat();
 
             ThisVar* var = mod.addThisVar(queenBee->defInt, "var");

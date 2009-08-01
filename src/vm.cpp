@@ -222,7 +222,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     else *stk = i->second;
                 }
                 break;
-            case opDictHas: *(stk - 1) = CAST(dict*, (stk - 1)->_obj())->has(*stk); POP(stk); break;
+            case opKeyInDict: *(stk - 1) = CAST(dict*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
             case opLoadStrElem:
                 {
                     mem idx = stk->_int();
@@ -244,18 +244,18 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     *stk = (*v)[idx];
                 }
                 break;
-            case opOrdsetHas:
+            case opInOrdset:
                 {
+                    objptr<ordset> s = CAST(ordset*, stk->_obj());
+                    POP(stk);
                     mem idx = stk->_ord();
-                    POPORD(stk);
-                    ordset* s = CAST(ordset*, stk->_obj());
                     idx -= CAST(Set*, s->get_rt())->ordsetIndexShift();
                     if (idx >= charset::BITS)
                         idxOverflow();
-                    *stk = s->has(idx);
+                    SETPOD(stk, s->has(idx));
                 }
                 break;
-            case opSetHas: *(stk - 1) = CAST(set*, (stk - 1)->_obj())->has(*stk); POP(stk); break;
+            case opInSet: *(stk - 1) = CAST(set*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
 
             // Storers
             case opStoreRet:    STORETO(stk, result + ADV<uchar>(ip)); break;

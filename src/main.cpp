@@ -93,7 +93,7 @@ template <class T>
     4. *  /  mod
     5. +  –
     6. |
-    7. ==  <>  !=  <  >  <=  >=  has
+    7. ==  <>  !=  <  >  <=  >=  in
     8. not
     9. and
     10. or  xor
