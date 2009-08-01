@@ -1,4 +1,7 @@
 
+* for loop: allow types, also range as an exception can have variable
+  boundaries
+
 * Run-time range checking (as well as compile-time)
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined

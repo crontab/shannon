@@ -2,6 +2,7 @@
 #include "version.h"
 #include "typesys.h"
 #include "vm.h"
+#include "parser.h"
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //
@@ -251,7 +252,7 @@ bool Type::canAssignTo(Type* t)  // can assign or automatically convert the type
     { return identicalTo(t); }
 
 bool Type::isMyType(const variant& v)
-    { return v.is_obj() && v._obj()->get_rt()->canAssignTo(this); }
+    { return v.is_obj() && v._obj() != NULL && v._obj()->get_rt()->canAssignTo(this); }
 
 void Type::runtimeTypecast(variant& v)
     { if (!isMyType(v)) typeMismatch(); }
@@ -517,7 +518,7 @@ Ordinal* Ordinal::createSubrange(integer _left, integer _right)
         return this;
     if (!isLe(_left, _right))
         throw emessage("Subrange error");
-    return new Ordinal(typeId, _left, _right);
+    return owner->registerType(new Ordinal(typeId, _left, _right));
 }
 
 
@@ -597,6 +598,8 @@ void Enumeration::fullDump(fifo_intf& stm) const
 void Enumeration::addValue(const str& _name)
 {
     integer n = integer(values->size());
+    if (n == 256)
+        throw emessage("Maximum number of enum constants reached");
     Constant* c;
     if (isBool())
         c = owner->addConstant(this, _name, bool(n));
@@ -622,7 +625,7 @@ Ordinal* Enumeration::createSubrange(integer _left, integer _right)
         throw emessage("Can't derive subrange from bool");
     if (_left < left || _right > right)
         throw emessage("Subrange error");
-    return new Enumeration(values, _left, _right);
+    return owner->registerType(new Enumeration(values, _left, _right));
 }
 
 
@@ -787,7 +790,10 @@ Type* QueenBee::typeFromValue(const variant& v)
     case variant::INT:  return defInt;
     case variant::REAL: notimpl(); break;
     case variant::STR:  return defStr;
-    case variant::OBJECT: return v._obj()->get_rt();
+    case variant::OBJECT:
+        if (v._obj() == NULL)
+            return defNullComp;
+        return v._obj()->get_rt();
     }
     return NULL;
 }

@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "runtime.h"
-#include "source.h"
+#include "parser.h"
 #include "typesys.h"
 #include "vm.h"
 
@@ -25,10 +25,9 @@ struct CompilerOptions
 };
 
 
-class Compiler: noncopyable
+class Compiler: protected Parser
 {
 protected:
-    Parser& parser;
     Module& mainModule;
     CompilerOptions options;
     mem fileId;
@@ -38,11 +37,6 @@ protected:
     Scope* scope;           // for storing definitions
     BlockScope* blockScope; // for local vars in nested blocks
     State* state;           // for this-vars
-
-    void error(const str& msg)              { parser.error(msg); }
-    void error(const char* msg)             { parser.error(msg); }
-    void errorWithLoc(const str& msg)       { parser.errorWithLoc(msg); }
-    void errorWithLoc(const char* msg)      { parser.errorWithLoc(msg); }
 
     Type* getTypeDerivators(Type*);
     Type* compoundCtorElem(Type*);
@@ -71,15 +65,15 @@ protected:
     void block();
 
 public:
-    Compiler(Parser&, Module&);
+    Compiler(const str&, fifo_intf*, Module&);
     ~Compiler();
 
     void compile();
 };
 
 
-Compiler::Compiler(Parser& _parser, Module& _main)
-  : parser(_parser), mainModule(_main), started(false),
+Compiler::Compiler(const str& _fn, fifo_intf* _input, Module& _main)
+  : Parser(_fn, _input), mainModule(_main), started(false),
     codegen(NULL), scope(NULL), blockScope(NULL), state(NULL)  { }
 
 Compiler::~Compiler()  { }
@@ -108,9 +102,9 @@ template <class T>
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
-    if (parser.skipIf(tokLSquare))
+    if (skipIf(tokLSquare))
     {
-        if (parser.skipIf(tokRSquare))
+        if (skipIf(tokRSquare))
             type = type->deriveVector();
         else
         {
@@ -121,17 +115,17 @@ Type* Compiler::getTypeDerivators(Type* type)
                 type = type->deriveVector();
             else
                 type = type->createContainer(indexType);
-            parser.skip(tokRSquare, "]");
+            skip(tokRSquare, "]");
         }
         return getTypeDerivators(type);
     }
 
-    else if (parser.skipIf(tokNotEq)) // <>
+    else if (skipIf(tokNotEq)) // <>
         return getTypeDerivators(type->deriveFifo());
 
-    else if (parser.skipIf(tokLAngle))
+    else if (skipIf(tokLAngle))
     {
-        parser.skip(tokRAngle, ">");
+        skip(tokRAngle, ">");
         return getTypeDerivators(type->deriveFifo());
     }
 
@@ -150,7 +144,7 @@ Type* Compiler::compoundCtorElem(Type* type)
     expression();
     Type* elemType = codegen->getTopType();
 
-    if (parser.skipIf(tokEqual))
+    if (skipIf(tokAssign))
     {
         if (type != NULL)
         {
@@ -169,7 +163,7 @@ Type* Compiler::compoundCtorElem(Type* type)
         }
     }
 
-    else if (parser.skipIf(tokRange))
+    else if (skipIf(tokRange))
     {
         if (type != NULL)
         {
@@ -178,14 +172,14 @@ Type* Compiler::compoundCtorElem(Type* type)
             else if (type->isRange())
                 elemType = PRange(type)->base;
             else
-                error("Range not allowed here");
+                error("Range not allowed: not a set");
             codegen->implicitCastTo(elemType, "Range boundary type mismatch");
         }
         else
         {
             if (!elemType->isOrdinal())
                 error("Ordinal expected as range boundary");
-            type = POrdinal(type)->deriveRange();
+            type = POrdinal(elemType)->deriveRange();
         }
         expression();
         codegen->implicitCastTo(elemType, "Range boundary type mismatch");
@@ -196,15 +190,9 @@ Type* Compiler::compoundCtorElem(Type* type)
     {
         if (type != NULL)
         {
-            if (type->isOrdset())
-                elemType = POrdset(type)->index;
-            else if (type->isSet())
-                elemType = PSet(type)->index;
-            else if (type->isVector())
-                elemType = PVec(type)->elem;
-            else
+            if (!type->isOrdset() && !type->isSet() && !type->isVector())
                 error("Invalid container constructor");
-            codegen->implicitCastTo(elemType, "Element type mismatch");
+            // codegen->implicitCastTo(elemType, "Element type mismatch");
         }
         else
             type = elemType->deriveVector();
@@ -216,57 +204,84 @@ Type* Compiler::compoundCtorElem(Type* type)
 
 void Compiler::compoundCtor(Type* type)
 {
-    parser.skip(tokLSquare, "[");
-    if (parser.skipIf(tokRSquare))
-        codegen->loadNullComp(type);
-    else
+    skip(tokLSquare, "[");
+    if (skipIf(tokRSquare))
     {
-        // TODO: opPairToDict
-        // TODO: make sure null container can't be initialized
-        notimpl();
+        codegen->loadNullComp(type);
+        return;
     }
+
+    type = compoundCtorElem(type);
+
+    if (type->isRange())
+    {
+        if (token != tokRSquare)
+            error("Set constructor is not allowed when type is undefined");
+        next();
+        return;
+    }
+    
+    if (type->isDict())
+        codegen->pairToDict(PDict(type));
+    else if (type->isVector() || type->isArray())
+        codegen->elemToVec(PVec(type));
+    else
+        notimpl();
+
+    while (skipIf(tokComma))
+    {
+        if (token == tokRSquare)
+            break;
+        compoundCtorElem(type);
+        if (type->isDict())
+            codegen->storeContainerElem(false);
+        else if (type->isVector() || type->isArray())
+            codegen->elemCat();
+    }
+
+    skip(tokRSquare, "]");
 }
 
 
 void Compiler::atom()
 {
-    if (!parser.prevIdent.empty())  // from partial (typeless) definition
+    if (!prevIdent.empty())  // from partial (typeless) definition
     {
-        Symbol* s = scope->findDeep(parser.prevIdent);
+        Symbol* s = scope->findDeep(prevIdent);
         codegen->loadSymbol(s);
-        parser.redoIdent();
+        redoIdent();
     }
 
-    else if (parser.token == tokIntValue)
+    else if (token == tokIntValue)
     {
-        codegen->loadInt(parser.intValue);
-        parser.next();
+        codegen->loadInt(intValue);
+        next();
     }
 
-    else if (parser.token == tokStrValue)
+    else if (token == tokStrValue)
     {
-        str value = parser.strValue;
+        str value = strValue;
         if (value.size() == 1)
             codegen->loadChar(value[0]);
         else
             codegen->loadStr(value);
-        parser.next();
+        next();
     }
 
-    else if (parser.token == tokIdent)
+    else if (token == tokIdent)
     {
-        Symbol* s = scope->findDeep(parser.strValue);
+        Symbol* s = scope->findDeep(strValue);
         codegen->loadSymbol(s);
-        parser.next();
+        next();
     }
 
-    else if (parser.skipIf(tokLParen))
+    else if (skipIf(tokLParen))
     {
         expression();
-        parser.skip(tokRParen, ")");
+        skip(tokRParen, ")");
     }
 
-    else if (parser.token == tokLSquare)
+    else if (token == tokLSquare)
         compoundCtor(NULL);
 
     else
@@ -279,12 +294,13 @@ void Compiler::designator()
     atom();
     while (1)
     {
-        if (parser.skipIf(tokPeriod))
+        if (skipIf(tokPeriod))
         {
-            codegen->loadMember(parser.getIdentifier());
-            parser.next();
+            codegen->loadMember(getIdentifier());
+            next();
         }
         // TODO: array item selection
+        // TODO: static typecast
         // TODO: function call
         else
             break;
@@ -294,17 +310,17 @@ void Compiler::designator()
 
 void Compiler::factor()
 {
-    bool isNeg = parser.skipIf(tokMinus);
+    bool isNeg = skipIf(tokMinus);
     designator();
     if (isNeg)
         codegen->arithmUnary(opNeg);
-    else if (parser.token == tokWildcard)
+    else if (token == tokWildcard)
     {
         // anonymous type spec
         Type* type = codegen->getTopTypeRefValue();
         if (type != NULL)
         {
-            parser.next();
+            next();
             codegen->loadTypeRef(getTypeDerivators(type));
         }
     }
@@ -314,11 +330,11 @@ void Compiler::factor()
 void Compiler::term()
 {
     factor();
-    while (parser.token == tokMul || parser.token == tokDiv || parser.token == tokMod)
+    while (token == tokMul || token == tokDiv || token == tokMod)
     {
-        OpCode op = parser.token == tokMul ? opMul
-                : parser.token == tokDiv ? opDiv : opMod;
-        parser.next();
+        OpCode op = token == tokMul ? opMul
+                : token == tokDiv ? opDiv : opMod;
+        next();
         factor();
         codegen->arithmBinary(op);
     }
@@ -328,10 +344,10 @@ void Compiler::term()
 void Compiler::arithmExpr()
 {
     term();
-    while (parser.token == tokPlus || parser.token == tokMinus)
+    while (token == tokPlus || token == tokMinus)
     {
-        OpCode op = parser.token == tokPlus ? opAdd : opSub;
-        parser.next();
+        OpCode op = token == tokPlus ? opAdd : opSub;
+        next();
         term();
         codegen->arithmBinary(op);
     }
@@ -341,7 +357,7 @@ void Compiler::arithmExpr()
 void Compiler::simpleExpr()
 {
     arithmExpr();
-    if (parser.skipIf(tokCat))
+    if (skipIf(tokCat))
     {
         Type* type = codegen->getTopType();
         if (!type->isVector())
@@ -355,7 +371,7 @@ void Compiler::simpleExpr()
             else
                 codegen->cat();
         }
-        while (parser.skipIf(tokCat));
+        while (skipIf(tokCat));
     }
 }
 
@@ -363,10 +379,10 @@ void Compiler::simpleExpr()
 void Compiler::relation()
 {
     simpleExpr();
-    if (parser.token >= tokCmpFirst && parser.token <= tokCmpLast)
+    if (token >= tokCmpFirst && token <= tokCmpLast)
     {
-        OpCode op = OpCode(opCmpFirst + int(parser.token - tokCmpFirst));
-        parser.next();
+        OpCode op = OpCode(opCmpFirst + int(token - tokCmpFirst));
+        next();
         simpleExpr();
         codegen->cmp(op);
     }
@@ -375,7 +391,7 @@ void Compiler::relation()
 
 void Compiler::notLevel()
 {
-    bool isNot = parser.skipIf(tokNot);
+    bool isNot = skipIf(tokNot);
     relation();
     if (isNot)
         codegen->_not(); // 'not' is something reserved, probably only with Apple's GCC
@@ -388,7 +404,7 @@ void Compiler::andLevel()
     Type* type = codegen->getTopType();
     if (type->isBool())
     {
-        if (parser.skipIf(tokAnd))
+        if (skipIf(tokAnd))
         {
             mem offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
@@ -397,11 +413,11 @@ void Compiler::andLevel()
     }
     else if (type->isInt())
     {
-        while (parser.token == tokShl || parser.token == tokShr || parser.token == tokAnd)
+        while (token == tokShl || token == tokShr || token == tokAnd)
         {
-            OpCode op = parser.token == tokShl ? opBitShl
-                    : parser.token == tokShr ? opBitShr : opBitAnd;
-            parser.next();
+            OpCode op = token == tokShl ? opBitShl
+                    : token == tokShr ? opBitShr : opBitAnd;
+            next();
             notLevel();
             codegen->arithmBinary(op);
         }
@@ -415,13 +431,13 @@ void Compiler::orLevel()
     Type* type = codegen->getTopType();
     if (type->isBool())
     {
-        if (parser.skipIf(tokOr))
+        if (skipIf(tokOr))
         {
             mem offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
             codegen->resolveJump(offs);
         }
-        else if (parser.skipIf(tokXor))
+        else if (skipIf(tokXor))
         {
             orLevel();
             codegen->boolXor();
@@ -429,10 +445,10 @@ void Compiler::orLevel()
     }
     else if (type->isInt())
     {
-        while (parser.token == tokOr || parser.token == tokXor)
+        while (token == tokOr || token == tokXor)
         {
-            OpCode op = parser.token == tokOr ? opBitOr : opBitXor;
-            parser.next();
+            OpCode op = token == tokOr ? opBitOr : opBitXor;
+            next();
             andLevel();
             codegen->arithmBinary(op);
         }
@@ -446,17 +462,25 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
     CodeGen constCodeGen(&constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
 
-    if (expectType != NULL && expectType->isCompound() && parser.token == tokLSquare)
-        compoundCtor(expectType);
+    if (expectType != NULL)
+    {
+        if (expectType->isTypeRef())
+            factor();
+        else if (expectType->isCompound() && token == tokLSquare)
+            compoundCtor(expectType);
+        else
+            expression();
+    }
     else
         expression();
 
     Type* valueType = codegen->getTopType();
-    if (parser.skipIf(tokRange))
+    if (skipIf(tokRange))
     {
         if (expectType != NULL && !expectType->isTypeRef())
             error("Subrange type is not expected here");
-        expression();
+        factor();
+        codegen->implicitCastTo(valueType, "Range boundary type mismatch");
         codegen->mkRange();
         constCodeGen.endConstExpr(NULL);
         constCode.run(result);
@@ -477,7 +501,6 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
 Type* Compiler::typeExpr()
 {
     variant result;
-    // TODO: shorter path?
     Type* resultType = constExpr(defTypeRef, result);
     if (!resultType->isTypeRef())
         error("Type expression expected");
@@ -491,24 +514,19 @@ Type* Compiler::typeExpr()
 Type* Compiler::getTypeAndIdent(str& ident)
 {
     Type* type = NULL;
-    if (parser.token == tokIdent)
+    if (token == tokIdent)
     {
-        ident = parser.strValue;
-        if (parser.next() != tokAssign)
-        {
-            parser.undoIdent(ident);
-            type = typeExpr();
-            ident = parser.getIdentifier();
-            parser.next();
-        }
+        ident = strValue;
+        if (next() == tokAssign)
+            goto ICantBelieveIUsedAGotoStatement;
+        undoIdent(ident);
     }
-    else
-        type = typeExpr();
-    if (type != NULL)
-        type = getTypeDerivators(type);
-    if (parser.token != tokAssign)
-        error("Initialization is mandatory");
-    parser.next();
+    type = typeExpr();
+    ident = getIdentifier();
+    next();
+    type = getTypeDerivators(type);
+ICantBelieveIUsedAGotoStatement:
+    skip(tokAssign, "=");
     return type;
 }
 
@@ -525,8 +543,12 @@ void Compiler::definition()
     if (type->isTypeRef())
         scope->addTypeAlias(ident, CAST(Type*, value._obj()));
     else
+    {
+        if (type->isOrdinal() && !POrdinal(type)->isInRange(value.as_ord()))
+            error("Constant out of range");
         scope->addConstant(type, ident, value);
-    parser.skipSep();
+    }
+    skipSep();
 }
 
 
@@ -540,6 +562,8 @@ void Compiler::variable()
         type = codegen->getTopType();
     else
         codegen->implicitCastTo(type, "Type mismatch in initialization");
+    if (type->isNullComp())
+        error("Type undefined (null compound)");
     if (blockScope != NULL)
     {
         Variable* var = blockScope->addLocalVar(type, ident);
@@ -550,23 +574,23 @@ void Compiler::variable()
         Variable* var = state->addThisVar(type, ident);
         codegen->initThisVar(var);
     }
-    parser.skipSep();
+    skipSep();
 }
 
 
 void Compiler::echo()
 {
     mem codeOffs = codegen->getCurPos();
-    if (parser.token != tokSep)
+    if (token != tokSep)
     {
         while (1)
         {
             expression();
             codegen->echo();
-            if (parser.token == tokComma)
+            if (token == tokComma)
             {
                 codegen->echoSpace();
-                parser.next();
+                next();
             }
             else
                 break;
@@ -575,7 +599,7 @@ void Compiler::echo()
     codegen->echoLn();
     if (!options.enableEcho)
         codegen->discardCode(codeOffs);
-    parser.skipSep();
+    skipSep();
 }
 
 
@@ -584,30 +608,30 @@ void Compiler::assertion()
     mem codeOffs = codegen->getCurPos();
     expression();
     if (!options.linenumInfo)
-        codegen->linenum(fileId, parser.getLineNum());
+        codegen->linenum(fileId, getLineNum());
     codegen->assertion();
     if (!options.enableAssert)
         codegen->discardCode(codeOffs);
-    parser.skipSep();
+    skipSep();
 }
 
 
 void Compiler::block()
 {
-    while (!parser.skipIf(tokBlockEnd))
+    while (!skipIf(tokBlockEnd))
     {
         if (options.linenumInfo)
-            codegen->linenum(fileId, parser.getLineNum());
+            codegen->linenum(fileId, getLineNum());
 
-        if (parser.skipIf(tokSep))
+        if (skipIf(tokSep))
             ;
-        else if (parser.skipIf(tokDef))
+        else if (skipIf(tokDef))
             definition();
-        else if (parser.skipIf(tokVar))
+        else if (skipIf(tokVar))
             variable();
-        else if (parser.skipIf(tokEcho))
+        else if (skipIf(tokEcho))
             echo();
-        else if (parser.skipIf(tokAssert))
+        else if (skipIf(tokAssert))
             assertion();
         else
             notimpl();
@@ -621,24 +645,24 @@ void Compiler::compile()
         fatal(0x7001, "Compiler object can't be used more than once");
     started = true;
 
-    fileId = mainModule.registerFileName(parser.getFileName());
+    fileId = mainModule.registerFileName(getFileName());
     CodeGen mainCodeGen(&mainModule);
     codegen = &mainCodeGen;
     scope = state = &mainModule;
 
     try
     {
-        parser.next();
+        next();
         block();
-        parser.skip(tokEof, "<EOF>");
+        skip(tokEof, "<EOF>");
     }
     catch (EDuplicate& e)
     {
-        parser.error("'" + e.ident + "' is already defined within this scope");
+        error("'" + e.ident + "' is already defined within this scope");
     }
     catch (EUnknownIdent& e)
     {
-        parser.error("'" + e.ident + "' is unknown in this context");
+        error("'" + e.ident + "' is unknown in this context");
     }
     catch (EParser&)
     {
@@ -646,14 +670,14 @@ void Compiler::compile()
     }
     catch (exception& e)
     {
-        parser.error(e.what());
+        error(e.what());
     }
 
     mainCodeGen.end();
 
     if (options.vmListing)
     {
-        out_text f(NULL, remove_filename_ext(parser.getFileName()) + ".lst");
+        out_text f(NULL, remove_filename_ext(getFileName()) + ".lst");
         mainModule.listing(f);
     }
 }
@@ -661,10 +685,8 @@ void Compiler::compile()
 
 int executeFile(const str& fileName)
 {
-    Parser parser(fileName, new in_text(NULL, fileName));
-    str moduleName = remove_filename_path(remove_filename_ext(fileName));
-    Module module(moduleName);
-    Compiler compiler(parser, module);
+    Module module(remove_filename_path(remove_filename_ext(fileName)));
+    Compiler compiler(fileName, new in_text(NULL, fileName), module);
 
     // Look at these two beautiful lines. Compiler, compile. Module, run. Love it.
     compiler.compile();
