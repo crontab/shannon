@@ -110,12 +110,12 @@ enum OpCode
 
     // Container read operations
     opLoadDictElem,     // -key, -dict, +val
-    opDictHas,          // -key, -dict, +bool
+    opKeyInDict,        // -dict, -key, +bool
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
     opLoadArrayElem,    // -index, -array, +val
-    opOrdsetHas,        // -ord, -ordset, +bool
-    opSetHas,           // -key, -ordset, +bool
+    opInOrdset,         // -ordset, -ord, +bool
+    opInSet,            // -set, -key, +bool
 
     // Storers
     // NOTE: opStoreRet through opStoreArg are in sync with Symbol::symbolId
@@ -324,15 +324,14 @@ public:
     void loadMember(const str& ident);
     void loadContainerElem();
     void storeContainerElem(bool pop = true);
-    void delDictElem()
-            { dictOp(opDelDictElem); }
-    void dictHas();
+    void delDictElem();
+    void keyInDict();
     void pairToDict(Dict*);
     void addToSet()
             { setOp(opAddToOrdset, opAddToSet); }
     void delSetElem()
             { setOp(opDelOrdsetElem, opDelSetElem); }
-    void setHas();
+    void inSet();
     void elemToSet(Container* setType = NULL);
 
     void implicitCastTo(Type*, const char* errmsg);
