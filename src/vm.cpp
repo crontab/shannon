@@ -105,7 +105,6 @@ static void ordsetAddDel(variant*& stk, bool del)
     ordset* s = CAST(ordset*, stk->_obj());
     idx = ordsetIndex(s, idx);
     if (del) s->untie(idx); else s->tie(idx);
-    POP(stk);
 }
 
 
@@ -321,7 +320,10 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     if (ADV<uchar>(ip)) POP(stk); break;
                 }
                 break;
-            case opAddToOrdset: ordsetAddDel(stk, false); break;
+            case opAddToOrdset:
+                ordsetAddDel(stk, false);
+                if (ADV<uchar>(ip)) POP(stk);
+                break;
             case opElemToOrdset:
                 {
                     ordset* s = new ordset(ADV<Ordset*>(ip));
@@ -329,8 +331,12 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     *stk = s;
                 }
                 break;
-            case opDelOrdsetElem: ordsetAddDel(stk, true); break;
-            case opAddToSet: CAST(set*, (stk - 1)->_obj())->tie(*stk);  POP(stk); POP(stk); break;
+            case opDelOrdsetElem: ordsetAddDel(stk, true); POP(stk); break;
+            case opAddToSet:
+                CAST(set*, (stk - 1)->_obj())->tie(*stk);
+                POP(stk);
+                if (ADV<uchar>(ip)) POP(stk);
+                break;
             case opElemToSet: { set* s = new set(ADV<Set*>(ip)); s->tie(*stk); *stk = s; } break;
             case opDelSetElem: CAST(set*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
 

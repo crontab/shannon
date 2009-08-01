@@ -62,7 +62,8 @@ and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
 
 not-expr ::= [ "not" ] rel-expr
 
-rel-expr ::= simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" | "<>" ) simple-expr }
+rel-expr ::= ( simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" | "<>" ) simple-expr } )
+    | ( simple-expr "in" simple-expr [ ".." simple-expr ] )
 
 simple-expr ::= arithm-expr { "|" arithm-expr }
 

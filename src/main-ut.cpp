@@ -629,23 +629,21 @@ void test_vm()
             gen.initLocalVar(v3);
             gen.loadVar(v3);
             gen.loadChar('a');
-            gen.addToSet();
-            gen.loadVar(v3);
+            gen.addToSet(false);
             gen.loadChar('b');
-            gen.addToSet();
+            gen.addToSet(true);
 
             Variable* v4 = block.addLocalVar(setType, "v4");
             gen.loadNullComp(setType);
             gen.initLocalVar(v4);
             gen.loadVar(v4);
             gen.loadInt(100);
-            gen.addToSet();
-            gen.loadVar(v4);
+            gen.addToSet(false);
             gen.loadInt(1000);
-            gen.addToSet();
+            gen.addToSet(true);
             gen.loadVar(v4);
             gen.loadInt(2000);
-            gen.addToSet();
+            gen.addToSet(true);
             gen.loadVar(v4);
             gen.loadInt(1000);
             gen.delSetElem();
@@ -818,7 +816,7 @@ void test_vm()
 
             gen.loadVar(s3);
             gen.loadChar('d');
-            gen.addToSet();
+            gen.addToSet(true);
             gen.loadChar('d');
             gen.loadVar(s3);
             gen.inSet();
