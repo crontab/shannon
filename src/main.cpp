@@ -146,16 +146,10 @@ Type* Compiler::compoundCtorElem(Type* type)
 
     if (skipIf(tokAssign))
     {
-        if (type != NULL)
-        {
-            if (!type->isDict())
-                error("Key/value pair not allowed here");
-            codegen->implicitCastTo(PDict(type)->index, "Dictionary key type mismatch");
-        }
+        if (type != NULL && !type->isDict())
+            error("Key/value pair not allowed here");
         expression();
-        if (type != NULL)
-            codegen->implicitCastTo(PDict(type)->elem, "Dictionary element type mismatch");
-        else
+        if (type == NULL)
         {
             Type* keyType = elemType;
             elemType = codegen->getTopType();
@@ -167,13 +161,8 @@ Type* Compiler::compoundCtorElem(Type* type)
     {
         if (type != NULL)
         {
-            if (type->isOrdset())
-                elemType = POrdset(type)->index;
-            else if (type->isRange())
-                elemType = PRange(type)->base;
-            else
+            if (!type->isOrdset() && !type->isRange())
                 error("Range not allowed: not a set");
-            codegen->implicitCastTo(elemType, "Range boundary type mismatch");
         }
         else
         {
@@ -182,8 +171,7 @@ Type* Compiler::compoundCtorElem(Type* type)
             type = POrdinal(elemType)->deriveRange();
         }
         expression();
-        codegen->implicitCastTo(elemType, "Range boundary type mismatch");
-        codegen->mkRange();
+        codegen->mkRange(type->isRange() ? PRange(type) : NULL);
     }
 
     else
@@ -192,7 +180,6 @@ Type* Compiler::compoundCtorElem(Type* type)
         {
             if (!type->isOrdset() && !type->isSet() && !type->isVector())
                 error("Invalid container constructor");
-            // codegen->implicitCastTo(elemType, "Element type mismatch");
         }
         else
             type = elemType->deriveVector();
@@ -480,8 +467,7 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
         if (expectType != NULL && !expectType->isTypeRef())
             error("Subrange type is not expected here");
         factor();
-        codegen->implicitCastTo(valueType, "Range boundary type mismatch");
-        codegen->mkRange();
+        codegen->mkRange(NULL);
         constCodeGen.endConstExpr(NULL);
         constCode.run(result);
         range* r = CAST(range*, result.as_obj());
@@ -560,8 +546,6 @@ void Compiler::variable()
     expression();
     if (type == NULL)
         type = codegen->getTopType();
-    else
-        codegen->implicitCastTo(type, "Type mismatch in initialization");
     if (type->isNullComp())
         error("Type undefined (null compound)");
     if (blockScope != NULL)

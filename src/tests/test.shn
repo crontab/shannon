@@ -26,3 +26,6 @@ def d1 = ['k1' = 1, 'k' = 2]
 def int v4[] = [1, 2, 3]
 def v5 = ['abc', 'd', 'ef']
 def 'a'..'z' r4 = 'a'
+
+echo v5
+echo d1

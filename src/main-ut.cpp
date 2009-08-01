@@ -496,14 +496,14 @@ void test_vm()
             gen.loadInt(6);
             gen.loadInt(5);
             gen.loadInt(10);
-            gen.mkRange();
+            gen.mkRange(NULL);
             gen.inRange();
             gen.loadInt(1);
             gen.loadInt(5);
             gen.loadInt(10);
-            gen.mkRange();
+            gen.mkRange(queenBee->defInt->deriveRange());
             gen.inRange();
-            gen.mkRange();
+            gen.mkRange(NULL);
             gen.endConstExpr(queenBee->defBool->deriveRange());
         }
         seg.run(r);
@@ -539,6 +539,11 @@ void test_vm()
             gen.cmp(opEqual);
             gen.elemCat();
 
+            gen.loadStr("a");
+            gen.loadChar('a');
+            gen.cmp(opEqual);
+            gen.elemCat();
+
             gen.loadInt(1);
             gen.elemToVec();
             gen.loadTypeRef(queenBee->defInt->deriveVector());
@@ -566,7 +571,7 @@ void test_vm()
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[true, true, true, true, true, false, true]");
+        check(r.to_string() == "[true, true, true, true, true, true, false, true]");
     }
 
     {
