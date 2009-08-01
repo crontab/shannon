@@ -352,6 +352,7 @@ public:
     virtual void dump(fifo_intf&) const;
     bool empty() const                        { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
+    void tie(int left, int right)             { impl.include(left, right); }
     void untie(int v)                         { impl.exclude(v); }
     bool has(int v) const                     { return impl[v]; }
     bool equals (const ordset& other)   const { return impl.eq(other.impl); }

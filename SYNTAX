@@ -81,7 +81,7 @@ type-derivator ::= array-derivator | fifo-derivator | function-derivator
 
 subexpr ::= "(" expr ")"
 
-compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
+compound-ctor ::= "[" [ element-ctor { "," element-ctor } [ "..." ] ] "]"
 
 element-ctor ::= [ expr ( "=" | ".." ) ] expr
 

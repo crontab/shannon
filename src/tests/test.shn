@@ -13,6 +13,7 @@ assert (1 or 2) == 3
 
 def charset = none*[char]
 def byte = 0..255
+def sign = -1..1
 def -1..1 r3 = 0
 def a = 0
 def int b = 1
@@ -24,6 +25,10 @@ var v1 = 1
 # var v2 = []
 var int v3[] = []
 var char f1<> = []
+
+def none s1[sign] = [-1..0]
+assert -1 in s1
+assert not 1 in s1
 def r2 = [10..20]
 assert 11 in r2
 assert not 9 in r2
@@ -38,4 +43,11 @@ var 'a'..'z' r4 = 'a'
 assert 'b' in r4..'z'
 assert 1 in byte
 assert 'a' in char
-def charset letters = ['a', 'z']
+def charset some_letters = ['a', 'b', 'c']
+assert 'b' in some_letters
+def charset letters = ['_', 'A'..'Z', 'a'..'z']
+assert 'b' in letters
+assert not '0' in letters
+def none s2[int] = [1, 2, 3]
+assert 1 in s2
+assert not 4 in s2

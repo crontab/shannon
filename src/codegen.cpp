@@ -624,6 +624,33 @@ void CodeGen::elemToSet(Container* setType)
 }
 
 
+void CodeGen::rangeToOrdset(Ordset* setType)
+{
+    Type* rangeType = stkPop();
+    if (!rangeType->isRange())
+        throw emessage("Range type expected");
+    canAssign(PRange(rangeType)->base, setType->index, "Range element type mismatch");
+    addOp(opRangeToOrdset);
+    stkPush(setType);
+}
+
+
+void CodeGen::addRangeToOrdset(bool pop)
+{
+    Type* rangeType = stkPop();
+    Type* setType = stkTopType();
+    if (!rangeType->isRange())
+        throw emessage("Range type expected");
+    if (!setType->isOrdset())
+        throw emessage("Ordinal set expected");
+    canAssign(PRange(rangeType)->base, POrdset(setType)->index, "Range element type mismatch");
+    addOp(opAddRangeToOrdset);
+    add8(pop);
+    if (pop)
+        stkPop();
+}
+
+
 void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 {
     if (!to->isVariant() && !from->canAssignTo(to))

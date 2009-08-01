@@ -137,7 +137,8 @@ enum OpCode
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
     opAddToOrdset,      // [bool pop] -ord, -ordset
     opElemToOrdset,     // [Ordset*] -ord, +ordset
-//    opRangeToOrdset,    // -range, +ordset
+    opRangeToOrdset,    // -range, +ordset
+    opAddRangeToOrdset, // [bool pop] -range, +ordset
     opDelOrdsetElem,    // -key, -ordset
     opAddToSet,         // [bool pop] -key, -set
     opElemToSet,        // [Set*] -var, +set
@@ -339,6 +340,8 @@ public:
             { setOp(opDelOrdsetElem, opDelSetElem, true); }
     void inSet();
     void elemToSet(Container* setType = NULL);
+    void rangeToOrdset(Ordset*);
+    void addRangeToOrdset(bool pop);
 
     void implicitCastTo(Type*, const char* errmsg = NULL);
     void implicitCastTo2(Type*, const char* errmsg = NULL);

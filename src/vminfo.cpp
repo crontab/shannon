@@ -114,6 +114,8 @@ static OpInfo opTable[] =
     OP(StoreArrayElem, None),   // [bool pop] -val, -index, -array
     OP(AddToOrdset, None),      // [bool pop] -ord, -ordset
     OP(ElemToOrdset, None),     // [Ordset*] -ord, +ordset
+    OP(RangeToOrdset, None),    // -range, +ordset
+    OP(AddRangeToOrdset, None), // [bool pop] -range, +ordset
     OP(DelOrdsetElem, None),    // -key, -ordset
     OP(AddToSet, None),         // [bool pop] -key, -set
     OP(ElemToSet, None),        // [Set*] -var, +set
