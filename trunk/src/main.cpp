@@ -110,7 +110,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         {
             Type* indexType = typeExpr();
             if (type->isNone())
-                type = type->deriveSet();
+                type = indexType->deriveSet();
             else if (indexType->isNone())
                 type = type->deriveVector();
             else
@@ -189,29 +189,37 @@ Type* Compiler::compoundCtorElem(Type* type)
 }
 
 
-void Compiler::compoundCtor(Type* type)
+void Compiler::compoundCtor(Type* expectType)
 {
     skip(tokLSquare, "[");
     if (skipIf(tokRSquare))
     {
-        codegen->loadNullComp(type);
+        codegen->loadNullComp(expectType);
         return;
     }
 
-    type = compoundCtorElem(type);
+    Type* type = compoundCtorElem(expectType);
 
     if (type->isRange())
     {
-        if (token != tokRSquare)
-            error("Set constructor is not allowed when type is undefined");
-        next();
-        return;
+        if (expectType != NULL && expectType->isOrdset())
+        {
+            notimpl();
+        }
+        else
+        {
+            if (token != tokRSquare)
+                error("Set constructor is not allowed when type is undefined");
+            next();
+            return;
+        }
     }
-    
-    if (type->isDict())
+    else if (type->isDict())
         codegen->pairToDict(PDict(type));
     else if (type->isVector() || type->isArray())
         codegen->elemToVec(PVec(type));
+    else if (type->isOrdset() || type->isSet())
+        codegen->elemToSet(PCont(type));
     else
         notimpl();
 
@@ -224,6 +232,10 @@ void Compiler::compoundCtor(Type* type)
             codegen->storeContainerElem(false);
         else if (type->isVector() || type->isArray())
             codegen->elemCat();
+        else if (type->isOrdset() || type->isSet())
+            codegen->addToSet(false);
+        else
+            notimpl();
     }
 
     skip(tokRSquare, "]");

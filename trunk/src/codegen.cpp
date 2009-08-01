@@ -565,23 +565,26 @@ void CodeGen::pairToDict(Dict* dictType)
 }
 
 
-void CodeGen::setOp(OpCode ordsOp, OpCode sOp)
+void CodeGen::setOp(OpCode ordsOp, OpCode sOp, bool pop)
 {
     Type* setType = stkTopType(1);
     if (setType->isOrdset())
     {
         implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
         addOp(ordsOp);
+        add8(pop);
     }
     else if (setType->isSet())
     {
         implicitCastTo(PCont(setType)->index, "Set element type mismatch");
         addOp(sOp);
+        add8(pop);
     }
     else
         throw emessage("Set type expected");
     stkPop();
-    stkPop();
+    if (pop)
+        stkPop();
 }
 
 
@@ -609,7 +612,7 @@ void CodeGen::elemToSet(Container* setType)
     if (setType == NULL)
         setType = elemType->deriveSet();
     else
-        implicitCastTo(setType->elem, "Set element type mismatch");
+        implicitCastTo(setType->index, "Set element type mismatch");
     if (setType->isOrdset())
         addOpPtr(opElemToOrdset, setType);
     else if (setType->isSet())

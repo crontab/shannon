@@ -185,8 +185,7 @@ void typeMismatch()
 
 
 #define DERIVEX(d) \
-    { if (isNone()) throw emessage("Invalid element type"); \
-      if (derived##d == NULL) \
+    { if (derived##d == NULL) \
         derived##d = owner->registerType(new_##d(this)); \
       return derived##d; }
 

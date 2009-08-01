@@ -135,10 +135,11 @@ enum OpCode
 //    opStoreStrElem,     // -char, -index, -str
     opStoreVecElem,     // [bool pop] -val, -index, (-vector)
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
-    opAddToOrdset,      // -ord, -ordset
+    opAddToOrdset,      // [bool pop] -ord, -ordset
     opElemToOrdset,     // [Ordset*] -ord, +ordset
+//    opRangeToOrdset,    // -range, +ordset
     opDelOrdsetElem,    // -key, -ordset
-    opAddToSet,         // -key, -set
+    opAddToSet,         // [bool pop] -key, -set
     opElemToSet,        // [Set*] -var, +set
     opDelSetElem,       // -key, -set
 
@@ -288,7 +289,7 @@ protected:
     void loadStoreVar(Variable* var, bool load);
     void canAssign(Type* from, Type* to, const char* errmsg);
     bool tryImplicitCastTo(Type* to, bool under);
-    void setOp(OpCode ordsOp, OpCode sOp);
+    void setOp(OpCode ordsOp, OpCode sOp, bool pop);
     void dictOp(OpCode op);
 
 public:
@@ -332,10 +333,10 @@ public:
     void delDictElem();
     void keyInDict();
     void pairToDict(Dict*);
-    void addToSet()
-            { setOp(opAddToOrdset, opAddToSet); }
+    void addToSet(bool pop)
+            { setOp(opAddToOrdset, opAddToSet, pop); }
     void delSetElem()
-            { setOp(opDelOrdsetElem, opDelSetElem); }
+            { setOp(opDelOrdsetElem, opDelSetElem, true); }
     void inSet();
     void elemToSet(Container* setType = NULL);
 

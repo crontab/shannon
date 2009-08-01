@@ -107,15 +107,15 @@ static OpInfo opTable[] =
     OP(StoreStatic, ModIndex),  // [Module*, var-index: 8] -var
     OP(StoreMember, Index),     // [var-index: 8] -val, -obj
     OP(StoreOuter, LevelIndex), // [level: 8, var-index: 8] -var
-    OP(StoreDictElem, None),    // -val, -key, -dict
+    OP(StoreDictElem, None),    // [bool pop] -val, -key, -dict
     OP(PairToDict, Type),       // -val, -key, +dict
     OP(DelDictElem, None),      // -key, -dict
-    OP(StoreVecElem, None),     // -val, -index, -vector
-    OP(StoreArrayElem, None),   // -val, -index, -array
-    OP(AddToOrdset, None),      // -ord, -ordset
+    OP(StoreVecElem, None),     // [bool pop] -val, -index, -vector
+    OP(StoreArrayElem, None),   // [bool pop] -val, -index, -array
+    OP(AddToOrdset, None),      // [bool pop] -ord, -ordset
     OP(ElemToOrdset, None),     // [Ordset*] -ord, +ordset
     OP(DelOrdsetElem, None),    // -key, -ordset
-    OP(AddToSet, None),         // -key, -set
+    OP(AddToSet, None),         // [bool pop] -key, -set
     OP(ElemToSet, None),        // [Set*] -var, +set
     OP(DelSetElem, None),       // -key, -set
     OP(ChrToStr, None),         // -char, +str
