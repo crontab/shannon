@@ -101,11 +101,11 @@ void CodeGen::stkPush(Type* type)
 }
 
 
-const CodeGen::stkinfo& CodeGen::stkTop() const
+CodeGen::stkinfo& CodeGen::stkTop()
     { return genStack.back(); }
 
 
-const CodeGen::stkinfo& CodeGen::stkTop(mem i) const
+CodeGen::stkinfo& CodeGen::stkTop(mem i)
     { return *(genStack.rbegin() + i); }
 
 
@@ -123,6 +123,14 @@ Type* CodeGen::stkPop()
 void CodeGen::stkReplace(Type* type)
 {
     stkinfo& info = genStack.back();
+    info.type = type;
+    info.hasValue = false;
+}
+
+
+void CodeGen::stkReplace(Type* type, mem i)
+{
+    stkinfo& info = *(genStack.rbegin() + i);
     info.type = type;
     info.hasValue = false;
 }
@@ -345,7 +353,7 @@ void CodeGen::initLocalVar(Variable* var)
         _fatal(0x6003);
     locals++;
     // Local var simply remains on the stack, so just check the types
-    implicitCastTo(var->type, "Expression type mismatch");
+    implicitCastTo(var->type, "Variable type mismatch");
 }
 
 
@@ -366,6 +374,7 @@ void CodeGen::initThisVar(Variable* var)
     assert(var->isThisVar());
     assert(var->state == state);
     assert(var->id <= 255);
+    implicitCastTo(var->type, "Variable type mismatch");
     stkPop();
     addOp(opInitThis);
     add8(var->id);
@@ -479,42 +488,42 @@ void CodeGen::loadContainerElem()
     else
         throw emessage("Vector/array/dictionary type expected");
     stkPop();
-    stkPop();
-    stkPush(CAST(Container*, contType)->elem);
+    stkReplace(CAST(Container*, contType)->elem);
 }
 
 
 void CodeGen::storeContainerElem(bool pop)
 {
-    Type* idxType = stkTopType(1);
     Type* contType = stkTopType(2);
+
     if (contType->isString())
         throw emessage("Operation not allowed on strings");
-    else if (contType->isVector())
+
+    OpCode op = opInv;
+    Type* idxType = NULL;
+    if (contType->isVector())
     {
-        idxType = queenBee->defNone;
-        implicitCastTo(PVec(contType)->elem, "Vector element type mismatch");
-        addOp(opStoreVecElem);
-        add8(pop);
+        idxType = queenBee->defInt;
+        op = opStoreVecElem;
     }
     else if (contType->isArray())
     {
-        implicitCastTo(PArray(contType)->elem, "Array element type mismatch");
-        addOp(opStoreArrayElem);
-        add8(pop);
+        idxType = PCont(contType)->index;
+        op = opStoreArrayElem;
     }
     else if (contType->isDict())
     {
-        implicitCastTo(PDict(contType)->elem, "Dictionary element type mismatch");
-        addOp(opStoreDictElem);
-        add8(pop);
+        idxType = PCont(contType)->index;
+        op = opStoreDictElem;
     }
     else
         throw emessage("Vector/array/dictionary type expected");
-    // This works in the hope that index type was already checked and typecasted
-    // if necessary in loadContainerElem() and reverted with revertLastLoad().
-    // Can't do it here because index is not the top element on the stack.
-    canAssign(idxType, CAST(Container*, contType)->index, "Container index type mismatch");
+        
+    implicitCastTo2(idxType, "Container index type mismatch");
+    implicitCastTo(PCont(contType)->elem, "Container element type mismatch");
+
+    addOp(op);
+    add8(pop);
     stkPop();
     stkPop();
     if (pop)
@@ -536,25 +545,23 @@ void CodeGen::delDictElem()
 
 void CodeGen::keyInDict()
 {
-    Type* dictType = stkPop();
-    Type* keyType = stkPop();
+    Type* dictType = stkTopType();
     if (!dictType->isDict())
         throw emessage("Dictionary type expected");
-    canAssign(keyType, PDict(dictType)->index, "Dictionary key type mismatch");
+    implicitCastTo2(PDict(dictType)->index, "Dictionary key type mismatch");
     addOp(opKeyInDict);
-    stkPush(queenBee->defBool);
+    stkPop();
+    stkReplace(queenBee->defBool);
 }
 
 
 void CodeGen::pairToDict(Dict* dictType)
 {
-    Type* elemType = stkPop();
-    Type* keyType = stkPop();
-    // implicit casts should be done in the compiler
-    canAssign(elemType, dictType->elem, "Dictionary element type mismatch");
-    canAssign(keyType, dictType->index, "Dictionary key type mismatch");
+    implicitCastTo(dictType->elem, "Dictionary element type mismatch");
+    implicitCastTo2(dictType->index, "Dictionary key type mismatch");
     addOpPtr(opPairToDict, dictType);
-    stkPush(dictType);
+    stkPop();
+    stkReplace(dictType);
 }
 
 
@@ -580,15 +587,18 @@ void CodeGen::setOp(OpCode ordsOp, OpCode sOp)
 
 void CodeGen::inSet()
 {
-    Type* setType = stkPop();
-    Type* elemType = stkPop();
+    Type* setType = stkTopType();
+    OpCode op = opInv;
     if (setType->isOrdset())
-        addOp(opInOrdset);
+        op = opInOrdset;
     else if (setType->isSet())
-        addOp(opInSet);
+        op = opInSet;
     else
         throw emessage("Set type expected");
-    canAssign(elemType, PCont(setType)->index, "Set element type mismatch");
+    implicitCastTo2(PCont(setType)->index, "Set element type mismatch");
+    addOp(op);
+    stkPop();
+    stkPop();
     stkPush(queenBee->defBool);
 }
 
@@ -618,18 +628,22 @@ void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 }
 
 
-bool CodeGen::tryImplicitCastTo(Type* to)
+bool CodeGen::tryImplicitCastTo(Type* to, bool under)
 {
-    Type* from = stkTopType();
-    if (from->canAssignTo(to) || to->isVariant())
-        stkReplace(to);
+    Type* from = stkTopType(int(under));
+    if (from == to || from->identicalTo(to))
+        ;
     else if (from->isChar() && to->isString())
     {
-        addOp(opCharToStr);
-        stkReplace(to);
+        addOp(under ? opChrToStr2 : opChrToStr);
+        stkReplace(to, int(under));
     }
+    else if (from->canAssignTo(to) || to->isVariant())
+        stkReplace(to, int(under));
     else if (from->isNullComp() && to->isCompound())
     {
+        if (under)
+            throw emessage("Type of null compound is undefined");
         stkPop();
         revertLastLoad();
         loadConst(to, (object*)NULL);
@@ -643,15 +657,22 @@ bool CodeGen::tryImplicitCastTo(Type* to)
 
 void CodeGen::implicitCastTo(Type* to, const char* errmsg)
 {
-    if (!tryImplicitCastTo(to))
+    if (!tryImplicitCastTo(to, false))
         throw emessage(errmsg == NULL ? "Type mismatch" : errmsg);
+}
+
+
+void CodeGen::implicitCastTo2(Type* to, const char* errmsg)
+{
+    if (!tryImplicitCastTo(to, true))
+        throw emessage(errmsg == NULL ? "Left operand type mismatch" : errmsg);
 }
 
 
 void CodeGen::explicitCastTo(Type* to, const char* errmsg)
 {
     Type* from = stkTopType();
-    if (tryImplicitCastTo(to))
+    if (tryImplicitCastTo(to, false))
         return;
     else if (to->isBool())
     {
@@ -661,7 +682,7 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
     else if (to->isString())
     {
         // explicit cast to string: any object goes
-        addOp(from->isChar() ? opCharToStr : opToStr);
+        addOp(from->isChar() ? opChrToStr : opToStr);
         stkReplace(queenBee->defStr);
     }
     else if (
@@ -773,7 +794,7 @@ void CodeGen::elemToVec(Vec* vecType)
     else
         implicitCastTo(vecType->elem, "Vector element type mismatch");
     if (elemType->isChar())
-        addOp(opCharToStr);
+        addOp(opChrToStr);
     else
         addOpPtr(opVarToVec, vecType);
     stkPop();
@@ -795,47 +816,52 @@ void CodeGen::elemCat()
 
 void CodeGen::cat()
 {
-    Type* right = stkPop();
-    Type* left = stkTopType();
-    if (!left->isVector() || !right->isVector())
-        throw emessage("Vector/string type expected");
-    canAssign(right, left, "Vector/string types do not match");
+    Type* left = stkTopType(1);
+    if (!left->isVector())
+        throw emessage("Left operand is not a vector");
+    implicitCastTo(left, "Vector/string types do not match");
+    stkPop();
     addOp(left->isString() ? opStrCat : opVecCat);
 }
 
 
-void CodeGen::mkRange()
+void CodeGen::mkRange(Range* rangeType)
 {
     // TODO: calculate at compile time
-    Type* right = stkPop();
-    Type* left = stkPop();
-    if (!left->isOrdinal() || !right->isOrdinal())
-        throw emessage("Range elements must be ordinal");
-    canAssign(right, left, "Range element types do not match");
-    Range* rangeType = POrdinal(left)->deriveRange();
+    Type* left = stkTopType(1);
+    if (rangeType == NULL)
+    {
+        if (!left->isOrdinal())
+            throw emessage("Range boundaries must be ordinal");
+        rangeType = POrdinal(left)->deriveRange();
+    }
+    else
+        implicitCastTo2(rangeType->base, "Range element type mismatch");
+    implicitCastTo(rangeType->base, "Range element type mismatch");
     addOpPtr(opMkRange, rangeType);
-    stkPush(rangeType);
+    stkPop();
+    stkReplace(rangeType);
 }
 
 
 void CodeGen::inRange()
 {
-    Type* rng = stkPop();
-    Type* elem = stkPop();
-    if (!rng->isRange())
+    Type* rangeType = stkTopType();
+    if (!rangeType->isRange())
         throw emessage("Range type expected");
-    canAssign(elem, PRange(rng)->base, "Range element types do not match");
+    implicitCastTo2(PRange(rangeType)->base, "Range element types do not match");
     addOp(opInRange);
-    stkPush(queenBee->defBool);
+    stkPop();
+    stkReplace(queenBee->defBool);
 }
 
 
 void CodeGen::cmp(OpCode op)
 {
     assert(isCmpOp(op));
-    Type* right = stkPop();
-    Type* left = stkPop();
-    canAssign(right, left, "Types mismatch in comparison");
+    Type* left = stkTopType(1);
+    implicitCastTo(left, "Type mismatch in comparison");
+    Type* right = stkTopType();
     if (left->isOrdinal() && right->isOrdinal())
         addOp(opCmpOrd);
     else if (left->isString() && right->isString())
@@ -848,7 +874,8 @@ void CodeGen::cmp(OpCode op)
         addOp(opCmpVar);
     }
     addOp(op);
-    stkPush(queenBee->defBool);
+    stkPop();
+    stkReplace(queenBee->defBool);
 }
 
 
@@ -965,6 +992,12 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
     else
     {
         canAssign(caseType, labelType, "Case label type mismatch");
+        if (labelType->isChar() && caseType->isString())
+        {
+            loadStr(label.to_string());
+            addOp(opCaseStr);
+            stkPop();
+        }
         if (labelType->isOrdinal())
         {
             addOp(opCaseInt);

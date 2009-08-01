@@ -142,7 +142,8 @@ enum OpCode
     opDelSetElem,       // -key, -set
 
     // Concatenation
-    opCharToStr,        // -char, +str
+    opChrToStr,         // -char, +str
+    opChrToStr2,        // swap, -char, +str, swap
     opCharCat,          // -char, -str, +str
     opStrCat,           // -str, -str, +str
     opVarToVec,         // [Vector*] -var, +vec
@@ -266,25 +267,26 @@ protected:
     void stkPush(Type* t);
     void stkPush(Constant* c)
             { stkPush(c->type, c->value); }
-    const stkinfo& stkTop() const;
-    const stkinfo& stkTop(mem) const;
-    Type* stkTopType() const
+    stkinfo& stkTop();
+    stkinfo& stkTop(mem);
+    Type* stkTopType()
             { return stkTop().type; }
-    bool  stkTopIsValue() const
+    bool  stkTopIsValue()
             { return stkTop().hasValue; }
-    const variant& stkTopValue() const
+    const variant& stkTopValue()
             { return stkTop().value; }
-    Type* stkTopType(mem i) const
+    Type* stkTopType(mem i)
             { return stkTop(i).type; }
     Type* stkPop();
     void stkReplace(Type*);
+    void stkReplace(Type*, mem);
 
     void loadConstById(mem id);
     mem  loadCompoundConst(Type*, const variant&, OpCode);
     void doStaticVar(ThisVar* var, OpCode);
     void loadStoreVar(Variable* var, bool load);
     void canAssign(Type* from, Type* to, const char* errmsg);
-    bool tryImplicitCastTo(Type* to);
+    bool tryImplicitCastTo(Type* to, bool under);
     void setOp(OpCode ordsOp, OpCode sOp);
     void dictOp(OpCode op);
 
@@ -337,6 +339,7 @@ public:
     void elemToSet(Container* setType = NULL);
 
     void implicitCastTo(Type*, const char* errmsg);
+    void implicitCastTo2(Type*, const char* errmsg);
     void explicitCastTo(Type*, const char* errmsg);
     void toBool();
     void dynamicCast();
@@ -349,7 +352,7 @@ public:
     void elemToVec(Vec* vecType = NULL);
     void elemCat();
     void cat();
-    void mkRange();
+    void mkRange(Range*);
     void inRange();
     void cmp(OpCode op);
 

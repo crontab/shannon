@@ -117,7 +117,8 @@ static OpInfo opTable[] =
     OP(AddToSet, None),         // -key, -set
     OP(ElemToSet, None),        // [Set*] -var, +set
     OP(DelSetElem, None),       // -key, -set
-    OP(CharToStr, None),        // -char, +str
+    OP(ChrToStr, None),         // -char, +str
+    OP(ChrToStr2, None),        // swap, -char, +str, swap
     OP(CharCat, None),          // -char, -str, +str
     OP(StrCat, None),           // -str, -str, +str
     OP(VarToVec, Type),         // [Vector*] -var, +vec

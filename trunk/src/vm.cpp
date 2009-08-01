@@ -328,7 +328,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opDelSetElem: CAST(set*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
 
             // Concatenation
-            case opCharToStr:   *stk = str(1, stk->_uchar()); break;
+            case opChrToStr:    *stk = str(1, stk->_uchar()); break;
+            case opChrToStr2:   *(stk - 1) = str(1, (stk - 1)->_uchar()); break;
             case opCharCat:     (stk - 1)->_strw().push_back(stk->_uchar()); POPORD(stk); break;
             case opStrCat:      (stk - 1)->_strw().append(stk->_str()); POP(stk); break;
             case opVarToVec:    *stk = new vector(ADV<Vec*>(ip), 1, *stk); break;
