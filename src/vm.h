@@ -265,6 +265,7 @@ protected:
     void revertLastLoad();
     OpCode lastOp();
     void close();
+    void error(const char*);
 
     void stkPush(Type* t, const variant& v);
     void stkPush(Type* t);
