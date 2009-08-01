@@ -135,8 +135,10 @@ enum OpCode
     opStoreVecElem,     // [bool pop] -val, -index, (-vector)
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
     opAddToOrdset,      // -ord, -ordset
+    opElemToOrdset,     // [Ordset*] -ord, +ordset
     opDelOrdsetElem,    // -key, -ordset
     opAddToSet,         // -key, -set
+    opElemToSet,        // [Set*] -var, +set
     opDelSetElem,       // -key, -set
 
     // Concatenation

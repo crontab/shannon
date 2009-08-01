@@ -112,8 +112,10 @@ static OpInfo opTable[] =
     OP(StoreVecElem, None),     // -val, -index, -vector
     OP(StoreArrayElem, None),   // -val, -index, -array
     OP(AddToOrdset, None),      // -ord, -ordset
+    OP(ElemToOrdset, None),     // [Ordset*] -ord, +ordset
     OP(DelOrdsetElem, None),    // -key, -ordset
     OP(AddToSet, None),         // -key, -set
+    OP(ElemToSet, None),        // [Set*] -var, +set
     OP(DelSetElem, None),       // -key, -set
     OP(CharToStr, None),        // -char, +str
     OP(CharCat, None),          // -char, -str, +str

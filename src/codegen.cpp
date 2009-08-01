@@ -540,8 +540,7 @@ void CodeGen::keyInDict()
     Type* keyType = stkPop();
     if (!dictType->isDict())
         throw emessage("Dictionary type expected");
-    if (!keyType->canAssignTo(PDict(dictType)->index))
-        throw emessage("Dictionary key type mismatch");
+    canAssign(keyType, PDict(dictType)->index, "Dictionary key type mismatch");
     addOp(opKeyInDict);
     stkPush(queenBee->defBool);
 }
@@ -552,10 +551,8 @@ void CodeGen::pairToDict(Dict* dictType)
     Type* elemType = stkPop();
     Type* keyType = stkPop();
     // implicit casts should be done in the compiler
-    if (!elemType->canAssignTo(dictType->elem))
-        throw emessage("Dictionary element type mismatch");
-    if (!keyType->canAssignTo(dictType->index))
-        throw emessage("Dictionary key type mismatch");
+    canAssign(elemType, dictType->elem, "Dictionary element type mismatch");
+    canAssign(keyType, dictType->index, "Dictionary key type mismatch");
     addOpPtr(opPairToDict, dictType);
     stkPush(dictType);
 }
@@ -565,12 +562,17 @@ void CodeGen::setOp(OpCode ordsOp, OpCode sOp)
 {
     Type* setType = stkTopType(1);
     if (setType->isOrdset())
+    {
+        implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
         addOp(ordsOp);
+    }
     else if (setType->isSet())
+    {
+        implicitCastTo(PCont(setType)->index, "Set element type mismatch");
         addOp(sOp);
+    }
     else
         throw emessage("Set type expected");
-    implicitCastTo(PCont(setType)->index, "Set element type mismatch");
     stkPop();
     stkPop();
 }
@@ -586,8 +588,7 @@ void CodeGen::inSet()
         addOp(opInSet);
     else
         throw emessage("Set type expected");
-    if (!elemType->canAssignTo(PCont(setType)->index))
-        throw emessage("Set element type mismatch");
+    canAssign(elemType, PCont(setType)->index, "Set element type mismatch");
     stkPush(queenBee->defBool);
 }
 
@@ -599,6 +600,12 @@ void CodeGen::elemToSet(Container* setType)
         setType = elemType->deriveSet();
     else
         implicitCastTo(setType->elem, "Set element type mismatch");
+    if (setType->isOrdset())
+        addOpPtr(opElemToOrdset, setType);
+    else if (setType->isSet())
+        addOpPtr(opElemToSet, setType);
+    else
+        throw emessage("Set type expected");
     stkPop();
     stkPush(setType);
 }
@@ -614,9 +621,7 @@ void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 bool CodeGen::tryImplicitCastTo(Type* to)
 {
     Type* from = stkTopType();
-    if (from->canAssignTo(to))
-        stkReplace(to);
-    else if (to->isVariant())
+    if (from->canAssignTo(to) || to->isVariant())
         stkReplace(to);
     else if (from->isChar() && to->isString())
     {
@@ -794,8 +799,7 @@ void CodeGen::cat()
     Type* left = stkTopType();
     if (!left->isVector() || !right->isVector())
         throw emessage("Vector/string type expected");
-    if (!right->canAssignTo(left))
-        throw emessage("Vector/string types do not match");
+    canAssign(right, left, "Vector/string types do not match");
     addOp(left->isString() ? opStrCat : opVecCat);
 }
 
@@ -807,8 +811,7 @@ void CodeGen::mkRange()
     Type* left = stkPop();
     if (!left->isOrdinal() || !right->isOrdinal())
         throw emessage("Range elements must be ordinal");
-    if (!right->canAssignTo(left))
-        throw emessage("Range element types do not match");
+    canAssign(right, left, "Range element types do not match");
     Range* rangeType = POrdinal(left)->deriveRange();
     addOpPtr(opMkRange, rangeType);
     stkPush(rangeType);
@@ -821,8 +824,7 @@ void CodeGen::inRange()
     Type* elem = stkPop();
     if (!rng->isRange())
         throw emessage("Range type expected");
-    if (!elem->canAssignTo(PRange(rng)->base))
-        throw emessage("Range element type mismatch");
+    canAssign(elem, PRange(rng)->base, "Range element types do not match");
     addOp(opInRange);
     stkPush(queenBee->defBool);
 }
@@ -833,8 +835,7 @@ void CodeGen::cmp(OpCode op)
     assert(isCmpOp(op));
     Type* right = stkPop();
     Type* left = stkPop();
-    if (!right->canAssignTo(left))
-        throw emessage("Types mismatch in comparison");
+    canAssign(right, left, "Types mismatch in comparison");
     if (left->isOrdinal() && right->isOrdinal())
         addOp(opCmpOrd);
     else if (left->isString() && right->isString())
