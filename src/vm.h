@@ -77,7 +77,8 @@ enum OpCode
 
     // Range operations (work for all ordinals)
     opMkRange,          // [Ordinal*] -right-int, -left-int, +range
-    opInRange,          // -range, -int, +bool
+    opInRange,          // -range, -ord, +bool
+    opInBounds,         // -ord, -ord, -ord, +bool
 
     // Comparators
     opCmpOrd,           // -ord, -ord, +{-1,0,1}
@@ -338,9 +339,9 @@ public:
     void inSet();
     void elemToSet(Container* setType = NULL);
 
-    void implicitCastTo(Type*, const char* errmsg);
-    void implicitCastTo2(Type*, const char* errmsg);
-    void explicitCastTo(Type*, const char* errmsg);
+    void implicitCastTo(Type*, const char* errmsg = NULL);
+    void implicitCastTo2(Type*, const char* errmsg = NULL);
+    void explicitCastTo(Type*, const char* errmsg = NULL);
     void toBool();
     void dynamicCast();
     void testType(Type*);
@@ -354,6 +355,7 @@ public:
     void cat();
     void mkRange(Range*);
     void inRange();
+    void inBounds();
     void cmp(OpCode op);
 
     void empty();

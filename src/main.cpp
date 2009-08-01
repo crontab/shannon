@@ -373,6 +373,40 @@ void Compiler::relation()
         simpleExpr();
         codegen->cmp(op);
     }
+    else if (skipIf(tokIn))
+    {
+        simpleExpr();
+        Type* type = codegen->getTopType();
+        if (skipIf(tokRange))
+        {
+            codegen->implicitCastTo2(type);
+            simpleExpr();
+            codegen->inBounds();
+        }
+        else
+        {
+            if (type->isRange())
+                codegen->inRange();
+            else if (type->isOrdset() || type->isSet())
+                codegen->inSet();
+            else if (type->isDict())
+                codegen->keyInDict();
+            else if (type->isTypeRef())
+            {
+                Type* typeRef = codegen->getTopTypeRefValue();
+                if (typeRef == NULL)
+                    error("Variable typeref is not allowed on the right of 'in'");
+                if (!typeRef->isOrdinal())
+                    error("Ordinal typeref expected on the right of 'in'");
+                codegen->implicitCastTo(typeRef); // note, the value is on the top of stack now
+                codegen->loadInt(POrdinal(typeRef)->left);
+                codegen->loadInt(POrdinal(typeRef)->right);
+                codegen->inBounds();
+            }
+            else
+                error("Range, set, dictionary, or ordinal typeref expected on the right of 'in'");
+        }
+    }
 }
 
 

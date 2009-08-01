@@ -10,6 +10,7 @@ assert true or false
 assert not (false or false)
 assert (1 xor 3) == 2
 assert (1 or 2) == 3
+def byte = 0..255
 def -1..1 r3 = 0
 def a = 0
 def int b = 1
@@ -22,10 +23,16 @@ var v1 = 1
 var int v3[] = []
 var char f1<> = []
 def r2 = [10..20]
+assert 11 in r2
+assert not 9 in r2
 def d1 = ['k1' = 1, 'k' = 2]
+assert 'k1' in d1
+assert 'k' in d1
+assert not 'j' in d1
+assert 'b' in 'a'..'z'
 def int v4[] = [1, 2, 3]
 def v5 = ['abc', 'd', 'ef']
-def 'a'..'z' r4 = 'a'
-
-echo v5
-echo d1
+var 'a'..'z' r4 = 'a'
+assert 'b' in r4..'z'
+assert 1 in byte
+assert 'a' in char
