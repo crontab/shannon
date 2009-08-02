@@ -23,10 +23,10 @@ enum Token
     // vs. Python-style modes
     tokBlockBegin, tokBlockEnd, tokSingle, tokSep, tokIndent,
     tokEof,
-    tokIdent, tokIntValue, tokStrValue,
+    tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
     tokConst, tokDef, tokVar,
-    tokEnum, tokEcho, tokAssert, tokBegin, tokIf, tokElif, tokElse,
+    tokEcho, tokAssert, tokBegin, tokIf, tokElif, tokElse,
     tokWhile, tokBreak, tokContinue, tokCase, tokReturn, tokExit,
     
     // Term level
@@ -60,7 +60,7 @@ enum Token
 
 class Parser: noncopyable
 {
-protected:
+private:
     str fileName;
     objptr<fifo_intf> input;
     bool newLine;
@@ -68,6 +68,9 @@ protected:
     int linenum;
     int indent;
     int curlyLevel;
+
+    str prevIdent; // undo()
+    Token saveToken;
 
     str errorLocation() const;
     void parseStringLiteral();
@@ -80,18 +83,15 @@ public:
     Token token;
     str strValue;
     uinteger intValue;
-    str prevIdent; // undo()
-    
+
     Parser(const str&, fifo_intf*);
     ~Parser();
     
     Token next();
-    void undoIdent(const str& ident)
-            { prevIdent = ident; }
-    void redoIdent()
-            { prevIdent.clear(); }
-    bool isAssignment()
-            { return token == tokAssign; }
+    void undoIdent(const str& ident);
+    void redoIdent();
+    const str& getPrevIdent()
+            { return prevIdent; }
     void error(const str& msg);
     void errorWithLoc(const str& msg);
     void error(const char*);

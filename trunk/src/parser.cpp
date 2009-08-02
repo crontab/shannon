@@ -60,7 +60,6 @@ Keywords::kwinfo Keywords::keywords[] =
         {"echo", tokEcho},
         {"elif", tokElif},
         {"else", tokElse},
-        {"enum", tokEnum},
         {"exit", tokExit},
         {"if", tokIf},
         {"in", tokIn},
@@ -139,6 +138,7 @@ Parser::Parser(const str& fn, fifo_intf* _input)
     : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
       curlyLevel(0),
+      prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)
 {
     indentStack.push(0);
@@ -269,6 +269,7 @@ void Parser::skipWsAndEol()
 
 Token Parser::next()
 {
+    assert(token != tokPrevIdent);
 restart:
     strValue.clear();
     intValue = 0;
@@ -455,8 +456,27 @@ restart:
 }
 
 
+void Parser::undoIdent(const str& ident)
+{
+    prevIdent = ident;
+    saveToken = token;
+    token = tokPrevIdent;
+}
+
+
+void Parser::redoIdent()
+{
+    prevIdent.clear();
+    token = saveToken;
+    saveToken = tokUndefined;
+}
+
+
 str Parser::getIdentifier()
 {
+    // This function doesn't call next() because in many cases we want
+    // compiler's error messages to point to this identifier rather than
+    // the next token.
     if (token != tokIdent)
         errorWithLoc("Identifier expected");
     str result = strValue;

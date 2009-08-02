@@ -35,12 +35,13 @@ protected:
 
     CodeGen* codegen;
     Scope* scope;           // for storing definitions
-    BlockScope* blockScope; // for local vars in nested blocks
-    State* state;           // for this-vars
+    BlockScope* blockScope; // for local vars in nested blocks, can be NULL
+    State* state;           // for this-vars and type objects
 
     Type* getTypeDerivators(Type*);
     Type* compoundCtorElem(Type*);
     void compoundCtor(Type*);
+    void enumeration(const str&);
     void atom();
     void designator();
     void factor();
@@ -259,11 +260,27 @@ void Compiler::compoundCtor(Type* expectType)
 }
 
 
+void Compiler::enumeration(const str& firstIdent)
+{
+    Enumeration* enumType = state->registerType(new Enumeration());
+    enumType->addValue(firstIdent);
+    while (skipIf(tokComma))
+    {
+        if (token == tokRParen) // allow trailing comma
+            break;
+        enumType->addValue(getIdentifier());
+        next();
+    }
+    skip(tokRParen, ")");
+    codegen->loadTypeRef(enumType);
+}
+
+
 void Compiler::atom()
 {
-    if (!prevIdent.empty())  // from partial (typeless) definition
+    if (token == tokPrevIdent)  // from partial (typeless) definition or enum spec
     {
-        Symbol* s = scope->findDeep(prevIdent);
+        Symbol* s = scope->findDeep(getPrevIdent());
         codegen->loadSymbol(s);
         redoIdent();
     }
@@ -293,8 +310,23 @@ void Compiler::atom()
 
     else if (skipIf(tokLParen))
     {
-        expression();
-        skip(tokRParen, ")");
+        if (token == tokIdent)
+        {
+            str ident = strValue;
+            if (next() == tokComma)
+                enumeration(ident);
+            else
+            {
+                undoIdent(ident);
+                goto ICantBelieveIUsedAGotoStatementShameShame;
+            }
+        }
+        else
+        {
+ICantBelieveIUsedAGotoStatementShameShame:
+            expression();
+            skip(tokRParen, ")");
+        }
     }
 
     else if (token == tokLSquare)
@@ -715,6 +747,7 @@ void Compiler::compile()
     CodeGen mainCodeGen(&mainModule);
     codegen = &mainCodeGen;
     scope = state = &mainModule;
+    blockScope = NULL;
 
     try
     {
