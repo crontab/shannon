@@ -326,6 +326,7 @@ varlist::varlist()                          { }
 varlist::varlist(const varlist& other)      : impl(other.impl)  { }
 void varlist::pop_back()                    { impl.pop_back(); }
 void varlist::push_back(const variant& v)   { impl.push_back(v); }
+void varlist::put(mem i, const variant& v)  { impl[i] = v; }
 void varlist::resize(mem s)                 { impl.resize(s); }
 void varlist::clear()                       { impl.clear(); }
 void varlist::append(const varlist& other)

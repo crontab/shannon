@@ -108,10 +108,11 @@ static OpInfo opTable[] =
     OP(StoreMember, Index),     // [var-index: 8] -val, -obj
     OP(StoreOuter, LevelIndex), // [level: 8, var-index: 8] -var
     OP(StoreDictElem, None),    // [bool pop] -val, -key, -dict
-    OP(PairToDict, Type),       // -val, -key, +dict
+    OP(PairToDict, Type),       // [Dict*] -val, -key, +dict
     OP(DelDictElem, None),      // -key, -dict
     OP(StoreVecElem, None),     // [bool pop] -val, -index, -vector
     OP(StoreArrayElem, None),   // [bool pop] -val, -index, -array
+    OP(PairToArray, Type),      // [Array*] -vel, -idx, +dict
     OP(AddToOrdset, None),      // [bool pop] -ord, -ordset
     OP(ElemToOrdset, None),     // [Ordset*] -ord, +ordset
     OP(RangeToOrdset, None),    // -range, +ordset

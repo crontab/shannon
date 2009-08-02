@@ -1,4 +1,6 @@
 
+* Replace genStack with a plain static array some 32 elements in size.
+
 * for loop: allow types, also range as an exception can have variable
   boundaries
 

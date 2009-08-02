@@ -223,7 +223,7 @@ bool Type::isModule() const
     { return typeId == STATE && PState(this)->level == 0; }
 
 bool Type::canBeArrayIndex() const
-    { return isOrdinal() && POrdinal(this)->rangeFits(Container::MAX_ARRAY_INDEX); }
+    { return isOrdinal() && POrdinal(this)->rangeFits(MAX_ARRAY_RANGE); }
 
 bool Type::canBeOrdsetIndex() const
     { return isOrdinal() && POrdinal(this)->rangeFits(charset::BITS); }
@@ -500,14 +500,14 @@ void Ordinal::fullDump(fifo_intf& stm) const
 Range* Ordinal::deriveRange()   { DERIVEX(Range) }
 
 
-bool Ordinal::rangeFits(integer i)
+mem Ordinal::rangeSize()
 {
     if (left > right)
-        return false;
+        return 0;
     integer diff = right - left + 1;
     if (diff <= 0)  // overflow, e.g. default int range
-        return false;
-    return diff <= i;
+        return 0;
+    return diff;
 }
 
 
@@ -695,6 +695,13 @@ void Container::runtimeTypecast(variant& value)
     }
     else
         typeMismatch();
+}
+
+
+mem Container::arrayRangeSize()
+{
+    assert(isArray() && index->isOrdinal() && POrdinal(index)->rangeFits(MAX_ARRAY_RANGE));
+    return POrdinal(index)->rangeSize();
 }
 
 

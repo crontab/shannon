@@ -11,9 +11,9 @@ assert not (false or false)
 assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
+def sign = -1..1
 def charset = none*[char]
 def byte = 0..255
-def sign = -1..1
 def -1..1 r3 = 0
 def a = 0
 def int b = 1
@@ -51,3 +51,6 @@ assert not '0' in letters
 def none s2[int] = [1, 2, 3]
 assert 1 in s2
 assert not 4 in s2
+var str a1[sign] = []
+def str a2[sign] = [-1 = 'negative', 1 = 'positive']
+assert a2[-1] == 'negative' and a2[1] == 'positive'

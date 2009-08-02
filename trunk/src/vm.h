@@ -130,11 +130,12 @@ enum OpCode
 
     // Container write operations
     opStoreDictElem,    // [bool pop] -val, -key, (-dict)
-    opPairToDict,       // -val, -key, +dict
+    opPairToDict,       // [Dict*] -val, -key, +dict
     opDelDictElem,      // -key, -dict
 //    opStoreStrElem,     // -char, -index, -str
     opStoreVecElem,     // [bool pop] -val, -index, (-vector)
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
+    opPairToArray,      // [Array*] -val, -idx, +array
     opAddToOrdset,      // [bool pop] -ord, -ordset
     opElemToOrdset,     // [Ordset*] -ord, +ordset
     opRangeToOrdset,    // -range, +ordset
@@ -335,6 +336,7 @@ public:
     void delDictElem();
     void keyInDict();
     void pairToDict(Dict*);
+    void pairToArray(Array*);
     void addToSet(bool pop)
             { setOp(opAddToOrdset, opAddToSet, pop); }
     void delSetElem()
