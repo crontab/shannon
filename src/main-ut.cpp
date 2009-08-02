@@ -96,7 +96,7 @@ void test_variant()
     int save_alloc = object::alloc;
     {
         variant v1 = null;              check(v1.is_null());
-        variant v2 = 0;                 check(v2.is(variant::ORD));     check(v2.as_int() == 0);
+        variant v2 = 0;                 check(v2.is_ord());     check(v2.as_int() == 0);
         variant v3 = 1;                 check(v3.as_int() == 1);
         variant v4 = INTEGER_MAX;       check(v4.as_int() == INTEGER_MAX);
         variant v5 = INTEGER_MIN;       check(v5.as_int() == INTEGER_MIN);
@@ -139,7 +139,7 @@ void test_variant()
         v = o;                 check(v.as_obj() == o);
         check(v != null);
         v = null;
-        check(!v.is(variant::OBJECT));
+        check(!v.is_obj());
         check(v == null);
 
         variant voa = vo;
@@ -168,17 +168,17 @@ void test_symbols()
 {
     int save_alloc = object::alloc;
     {
-        objptr<Symbol> s = new Symbol(Symbol::THISVAR, NULL, "sym");
+        objptr<Symbol> s = new Constant(defTypeRef, "sym", defTypeRef);
         check(s->name == "sym");
         SymbolTable<Symbol> t;
         check(t.empty());
-        objptr<Symbol> s1 = new Symbol(Symbol::THISVAR, NULL, "abc");
+        objptr<Symbol> s1 = new Constant(defTypeRef, "abc", defTypeRef);
         check(s1->is_unique());
         t.addUnique(s1);
         check(s1->is_unique());
-        objptr<Symbol> s2 = new Symbol(Symbol::THISVAR, NULL, "def");
+        objptr<Symbol> s2 = new Constant(defTypeRef, "def", defTypeRef);
         t.addUnique(s2);
-        objptr<Symbol> s3 = new Symbol(Symbol::THISVAR, NULL, "abc");
+        objptr<Symbol> s3 = new Constant(defTypeRef, "abc", defTypeRef);
         check_throw(t.addUnique(s3));
         check(t.find("abc") == s1);
         check(s2 == t.find("def"));
@@ -190,7 +190,7 @@ void test_symbols()
         check(l.empty());
         l.add(s1);
         check(!s1->is_unique());
-        l.add(new Symbol(Symbol::THISVAR, NULL, "ghi"));
+        l.add(new Constant(defTypeRef, "ghi", defTypeRef));
         check(l.size() == 2);
         check(!l.empty());
     }
@@ -338,7 +338,7 @@ void test_fifos()
     f.var_deq(x);
     check(x.is_obj());
     f.var_deq(w);
-    check(w.is(variant::STR));
+    check(w.is_str());
     f.var_eat();
     variant vr;
     f.var_preview(vr);
@@ -417,6 +417,17 @@ void test_typesys()
         doneTypeSys();
     }
     doneTypeSys();
+}
+
+
+void check_var(const variant& v, const char* s)
+{
+    strfifo stm(NULL);
+    queenBee->defVariant->dumpValue(stm, v);
+    str s1 = stm.all();
+//    sio << "Expecting: " << s << endl;
+//    sio << "Result:    " << s1 << endl;
+    check(s1 == s);
 }
 
 
@@ -509,7 +520,7 @@ void test_vm()
             gen.endConstExpr(queenBee->defInt->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[1, 2, 3, 4]");
+        check_var(r, "[1, 2, 3, 4]");
 
         seg.clear();
         {
@@ -567,7 +578,7 @@ void test_vm()
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[1, 1, 1, 1, 1, 1, 0, 1, 1, 0]");
+        check_var(r, "[true, true, true, true, true, true, false, true, true, false]");
     }
 
     {
@@ -720,9 +731,8 @@ void test_vm()
             gen.end();
         }
         variant result = mod.run();
-        str s = result.to_string();
-        check(s ==
-            "[10, 65, 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 2000], "
+        check_var(result,
+            "[10, 65, 10, 3, ['k1' = 15], ['abc', 'def'], 22, ['a'..'b'], [100, 2000], "
             "1, 0, 1, 0, 0, 1, 200, <char-fifo>, null]");
     }
 
@@ -837,8 +847,7 @@ void test_vm()
             gen.end();
         }
         variant result = mod.run();
-        str s = result.to_string();
-        check(s == "['abcdef', 123, 2, 10, 1, 1, 1, 1, 1, ['FALSE', 'TRUE']]");
+        check_var(result, "['abcdef', 123, 2, 10, 1, 1, 1, 1, 1, ['FALSE', 'TRUE']]");
     }
 
     }

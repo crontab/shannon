@@ -168,19 +168,6 @@ static struct vmdebuginit
 #endif
 
 
-static void dumpConst(fifo& stm, const variant& value)
-{
-    switch (value.getType())
-    {
-    case variant::NONE:     stm << "null"; break;
-    case variant::ORD:      stm << "$" << value._ord(); break;
-    case variant::REAL:     notimpl(); break;
-    case variant::STR:      stm << '\'' << value._str() << '\''; break;
-    case variant::OBJECT:   value._obj()->get_rt()->dumpValue(stm, value); break;
-    }
-}
-
-
 void CodeSeg::listing(fifo& stm) const
 {
     if (code.empty())
@@ -209,10 +196,10 @@ void CodeSeg::listing(fifo& stm) const
                 {
                     case argNone:       break;
                     case argChar:       stm << mkQuotedPrintable(ADV<char>(ip)); break;
-                    case argInt:        stm << ADV<integer>(ip); break;
-                    case argType:       ADV<Type*>(ip)->dump(stm); break;
-                    case argConst:      dumpConst(stm, consts[ADV<uchar>(ip)]); break;
-                    case argConst16:    dumpConst(stm, consts[ADV<uint16_t>(ip)]); break;
+                    case argInt:        stm << '$' << ADV<integer>(ip); break;
+                    case argType:       stm << *ADV<Type*>(ip); break;
+                    case argConst:      queenBee->defVariant->dumpValue(stm, consts[ADV<uchar>(ip)]); break;
+                    case argConst16:    queenBee->defVariant->dumpValue(stm, consts[ADV<uint16_t>(ip)]); break;
                     case argIndex:      stm << '.' << integer(ADV<uchar>(ip)); break;
                     case argModIndex:   stm << ADV<Module*>(ip)->name; stm << '.' << int(ADV<uchar>(ip)); break;
                     case argLevelIndex: stm << '.' << ADV<uchar>(ip); stm << ':' << int(ADV<uchar>(ip)); break;

@@ -42,8 +42,8 @@ class variant
 public:
     // Note: the order is important, especially after STR
     enum Type
-      { NONE, ORD, REAL, STR, OBJECT,
-        NONPOD = STR, REFCNT = OBJECT, ANYOBJ = OBJECT };
+      { NONE, ORD, REAL, STR, OBJ,
+        NONPOD = STR, REFCNT = OBJ, ANYOBJ = OBJ };
 
 protected:
     Type type;
@@ -113,9 +113,10 @@ public:
     bool operator< (const variant& v) const;
 
     Type getType()              const { return type; }
-    bool is(Type t)             const { return type == t; }
+//    bool is(Type t)             const { return type == t; }
     bool is_null()              const { return type == NONE; }
     bool is_ord()               const { return type == ORD; }
+    bool is_str()               const { return type == STR; }
     bool is_nonpod()            const { return type >= NONPOD; }
     bool is_refcnt()            const { return type >= REFCNT; }
     bool is_obj()               const { return type >= ANYOBJ; }
@@ -139,7 +140,7 @@ public:
     integer    _ord()           const { _dbg(ORD); return val._ord; }
     const str& _str()           const { _dbg(STR); return *(str*)val._str; }
     str&       _strw()                { _dbg(STR); return *(str*)val._str; }
-    object*    _obj()           const { _dbg(OBJECT); return val._obj; }
+    object*    _obj()           const { _dbg(OBJ); return val._obj; }
 };
 
 

@@ -81,7 +81,7 @@ static void dump(Type* type, const variant& v)
     // The default dump() method uses apostrophes, which we don't need here,
     // or at least at the top level (nested strings and chars in containers
     // can be with apostrophes)
-    if (v.is(variant::STR))
+    if (v.is_str())
         sio << v._str();
     else
         type->dumpValue(sio, v);

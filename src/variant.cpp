@@ -13,7 +13,7 @@ const str null_str;
 
 void variant::_init(const str& s)   { type = STR; ::new(&_strw()) str(s); }
 void variant::_init(const char* s)  { type = STR; ::new(&_strw()) str(s); }
-void variant::_init(object* o)      { type = OBJECT; val._obj = grab(o); }
+void variant::_init(object* o)      { type = OBJ; val._obj = grab(o); }
 
 
 void variant::_init(const variant& other)
@@ -27,7 +27,7 @@ void variant::_init(const variant& other)
     case STR:
         ::new(&_strw()) str(other._str());
         break;
-    case OBJECT:
+    case OBJ:
         val._obj = grab(other.val._obj);
         break;
     }
@@ -83,7 +83,7 @@ void variant::_fin2()
     case STR:
         _strw().~str();
         break;
-    case OBJECT:
+    case OBJ:
         release(val._obj);
         break;
     }
@@ -100,7 +100,7 @@ bool variant::operator== (const variant& other) const
     case ORD:       return val._ord == other.val._ord;
     case REAL:      return val._real == other.val._real;
     case STR:       return _str() == other._str();
-    case OBJECT:    return val._obj == other.val._obj; // TODO: a virtual call?
+    case OBJ:    return val._obj == other.val._obj; // TODO: a virtual call?
     }
     return false;
 }
@@ -116,7 +116,7 @@ bool variant::operator< (const variant& other) const
     case ORD:  return val._ord < other.val._ord;
     case REAL: return val._real < other.val._real;
     case STR:  return _str() < other._str();
-    case OBJECT: return val._obj < other.val._obj;
+    case OBJ: return val._obj < other.val._obj;
     }
     return true;
 }
@@ -149,11 +149,11 @@ bool variant::empty() const
 {
     switch (type)
     {
-    case NONE:      return true;
-    case ORD:       return val._ord == 0;
-    case REAL:      return val._real == 0.0;
-    case STR:       return _str().empty();
-    case OBJECT:    return val._obj == NULL || val._obj->empty();
+    case NONE:  return true;
+    case ORD:   return val._ord == 0;
+    case REAL:  return val._real == 0.0;
+    case STR:   return _str().empty();
+    case OBJ:   return val._obj == NULL || val._obj->empty();
     }
     return true;
 }
