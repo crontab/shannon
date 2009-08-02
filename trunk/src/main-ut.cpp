@@ -594,8 +594,11 @@ void test_vm()
         d->tie("key1", 2);
         d->tie("key2", 3);
         Constant* c = mod.addConstant(dictType, "dict", d);
+        check(c->isDefinition() && c->type->isDict());
         Array* arrayType = queenBee->defStr->createContainer(queenBee->defBool);
+        check(arrayType->isArray() && arrayType->elem->isString() && arrayType->index->isBool());
         Ordset* ordsetType = queenBee->defChar->deriveSet();
+        check(ordsetType->isOrdset() && ordsetType->index->isChar() && ordsetType->elem->isNone());
         Set* setType = queenBee->defInt->deriveSet();
         check(!setType->isOrdset());
         {
@@ -766,6 +769,17 @@ void test_vm()
             gen.elemToSet();
             gen.initLocalVar(s3);
             
+            Variable* s4 = block.addLocalVar(queenBee->defStr->createContainer(queenBee->defBool), "s4");
+            check(s4->type->isArray());
+            gen.loadNullComp(s4->type);
+            gen.loadBool(false);
+            gen.loadStr("FALSE");
+            gen.storeContainerElem(false);
+            gen.loadBool(true);
+            gen.loadStr("TRUE");
+            gen.storeContainerElem(false);
+            gen.initLocalVar(s4);
+            
             gen.loadVar(s0);
             gen.loadVar(s1);
             gen.elemCat();
@@ -821,6 +835,9 @@ void test_vm()
             gen.loadVar(s3);
             gen.inSet();
             gen.elemCat();
+            
+            gen.loadVar(s4);
+            gen.elemCat();
 
 //            gen.loadStr("The value of true is: ");
 //            gen.echo();
@@ -838,7 +855,8 @@ void test_vm()
         }
         variant result = mod.run();
         str s = result.to_string();
-        check(s == "['abcdef', 123, 2, 10, true, true, true, true, true]");
+        check(s == "['abcdef', 123, 2, 10, true, true, true, true, true, "
+            "['FALSE', 'TRUE']]");
     }
 
     }

@@ -292,8 +292,6 @@ protected:
     void loadStoreVar(Variable* var, bool load);
     void canAssign(Type* from, Type* to, const char* errmsg);
     bool tryImplicitCastTo(Type* to, bool under);
-    void setOp(OpCode ordsOp, OpCode sOp, bool pop);
-    void dictOp(OpCode op);
 
 public:
     CodeGen(CodeSeg*);
@@ -337,10 +335,8 @@ public:
     void keyInDict();
     void pairToDict(Dict*);
     void pairToArray(Array*);
-    void addToSet(bool pop)
-            { setOp(opAddToOrdset, opAddToSet, pop); }
-    void delSetElem()
-            { setOp(opDelOrdsetElem, opDelSetElem, true); }
+    void addToSet(bool pop);
+    void delSetElem();
     void inSet();
     void elemToSet(Container* setType = NULL);
     void rangeToOrdset(Ordset*);
