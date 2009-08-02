@@ -90,30 +90,6 @@ void variant::_fin2()
 }
 
 
-void variant::dump(fifo_intf& s) const
-{
-    switch (type)
-    {
-    case NONE: s << "null"; break;
-    case ORD:  s << val._ord; break;
-    case REAL: s << integer(val._real); break; // TODO: !!!
-    case STR:  s << '\'' << _str() << '\''; break;
-    case OBJECT:
-        if (val._obj != NULL)
-            val._obj->dump(s);
-        break;
-    }
-}
-
-
-str variant::to_string() const
-{
-    str_fifo s(NULL);
-    dump(s);
-    return s.all();
-}
-
-
 bool variant::operator== (const variant& other) const
 {
     if (type != other.type)
@@ -194,13 +170,6 @@ bool variant::empty() const
 }
 
 
-fifo_intf& operator<< (fifo_intf& s, const variant& v)
-{
-    v.dump(s);
-    return s;
-}
-
-
 void varswap(variant* v1, variant* v2)
 {
     podvar t = *(podvar*)v1;
@@ -234,7 +203,6 @@ object::~object()
 
 object* object::clone()                 const { throw emessage("Object can't be cloned"); }
 bool object::empty()                    const { return false; }
-void object::dump(fifo_intf& s)         const { s << "<object>"; }
 bool object::less_than(object* other)   const { return this < other; }
 
 
@@ -307,12 +275,6 @@ bool range::less_than(object* o) const
         return false;
     return right < other.right;
 }
-
-void range::dump(fifo_intf& s) const
-{
-    s << '[' << left << ".." << right << ']';
-}
-
 
 varlist::varlist()                          { }
 varlist::varlist(const varlist& other)      : impl(other.impl)  { }
@@ -392,19 +354,6 @@ vector::vector(Type* rt, mem count, const variant& v)
         push_back(v);
 }
 
-void vector::dump(fifo_intf& s) const
-{
-    s << '[';
-    for(mem i = 0; i < size(); i++)
-    {
-        if (i != 0)
-            s << ", ";
-        s << (*this)[i];
-    }
-    s << ']';
-}
-
-
 dict::dict(Type* rt)
     : object(rt)  { }
 dict::dict(const dict& other)
@@ -416,38 +365,12 @@ void dict::untie(const variant& v)                  { impl.erase(v); }
 dict_iterator dict::find(const variant& v) const    { return impl.find(v); }
 bool dict::has(const variant& key) const            { return impl.find(key) != impl.end(); }
 
-void dict::dump(fifo_intf& s) const
-{
-    s << '[';
-    foreach(dict_impl::const_iterator, i, impl)
-    {
-        if (i != impl.begin())
-            s << ", ";
-        s << i->first << ": " << i->second;
-    }
-    s << ']';
-}
-
 
 ordset::ordset(Type* rt)
     : object(rt)  { }
 ordset::ordset(const ordset& other)
     : object(other.runtime_type), impl(other.impl)  { }
 ordset::~ordset()  { }
-
-void ordset::dump(fifo_intf& s) const
-{
-    s << '[';
-    int cnt = 0;
-    for (int i = 0; i < charset::BITS; i++)
-        if (impl[i])
-        {
-            if (++cnt > 1)
-                s << ", ";
-            s << integer(i);
-        }
-    s << ']';
-}
 
 
 set::set(Type* rt)
@@ -458,16 +381,4 @@ set::~set()  { }
 void set::tie(const variant& v)             { impl.insert(v); }
 void set::untie(const variant& v)           { impl.erase(v); }
 bool set::has(const variant& v) const       { return impl.find(v) != impl.end(); }
-
-void set::dump(fifo_intf& s) const
-{
-    s << '[';
-    foreach(set_impl::const_iterator, i, impl)
-    {
-        if (i != impl.begin())
-            s << ", ";
-        s << *i;
-    }
-    s << ']';
-}
 

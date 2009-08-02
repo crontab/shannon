@@ -76,7 +76,7 @@ void CodeSeg::failAssertion()
 }
 
 
-static void echo(const variant& v)
+static void dump(Type* type, const variant& v)
 {
     // The default dump() method uses apostrophes, which we don't need here,
     // or at least at the top level (nested strings and chars in containers
@@ -84,7 +84,7 @@ static void echo(const variant& v)
     if (v.is(variant::STR))
         sio << v._str();
     else
-        sio << v;
+        type->dumpValue(sio, v);
 }
 
 
@@ -179,7 +179,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
 
             // Safe typecasts
             case opToBool:      *stk = stk->to_bool(); break;
-            case opToStr:       *stk = stk->to_string(); break;
+            case opIntToStr:    *stk = to_string(stk->_ord()); break;
+            case opToString:
+                {
+                    str_fifo s(NULL);
+                    ADV<Type*>(ip)->dumpValue(s, *stk);
+                    *stk = s.all();
+                }
+                break;
             case opToType:      ADV<Type*>(ip)->runtimeTypecast(*stk); break;
             case opToTypeRef:   CAST(Type*, stk->_obj())->runtimeTypecast(*(stk - 1)); POP(stk); break;
             case opIsType:      *stk = ADV<Type*>(ip)->isMyType(*stk); break;
@@ -436,7 +443,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opCall: notimpl();
 
             // Helpers
-            case opEcho:        echo(*stk); POP(stk); break;
+            case opDump:        dump(ADV<Type*>(ip), *stk); POP(stk); break;
             case opEchoLn:      sio << endl; break;
             case opLineNum:     { fileId = ADV<uint16_t>(ip); lineNum = ADV<uint16_t>(ip); } break;
             case opAssert:      { if (!stk->_ord()) failAssertion(); POP(stk); } break;

@@ -87,8 +87,6 @@ void test_common()
 class test_obj: public object
 {
 public:
-    void dump(fifo_intf& s) const
-        { s << "test_obj"; }
     test_obj(): object(NULL)  { }
 };
 

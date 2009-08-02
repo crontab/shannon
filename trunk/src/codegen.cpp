@@ -712,7 +712,12 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
     else if (to->isString())
     {
         // explicit cast to string: any object goes
-        addOp(from->isChar() ? opChrToStr : opToStr);
+        if (from->isChar())
+            addOp(opChrToStr);
+        else if (from->isInt())
+            addOp(opIntToStr);
+        else
+            addOpPtr(opToString, from);
         stkReplace(queenBee->defStr);
     }
     else if (
@@ -1038,9 +1043,9 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
     else
     {
         canAssign(caseType, labelType, "Case label type mismatch");
-        if (labelType->isChar() && caseType->isString())
+        if (caseType->isString())
         {
-            loadStr(label.to_string());
+            loadStr(label._str());
             addOp(opCaseStr);
             stkPop();
         }

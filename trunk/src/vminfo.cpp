@@ -52,7 +52,8 @@ static OpInfo opTable[] =
     OP(Swap, None),
     OP(Dup, None),              // +var
     OP(ToBool, None),           // -var, +bool
-    OP(ToStr, None),            // -var, +str
+    OP(IntToStr, None),         // -int, +bool
+    OP(ToString, Type),         // [Type*] -var, +str
     OP(ToType, Type),           // [Type*] -var, +var
     OP(ToTypeRef, None),        // -type, -var, +var
     OP(IsType, Type),           // [Type*] -var, +bool
@@ -144,7 +145,7 @@ static OpInfo opTable[] =
     OP(CaseStr, None),          // -str, +bool
     OP(CaseTypeRef, None),      // -typeref, +bool
     OP(Call, Type),             // [Type*]
-    OP(Echo, None),             // -var
+    OP(Dump, Type),             // [Type*], -var
     OP(EchoLn, None),
     OP(LineNum, File16Line16),  // [file-id: 16, line-num: 16]
     OP(Assert, None),           // -bool
@@ -165,6 +166,19 @@ static struct vmdebuginit
     }
 } _vmdebuginit;
 #endif
+
+
+static void dumpConst(fifo_intf& stm, const variant& value)
+{
+    switch (value.getType())
+    {
+    case variant::NONE:     stm << "null"; break;
+    case variant::ORD:      stm << "$" << value._ord(); break;
+    case variant::REAL:     notimpl(); break;
+    case variant::STR:      stm << '\'' << value._str() << '\''; break;
+    case variant::OBJECT:   value._obj()->get_rt()->dumpValue(stm, value); break;
+    }
+}
 
 
 void CodeSeg::listing(fifo_intf& stm) const
@@ -196,9 +210,9 @@ void CodeSeg::listing(fifo_intf& stm) const
                     case argNone:       break;
                     case argChar:       stm << mkQuotedPrintable(ADV<char>(ip)); break;
                     case argInt:        stm << ADV<integer>(ip); break;
-                    case argType:       stm << *ADV<Type*>(ip); break;
-                    case argConst:      stm << consts[ADV<uchar>(ip)]; break;
-                    case argConst16:    stm << consts[ADV<uint16_t>(ip)]; break;
+                    case argType:       ADV<Type*>(ip)->dump(stm); break;
+                    case argConst:      dumpConst(stm, consts[ADV<uchar>(ip)]); break;
+                    case argConst16:    dumpConst(stm, consts[ADV<uint16_t>(ip)]); break;
                     case argIndex:      stm << '.' << integer(ADV<uchar>(ip)); break;
                     case argModIndex:   stm << ADV<Module*>(ip)->name; stm << '.' << int(ADV<uchar>(ip)); break;
                     case argLevelIndex: stm << '.' << ADV<uchar>(ip); stm << ':' << int(ADV<uchar>(ip)); break;
