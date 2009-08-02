@@ -23,7 +23,7 @@
 
 class variant;
 class object;
-class fifo_intf;
+class fifo;
 
 
 typedef std::map<variant, variant> dict_impl;
@@ -120,9 +120,6 @@ public:
     bool is_refcnt()            const { return type >= REFCNT; }
     bool is_obj()               const { return type >= ANYOBJ; }
 
-    bool is_unique() const;
-    void unique();
-
     // Type conversions
     bool as_bool()              const { _req(ORD); return val._ord; }
     uchar as_char()             const { _req(ORD); return val._ord; }
@@ -167,13 +164,11 @@ public:
 protected:
     int refcount;
     Type* runtime_type;
-    virtual object* clone() const; // calls fatal()
 public:
     object(Type*);
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
     virtual bool empty() const;
-    virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
     void set_rt(Type* rt)   { assert(runtime_type == NULL); runtime_type = rt; }
     void clear_rt()         { runtime_type = NULL; }
@@ -192,10 +187,6 @@ void _replace(object*&, object*);
 template<class T>
     void replace(T*& p, T* o)  { _replace((object*&)p, o); }
 
-void _unique(object*&);
-template<class T>
-    void unique(T*& o)  { if (!o->is_unique()) _unique((object*&)o); }
-
 
 class range: public object
 {
@@ -207,14 +198,12 @@ public:
     range(Type*);
     range(Type*, integer l, integer r);
     ~range();
-    virtual object* clone() const;
     void assign(integer l, integer r)   { left = l; right = r; }
     bool empty() const                  { return left > right; }
     mem diff() const                    { return right - left; }
     bool has(integer i) const           { return i >= left && i <= right; }
     bool equals(integer l, integer r) const;
     bool equals(const range& other) const;
-    virtual bool less_than(object* o) const;
 };
 
 typedef range* prange;
@@ -280,7 +269,6 @@ public:
     vector(Type*);
     vector(Type*, mem, const variant&);
     ~vector();
-    virtual object* clone() const;
     bool empty() const { return varlist::empty(); }
 };
 
@@ -295,7 +283,6 @@ protected:
 public:
     dict(Type*);
     ~dict();
-    virtual object* clone() const;
     bool empty() const                        { return impl.empty(); }
     void tie(const variant& key, const variant& value);
     void untie(const variant& v);
@@ -314,7 +301,6 @@ protected:
 public:
     set(Type*);
     ~set();
-    virtual object* clone() const;
     bool empty() const                        { return impl.empty(); }
     void tie(const variant& v);
     void untie(const variant& v);
@@ -335,7 +321,6 @@ protected:
 public:
     ordset(Type*);
     ~ordset();
-    virtual object* clone() const;
     bool empty() const                        { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
     void tie(int left, int right)             { impl.include(left, right); }
@@ -374,9 +359,6 @@ public:
 };
 
 
-inline void variant::unique()  { if (is_refcnt()) _unique(val._obj); }
-
-
 // --- FIFO ---------------------------------------------------------------- //
 
 
@@ -393,11 +375,11 @@ inline void variant::unique()  { if (is_refcnt()) _unique(val._obj); }
 // say, only input methods, the default output methods will throw an exception
 // with a message "FIFO is read-only", and vice versa. Iterators may be
 // implemented in descendant classes but are not supported by default.
-class fifo_intf: public object
+class fifo: public object
 {
-    fifo_intf& operator<< (bool);           // compiler trap
-    fifo_intf& operator<< (void*);          // compiler trap
-    fifo_intf& operator<< (object*);        // compiler trap
+    fifo& operator<< (bool);           // compiler trap
+    fifo& operator<< (void*);          // compiler trap
+    fifo& operator<< (object*);        // compiler trap
 
 protected:
     enum { TAB_SIZE = 8 };
@@ -426,8 +408,8 @@ protected:
     void _token(const charset& chars, str* result);
 
 public:
-    fifo_intf(Type*, bool is_char);
-    ~fifo_intf();
+    fifo(Type*, bool is_char);
+    ~fifo();
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
 
@@ -464,25 +446,25 @@ public:
     void enq(uchar c);
     void enq(long long i);
 
-    fifo_intf& operator<< (const char* s)   { enq(s); return *this; }
-    fifo_intf& operator<< (const str& s)    { enq(s); return *this; }
-    fifo_intf& operator<< (char c)          { enq(c); return *this; }
-    fifo_intf& operator<< (uchar c)         { enq(c); return *this; }
-    fifo_intf& operator<< (long long i)     { enq((long long)i); return *this; }
-    fifo_intf& operator<< (int i)           { enq((long long)i); return *this; }
-    fifo_intf& operator<< (mem i)           { enq((long long)i); return *this; }
+    fifo& operator<< (const char* s)   { enq(s); return *this; }
+    fifo& operator<< (const str& s)    { enq(s); return *this; }
+    fifo& operator<< (char c)          { enq(c); return *this; }
+    fifo& operator<< (uchar c)         { enq(c); return *this; }
+    fifo& operator<< (long long i)     { enq((long long)i); return *this; }
+    fifo& operator<< (int i)           { enq((long long)i); return *this; }
+    fifo& operator<< (mem i)           { enq((long long)i); return *this; }
 };
 
 const char endl = '\n';
 
 
-// The fifo class implements a linked list of "chunks" in memory, where
+// The memfifo class implements a linked list of "chunks" in memory, where
 // each chunk is the size of 32 * sizeof(variant). Both enqueue and deqeue
 // operations are O(1), and memory usage is better than that of a plain linked 
 // list of elements, as "next" pointers are kept for bigger chunks of elements
 // rather than for each element. Can be used both for variants and chars. This
 // class "owns" variants, i.e. proper construction and desrtuction is done.
-class fifo: public fifo_intf
+class memfifo: public fifo
 {
 public:
 #ifdef DEBUG
@@ -525,8 +507,8 @@ protected:
     mem enq_avail();
 
 public:
-    fifo(Type*, bool is_char);
-    ~fifo();
+    memfifo(Type*, bool is_char);
+    ~memfifo();
 
     void clear();
     bool empty() const;
@@ -535,11 +517,11 @@ public:
 
 // This is an abstract buffered fifo class. Implementations should validate the
 // buffer in the overridden empty() and flush() methods, for input and output
-// fifos respectively. To simplify things, buf_fifo objects are not supposed to
+// fifos respectively. To simplify things, buffifo objects are not supposed to
 // be reusable, i.e. once the end of file is reached, the implementation is not
 // required to reset its state. Variant fifo implementations should guarantee
 // at least sizeof(variant) bytes in calls to get_tail() and enq_var().
-class buf_fifo: public fifo_intf
+class buffifo: public fifo
 {
 protected:
     char* buffer;
@@ -557,30 +539,30 @@ protected:
     mem enq_avail();
 
 public:
-    buf_fifo(Type*, bool is_char);
-    ~buf_fifo();
+    buffifo(Type*, bool is_char);
+    ~buffifo();
 
     bool empty() const; // throws efifowronly
     void flush(); // throws efifordonly
 };
 
 
-class str_fifo: public buf_fifo
+class strfifo: public buffifo
 {
 protected:
     str string;
     void clear();
 public:
-    str_fifo(Type*);
-    str_fifo(Type*, const str&);
-    ~str_fifo();
+    strfifo(Type*);
+    strfifo(Type*, const str&);
+    ~strfifo();
     bool empty() const; // override
     void flush(); // override
     str all() const;
 };
 
 
-class in_text: public buf_fifo
+class intext: public buffifo
 {
 protected:
     enum { BUF_SIZE = 1024 * sizeof(integer) };
@@ -595,8 +577,8 @@ protected:
     void doread();
 
 public:
-    in_text(Type*, const str& fn);
-    ~in_text();
+    intext(Type*, const str& fn);
+    ~intext();
     
     bool empty() const; //override
     str  get_file_name() const { return file_name; }
@@ -604,7 +586,7 @@ public:
 };
 
 
-class out_text: public buf_fifo
+class outtext: public buffifo
 {
 protected:
     enum { BUF_SIZE = 1024 * sizeof(integer) };
@@ -617,8 +599,8 @@ protected:
     void error(int code); // throws esyserr
 
 public:
-    out_text(Type*, const str& fn);
-    ~out_text();
+    outtext(Type*, const str& fn);
+    ~outtext();
 
     str  get_file_name() const { return file_name; }
     void flush(); // override
@@ -628,19 +610,19 @@ public:
 
 // Standard input/output object, a two-way fifo. In case of sterr it is
 // write-only.
-class std_file: public in_text
+class stdfile: public intext
 {
 protected:
     int _ofd;
     virtual mem enq_chars(const char*, mem);
 public:
-    std_file(int infd, int outfd);
-    ~std_file();
+    stdfile(int infd, int outfd);
+    ~stdfile();
 };
 
 
-extern std_file sio;
-extern std_file serr;
+extern stdfile sio;
+extern stdfile serr;
 
 
 // --- LANGUAGE OBJECT ----------------------------------------------------- //

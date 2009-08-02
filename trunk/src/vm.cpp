@@ -166,8 +166,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
             case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
-            case opLoadNullVarFifo: PUSH(stk, new fifo(ADV<Fifo*>(ip), false)); break;
-            case opLoadNullCharFifo:PUSH(stk, new fifo(ADV<Fifo*>(ip), true)); break;
+            case opLoadNullVarFifo: PUSH(stk, new memfifo(ADV<Fifo*>(ip), false)); break;
+            case opLoadNullCharFifo:PUSH(stk, new memfifo(ADV<Fifo*>(ip), true)); break;
             case opLoadNullComp:    PUSH(stk, (object*)NULL); break;
             case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
@@ -182,7 +182,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opIntToStr:    *stk = to_string(stk->_ord()); break;
             case opToString:
                 {
-                    str_fifo s(NULL);
+                    strfifo s(NULL);
                     ADV<Type*>(ip)->dumpValue(s, *stk);
                     *stk = s.all();
                 }

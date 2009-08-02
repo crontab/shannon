@@ -92,7 +92,7 @@ public:
         { return code.empty(); }
     mem size() const
         { return code.size(); }
-    void listing(fifo_intf&) const;
+    void listing(fifo&) const;
 };
 
 
@@ -229,7 +229,7 @@ public:
 
     Symbol(SymbolId, Type*, const str&);
     ~Symbol();
-    virtual void dump(fifo_intf&) const;
+    virtual void dump(fifo&) const;
 
     bool isVariable() const  { return symbolId <= ARGVAR; }
     bool isDefinition() const  { return symbolId == DEFINITION; }
@@ -267,7 +267,7 @@ public:
     Definition(Type*, const str&, const variant&);
     Definition(const str&, Type*);
     ~Definition();
-    void dump(fifo_intf&) const; // override
+    void dump(fifo&) const; // override
     Type* aliasedType() const;
     State* aliasedState() const;
     Module* aliasedModule() const;
@@ -308,9 +308,9 @@ protected:
 public:
     ~Type();
     
-    void dump(fifo_intf&) const; //override
-    virtual void fullDump(fifo_intf&) const;
-    virtual void dumpValue(fifo_intf&, const variant&) const;
+    void dump(fifo&) const; //override
+    virtual void fullDump(fifo&) const;
+    virtual void dumpValue(fifo&, const variant&) const;
 
     void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
     str  getName()                  { return name; }
@@ -371,7 +371,7 @@ protected:
     List<Variable> thisvars;
     mem startId;
 
-    void dumpDefinitions(fifo_intf&) const;
+    void dumpDefinitions(fifo&) const;
 
 public:
     int const level;
@@ -379,9 +379,9 @@ public:
 
     State(Module*, State* parent, Type* resultType);
     ~State();
-    void fullDump(fifo_intf&) const; //override
-    // void dumpValue(fifo_intf&, const variant&) const;
-    void listing(fifo_intf&) const;
+    void fullDump(fifo&) const; //override
+    // void dumpValue(fifo&, const variant&) const;
+    void listing(fifo&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
     template<class T>
@@ -410,7 +410,7 @@ protected:
 public:
     Module(const str& name);
     ~Module();
-    void fullDump(fifo_intf&) const; //override
+    void fullDump(fifo&) const; //override
     mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
@@ -440,7 +440,7 @@ public:
     integer const right;
 
     ~Ordinal();
-    void fullDump(fifo_intf&) const;
+    void fullDump(fifo&) const;
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -477,7 +477,7 @@ protected:
 public:
     Enumeration();  // user-defined enums
     ~Enumeration();
-    void fullDump(fifo_intf&) const;
+    void fullDump(fifo&) const;
     void addValue(const str&);
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -496,7 +496,7 @@ protected:
 public:
     Ordinal* const base;
     ~Range();
-    void fullDump(fifo_intf&) const; //override
+    void fullDump(fifo&) const; //override
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
 };
@@ -526,7 +526,7 @@ public:
     Type* const index;
     Type* const elem;
     ~Container();
-    void fullDump(fifo_intf&) const;
+    void fullDump(fifo&) const;
     bool identicalTo(Type*);
     void runtimeTypecast(variant&);
     mem arrayRangeSize();
@@ -543,7 +543,7 @@ protected:
     Fifo(Type*);
 public:
     ~Fifo();
-    void fullDump(fifo_intf&) const; //override
+    void fullDump(fifo&) const; //override
     bool identicalTo(Type*);
 };
 

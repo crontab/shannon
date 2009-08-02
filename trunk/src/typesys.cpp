@@ -65,7 +65,7 @@ Symbol::~Symbol()
 }
 
 
-void Symbol::dump(fifo_intf& stm) const
+void Symbol::dump(fifo& stm) const
 {
     type->dump(stm);
     stm << ' ' << name;
@@ -150,7 +150,7 @@ Definition::Definition(const str& _name, Type* _type)
 
 Definition::~Definition()  { }
 
-void Definition::dump(fifo_intf& stm) const
+void Definition::dump(fifo& stm) const
 {
     if (isModuleAlias())
         stm << name << " = <used-module>";
@@ -207,7 +207,7 @@ Type::~Type()
 }
 
 
-void Type::dump(fifo_intf& stm) const
+void Type::dump(fifo& stm) const
 {
     if (!name.empty())
         stm << name;
@@ -215,11 +215,11 @@ void Type::dump(fifo_intf& stm) const
         fullDump(stm);
 }
 
-void Type::fullDump(fifo_intf& stm) const
+void Type::fullDump(fifo& stm) const
     { stm << "<builtin>"; }
 
 
-void Type::dumpValue(fifo_intf& stm, const variant& value) const
+void Type::dumpValue(fifo& stm, const variant& value) const
 {
     stm << "<value>";
 }
@@ -356,7 +356,7 @@ State::State(Module* _module, State* _parent, Type* resultType)
 State::~State()  { }
 
 
-void State::fullDump(fifo_intf& stm) const
+void State::fullDump(fifo& stm) const
 {
     // TODO:
     notimpl();
@@ -367,7 +367,7 @@ void State::fullDump(fifo_intf& stm) const
 }
 
 
-void State::listing(fifo_intf& stm) const
+void State::listing(fifo& stm) const
 {
     stm << ";--------- STATE " << name << endl;
     CodeSeg::listing(stm);
@@ -419,13 +419,13 @@ Module::Module(const str& _name)
 Module::~Module()  { }
 
 
-void Module::fullDump(fifo_intf& stm) const
+void Module::fullDump(fifo& stm) const
 {
     stm << "module " << name;
 }
 
 
-void State::dumpDefinitions(fifo_intf& stm) const
+void State::dumpDefinitions(fifo& stm) const
 {
     for (mem i = 0; i < defs.size(); i++)
     {
@@ -505,7 +505,7 @@ Ordinal::Ordinal(TypeId _type, integer _left, integer _right)
 Ordinal::~Ordinal()  { }
 
 
-void Ordinal::fullDump(fifo_intf& stm) const
+void Ordinal::fullDump(fifo& stm) const
 {
     if (isChar())
         stm << mkQuotedPrintable(left) << ".." << mkQuotedPrintable(right);
@@ -592,7 +592,7 @@ Enumeration::Enumeration(EnumValues* _values, integer _left, integer _right)
 Enumeration::~Enumeration()  { }
 
 
-void Enumeration::fullDump(fifo_intf& stm) const
+void Enumeration::fullDump(fifo& stm) const
 {
     if (left == 0 && right == integer(values->size() - 1))
         stm << (*values)[0]->name << ".." << (*values)[right]->name;
@@ -648,7 +648,7 @@ Range::Range(Ordinal* _base)
 Range::~Range()  { }
 
 
-void Range::fullDump(fifo_intf& stm) const
+void Range::fullDump(fifo& stm) const
 {
     base->dump(stm);
     stm << " *[..]";
@@ -683,7 +683,7 @@ Container::Container(Type* _index, Type* _elem)
 Container::~Container()  { }
 
 
-void Container::fullDump(fifo_intf& stm) const
+void Container::fullDump(fifo& stm) const
 {
     elem->dump(stm);
     stm << " *[";
@@ -723,7 +723,7 @@ Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
 Fifo::~Fifo()
     { }
 
-void Fifo::fullDump(fifo_intf& stm) const
+void Fifo::fullDump(fifo& stm) const
 {
     elem->dump(stm);
     stm << " *<>";

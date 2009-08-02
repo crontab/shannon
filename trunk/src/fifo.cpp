@@ -8,44 +8,40 @@
 #include <errno.h>
 
 
-// --- fifo_intf ----------------------------------------------------------- //
+// --- fifo ---------------------------------------------------------------- //
 
 
 #ifdef DEBUG
-mem fifo::CHUNK_SIZE = sizeof(variant) * 16;
+mem memfifo::CHUNK_SIZE = sizeof(variant) * 16;
 #endif
 
 
-fifo_intf::fifo_intf(Type* rt, bool is_char)
+fifo::fifo(Type* rt, bool is_char)
     : object(rt), _char(is_char)  { }
-fifo_intf::~fifo_intf()
+fifo::~fifo()
     { }
 
-void fifo_intf::_empty_err()                { throw emessage("FIFO empty"); }
-void fifo_intf::_wronly_err()               { throw emessage("FIFO is write-only"); }
-void fifo_intf::_rdonly_err()               { throw emessage("FIFO is read-only"); }
-void fifo_intf::_fifo_type_err()            { fatal(0x1002, "FIFO type mismatch"); }
-const char* fifo_intf::get_tail()           { _wronly_err(); return NULL; }
-const char* fifo_intf::get_tail(mem*)       { _wronly_err(); return NULL; }
-void fifo_intf::deq_bytes(mem)              { _wronly_err(); }
-variant* fifo_intf::enq_var()               { _rdonly_err(); return NULL; }
-mem fifo_intf::enq_chars(const char*, mem)  { _rdonly_err(); return 0; }
-bool fifo_intf::empty() const               { _rdonly_err(); return true; }
-void fifo_intf::flush()                     { }
+void fifo::_empty_err()                { throw emessage("FIFO empty"); }
+void fifo::_wronly_err()               { throw emessage("FIFO is write-only"); }
+void fifo::_rdonly_err()               { throw emessage("FIFO is read-only"); }
+void fifo::_fifo_type_err()            { fatal(0x1002, "FIFO type mismatch"); }
+const char* fifo::get_tail()           { _wronly_err(); return NULL; }
+const char* fifo::get_tail(mem*)       { _wronly_err(); return NULL; }
+void fifo::deq_bytes(mem)              { _wronly_err(); }
+variant* fifo::enq_var()               { _rdonly_err(); return NULL; }
+mem fifo::enq_chars(const char*, mem)  { _rdonly_err(); return 0; }
+bool fifo::empty() const               { _rdonly_err(); return true; }
+void fifo::flush()                     { }
 
 
-fifo::fifo(Type* rt, bool ch)
-    : fifo_intf(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
-
-
-void fifo_intf::_req_non_empty() const
+void fifo::_req_non_empty() const
 {
     if (empty())
         _empty_err();
 }
 
 
-void fifo_intf::_req_non_empty(bool ch) const
+void fifo::_req_non_empty(bool ch) const
 {
     _req(ch);
     if (empty())
@@ -53,7 +49,7 @@ void fifo_intf::_req_non_empty(bool ch) const
 }
 
 
-int fifo_intf::preview()
+int fifo::preview()
 {
     _req(true);
     const char* p = get_tail();
@@ -63,7 +59,7 @@ int fifo_intf::preview()
 }
 
 
-uchar fifo_intf::get()
+uchar fifo::get()
 {
     int c = preview();
     if (c == -1)
@@ -73,7 +69,7 @@ uchar fifo_intf::get()
 }
 
 
-bool fifo_intf::get_if(char c)
+bool fifo::get_if(char c)
 {
     int d = preview();
     if (d != -1 && d == c)
@@ -85,7 +81,7 @@ bool fifo_intf::get_if(char c)
 }
 
 
-bool fifo_intf::eol()
+bool fifo::eol()
 {
     _req(true);
     const char* p = get_tail();
@@ -95,7 +91,7 @@ bool fifo_intf::eol()
 }
 
 
-void fifo_intf::skip_eol()
+void fifo::skip_eol()
 {
     // Support all 3 models: DOS, UNIX and MacOS
     int c = preview();
@@ -109,7 +105,7 @@ void fifo_intf::skip_eol()
 }
 
 
-int fifo_intf::skip_indent()
+int fifo::skip_indent()
 {
     static const charset ws = " \t";
     int result = 0;
@@ -124,7 +120,7 @@ int fifo_intf::skip_indent()
 }
 
 
-void fifo_intf::var_eat()
+void fifo::var_eat()
 {
     if (is_char_fifo())
         get();
@@ -137,7 +133,7 @@ void fifo_intf::var_eat()
 }
 
 
-void fifo_intf::var_preview(variant& v)
+void fifo::var_preview(variant& v)
 {
     if (empty())
         v.clear();
@@ -148,7 +144,7 @@ void fifo_intf::var_preview(variant& v)
 }
 
 
-void fifo_intf::var_deq(variant& v)
+void fifo::var_deq(variant& v)
 {
     if (is_char_fifo())
         v = get();
@@ -162,7 +158,7 @@ void fifo_intf::var_deq(variant& v)
 }
 
 
-void fifo_intf::var_enq(const variant& v)
+void fifo::var_enq(const variant& v)
 {
     if (is_char_fifo())
     {
@@ -176,7 +172,7 @@ void fifo_intf::var_enq(const variant& v)
 }
 
 
-str fifo_intf::deq(mem count)
+str fifo::deq(mem count)
 {
     _req_non_empty(true);
     str result;
@@ -198,7 +194,7 @@ str fifo_intf::deq(mem count)
 }
 
 
-void fifo_intf::_token(const charset& chars, str* result)
+void fifo::_token(const charset& chars, str* result)
 {
     _req(true);
     while (1)
@@ -223,7 +219,7 @@ void fifo_intf::_token(const charset& chars, str* result)
 }
 
 
-str fifo_intf::line()
+str fifo::line()
 {
     static charset linechars = ~charset("\r\n");
     str result;
@@ -233,23 +229,27 @@ str fifo_intf::line()
 }
 
 
-void fifo_intf::enq(const char* s)  { if (s != NULL) enq(s, strlen(s)); }
-void fifo_intf::enq(const str& s)   { enq_chars(s.data(), s.size()); }
-void fifo_intf::enq(char c)         { enq_chars(&c, 1); }
-void fifo_intf::enq(uchar c)        { enq_chars((char*)&c, 1); }
-void fifo_intf::enq(long long i)    { enq(to_string(i)); }
+void fifo::enq(const char* s)  { if (s != NULL) enq(s, strlen(s)); }
+void fifo::enq(const str& s)   { enq_chars(s.data(), s.size()); }
+void fifo::enq(char c)         { enq_chars(&c, 1); }
+void fifo::enq(uchar c)        { enq_chars((char*)&c, 1); }
+void fifo::enq(long long i)    { enq(to_string(i)); }
 
 
 // --- fifo ---------------------------------------------------------------- //
 
 
-fifo::~fifo()                       { clear(); }
-inline const char* fifo::get_tail() { return tail->data + tail_offs; }
-inline bool fifo::empty() const     { return tail == NULL; }
-inline variant* fifo::enq_var()     { _req(false); return (variant*)enq_space(sizeof(variant)); }
+memfifo::memfifo(Type* rt, bool ch)
+    : fifo(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
-void fifo::clear()
+memfifo::~memfifo()                     { clear(); }
+inline const char* memfifo::get_tail()  { return tail->data + tail_offs; }
+inline bool memfifo::empty() const      { return tail == NULL; }
+inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(sizeof(variant)); }
+
+
+void memfifo::clear()
 {
     // TODO: also define fifos for POD variant types for faster destruction
     if (is_char_fifo())
@@ -273,7 +273,7 @@ void fifo::clear()
 }
 
 
-void fifo::deq_chunk()
+void memfifo::deq_chunk()
 {
     assert(tail != NULL && head != NULL);
     chunk* c = tail;
@@ -293,7 +293,7 @@ void fifo::deq_chunk()
 }
 
 
-void fifo::enq_chunk()
+void memfifo::enq_chunk()
 {
     chunk* c = new chunk();
     if (head == NULL)
@@ -311,7 +311,7 @@ void fifo::enq_chunk()
 }
 
 
-const char* fifo::get_tail(mem* count)
+const char* memfifo::get_tail(mem* count)
 {
     if (tail == NULL)
     {
@@ -327,7 +327,7 @@ const char* fifo::get_tail(mem* count)
 }
 
 
-void fifo::deq_bytes(mem count)
+void memfifo::deq_bytes(mem count)
 {
     tail_offs += count;
     assert(tail != NULL && tail_offs <= ((tail == head) ? head_offs : CHUNK_SIZE));
@@ -336,7 +336,7 @@ void fifo::deq_bytes(mem count)
 }
 
 
-mem fifo::enq_avail()
+mem memfifo::enq_avail()
 {
     if (head == NULL || head_offs == CHUNK_SIZE)
         return CHUNK_SIZE;
@@ -344,7 +344,7 @@ mem fifo::enq_avail()
 }
 
 
-char* fifo::enq_space(mem count)
+char* memfifo::enq_space(mem count)
 {
     if (head == NULL || head_offs == CHUNK_SIZE)
         enq_chunk();
@@ -355,7 +355,7 @@ char* fifo::enq_space(mem count)
 }
 
 
-mem fifo::enq_chars(const char* p, mem count)
+mem memfifo::enq_chars(const char* p, mem count)
 {
     _req(true);
     mem save_count = count;
@@ -372,45 +372,18 @@ mem fifo::enq_chars(const char* p, mem count)
 }
 
 
-/*
-void fifo::dump(fifo_intf& s) const
-{
-    chunk* c = tail;
-    int cnt = 0;
-    while (c != NULL)
-    {
-        const char* b = c->data + (c == tail ? tail_offs : 0);
-        const char* e = c->data + (c == head ? head_offs : CHUNK_SIZE);
-        if (is_char_fifo())
-            s.write(b, e - b);
-        else
-        {
-            while (b < e)
-            {
-                if (++cnt > 1)
-                    s << ", ";
-                ((variant*)b)->dump(s);
-                b += sizeof(variant);
-            }
-        }
-        c = c->next;
-    }
-}
-*/
+// --- buffifo ------------------------------------------------------------- //
 
 
-// --- buf_fifo ------------------------------------------------------------ //
+buffifo::buffifo(Type* rt, bool is_char)
+  : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
+
+buffifo::~buffifo()  { }
+bool buffifo::empty() const { _wronly_err(); return true; }
+void buffifo::flush() { _rdonly_err(); }
 
 
-buf_fifo::buf_fifo(Type* rt, bool is_char)
-  : fifo_intf(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
-
-buf_fifo::~buf_fifo()  { }
-bool buf_fifo::empty() const { _wronly_err(); return true; }
-void buf_fifo::flush() { _rdonly_err(); }
-
-
-const char* buf_fifo::get_tail()
+const char* buffifo::get_tail()
 {
     assert(buftail <= bufhead && bufhead <= bufsize);
     if (buftail == bufhead && empty())
@@ -420,7 +393,7 @@ const char* buf_fifo::get_tail()
 }
 
 
-const char* buf_fifo::get_tail(mem* count)
+const char* buffifo::get_tail(mem* count)
 {
     assert(buftail <= bufhead && bufhead <= bufsize);
     if (buftail == bufhead && empty())
@@ -434,7 +407,7 @@ const char* buf_fifo::get_tail(mem* count)
 }
 
 
-void buf_fifo::deq_bytes(mem count)
+void buffifo::deq_bytes(mem count)
 {
     assert(buftail <= bufhead && bufhead <= bufsize);
     assert(count <= bufhead - buftail);
@@ -442,7 +415,7 @@ void buf_fifo::deq_bytes(mem count)
 }
 
 
-variant* buf_fifo::enq_var()
+variant* buffifo::enq_var()
 {
     _req(false);
     assert(buftail <= bufhead && bufhead <= bufsize);
@@ -455,7 +428,7 @@ variant* buf_fifo::enq_var()
 }
 
 
-mem buf_fifo::enq_avail()
+mem buffifo::enq_avail()
 {
     assert(buftail <= bufhead && bufhead <= bufsize);
     if (bufhead == bufsize)
@@ -465,7 +438,7 @@ mem buf_fifo::enq_avail()
 }
 
 
-char* buf_fifo::enq_space(mem count)
+char* buffifo::enq_space(mem count)
 {
     assert(buftail <= bufhead && bufhead <= bufsize);
     assert(count <= bufsize - bufhead);
@@ -475,7 +448,7 @@ char* buf_fifo::enq_space(mem count)
 }
 
 
-mem buf_fifo::enq_chars(const char* p, mem count)
+mem buffifo::enq_chars(const char* p, mem count)
 {
     _req(true);
     mem save_count = count;
@@ -492,22 +465,22 @@ mem buf_fifo::enq_chars(const char* p, mem count)
 }
 
 
-// --- str_fifo ------------------------------------------------------------ //
+// --- strfifo ------------------------------------------------------------- //
 
 
-str_fifo::str_fifo(Type* rt): buf_fifo(rt, true), string() {}
-str_fifo::~str_fifo() { }
+strfifo::strfifo(Type* rt): buffifo(rt, true), string() {}
+strfifo::~strfifo() { }
 
 
-str_fifo::str_fifo(Type* rt, const str& s)
-    : buf_fifo(rt, true), string(s)
+strfifo::strfifo(Type* rt, const str& s)
+    : buffifo(rt, true), string(s)
 {
     buffer = (char*)s.data();
     bufhead = bufsize = s.size();
 }
 
 
-void str_fifo::clear()
+void strfifo::clear()
 {
     string.clear();
     buffer = NULL;
@@ -515,28 +488,28 @@ void str_fifo::clear()
 }
 
 
-bool str_fifo::empty() const
+bool strfifo::empty() const
 {
     if (buftail == bufhead)
     {
         if (!string.empty())
-            ((str_fifo*)this)->clear();
+            ((strfifo*)this)->clear();
         return true;
     }
     return false;
 }
 
 
-void str_fifo::flush()
+void strfifo::flush()
 {
     assert(bufhead == bufsize);
-    string.resize(string.size() + fifo::CHUNK_SIZE);
+    string.resize(string.size() + memfifo::CHUNK_SIZE);
     buffer = (char*)string.data();
-    bufsize += fifo::CHUNK_SIZE;
+    bufsize += memfifo::CHUNK_SIZE;
 }
 
 
-str str_fifo::all() const
+str strfifo::all() const
 {
     if (string.empty() || buftail == bufhead)
         return null_str;
@@ -544,44 +517,18 @@ str str_fifo::all() const
 }
 
 
-// --- out_file ------------------------------------------------------------ //
+// --- intext -------------------------------------------------------------- //
 
 
-std_file::std_file(int infd, int outfd)
-    : in_text(NULL, "<std>"), _ofd(outfd)
-{
-    _fd = infd;
-    if (infd == -1)
-        _eof = true;
-
-    pincrement(&refcount);  // prevent auto pointers from freeing this object,
-                            // as it is supposed to be static
-#ifdef DEBUG
-    object::alloc--;        // compensate static objects
-#endif
-}
-
-
-std_file::~std_file()                               { pdecrement(&refcount); }
-mem std_file::enq_chars(const char* p, mem count)   { return ::write(_ofd, p, count); }
-
-
-std_file sio(STDIN_FILENO, STDOUT_FILENO);
-std_file serr(-1, STDERR_FILENO);
-
-
-// --- in_text ------------------------------------------------------------- //
-
-
-in_text::in_text(Type* rt, const str& fn)
-    : buf_fifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
-in_text::~in_text()
+intext::intext(Type* rt, const str& fn)
+    : buffifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
+intext::~intext()
     { if (_fd > 2) ::close(_fd); }
-void in_text::error(int code)
+void intext::error(int code)
     { _eof = true; throw esyserr(code, file_name); }
 
 
-void in_text::doopen()
+void intext::doopen()
 {
     _fd = ::open(file_name.c_str(), O_RDONLY | O_LARGEFILE);
     if (_fd < 0)
@@ -590,11 +537,11 @@ void in_text::doopen()
 }
 
 
-void in_text::doread()
+void intext::doread()
 {
-    filebuf.resize(in_text::BUF_SIZE);
+    filebuf.resize(intext::BUF_SIZE);
     buffer = (char*)filebuf.data();
-    int result = ::read(_fd, buffer, in_text::BUF_SIZE);
+    int result = ::read(_fd, buffer, intext::BUF_SIZE);
     if (result < 0)
         error(errno);
     buftail = 0;
@@ -603,30 +550,30 @@ void in_text::doread()
 }
 
 
-bool in_text::empty() const
+bool intext::empty() const
 {
     if (_eof)
         return true;
     if (_fd < 0)
-        ((in_text*)this)->doopen();
+        ((intext*)this)->doopen();
     if (buftail == bufhead)
-        ((in_text*)this)->doread();
+        ((intext*)this)->doread();
     return _eof;
 }
 
 
-// --- out_text ------------------------------------------------------------- //
+// --- outtext -------------------------------------------------------------- //
 
 
-out_text::out_text(Type* rt, const str& fn)
-    : buf_fifo(rt, true), file_name(fn), _fd(-1), _err(false)
+outtext::outtext(Type* rt, const str& fn)
+    : buffifo(rt, true), file_name(fn), _fd(-1), _err(false)
 {
-    filebuf.resize(out_text::BUF_SIZE);
+    filebuf.resize(outtext::BUF_SIZE);
     buffer = (char*)filebuf.data();
-    bufsize = out_text::BUF_SIZE;
+    bufsize = outtext::BUF_SIZE;
 }
 
-out_text::~out_text()
+outtext::~outtext()
 {
     try
     {
@@ -642,11 +589,11 @@ out_text::~out_text()
 }
 
 
-void out_text::error(int code)
+void outtext::error(int code)
     { _err = true; throw esyserr(code, file_name); }
 
 
-void out_text::flush()
+void outtext::flush()
 {
     if (_err)
         return;
@@ -664,4 +611,31 @@ void out_text::flush()
         bufhead = 0;
     }
 }
+
+
+// --- stdfile ------------------------------------------------------------- //
+
+
+stdfile::stdfile(int infd, int outfd)
+    : intext(NULL, "<std>"), _ofd(outfd)
+{
+    _fd = infd;
+    if (infd == -1)
+        _eof = true;
+
+    pincrement(&refcount);  // prevent auto pointers from freeing this object,
+                            // as it is supposed to be static
+#ifdef DEBUG
+    object::alloc--;        // compensate static objects
+#endif
+}
+
+
+stdfile::~stdfile()                                { pdecrement(&refcount); }
+mem stdfile::enq_chars(const char* p, mem count)   { return ::write(_ofd, p, count); }
+
+
+stdfile sio(STDIN_FILENO, STDOUT_FILENO);
+stdfile serr(-1, STDERR_FILENO);
+
 
