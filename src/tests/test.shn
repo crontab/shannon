@@ -1,3 +1,4 @@
+# EXPRESSION
 assert 1 > 0
 assert system.true
 assert 1 + 2 * 2 == 5
@@ -12,6 +13,7 @@ assert not (false or false)
 assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
+# DEFINITIONS, NULL COMPOUND
 def sign = -1..1
 def charset = none*[char]
 def byte = 0..255
@@ -68,3 +70,10 @@ assert char(v2) == ' '
 assert v2 == 32
 var s3 = 'abc'
 assert str('a') <> s3 and s3 <> 'a'
+
+# ENUMS
+assert (v2 == 32)
+def sign1 = (negative, zero, positive)
+assert int(negative) == 0 and int(zero) == 1 and int(positive) == 2
+def int sign1a[sign1] = [negative = -1, zero = 0, positive = 1]
+assert sign1a[negative] == -1

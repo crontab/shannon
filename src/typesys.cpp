@@ -599,13 +599,9 @@ void Enumeration::fullDump(fifo_intf& stm) const
 void Enumeration::addValue(const str& _name)
 {
     integer n = integer(values->size());
-    if (n == 256)
+    if (n >= 256)
         throw emessage("Maximum number of enum constants reached");
-    Constant* c;
-    if (isBool())
-        c = owner->addConstant(this, _name, bool(n));
-    else
-        c = owner->addConstant(this, _name, n);
+    Constant* c = owner->addConstant(this, _name, n);
     reassignRight(values->add(c));
     assert(right == n);
 }
