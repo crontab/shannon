@@ -224,7 +224,7 @@ mem CodeGen::loadCompoundConst(Type* type, const variant& value, OpCode nullOp)
 }
 
 
-void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
+void CodeGen::loadConst(Type* type, const variant& value)
 {
     // NONE, BOOL, CHAR, INT, ENUM, RANGE,
     //    DICT, ARRAY, VECTOR, SET, ORDSET, FIFO, VARIANT, TYPEREF, STATE
@@ -282,12 +282,12 @@ void CodeGen::loadConst(Type* type, const variant& value, bool asVariant)
     case Type::VARFIFO: loadCompoundConst(type, value, opLoadNullVarFifo); break;
     case Type::CHARFIFO: loadCompoundConst(type, value, opLoadNullCharFifo); break;
     case Type::NULLCOMP: addOp(opLoadNullComp); break;
-    case Type::VARIANT: loadConst(queenBee->typeFromValue(value), value, true); return;
+    case Type::VARIANT: error("Variant constants are not supported"); break;
     case Type::TYPEREF:
     case Type::STATE: addOpPtr(opLoadTypeRef, value._obj()); break;
     }
 
-    stkPush(asVariant ? queenBee->defVariant : type, value);
+    stkPush(type, value);
 }
 
 

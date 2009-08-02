@@ -544,18 +544,15 @@ bool Ordinal::isMyType(const variant& v)
 
 void Ordinal::runtimeTypecast(variant& v)
 {
-    if (!v.is_ord())
-        typeMismatch();
-    if (!isInRange(v._ord()))
-        throw emessage("Out of range");
-    if (isChar())
-        v.type = variant::CHAR;
-    else if (isBool())
+    if (isBool())
         v = v.to_bool();
-    else if (isInt() || isEnum())
-        v.type = variant::INT;
     else
-        notimpl();
+    {
+        if (!v.is_ord())
+            typeMismatch();
+        if (!isInRange(v._ord()))
+            throw emessage("Out of range");
+    }
 }
 
 
@@ -786,25 +783,6 @@ void QueenBee::setup()
     sresultvar = addThisVar(defVariant, "sresult");
     addConstant(defInt, "__ver_major", SHANNON_VERSION_MAJOR);
     addConstant(defInt, "__ver_minor", SHANNON_VERSION_MINOR);
-}
-
-
-Type* QueenBee::typeFromValue(const variant& v)
-{
-    switch (v.getType())
-    {
-    case variant::NONE: return defNone;
-    case variant::BOOL: return defBool;
-    case variant::CHAR: return defChar;
-    case variant::INT:  return defInt;
-    case variant::REAL: notimpl(); break;
-    case variant::STR:  return defStr;
-    case variant::OBJECT:
-        if (v._obj() == NULL)
-            return defNullComp;
-        return v._obj()->get_rt();
-    }
-    return NULL;
 }
 
 

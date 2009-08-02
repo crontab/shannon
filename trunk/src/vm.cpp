@@ -81,9 +81,7 @@ static void echo(const variant& v)
     // The default dump() method uses apostrophes, which we don't need here,
     // or at least at the top level (nested strings and chars in containers
     // can be with apostrophes)
-    if (v.is(variant::CHAR))
-        sio << uchar(v._ord());
-    else if (v.is(variant::STR))
+    if (v.is(variant::STR))
         sio << v._str();
     else
         sio << v;

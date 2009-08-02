@@ -586,8 +586,6 @@ public:
     Variable* serrvar;
     Variable* sresultvar;
 
-    Type* typeFromValue(const variant&);
-
 protected:
     QueenBee();
     void setup();

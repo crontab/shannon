@@ -98,14 +98,14 @@ void test_variant()
     int save_alloc = object::alloc;
     {
         variant v1 = null;              check(v1.is_null());
-        variant v2 = 0;                 check(v2.is(variant::INT));     check(v2.as_int() == 0);
+        variant v2 = 0;                 check(v2.is(variant::ORD));     check(v2.as_int() == 0);
         variant v3 = 1;                 check(v3.as_int() == 1);
         variant v4 = INTEGER_MAX;       check(v4.as_int() == INTEGER_MAX);
         variant v5 = INTEGER_MIN;       check(v5.as_int() == INTEGER_MIN);
         variant v6 = 1.1;               check(v6.as_real() == real(1.1));
         variant v7 = false;             check(!v7.as_bool());
         variant v8 = true;              check(v8.as_bool());
-        variant v12 = 'x';              check(v12.as_char() == 'x');
+        variant v12 = 'A';              check(v12.as_char() == 'A');
         variant v9 = "";                check(v9.as_str().empty());
         variant v10 = "abc";            check(v10.as_str() == "abc");
         str s1 = "def";
@@ -126,12 +126,12 @@ void test_variant()
         check(v4.to_string() == INTEGER_MAX_STR);
         check(v5.to_string() == INTEGER_MIN_STR);
         // check(v6.to_string() == "1.1");
-        check(v7.to_string() == "false");
-        check(v8.to_string() == "true");
+        check(v7.to_string() == "0");
+        check(v8.to_string() == "1");
         check(v9.to_string() == "''");
         check(v10.to_string() == "'abc'");
         check(vst.to_string() == "'def'");
-        check(v12.to_string() == "'x'");
+        check(v12.to_string() == "65");
         check(vo.to_string() == "test_obj");
 
         check(v1 < v2); check(!(v2 < v1));
@@ -558,7 +558,7 @@ void test_vm()
             gen.testType(queenBee->defBool);
             check(s == seg.size() - 1);
             gen.elemCat();
-            gen.loadConst(queenBee->defVariant, 2); // doesn't yield variant actually
+            gen.loadConst(queenBee->defInt, 2);
             gen.implicitCastTo(queenBee->defVariant, "Type mismatch");
             gen.testType(queenBee->defVariant);
             gen.elemCat();
@@ -584,7 +584,7 @@ void test_vm()
             gen.endConstExpr(queenBee->defBool->deriveVector());
         }
         seg.run(r);
-        check(r.to_string() == "[true, true, true, true, true, true, false, true, true, false]");
+        check(r.to_string() == "[1, 1, 1, 1, 1, 1, 0, 1, 1, 0]");
     }
 
     {
@@ -651,9 +651,9 @@ void test_vm()
             gen.loadInt(1000);
             gen.delSetElem();
 
-            gen.loadConst(queenBee->defVariant, 10);
-            gen.elemToVec();
-            gen.loadStr("xyz");
+            gen.loadInt(10);
+            gen.elemToVec(queenBee->defVariant->deriveVector());
+            gen.loadStr("@AB");
             gen.loadInt(1);
             gen.loadContainerElem();
             gen.elemCat();
@@ -739,8 +739,8 @@ void test_vm()
         variant result = mod.run();
         str s = result.to_string();
         check(s ==
-            "[10, 'y', 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 2000], "
-            "true, false, true, false, false, true, 200, <char-fifo>, null]");
+            "[10, 65, 10, 3, ['k1': 15], ['abc', 'def'], 22, [97, 98], [100, 2000], "
+            "1, 0, 1, 0, 0, 1, 200, <char-fifo>, null]");
     }
 
     {
@@ -855,8 +855,7 @@ void test_vm()
         }
         variant result = mod.run();
         str s = result.to_string();
-        check(s == "['abcdef', 123, 2, 10, true, true, true, true, true, "
-            "['FALSE', 'TRUE']]");
+        check(s == "['abcdef', 123, 2, 10, 1, 1, 1, 1, 1, ['FALSE', 'TRUE']]");
     }
 
     }
