@@ -249,7 +249,7 @@ public:
     const variant& back()               const { return impl.back(); }
     void pop_back();
     void insert(mem, const variant&);
-    void put(mem i, const variant& v)         { impl[i] = v; }
+    void put(mem i, const variant& v);
     void erase(mem i);
     void erase(mem i, mem count);
     const variant& operator[] (mem i)   const { return impl[i]; }

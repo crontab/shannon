@@ -140,13 +140,14 @@ Type* Compiler::compoundCtorElem(Type* type)
     // * dictionary, if elements are key/value pairs
     // * range, if the constructor consists of a single range
     // * vector otherwise (and ranges are not allowed)
-    // So sets are not possible to define if type is not given beforehand.
+    // So sets and arrays are not possible to define if type is not known
+    // beforehand.
     expression();
     Type* elemType = codegen->getTopType();
 
     if (skipIf(tokAssign))
     {
-        if (type != NULL && !type->isDict())
+        if (type != NULL && !type->isDict() && !type->isArray())
             error("Key/value pair not allowed here");
         expression();
         if (type == NULL)
@@ -205,10 +206,11 @@ void Compiler::compoundCtor(Type* expectType)
 
     // First element
     Type* type = compoundCtorElem(expectType);
+    mem numElements = 1;
 
     if (type->isRange())
     {
-        // If type is know and it's ordset
+        // If type is known and it's ordset
         if (expectType != NULL && expectType->isOrdset())
             codegen->rangeToOrdset(POrdset(expectType));
         // Otherwise we allow only a single range
@@ -222,7 +224,9 @@ void Compiler::compoundCtor(Type* expectType)
     }
     else if (type->isDict())
         codegen->pairToDict(PDict(type));
-    else if (type->isVector() || type->isArray())
+    else if (type->isArray())
+        codegen->pairToArray(PArray(type));
+    else if (type->isVector())
         codegen->elemToVec(PVec(type));
     else if (type->isOrdset() || type->isSet())
         codegen->elemToSet(PCont(type));
@@ -231,19 +235,19 @@ void Compiler::compoundCtor(Type* expectType)
 
     while (skipIf(tokComma))
     {
-        // TODO: array constructor (with ellipsis)
         if (token == tokRSquare)    // allow trailing comma
             break;
         // The rest of elements: type is known already, either from the first
         // element, or it was known beforehand. Note that if an element is a 
-        // range compondElemCtor() returns that range type; in all other cases
+        // range, compondElemCtor() returns that range type; in all other cases
         // container type is returned.
         type = compoundCtorElem(type);
+        numElements++;
         if (type->isRange())
             codegen->addRangeToOrdset(false);
-        else if (type->isDict())
+        else if (type->isDict() || type->isArray())
             codegen->storeContainerElem(false);
-        else if (type->isVector() || type->isArray())
+        else if (type->isVector())
             codegen->elemCat();
         else if (type->isOrdset() || type->isSet())
             codegen->addToSet(false);
@@ -311,7 +315,12 @@ void Compiler::designator()
             codegen->loadMember(getIdentifier());
             next();
         }
-        // TODO: array item selection
+        else if (skipIf(tokLSquare))
+        {
+            expression();
+            codegen->loadContainerElem();
+            skip(tokRSquare, "]");
+        }
         // TODO: static typecast
         // TODO: function call
         else

@@ -276,7 +276,7 @@ public:
         RANGE, DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, NULLCOMP,
         VARIANT, TYPEREF, STATE };
 
-    enum { MAX_ARRAY_INDEX = 256 }; // trigger Dict if bigger than this
+    enum { MAX_ARRAY_RANGE = 256 }; // trigger Dict if bigger than this
 
 protected:
     Type(Type* rt, TypeId);
@@ -433,7 +433,9 @@ public:
     void runtimeTypecast(variant&);
     bool isLe(integer _left, integer _right)
             { return _left >= left && _right <= right; }
-    bool rangeFits(integer i);
+    mem  rangeSize();
+    bool rangeFits(mem i)
+            { return rangeSize() <= i; }
     bool rangeEq(integer l, integer r)
             { return left == l && right == r; }
     bool rangeEq(Ordinal* t)
@@ -512,6 +514,7 @@ public:
     void fullDump(fifo_intf&) const;
     bool identicalTo(Type*);
     void runtimeTypecast(variant&);
+    mem arrayRangeSize();
 };
 
 

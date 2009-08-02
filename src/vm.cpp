@@ -23,9 +23,10 @@ void CodeSeg::clear()
 }
 
 
-static void invOpcode()        { throw emessage("Invalid opcode"); }
-static void idxOverflow()      { throw emessage("Index overflow"); }
-
+static void invOpcode()             { throw emessage("Invalid opcode"); }
+static void idxOverflow()           { throw emessage("Index overflow"); }
+static void elementUndefined()      { throw emessage("Container element undefined"); }
+static void doExit()                { throw eexit(); }
 
 template<class T>
     inline void PUSH(variant*& stk, const T& v)
@@ -113,8 +114,10 @@ static void ordsetAddDel(variant*& stk, bool del)
 static integer arrayIndex(vector* v, integer idx)
 {
     Ordinal* ordType = CAST(Ordinal*, CAST(Vec*, v->get_rt())->index);
+    if (!ordType->isInRange(idx))
+        idxOverflow();
     idx -= ordType->left;
-    if (idx < 0) idxOverflow();
+    assert(idx >= 0);
     return idx;
 }
 
@@ -141,7 +144,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opInv:     invOpcode(); break;
             case opEnd:     goto exit;
             case opNop:     break;
-            case opExit:    throw eexit();
+            case opExit:    doExit();
 
             // Const loaders
             case opLoadNull:        PUSH(stk, null); break;
@@ -155,12 +158,19 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoadNullDict:    PUSH(stk, new dict(ADV<Dict*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
             case opLoadNullVec:     PUSH(stk, new vector(ADV<Vec*>(ip))); break;
-            case opLoadNullArray:   PUSH(stk, new vector(ADV<Array*>(ip))); break;
+            case opLoadNullArray:
+                {
+                    Array* arrayType = ADV<Array*>(ip);
+                    vector* v = new vector(arrayType);
+                    PUSH(stk, v);
+                    v->resize(arrayType->arrayRangeSize());
+                }
+                break;
             case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
             case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
             case opLoadNullVarFifo: PUSH(stk, new fifo(ADV<Fifo*>(ip), false)); break;
             case opLoadNullCharFifo:PUSH(stk, new fifo(ADV<Fifo*>(ip), true)); break;
-            case opLoadNullComp:    throw emessage("Null compound object"); // PUSH(stk, (object*)NULL); break;
+            case opLoadNullComp:    PUSH(stk, (object*)NULL); break;
             case opLoadConst:       PUSH(stk, consts[ADV<uchar>(ip)]); break;
             case opLoadConst2:      PUSH(stk, consts[ADV<uint16_t>(ip)]); break;
             case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;
@@ -242,7 +252,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     dict* d = CAST(dict*, (stk - 1)->_obj());
                     dict_impl::const_iterator i = d->find(*stk);
                     POP(stk);
-                    if (i == d->end()) stk->clear();
+                    if (i == d->end()) elementUndefined();
                     else *stk = i->second;
                 }
                 break;
@@ -257,6 +267,14 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 }
                 break;
             case opLoadVecElem:
+                {
+                    integer idx = stk->_ord();
+                    POPORD(stk);
+                    vector* v = CAST(vector*, stk->_obj());
+                    if (mem(idx) >= v->size()) idxOverflow();
+                    *stk = (*v)[idx];
+                }
+                break;
             case opLoadArrayElem:
                 {
                     integer idx = stk->_ord();
@@ -264,8 +282,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                     vector* v = CAST(vector*, stk->_obj());
                     if (*(ip - 1) == opLoadArrayElem)
                         idx = arrayIndex(v, idx);
-                    if (mem(idx) >= v->size()) idxOverflow();
                     *stk = (*v)[idx];
+                    if (stk->is_null()) elementUndefined();
                 }
                 break;
             case opInOrdset:
@@ -325,6 +343,17 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                         v->put(idx, *stk);
                     POP(stk); POP(stk);
                     if (ADV<uchar>(ip)) POP(stk); break;
+                }
+                break;
+            case opPairToArray:
+                {
+                    Array* arrayType = ADV<Array*>(ip);
+                    objptr<vector> v = new vector(arrayType);
+                    v->resize(arrayType->arrayRangeSize());
+                    mem idx = arrayIndex(v, (stk - 1)->_ord());
+                    v->put(idx, *stk);
+                    POP(stk);
+                    *stk = v.get();
                 }
                 break;
             case opAddToOrdset:

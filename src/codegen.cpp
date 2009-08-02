@@ -571,6 +571,16 @@ void CodeGen::pairToDict(Dict* dictType)
 }
 
 
+void CodeGen::pairToArray(Array* arrayType)
+{
+    implicitCastTo(arrayType->elem, "Array element type mismatch");
+    implicitCastTo2(arrayType->index, "Array key type mismatch");
+    addOpPtr(opPairToArray, arrayType);
+    stkPop();
+    stkReplace(arrayType);
+}
+
+
 void CodeGen::setOp(OpCode ordsOp, OpCode sOp, bool pop)
 {
     Type* setType = stkTopType(1);
@@ -961,7 +971,7 @@ void CodeGen::count()
         addOp(opRangeDiff);
     else if (type->isString())
         addOp(opStrLen);
-    else if (type->isVector())
+    else if (type->isVector() || type->isArray())
         addOp(opVecLen);
     else
         error("Operation not available for this type");
