@@ -1,11 +1,7 @@
 
-* Operators 'is' and 'as'
-
-* New way of defining sets. Something like char charset[*] or we need some
-  operator for inserting items into sets and that same operator will be used
-  for set definition somehow.
-
 * Assignment operator
+
+* Operators 'is' and 'as'
 
 * Nested block, if, while, case
 

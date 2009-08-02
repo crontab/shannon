@@ -542,7 +542,7 @@ public:
     void dumpDef(fifo&, const str& ident) const;
     void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*);
-    void runtimeTypecast(variant&);
+    bool isMyType(const variant&);
     mem arrayRangeSize();
 };
 

@@ -739,9 +739,8 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
 
 void CodeGen::toBool()
 {
-    stkPop();
     addOp(opToBool);
-    stkPush(queenBee->defBool);
+    stkReplace(queenBee->defBool);
 }
 
 
