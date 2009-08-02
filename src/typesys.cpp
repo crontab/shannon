@@ -185,7 +185,8 @@ void typeMismatch()
 
 
 #define DERIVEX(d) \
-    { if (derived##d == NULL) \
+    { if (isNone()) throw emessage("Illegal use of none type"); \
+      if (derived##d == NULL) \
         derived##d = owner->registerType(new_##d(this)); \
       return derived##d; }
 
@@ -506,7 +507,7 @@ mem Ordinal::rangeSize()
         return 0;
     integer diff = right - left + 1;
     if (diff <= 0)  // overflow, e.g. default int range
-        return 0;
+        return INTEGER_MAX;
     return diff;
 }
 

@@ -581,19 +581,19 @@ void CodeGen::pairToArray(Array* arrayType)
 }
 
 
-void CodeGen::setOp(OpCode ordsOp, OpCode sOp, bool pop)
+void CodeGen::addToSet(bool pop)
 {
     Type* setType = stkTopType(1);
     if (setType->isOrdset())
     {
         implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
-        addOp(ordsOp);
+        addOp(opAddToOrdset);
         add8(pop);
     }
     else if (setType->isSet())
     {
         implicitCastTo(PCont(setType)->index, "Set element type mismatch");
-        addOp(sOp);
+        addOp(opAddToSet);
         add8(pop);
     }
     else
@@ -601,6 +601,26 @@ void CodeGen::setOp(OpCode ordsOp, OpCode sOp, bool pop)
     stkPop();
     if (pop)
         stkPop();
+}
+
+
+void CodeGen::delSetElem()
+{
+    Type* setType = stkTopType(1);
+    if (setType->isOrdset())
+    {
+        implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
+        addOp(opDelOrdsetElem);
+    }
+    else if (setType->isSet())
+    {
+        implicitCastTo(PCont(setType)->index, "Set element type mismatch");
+        addOp(opDelSetElem);
+    }
+    else
+        error("Set type expected");
+    stkPop();
+    stkPop();
 }
 
 
