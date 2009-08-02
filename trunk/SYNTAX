@@ -75,11 +75,13 @@ factor ::= [ "-" ] designator [ '*' { type-derivator } ]
 
 designator ::= atom { array-item-selection | member-selection | static-typecast | function-call }
 
-atom ::= number | string | ident | subexpr | compound-ctor
+atom ::= number | string | ident | subexpr | enum-spec | compound-ctor
 
 type-derivator ::= array-derivator | fifo-derivator | function-derivator
 
 subexpr ::= "(" expr ")"
+
+enum-spec ::= "(" ident { "," ident } ")"
 
 compound-ctor ::= "[" [ element-ctor { "," element-ctor } "]"
 

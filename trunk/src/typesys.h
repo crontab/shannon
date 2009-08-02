@@ -54,9 +54,9 @@ class CodeSeg: noncopyable
 {
     friend class CodeGen;
 
-protected:
     str code;
 
+protected:
     varlist consts;
     mem stksize;
     Module* hostModule; // for references to used modules and their datasegs
@@ -73,10 +73,9 @@ protected:
             { code.resize(s); }
     void close(mem _stksize)
             { assert(++closed == 1); stksize = _stksize; }
-    uchar operator[] (mem i) const
-            { return uchar(code[i]); }
-    void putJumpOffs(mem i, joffs_t o)
-            { *(joffs_t*)(code.data() + i) = o; }
+    template<class T>
+        T& at(mem i)
+            { return (T&)(code[i]); }
 
     // Execution
     void failAssertion();
@@ -137,10 +136,17 @@ public:
     _PtrList();
     ~_PtrList();
     mem add(void*);
-    bool empty()             const { return impl.empty(); }
-    mem size()               const { return impl.size(); }
+    void push(void*);
+    void pop();
+    void*& top()                    { return impl.back(); }
+    void* top() const               { return impl.back(); }
+    void*& top(mem i)               { return *(impl.rbegin() + i); }
+    void* top(mem i) const          { return *(impl.rbegin() + i); }
+    bool empty() const              { return impl.empty(); }
+    mem size() const                { return impl.size(); }
     void clear();
-    void* operator[] (mem i) const { return impl[i]; }
+    void*& operator[] (mem i)       { return impl[i]; }
+    void* operator[] (mem i) const  { return impl[i]; }
 };
 
 
@@ -149,19 +155,27 @@ class PtrList: public _PtrList
 {
 public:
     mem add(T* p)               { return _PtrList::add(p); }
+    void push(T* p)             { _PtrList::push(p); }
+    T*& top()                   { return (T*&)_PtrList::top(); }
+    T* top() const              { return (T*)_PtrList::top(); }
+    T*& top(mem i)              { return (T*&)_PtrList::top(i); }
+    T* top(mem i) const         { return (T*)_PtrList::top(i); }
     T* operator[] (mem i) const { return (T*)_PtrList::operator[](i); }
     mem size() const            { return _PtrList::size(); }
 };
 
 
-class _List: public _PtrList  // responsible for freeing the objects
+class _List: protected _PtrList  // responsible for freeing the objects
 {
 public:
     _List();
     ~_List();
     void clear();
     mem add(object* o);
-    object* operator[] (mem i) const { return (object*)_PtrList::operator[](i); }
+    void push(object* o);
+    bool empty() const                  { return _PtrList::empty(); }
+    mem size() const                    { return _PtrList::size(); }
+    object* operator[] (mem i) const    { return (object*)_PtrList::operator[](i); }
     void dump(fifo_intf&) const;
 };
 
@@ -170,7 +184,7 @@ template<class T>
 class List: public _List
 {
 public:
-    mem add(T* p)               { return _List::add(p); }
+//    mem add(T* p)               { return _List::add(p); }
     T* operator[] (mem i) const { return (T*)_List::operator[](i); }
 };
 

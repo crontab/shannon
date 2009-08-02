@@ -233,22 +233,11 @@ class CodeGen: noncopyable
     typedef std::map<str, mem> StringMap;
 protected:
 
-    struct stkinfo
-    {
-        Type* type;
-        variant value;
-        bool hasValue;
-        stkinfo(Type* t): type(t), value(), hasValue(false) { }
-        stkinfo(Type* t, const variant& v): type(t), value(v), hasValue(true) { }
-    };
-
     CodeSeg* codeseg;
     State* state;
     mem lastOpOffs;
     StringMap stringMap;
-    // TODO: replace this with a static array?
-    typedef std::vector<stkinfo> stkImpl;
-    stkImpl genStack;
+    PtrList<Type> genStack;
     
     mem stkMax;
     mem locals;
@@ -265,26 +254,20 @@ protected:
     void addPtr(void* p);
     void revertLastLoad();
     OpCode lastOp();
+    TypeReference* lastLoadedTypeRef();
     void close();
     void error(const char*);
 
-    void stkPush(Type* t, const variant& v);
     void stkPush(Type* t);
-    void stkPush(Constant* c)
-            { stkPush(c->type, c->value); }
-    stkinfo& stkTop();
-    stkinfo& stkTop(mem);
-    Type* stkTopType()
-            { return stkTop().type; }
-    bool  stkTopIsValue()
-            { return stkTop().hasValue; }
-    const variant& stkTopValue()
-            { return stkTop().value; }
-    Type* stkTopType(mem i)
-            { return stkTop(i).type; }
+    Type* stkTop()
+            { return genStack.top(); }
+    Type* stkTop(mem i)
+            { return genStack.top(i); }
     Type* stkPop();
-    void stkReplace(Type*);
-    void stkReplace(Type*, mem);
+    void stkReplace(Type* type)
+            { genStack.top() = type; }
+    void stkReplace(Type* type, mem i)
+            { genStack.top(i) = type; }
 
     void loadConstById(mem id);
     mem  loadCompoundConst(Type*, const variant&, OpCode);
@@ -299,8 +282,8 @@ public:
 
     mem getLocals() { return locals; }
     State* getState() { return state; }
-    Type* getTopType() { return stkTopType(); }
-    Type* getTopTypeRefValue();
+    Type* getTopType() { return stkTop(); }
+    Type* getLastTypeRef();
 
     void end();
     void endConstExpr(Type*);

@@ -1,4 +1,6 @@
 
+* Enums as a comma-separated list in parens. That's it.
+
 * Rename 'echo' to 'dump', supply types and improve printing.
 
 * for loop: allow types, also range as an exception can have variable

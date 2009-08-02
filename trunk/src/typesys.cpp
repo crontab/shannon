@@ -105,11 +105,13 @@ _PtrList::_PtrList()  { }
 _PtrList::~_PtrList()  { }
 void _PtrList::clear()  { impl.clear(); }
 mem _PtrList::add(void* p)  { impl.push_back(p); return size() - 1; }
-
+void _PtrList::push(void* p)  { impl.push_back(p); }
+void _PtrList::pop()  { impl.pop_back(); }
 
 _List::_List()              { }
 _List::~_List()             { clear(); }
 mem _List::add(object* o)   { return _PtrList::add(grab(o)); }
+void _List::push(object* o) { _PtrList::push(grab(o)); }
 
 
 void _List::clear()
@@ -304,8 +306,8 @@ void Scope::addUses(Module* module)
     assert(!module->getName().empty());
     objptr<ModuleAlias> alias = new ModuleAlias(module->getName(), module);
     addUnique(alias);
-    defs.add(alias);
-    uses.add(module);
+    defs.push(alias);
+    uses.push(module);
 }
 
 
@@ -313,7 +315,7 @@ Constant* Scope::addConstant(Type* type, const str& name, const variant& value)
 {
     objptr<Constant> c = new Constant(type, name, value);
     addUnique(c); // may throw
-    defs.add(c);
+    defs.push(c);
     return c;
 }
 
@@ -322,7 +324,7 @@ TypeAlias* Scope::addTypeAlias(const str& name, Type* type)
 {
     objptr<TypeAlias> c = new TypeAlias(name, type);
     addUnique(c); // may throw
-    defs.add(c);
+    defs.push(c);
     type->setName(name);
     return c;
 }
@@ -391,7 +393,7 @@ Variable* State::addThisVar(Type* type, const str& _name, bool readOnly)
         throw emessage("Maximum number of variables within this object reached");
     objptr<Variable> v = new ThisVar(Symbol::THISVAR, type, _name, id, this, readOnly);
     addUnique(v); // may throw
-    thisvars.add(v);
+    thisvars.push(v);
     return v;
 }
 
