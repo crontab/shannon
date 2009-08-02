@@ -370,8 +370,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opRangeToOrdset:
                 {
                     range* r = CAST(range*, stk->_obj());
-                    ordset* s;
-                    *stk = s = new ordset(CAST(Range*, r->get_rt())->base->deriveSet());
+                    ordset* s = new ordset(CAST(Range*, r->get_rt())->base->deriveSet());
+                    *stk = s;
                     s->tie(ordsetIndex(s, r->left), ordsetIndex(s, r->right));
                 }
                 break;
