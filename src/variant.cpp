@@ -21,16 +21,9 @@ void variant::_init(const variant& other)
     type = other.type;
     switch (type)
     {
-    case NONE:
-        break;
-    case BOOL:
-    case CHAR:
-    case INT:
-        val._int = other.val._int;
-        break;
-    case REAL:
-        val._real = other.val._real;
-        break;
+    case NONE: break;
+    case ORD:  val._ord = other.val._ord; break;
+    case REAL: val._real = other.val._real; break;
     case STR:
         ::new(&_strw()) str(other._str());
         break;
@@ -84,9 +77,7 @@ void variant::_fin2()
     switch (type)
     {
     case NONE:
-    case BOOL:
-    case CHAR:
-    case INT:
+    case ORD:
     case REAL:
         break;
     case STR:
@@ -104,9 +95,7 @@ void variant::dump(fifo_intf& s) const
     switch (type)
     {
     case NONE: s << "null"; break;
-    case BOOL: s << (val._int ? "true" : "false"); break;
-    case CHAR: s << '\'' << uchar(val._int) << '\''; break;
-    case INT:  s << val._int; break;
+    case ORD:  s << val._ord; break;
     case REAL: s << integer(val._real); break; // TODO: !!!
     case STR:  s << '\'' << _str() << '\''; break;
     case OBJECT:
@@ -132,9 +121,7 @@ bool variant::operator== (const variant& other) const
     switch (type)
     {
     case NONE:      return true;
-    case BOOL:
-    case CHAR:
-    case INT:       return val._int == other.val._int;
+    case ORD:       return val._ord == other.val._ord;
     case REAL:      return val._real == other.val._real;
     case STR:       return _str() == other._str();
     case OBJECT:    return val._obj == other.val._obj; // TODO: a virtual call?
@@ -150,9 +137,7 @@ bool variant::operator< (const variant& other) const
     switch (type)
     {
     case NONE: return false;
-    case BOOL:
-    case CHAR:
-    case INT:  return val._int < other.val._int;
+    case ORD:  return val._ord < other.val._ord;
     case REAL: return val._real < other.val._real;
     case STR:  return _str() < other._str();
     case OBJECT:
@@ -186,14 +171,21 @@ unsigned variant::as_char_int() const
 }
 
 
+unsigned variant::as_bool_int() const
+{
+    integer i = as_ord();
+    if (i < 0 || i > 1)
+        _range_err();
+    return i;
+}
+
+
 bool variant::empty() const
 {
     switch (type)
     {
     case NONE:      return true;
-    case BOOL:
-    case CHAR:
-    case INT:       return val._int == 0;
+    case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0.0;
     case STR:       return _str().empty();
     case OBJECT:    return val._obj == NULL || val._obj->empty();

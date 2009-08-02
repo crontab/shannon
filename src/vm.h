@@ -312,7 +312,7 @@ public:
     void loadInt(integer i);
     void loadStr(const str& s);
     void loadTypeRef(Type*);
-    void loadConst(Type*, const variant&, bool asVariant = false);
+    void loadConst(Type*, const variant&);
     void loadDefinition(Definition* def)
             { loadConst(def->type, def->value); }
     void loadNullComp(Type* type);

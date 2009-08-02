@@ -11,6 +11,8 @@
 #include <set>
 
 
+// Implementation is in variant.cpp and fifo.cpp.
+
 
 #define foreach(type,iter,cont) \
     for (type iter = (cont).begin(); iter != (cont).end(); iter++)
@@ -18,11 +20,6 @@
 #define vforeach(type,iter,cont) \
     for (type##_iterator iter = (cont).type##_begin(); iter != (cont).type##_end(); iter++)
 
-#ifdef BOOL
-#  error "BOOL defined somewhere conflicts with internal definitions in variant class"
-#endif
-
-// Implementation is in variant.cpp and fifo.cpp.
 
 class variant;
 class object;
@@ -45,14 +42,14 @@ class variant
 public:
     // Note: the order is important, especially after STR
     enum Type
-      { NONE, BOOL, CHAR, INT, REAL, STR, OBJECT,
+      { NONE, ORD, REAL, STR, OBJECT,
         NONPOD = STR, REFCNT = OBJECT, ANYOBJ = OBJECT };
 
 protected:
     Type type;
     union
     {
-        integer  _int;      // int, char and bool
+        integer  _ord;      // int, char and bool
         real     _real;
         char     _str[sizeof(str)];
         char*    _str_ptr;  // for debugging, with the hope it points to a string in _str
@@ -61,20 +58,18 @@ protected:
 
 #ifdef DEBUG
     void _dbg(Type t) const         { if (type != t) _type_err(); }
-    void _dbg_ord() const           { if (!is_ord()) _type_err(); }
 #else
     void _dbg(Type t) const         { }
-    void _dbg_ord() const           { }
 #endif
 
     // Initializers/finalizers: used in constructors/destructors and assigments
     void _init()                    { type = NONE; }
-    void _init(bool b)              { type = BOOL; val._int = b; }
-    void _init(char c)              { type = CHAR; val._int = uchar(c); }
-    void _init(uchar c)             { type = CHAR; val._int = c; }
-    void _init(int i)               { type = INT; val._int = i; }
-    void _init(long long i)         { type = INT; val._int = integer(i); }
-    void _init(mem i)               { type = INT; val._int = i; }
+    void _init(bool b)              { type = ORD; val._ord = b; }
+    void _init(char c)              { type = ORD; val._ord = uchar(c); }
+    void _init(uchar c)             { type = ORD; val._ord = c; }
+    void _init(int i)               { type = ORD; val._ord = i; }
+    void _init(long long i)         { type = ORD; val._ord = integer(i); }
+    void _init(mem i)               { type = ORD; val._ord = i; }
     void _init(double r)            { type = REAL; val._real = real(r); }
     void _init(const str&);
     void _init(const char*);
@@ -94,6 +89,7 @@ protected:
     void _req_obj() const           { if (!is_obj()) _type_err(); }
 
     unsigned as_char_int() const;
+    unsigned as_bool_int() const;
 
 public:
     variant()                       { _init(); }
@@ -121,7 +117,7 @@ public:
     Type getType()              const { return type; }
     bool is(Type t)             const { return type == t; }
     bool is_null()              const { return type == NONE; }
-    bool is_ord()               const { return type >= BOOL && type <= INT; }
+    bool is_ord()               const { return type == ORD; }
     bool is_nonpod()            const { return type >= NONPOD; }
     bool is_refcnt()            const { return type >= REFCNT; }
     bool is_obj()               const { return type >= ANYOBJ; }
@@ -130,10 +126,10 @@ public:
     void unique();
 
     // Type conversions
-    bool as_bool()              const { _req(BOOL); return val._int; }
-    uchar as_char()             const { _req(CHAR); return val._int; }
-    integer as_int()            const { _req(INT); return val._int; }
-    integer as_ord()            const { if (!is_ord()) _type_err(); return val._int; }
+    bool as_bool()              const { _req(ORD); return val._ord; }
+    uchar as_char()             const { _req(ORD); return val._ord; }
+    integer as_int()            const { _req(ORD); return val._ord; }
+    integer as_ord()            const { _req(ORD); return val._ord; }
     real as_real()              const { _req(REAL); return val._real; }
     const str& as_str()         const { _req(STR); return _str(); }
     object* as_obj()            const { _req_obj(); return val._obj; }
@@ -141,11 +137,11 @@ public:
     bool empty() const;
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
-    bool       _bool()          const { _dbg(BOOL); return val._int; }
-    uchar      _uchar()         const { _dbg(CHAR); return val._int; }
-    integer    _int()           const { _dbg(INT); return val._int; }
-    integer&   _intw()                { _dbg(INT); return val._int; }
-    integer    _ord()           const { _dbg_ord(); return val._int; }
+    bool       _bool()          const { _dbg(ORD); return val._ord; }
+    uchar      _uchar()         const { _dbg(ORD); return val._ord; }
+    integer    _int()           const { _dbg(ORD); return val._ord; }
+    integer&   _intw()                { _dbg(ORD); return val._ord; }
+    integer    _ord()           const { _dbg(ORD); return val._ord; }
     const str& _str()           const { _dbg(STR); return *(str*)val._str; }
     str&       _strw()                { _dbg(STR); return *(str*)val._str; }
     object*    _obj()           const { _dbg(OBJECT); return val._obj; }
