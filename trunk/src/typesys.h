@@ -229,7 +229,7 @@ public:
 
     Symbol(SymbolId, Type*, const str&);
     ~Symbol();
-    virtual void dump(fifo&) const;
+    virtual void dump(fifo&) const = 0;
 
     bool isVariable() const  { return symbolId <= ARGVAR; }
     bool isDefinition() const  { return symbolId == DEFINITION; }
@@ -245,6 +245,10 @@ public:
 };
 
 
+inline fifo& operator<< (fifo& stm, const Symbol& s)
+        { s.dump(stm); return stm; }
+
+
 typedef Variable* PVar;
 
 class Variable: public Symbol
@@ -255,6 +259,7 @@ public:
     bool const readOnly;
     Variable(SymbolId, Type*, const str&, mem, State*, bool);
     ~Variable();
+    virtual void dump(fifo&) const;
 };
 
 
@@ -308,8 +313,8 @@ protected:
 public:
     ~Type();
     
-    void dump(fifo&) const; //override
-    virtual void fullDump(fifo&) const;
+    void dump(fifo&, const str& ident) const;
+    virtual void dumpDef(fifo&, const str& ident) const;
     virtual void dumpValue(fifo&, const variant&) const;
 
     void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
@@ -357,6 +362,10 @@ public:
 };
 
 
+inline fifo& operator<< (fifo& stm, const Type& t)
+        { t.dump(stm, null_str); return stm; }
+
+
 // --- TYPES ---
 
 
@@ -379,8 +388,8 @@ public:
 
     State(Module*, State* parent, Type* resultType);
     ~State();
-    void fullDump(fifo&) const; //override
-    // void dumpValue(fifo&, const variant&) const;
+    void dumpDef(fifo&, const str& ident) const; //override
+    void dumpValue(fifo&, const variant&) const;
     void listing(fifo&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -410,7 +419,7 @@ protected:
 public:
     Module(const str& name);
     ~Module();
-    void fullDump(fifo&) const; //override
+    void dumpDef(fifo&, const str& ident) const; //override
     mem registerFileName(const str&);
     // Run as main and return the result value (system.sresult)
     variant run();  // <-- execution of the whole thing starts here
@@ -422,6 +431,7 @@ class None: public Type
 public:
     None();
     bool isMyType(const variant&);
+    void dumpValue(fifo&, const variant&) const;
 };
 
 
@@ -440,22 +450,23 @@ public:
     integer const right;
 
     ~Ordinal();
-    void fullDump(fifo&) const;
+    void dumpDef(fifo&, const str& ident) const;
+    void dumpValue(fifo&, const variant&) const;
     Range* deriveRange();
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
     bool isMyType(const variant&);
     void runtimeTypecast(variant&);
-    bool isLe(integer _left, integer _right)
+    bool isLe(integer _left, integer _right) const
             { return _left >= left && _right <= right; }
-    mem  rangeSize();
-    bool rangeFits(mem i)
+    mem  rangeSize() const;
+    bool rangeFits(mem i) const
             { return rangeSize() <= i; }
-    bool rangeEq(integer l, integer r)
+    bool rangeEq(integer l, integer r) const
             { return left == l && right == r; }
-    bool rangeEq(Ordinal* t)
+    bool rangeEq(Ordinal* t) const
             { return rangeEq(t->left, t->right); }
-    bool isInRange(integer v)
+    bool isInRange(integer v) const
             { return v >= left && v <= right; }
     virtual Ordinal* createSubrange(integer _left, integer _right);
 };
@@ -477,7 +488,8 @@ protected:
 public:
     Enumeration();  // user-defined enums
     ~Enumeration();
-    void fullDump(fifo&) const;
+    void dumpDef(fifo&, const str& ident) const;
+    void dumpValue(fifo&, const variant&) const;
     void addValue(const str&);
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
@@ -496,7 +508,8 @@ protected:
 public:
     Ordinal* const base;
     ~Range();
-    void fullDump(fifo&) const; //override
+    void dumpDef(fifo&, const str& ident) const; //override
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
 };
@@ -526,7 +539,8 @@ public:
     Type* const index;
     Type* const elem;
     ~Container();
-    void fullDump(fifo&) const;
+    void dumpDef(fifo&, const str& ident) const;
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*);
     void runtimeTypecast(variant&);
     mem arrayRangeSize();
@@ -543,7 +557,8 @@ protected:
     Fifo(Type*);
 public:
     ~Fifo();
-    void fullDump(fifo&) const; //override
+    void dumpDef(fifo&, const str& ident) const; //override
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*);
 };
 
@@ -555,6 +570,7 @@ protected:
     NullCompound();
 public:
     ~NullCompound();
+    void dumpValue(fifo&, const variant&) const;
 };
 
 
@@ -565,6 +581,7 @@ protected:
     Variant();
 public:
     ~Variant();
+    void dumpValue(fifo&, const variant&) const;
     bool isMyType(const variant&);
     void runtimeTypecast(variant&);
 };
@@ -579,6 +596,7 @@ protected:
     TypeReference();
 public:
     ~TypeReference();
+    void dumpValue(fifo&, const variant&) const;
 };
 
 

@@ -14,8 +14,9 @@ assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
 # DEFINITIONS, NULL COMPOUND
+def s0 = 'abc'
 def sign = -1..1
-def charset = none*[char]
+def charset = char*[*]
 def byte = 0..255
 def -1..1 r3 = 0
 def a = 0
@@ -28,9 +29,15 @@ var v1 = 1
 # var v2 = []
 var int v3[] = []
 var char f1<> = []
+def any var1 = 'I\'m a variant'
 
 # CONTAINERS
-def none s1[sign] = [-1..0]
+def sign s1[*] = [-1..0]
+def sign ss1[*] = [-1, 1]
+def sign ss2[*] = [0, 1]
+def sign ss3[*] = [1]
+def sign ss4[*] = [0]
+def sign ss5[*] = [-1..1]
 assert -1 in s1
 assert not 1 in s1
 def r2 = [10..20]
@@ -52,7 +59,7 @@ assert 'b' in some_letters
 def charset letters = ['_', 'A'..'Z', 'a'..'z']
 assert 'b' in letters
 assert not '0' in letters
-def none s2[int] = [1, 2, 3]
+def int s2[*] = [1, 2, 3]
 assert 1 in s2
 assert not 4 in s2
 var str a1[sign] = []
@@ -77,3 +84,4 @@ def sign1 = (negative, zero, positive)
 assert int(negative) == 0 and int(zero) == 1 and int(positive) == 2
 def int sign1a[sign1] = [negative = -1, zero = 0, positive = 1]
 assert sign1a[negative] == -1
+

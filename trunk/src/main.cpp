@@ -105,19 +105,19 @@ Type* Compiler::getTypeDerivators(Type* type)
 {
     if (skipIf(tokLSquare))
     {
-        if (skipIf(tokRSquare))
+        if (token == tokRSquare)
             type = type->deriveVector();
+        else if (skipIf(tokWildcard))
+            type = type->deriveSet();
         else
         {
             Type* indexType = typeExpr();
-            if (type->isNone())
-                type = indexType->deriveSet();
-            else if (indexType->isNone())
+            if (indexType->isNone())
                 type = type->deriveVector();
             else
                 type = type->createContainer(indexType);
-            skip(tokRSquare, "]");
         }
+        skip(tokRSquare, "]");
         return getTypeDerivators(type);
     }
 
@@ -800,7 +800,7 @@ int executeFile(const str& fileName)
         return 0;
     else if (result.is_ord())
         return result._ord();
-    else if (result.is(variant::STR))
+    else if (result.is_str())
     {
         serr << result.as_str() << endl;
         return 102;

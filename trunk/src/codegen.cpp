@@ -653,7 +653,7 @@ void CodeGen::addRangeToOrdset(bool pop)
 
 void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
 {
-    if (!to->isVariant() && !from->canAssignTo(to))
+    if (!from->canAssignTo(to))
         error(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
@@ -1029,7 +1029,7 @@ void CodeGen::resolveJump(mem jumpOffs)
 
 void CodeGen::caseLabel(Type* labelType, const variant& label)
 {
-    // TODO: the compiler should do type checking and typecasts for labels
+    // TODO: the compiler should do type checking and typecasts for the labels
     // itself, as we can't do it here (it's not on the stack).
     Type* caseType = stkTop();
     if (labelType->isRange())
@@ -1042,25 +1042,24 @@ void CodeGen::caseLabel(Type* labelType, const variant& label)
     }
     else
     {
-        canAssign(caseType, labelType, "Case label type mismatch");
-        if (caseType->isString())
+        if (labelType->isString() && caseType->isString())
         {
             loadStr(label._str());
             addOp(opCaseStr);
             stkPop();
         }
-        if (labelType->isOrdinal())
+        else if (labelType->isChar() && caseType->isString())
+        {
+            loadStr(str(1, label._ord()));
+            addOp(opCaseStr);
+            stkPop();
+        }
+        else if (labelType->isOrdinal() && caseType->isOrdinal())
         {
             addOp(opCaseInt);
             addInt(label._ord());
         }
-        else if (labelType->isString())
-        {
-            loadStr(label._str());
-            addOp(opCaseStr);
-            stkPop();
-        }
-        else if (labelType->isTypeRef())
+        else if (labelType->isTypeRef() && caseType->isTypeRef())
         {
             loadTypeRef(CAST(Type*, label._obj()));
             addOp(opCaseTypeRef);
