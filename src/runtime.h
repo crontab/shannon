@@ -109,9 +109,7 @@ public:
     bool operator!= (const variant& v)
                               const { return !(this->operator==(v)); }
 
-    void dump(fifo_intf&) const;
     bool to_bool() const            { return !empty(); }
-    str  to_string() const;
     bool operator< (const variant& v) const;
 
     Type getType()              const { return type; }
@@ -152,7 +150,6 @@ extern const variant null;
 extern const str null_str;
 
 
-fifo_intf& operator<< (fifo_intf&, const variant&);
 void varswap(variant*, variant*);
 
 
@@ -163,7 +160,6 @@ class object: public noncopyable
     friend void _release(object*);
     friend void _replace(object*&);
     friend object* _grab(object*);
-    friend void _unique(object*&);
 
 public:
     static int alloc;
@@ -177,7 +173,6 @@ public:
     virtual ~object();
     bool is_unique() const  { return refcount == 1; }
     virtual bool empty() const;
-    virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
     Type* get_rt() const    { return runtime_type; }
     void set_rt(Type* rt)   { assert(runtime_type == NULL); runtime_type = rt; }
@@ -219,7 +214,6 @@ public:
     bool has(integer i) const           { return i >= left && i <= right; }
     bool equals(integer l, integer r) const;
     bool equals(const range& other) const;
-    virtual void dump(fifo_intf&) const;
     virtual bool less_than(object* o) const;
 };
 
@@ -288,7 +282,6 @@ public:
     ~vector();
     virtual object* clone() const;
     bool empty() const { return varlist::empty(); }
-    virtual void dump(fifo_intf&) const;
 };
 
 typedef vector* pvector;
@@ -308,7 +301,6 @@ public:
     void untie(const variant& v);
     dict_iterator find(const variant& v) const;
     bool has(const variant& key) const;
-    virtual void dump(fifo_intf&) const;
     dict_iterator begin()               const { return impl.begin(); }
     dict_iterator end()                 const { return impl.end(); }
 };
@@ -323,7 +315,6 @@ public:
     set(Type*);
     ~set();
     virtual object* clone() const;
-    virtual void dump(fifo_intf&) const;
     bool empty() const                        { return impl.empty(); }
     void tie(const variant& v);
     void untie(const variant& v);
@@ -345,7 +336,6 @@ public:
     ordset(Type*);
     ~ordset();
     virtual object* clone() const;
-    virtual void dump(fifo_intf&) const;
     bool empty() const                        { return impl.empty(); }
     void tie(int v)                           { impl.include(v); }
     void tie(int left, int right)             { impl.include(left, right); }
@@ -407,6 +397,7 @@ class fifo_intf: public object
 {
     fifo_intf& operator<< (bool);           // compiler trap
     fifo_intf& operator<< (void*);          // compiler trap
+    fifo_intf& operator<< (object*);        // compiler trap
 
 protected:
     enum { TAB_SIZE = 8 };
@@ -440,7 +431,6 @@ public:
 
     enum { CHAR_ALL = mem(-2), CHAR_SOME = mem(-1) };
 
-    void dump(fifo_intf&) const; // just displays <fifo>
     bool empty() const;   // throws efifowronly
     virtual void flush(); // empty, overridden in file fifos
 
@@ -481,7 +471,6 @@ public:
     fifo_intf& operator<< (long long i)     { enq((long long)i); return *this; }
     fifo_intf& operator<< (int i)           { enq((long long)i); return *this; }
     fifo_intf& operator<< (mem i)           { enq((long long)i); return *this; }
-    fifo_intf& operator<< (const object& o) { o.dump(*this); return *this; }
 };
 
 const char endl = '\n';
@@ -541,7 +530,6 @@ public:
 
     void clear();
     bool empty() const;
-    // virtual void dump(fifo_intf&) const;
 };
 
 

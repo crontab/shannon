@@ -32,7 +32,6 @@ variant* fifo_intf::enq_var()               { _rdonly_err(); return NULL; }
 mem fifo_intf::enq_chars(const char*, mem)  { _rdonly_err(); return 0; }
 bool fifo_intf::empty() const               { _rdonly_err(); return true; }
 void fifo_intf::flush()                     { }
-void fifo_intf::dump(fifo_intf& s) const    { s << (is_char_fifo() ? "<char-fifo>" : "<fifo>"); }
 
 
 fifo::fifo(Type* rt, bool ch)

@@ -14,13 +14,13 @@
 
 struct CompilerOptions
 {
-    bool enableEcho;
+    bool enableDump;
     bool enableAssert;
     bool linenumInfo;
     bool vmListing;
 
     CompilerOptions()
-      : enableEcho(true), enableAssert(true), linenumInfo(true),
+      : enableDump(true), enableAssert(true), linenumInfo(true),
         vmListing(true)  { }
 };
 
@@ -689,13 +689,13 @@ void Compiler::echo()
         while (1)
         {
             expression();
-            codegen->echo();
+            codegen->dumpVar();
             if (!skipIf(tokComma))
                 break;
         }
     }
     codegen->echoLn();
-    if (!options.enableEcho)
+    if (!options.enableDump)
         codegen->discardCode(codeOffs);
     skipSep();
 }
@@ -727,7 +727,7 @@ void Compiler::block()
             definition();
         else if (skipIf(tokVar))
             variable();
-        else if (skipIf(tokEcho))
+        else if (skipIf(tokDump))
             echo();
         else if (skipIf(tokAssert))
             assertion();
@@ -806,10 +806,7 @@ int executeFile(const str& fileName)
         return 102;
     }
     else
-    {
-        serr << result << endl;
-        return 102;
-    }
+        return 103;
 }
 
 

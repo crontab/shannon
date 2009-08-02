@@ -48,7 +48,8 @@ enum OpCode
 
     // Safe typecasts
     opToBool,           // -var, +bool
-    opToStr,            // -var, +str
+    opIntToStr,         // -int, +str
+    opToString,         // [Type*] -var, +str
     opToType,           // [Type*] -var, +var
     opToTypeRef,        // -type, -var, +var
     opIsType,           // [Type*] -var, +bool
@@ -181,7 +182,7 @@ enum OpCode
     opCall,             // [Type*]
 
     // Helpers
-    opEcho,             // -var
+    opDump,             // [Type*] -var
     opEchoLn,
     opLineNum,          // [file-id: 16, line-num: 16]
     opAssert,           // -bool
@@ -361,8 +362,8 @@ public:
             { addOp(opNop); }
     void caseLabel(Type*, const variant&);
     
-    void echo()
-            { stkPop(); addOp(opEcho); }
+    void dumpVar()
+            { Type* type = stkPop(); addOpPtr(opDump, type); }
     void echoLn()
             { addOp(opEchoLn); }
     void assertion();

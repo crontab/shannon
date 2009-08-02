@@ -66,7 +66,10 @@ Symbol::~Symbol()
 
 
 void Symbol::dump(fifo_intf& stm) const
-    { stm << *type << ' ' << name; }
+{
+    type->dump(stm);
+    stm << ' ' << name;
+}
 
 bool Symbol::isTypeAlias() const
     { return isDefinition() && type->isTypeRef(); }
@@ -123,17 +126,6 @@ void _List::clear()
 }
 
 
-void _List::dump(fifo_intf& stm) const
-{
-    for (mem i = 0; i < size(); i++)
-    {
-        if (i > 0)
-            stm << ", ";
-        stm << *(*this)[i];
-    }
-}
-
-
 // --- Variable ----------------------------------------------------------- //
 
 
@@ -168,7 +160,11 @@ void Definition::dump(fifo_intf& stm) const
         aliasedType()->fullDump(stm);
     }
     else
-        stm << *type << ' ' << name << " = " << value;
+    {
+        type->dump(stm);
+        stm << ' ' << name << " = ";
+        type->dumpValue(stm, value);
+    }
 }
 
 
@@ -221,6 +217,13 @@ void Type::dump(fifo_intf& stm) const
 
 void Type::fullDump(fifo_intf& stm) const
     { stm << "<builtin>"; }
+
+
+void Type::dumpValue(fifo_intf& stm, const variant& value) const
+{
+    stm << "<value>";
+}
+
 
 bool Type::isModule() const
     { return typeId == STATE && PState(this)->level == 0; }
@@ -355,8 +358,11 @@ State::~State()  { }
 
 void State::fullDump(fifo_intf& stm) const
 {
-    stm << *resultvar << " *(";
-    args.dump(stm);
+    // TODO:
+    notimpl();
+    resultvar->dump(stm);
+    stm << " *(";
+    // args.dump(stm);
     stm << ')';
 }
 
@@ -422,9 +428,17 @@ void Module::fullDump(fifo_intf& stm) const
 void State::dumpDefinitions(fifo_intf& stm) const
 {
     for (mem i = 0; i < defs.size(); i++)
-        stm << "  def " << *defs[i] << endl;
+    {
+        stm << "  def ";
+        defs[i]->dump(stm);
+        stm << endl;
+    }
     for (mem i = 0; i < thisvars.size(); i++)
-        stm << "  var " << *thisvars[i] << endl;
+    {
+        stm << "  var ";
+        thisvars[i]->dump(stm);
+        stm << endl;
+    }
 }
 
 
@@ -635,7 +649,10 @@ Range::~Range()  { }
 
 
 void Range::fullDump(fifo_intf& stm) const
-    { stm << *base << " *[..]"; }
+{
+    base->dump(stm);
+    stm << " *[..]";
+}
 
 bool Range::identicalTo(Type* t)
     { return t->isRange() && base->identicalTo(PRange(t)->base); }
@@ -668,9 +685,10 @@ Container::~Container()  { }
 
 void Container::fullDump(fifo_intf& stm) const
 {
-    stm << *elem << " *[";
+    elem->dump(stm);
+    stm << " *[";
     if (!index->isNone())
-        stm << *index;
+        index->dump(stm);
     stm << ']';
 }
 
@@ -684,11 +702,6 @@ void Container::runtimeTypecast(variant& value)
 {
     if (isMyType(value))
         return;
-    else if (isString())
-    {
-        if (!value.is(variant::STR))
-            value = value.to_string();
-    }
     else
         typeMismatch();
 }
@@ -711,7 +724,10 @@ Fifo::~Fifo()
     { }
 
 void Fifo::fullDump(fifo_intf& stm) const
-    { stm << *elem << " *<>"; }
+{
+    elem->dump(stm);
+    stm << " *<>";
+}
 
 bool Fifo::identicalTo(Type* t)
     { return t->is(typeId) && elem->identicalTo(PFifo(t)->elem); }

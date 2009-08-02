@@ -176,7 +176,6 @@ public:
     bool empty() const                  { return _PtrList::empty(); }
     mem size() const                    { return _PtrList::size(); }
     object* operator[] (mem i) const    { return (object*)_PtrList::operator[](i); }
-    void dump(fifo_intf&) const;
 };
 
 
@@ -230,7 +229,7 @@ public:
 
     Symbol(SymbolId, Type*, const str&);
     ~Symbol();
-    void dump(fifo_intf&) const; // override
+    virtual void dump(fifo_intf&) const;
 
     bool isVariable() const  { return symbolId <= ARGVAR; }
     bool isDefinition() const  { return symbolId == DEFINITION; }
@@ -311,6 +310,7 @@ public:
     
     void dump(fifo_intf&) const; //override
     virtual void fullDump(fifo_intf&) const;
+    virtual void dumpValue(fifo_intf&, const variant&) const;
 
     void setOwner(State* _owner)    { assert(owner == NULL); owner = _owner; }
     str  getName()                  { return name; }
@@ -380,6 +380,7 @@ public:
     State(Module*, State* parent, Type* resultType);
     ~State();
     void fullDump(fifo_intf&) const; //override
+    // void dumpValue(fifo_intf&, const variant&) const;
     void listing(fifo_intf&) const;
     bool identicalTo(Type*);
     bool canAssignTo(Type*);
