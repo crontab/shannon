@@ -134,7 +134,7 @@ str mkQuotedPrintable(char c)
 }
 
 
-Parser::Parser(const str& fn, fifo_intf* _input)
+Parser::Parser(const str& fn, fifo* _input)
     : fileName(fn), input(_input), newLine(true),
       indentStack(), linenum(1), indent(0),
       curlyLevel(0),

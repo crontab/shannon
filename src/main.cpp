@@ -66,14 +66,14 @@ protected:
     void block();
 
 public:
-    Compiler(const str&, fifo_intf*, Module&);
+    Compiler(const str&, fifo*, Module&);
     ~Compiler();
 
     void compile();
 };
 
 
-Compiler::Compiler(const str& _fn, fifo_intf* _input, Module& _main)
+Compiler::Compiler(const str& _fn, fifo* _input, Module& _main)
   : Parser(_fn, _input), mainModule(_main), started(false),
     codegen(NULL), scope(NULL), blockScope(NULL), state(NULL)  { }
 
@@ -776,7 +776,7 @@ void Compiler::compile()
 
     if (options.vmListing)
     {
-        out_text f(NULL, remove_filename_ext(getFileName()) + ".lst");
+        outtext f(NULL, remove_filename_ext(getFileName()) + ".lst");
         mainModule.listing(f);
     }
 }
@@ -785,7 +785,7 @@ void Compiler::compile()
 int executeFile(const str& fileName)
 {
     Module module(remove_filename_path(remove_filename_ext(fileName)));
-    Compiler compiler(fileName, new in_text(NULL, fileName), module);
+    Compiler compiler(fileName, new intext(NULL, fileName), module);
 
     // Look at these two beautiful lines. Compiler, compile. Module, run. Love it.
     compiler.compile();

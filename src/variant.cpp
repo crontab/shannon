@@ -116,20 +116,9 @@ bool variant::operator< (const variant& other) const
     case ORD:  return val._ord < other.val._ord;
     case REAL: return val._real < other.val._real;
     case STR:  return _str() < other._str();
-    case OBJECT:
-        if (val._obj == NULL)
-            return other.val._obj != NULL;
-        if (other.val._obj == NULL)
-            return false;
-        return val._obj->less_than(other.val._obj);
+    case OBJECT: return val._obj < other.val._obj;
     }
     return true;
-}
-
-
-bool variant::is_unique() const
-{
-    return !is_refcnt() || val._obj == NULL || val._obj->is_unique();
 }
 
 
@@ -201,9 +190,7 @@ object::~object()
 }
 
 
-object* object::clone()                 const { throw emessage("Object can't be cloned"); }
 bool object::empty()                    const { return false; }
-bool object::less_than(object* other)   const { return this < other; }
 
 
 void _release(object* o)
@@ -228,24 +215,7 @@ void _replace(object*& p, object* o)
 }
 
 
-void _unique(object*& o)
-{
-    object* p = grab(o->clone());
-    release(o);
-    o = p;
-}
-
-
 // --- CONTAINERS ---------------------------------------------------------- //
-
-#define XCLONE(t) \
-    object* t::clone() const { return new t(*this); }
-
-XCLONE(range)
-XCLONE(vector)
-XCLONE(dict)
-XCLONE(ordset)
-XCLONE(set)
 
 
 range::range(Type* rt)
@@ -266,6 +236,7 @@ bool range::equals(const range& other) const
     return left == other.left && right == other.right;
 }
 
+/*
 bool range::less_than(object* o) const
 {
     const range& other = *(range*)o;
@@ -275,6 +246,7 @@ bool range::less_than(object* o) const
         return false;
     return right < other.right;
 }
+*/
 
 varlist::varlist()                          { }
 varlist::varlist(const varlist& other)      : impl(other.impl)  { }

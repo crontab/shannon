@@ -168,7 +168,7 @@ static struct vmdebuginit
 #endif
 
 
-static void dumpConst(fifo_intf& stm, const variant& value)
+static void dumpConst(fifo& stm, const variant& value)
 {
     switch (value.getType())
     {
@@ -181,7 +181,7 @@ static void dumpConst(fifo_intf& stm, const variant& value)
 }
 
 
-void CodeSeg::listing(fifo_intf& stm) const
+void CodeSeg::listing(fifo& stm) const
 {
     if (code.empty())
         return;

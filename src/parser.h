@@ -62,7 +62,7 @@ class Parser: noncopyable
 {
 private:
     str fileName;
-    objptr<fifo_intf> input;
+    objptr<fifo> input;
     bool newLine;
     std::stack<int> indentStack;
     int linenum;
@@ -84,7 +84,7 @@ public:
     str strValue;
     uinteger intValue;
 
-    Parser(const str&, fifo_intf*);
+    Parser(const str&, fifo*);
     ~Parser();
     
     Token next();

@@ -118,20 +118,6 @@ void test_variant()
         check_throw(v1.as_str());
         check_throw(v1.as_obj());
         
-        check(v1.to_string() == "null");
-        check(v2.to_string() == "0");
-        check(v3.to_string() == "1");
-        check(v4.to_string() == INTEGER_MAX_STR);
-        check(v5.to_string() == INTEGER_MIN_STR);
-        // check(v6.to_string() == "1.1");
-        check(v7.to_string() == "0");
-        check(v8.to_string() == "1");
-        check(v9.to_string() == "''");
-        check(v10.to_string() == "'abc'");
-        check(vst.to_string() == "'def'");
-        check(v12.to_string() == "65");
-        check(vo.to_string() == "test_obj");
-
         check(v1 < v2); check(!(v2 < v1));
         check(v2 < v3);
         check(v3 != v6); check(v3 < v6); check(!(v6 < v3));
@@ -157,7 +143,6 @@ void test_variant()
         check(v == null);
 
         variant voa = vo;
-        check_throw(voa.unique());
         
         // object
         // vo = vo; // this doesn't work at the moment
@@ -216,12 +201,12 @@ void test_symbols()
 void test_source()
 {
     {
-        in_text file(NULL, "nonexistent");
+        intext file(NULL, "nonexistent");
         check_throw(file.open());
         check_throw(file.get());
     }
     {
-        str_fifo m(NULL, "one\t two\n567");
+        strfifo m(NULL, "one\t two\n567");
         check(m.preview() == 'o');
         check(m.get() == 'o');
         check(m.token(identRest) == "ne");
@@ -240,7 +225,7 @@ void test_source()
 #else
         const char* fn = "tests/parser.txt";
 #endif
-        Parser p(fn, new in_text(NULL, fn));
+        Parser p(fn, new intext(NULL, fn));
         static Token expect[] = {
             tokIdent, tokComma, tokSep,
             tokIndent, tokAssert, tokSep,
@@ -276,7 +261,7 @@ void test_source()
         check(expect[i] == tokEof && p.token == tokEof);
     }
     {
-        Parser p("mem", new str_fifo(NULL,
+        Parser p("mem", new strfifo(NULL,
             INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
@@ -303,7 +288,7 @@ void test_source()
 }
 
 
-void test_bidir_char_fifo(fifo_intf& fc)
+void test_bidir_char_fifo(fifo& fc)
 {
     check(fc.is_char_fifo());
     fc.enq("0123456789abcdefghijklmnopqrstuvwxy");
@@ -318,14 +303,14 @@ void test_bidir_char_fifo(fifo_intf& fc)
     fc.var_preview(v);
     check(v.as_char() == '2');
     check(fc.deq(16) == "23456789abcdefgh");
-    check(fc.deq(fifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
+    check(fc.deq(memfifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
     check(fc.empty());
 
     fc.enq("0123456789");
     fc.enq("abcdefghijklmnopqrstuvwxyz");
     check(fc.get() == '0');
     while (!fc.empty())
-        fc.deq(fifo_intf::CHAR_SOME);
+        fc.deq(fifo::CHAR_SOME);
 
     fc.enq("0123456789abcdefghijklmnopqrstuvwxyz");
     check(fc.deq("0-9") == "0123456789");
@@ -337,10 +322,10 @@ void test_bidir_char_fifo(fifo_intf& fc)
 void test_fifos()
 {
 #ifdef DEBUG
-    fifo::CHUNK_SIZE = 2 * sizeof(variant);
+    memfifo::CHUNK_SIZE = 2 * sizeof(variant);
 #endif
 
-    fifo f(NULL, false);
+    memfifo f(NULL, false);
     objptr<vector> t = new vector(NULL);
     t->push_back(0);
     f.var_enq((vector*)t);
@@ -359,10 +344,10 @@ void test_fifos()
     f.var_preview(vr);
     check(vr.is_obj());
 
-    fifo fc(NULL, true);
+    memfifo fc(NULL, true);
     test_bidir_char_fifo(fc);
     
-    str_fifo fs(NULL);
+    strfifo fs(NULL);
     test_bidir_char_fifo(fs);
 }
 
