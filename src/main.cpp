@@ -323,7 +323,7 @@ void Compiler::designator()
         }
         else if (skipIf(tokLParen))
         {
-            Type* typeRef = codegen->getTopTypeRefValue();
+            Type* typeRef = codegen->getLastTypeRef();
             if (typeRef != NULL)
             {
                 if (typeRef->isState())
@@ -357,7 +357,7 @@ void Compiler::factor()
     else if (token == tokWildcard)
     {
         // anonymous type spec
-        Type* type = codegen->getTopTypeRefValue();
+        Type* type = codegen->getLastTypeRef();
         if (type != NULL)
         {
             next();
@@ -446,7 +446,7 @@ void Compiler::relation()
                 codegen->keyInDict();
             else if (type->isTypeRef())
             {
-                Type* typeRef = codegen->getTopTypeRefValue();
+                Type* typeRef = codegen->getLastTypeRef();
                 if (typeRef == NULL)
                     error("Variable typeref is not allowed on the right of 'in'");
                 if (!typeRef->isOrdinal())
