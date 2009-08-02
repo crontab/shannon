@@ -107,7 +107,7 @@ Type* Compiler::getTypeDerivators(Type* type)
     {
         if (token == tokRSquare)
             type = type->deriveVector();
-        else if (skipIf(tokWildcard))
+        else if (skipIf(tokRange))
             type = type->deriveSet();
         else
         {
@@ -198,7 +198,7 @@ void Compiler::compoundCtor(Type* expectType)
     // compound-ctor ::= "[" [ element-ctor { "," element-ctor } ] "]"
     // element-ctor ::= [ expr ( "=" | ".." ) ] expr
 
-    skip(tokLSquare, "[");
+    // skip(tokLSquare, "[");
     if (skipIf(tokRSquare))
     {
         codegen->loadNullComp(expectType);
@@ -329,7 +329,7 @@ ICantBelieveIUsedAGotoStatementShameShame:
         }
     }
 
-    else if (token == tokLSquare)
+    else if (skipIf(tokLSquare))
         compoundCtor(NULL);
 
     else
@@ -374,6 +374,8 @@ void Compiler::designator()
                 // indirect function call?
                 notimpl();
         }
+        // TODO: Compound typecast
+        // TODO: array item selection
         else
             break;
     }
@@ -573,7 +575,10 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
         if (expectType->isTypeRef())
             factor();
         else if (expectType->isCompound() && token == tokLSquare)
+        {
+            next();
             compoundCtor(expectType);
+        }
         else
             expression();
     }

@@ -564,13 +564,7 @@ bool Ordinal::canAssignTo(Type* t)
 
 bool Ordinal::isMyType(const variant& v)
 {
-    switch (v.type)
-    {
-    case BOOL: return isBool();
-    case CHAR: return isChar();
-    case INT: return isInt();
-    default: return false;
-    }
+    return v.is_ord();
 }
 
 
@@ -721,7 +715,7 @@ Container::~Container()  { }
 void Container::dumpDef(fifo& stm, const str& ident) const
 {
     if (isSet() || isOrdset())
-        stm << *index << ' ' << ident << "[*]";
+        stm << *index << ' ' << ident << "[..]";
     else
     {
         stm << *elem << ' ' << ident << '[';
@@ -820,12 +814,9 @@ bool Container::identicalTo(Type* t)
             && index->identicalTo(CAST(Container*, t)->index)); }
 
 
-void Container::runtimeTypecast(variant& value)
+bool Container::isMyType(const variant& value)
 {
-    if (isMyType(value))
-        return;
-    else
-        typeMismatch();
+    return (isString() && value.is_str()) || Type::isMyType(value);
 }
 
 
