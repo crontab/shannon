@@ -321,8 +321,27 @@ void Compiler::designator()
             codegen->loadContainerElem();
             skip(tokRSquare, "]");
         }
-        // TODO: static typecast
-        // TODO: function call
+        else if (skipIf(tokLParen))
+        {
+            Type* typeRef = codegen->getTopTypeRefValue();
+            if (typeRef != NULL)
+            {
+                if (typeRef->isState())
+                {
+                    // TODO: function call or typecast
+                    notimpl();
+                }
+                else
+                {
+                    expression();
+                    codegen->explicitCastTo(typeRef);
+                    skip(tokRParen, ")");
+                }
+            }
+            else
+                // indirect function call?
+                notimpl();
+        }
         else
             break;
     }
@@ -639,12 +658,7 @@ void Compiler::echo()
         {
             expression();
             codegen->echo();
-            if (token == tokComma)
-            {
-                codegen->echoSpace();
-                next();
-            }
-            else
+            if (!skipIf(tokComma))
                 break;
         }
     }

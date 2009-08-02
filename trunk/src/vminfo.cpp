@@ -145,7 +145,6 @@ static OpInfo opTable[] =
     OP(CaseTypeRef, None),      // -typeref, +bool
     OP(Call, Type),             // [Type*]
     OP(Echo, None),             // -var
-    OP(EchoSpace, None),
     OP(EchoLn, None),
     OP(LineNum, File16Line16),  // [file-id: 16, line-num: 16]
     OP(Assert, None),           // -bool

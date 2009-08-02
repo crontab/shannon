@@ -73,7 +73,7 @@ term ::= factor { ( "*" | "/" | "mod" ) factor }
 
 factor ::= [ "-" ] designator [ '*' { type-derivator } ]
 
-designator ::= atom { array-item-selection | member-selection | function-call }
+designator ::= atom { array-item-selection | member-selection | static-typecast | function-call }
 
 atom ::= number | string | ident | subexpr | compound-ctor
 
@@ -94,6 +94,8 @@ member-selection ::= '.' ident
 function-call ::= "(" [ expr-list ] ")"
 
 expr-list ::= expr { "," expr }
+
+static-typecast ::= "(" expr ")"
 
 
 # Basic elements

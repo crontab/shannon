@@ -743,6 +743,8 @@ void CodeGen::explicitCastTo(Type* to, const char* errmsg)
             addOpPtr(opToType, to);    // calls to->runtimeTypecast(v)
             stkReplace(to);
     }
+    else
+        error(errmsg ? errmsg : "Invalid typecast");
 }
 
 

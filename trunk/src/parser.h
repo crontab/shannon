@@ -53,7 +53,7 @@ enum Token
     
     // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,
-    tokCmpFirst = tokEqual, tokCmpLast = tokNotEq,
+    tokCmpFirst = tokEqual, tokCmpLast = tokGreaterEq,
     tokWildcard = tokMul
 };
 

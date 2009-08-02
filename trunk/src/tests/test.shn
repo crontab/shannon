@@ -1,3 +1,4 @@
+assert 1 > 0
 assert system.true
 assert 1 + 2 * 2 == 5
 assert 'o' | 'ne' | ' tw' | 'o' == 'one two'
@@ -26,6 +27,7 @@ var v1 = 1
 var int v3[] = []
 var char f1<> = []
 
+# CONTAINERS
 def none s1[sign] = [-1..0]
 assert -1 in s1
 assert not 1 in s1
@@ -54,3 +56,15 @@ assert not 4 in s2
 var str a1[sign] = []
 def str a2[sign] = [-1 = 'negative', 1 = 'positive']
 assert a2[-1] == 'negative' and a2[1] == 'positive'
+
+# TYPECASTS
+assert int('A') == 65
+assert char(65) == 'A'
+assert str(65) == '65'
+assert bool('abc')
+assert not bool('')
+var any v2 = 32
+assert char(v2) == ' '
+assert v2 == 32
+var s3 = 'abc'
+assert str('a') <> s3 and s3 <> 'a'

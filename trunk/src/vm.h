@@ -182,7 +182,6 @@ enum OpCode
 
     // Helpers
     opEcho,             // -var
-    opEchoSpace,
     opEchoLn,
     opLineNum,          // [file-id: 16, line-num: 16]
     opAssert,           // -bool
@@ -247,6 +246,7 @@ protected:
     State* state;
     mem lastOpOffs;
     StringMap stringMap;
+    // TODO: replace this with a static array?
     typedef std::vector<stkinfo> stkImpl;
     stkImpl genStack;
     
@@ -384,8 +384,6 @@ public:
     
     void echo()
             { stkPop(); addOp(opEcho); }
-    void echoSpace()
-            { addOp(opEchoSpace); }
     void echoLn()
             { addOp(opEchoLn); }
     void assertion();
