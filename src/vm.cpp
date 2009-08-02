@@ -439,7 +439,6 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
 
             // Helpers
             case opEcho:        echo(*stk); POP(stk); break;
-            case opEchoSpace:   sio << ' '; break;
             case opEchoLn:      sio << endl; break;
             case opLineNum:     { fileId = ADV<uint16_t>(ip); lineNum = ADV<uint16_t>(ip); } break;
             case opAssert:      { if (!stk->_ord()) failAssertion(); POP(stk); } break;
