@@ -466,15 +466,12 @@ void CodeGen::storeContainerElem(bool pop)
 {
     Type* contType = stkTop(2);
 
-    if (contType->isString())
-        error("Operation not allowed on strings");
-
     OpCode op = opInv;
     Type* idxType = NULL;
     if (contType->isVector())
     {
         idxType = queenBee->defInt;
-        op = opStoreVecElem;
+        op = contType->isString() ? opStoreStrElem : opStoreVecElem;
     }
     else if (contType->isArray())
     {
@@ -977,8 +974,6 @@ void CodeGen::lowHigh(bool high)
         revertLastLoad();
         loadInt(high ? POrdinal(type)->right : POrdinal(type)->left);
     }
-    else if (type->isRange())
-        addOp(high ? opRangeHigh : opRangeLow);
     else
         error("Operation not available for this type");
     stkPush(queenBee->defInt);

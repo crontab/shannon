@@ -49,7 +49,7 @@ assert 'k' in d1
 assert not 'j' in d1
 assert 'b' in 'a'..'z'
 def int v4[] = [1, 2, 3]
-def v5 = ['abc', 'd', 'ef']
+var v5 = ['abc', 'd', 'ef']
 var 'a'..'z' r4 = 'a'
 assert 'b' in r4..'z'
 assert 1 in byte
@@ -63,7 +63,7 @@ def int s2[..] = [1, 2, 3]
 assert 1 in s2
 assert not 4 in s2
 var str a1[sign] = []
-def str a2[sign] = [-1 = 'negative', 1 = 'positive']
+var str a2[sign] = [-1 = 'negative', 1 = 'positive']
 assert a2[-1] == 'negative' and a2[1] == 'positive'
 
 # TYPECASTS
@@ -82,6 +82,11 @@ assert str('a') <> s3 and s3 <> 'a'
 assert (v2 == 32)
 def sign1 = (negative, zero, positive)
 assert int(negative) == 0 and int(zero) == 1 and int(positive) == 2
-def int sign1a[sign1] = [negative = -1, zero = 0, positive = 1]
+var int sign1a[sign1] = [negative = -1, zero = 0, positive = 1]
 assert sign1a[negative] == -1
+
+var char t1[..][] = [[], ['a'..'z']]
+assert not 'a' in t1[0]
+assert 'a' in t1[1]
+dump t1
 

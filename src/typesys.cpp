@@ -243,10 +243,8 @@ Container* Type::deriveSet()    { DERIVEX(Set) }
 
 Container* Type::createContainer(Type* indexType)
 {
-    if (indexType->isNone())
-        return deriveVector();
-    if (isNone())
-        return deriveSet();
+    if (isNone() || indexType->isNone())
+        throw emessage("Illegal use of none type");
     return owner->registerType(new Container(indexType, this));
 }
 
