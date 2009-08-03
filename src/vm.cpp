@@ -79,6 +79,8 @@ static void dump(Type* type, const variant& v)
     // can be with apostrophes)
     if (v.is_str())
         sio << v._str();
+    else if (type->isChar())
+        sio << uchar(v._ord());
     else
         type->dumpValue(sio, v);
 }
@@ -330,7 +332,8 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                         v->push_back(*stk);
                     else
                         v->put(idx, *stk);
-                    POP(stk); POP(stk);
+                    POP(stk);
+                    POPORD(stk);
                     if (ADV<uchar>(ip)) POP(stk); break;
                 }
                 break;

@@ -88,5 +88,19 @@ assert sign1a[negative] == -1
 var char t1[..][] = [[], ['a'..'z']]
 assert not 'a' in t1[0]
 assert 'a' in t1[1]
-dump t1
+
+# ASSIGNMENTS
+var a3 = 0
+a3 = 1
+assert a3 == 1
+{
+    var a3 = 2
+    a3 = 3
+    assert a3 == 3
+    var sign a4[..] = []
+    a4 = [-1, 0]
+    assert -1 in a4
+    var a5 = [-1, 0]
+}
+assert a3 == 1
 

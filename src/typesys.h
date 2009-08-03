@@ -71,6 +71,10 @@ protected:
             { code.append((char*)p, count); }
     void resize(mem s)
             { code.resize(s); }
+    void attach(const str& s)
+            { code.append(s); }
+    str detach(mem start)
+            { str t = code.substr(start); resize(start); return t; }
     void close(mem _stksize)
             { assert(++closed == 1); stksize = _stksize; }
     template<class T>
@@ -199,10 +203,10 @@ struct EUnknownIdent: public exception
 class Scope: protected SymbolTable<Symbol>
 {
 protected:
-    Scope* const outer;
     List<Definition> defs;
     PtrList<Module> uses;
 public:
+    Scope* const outer;
     Scope(Scope* outer);
     ~Scope();
     Symbol* findShallow(const str& _name) const;

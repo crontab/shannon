@@ -43,7 +43,7 @@ protected:
     void compoundCtor(Type*);
     void enumeration(const str&);
     void atom();
-    void designator();
+    void designator(bool expectAssignment = false);
     void factor();
     void term();
     void arithmExpr();
@@ -63,7 +63,10 @@ protected:
     void variable();
     void echo();
     void assertion();
+    void assignment()
+            { designator(true); }
     void block();
+    void statementList();
 
 public:
     Compiler(const str&, fifo*, Module&);
@@ -78,11 +81,6 @@ Compiler::Compiler(const str& _fn, fifo* _input, Module& _main)
     codegen(NULL), scope(NULL), blockScope(NULL), state(NULL)  { }
 
 Compiler::~Compiler()  { }
-
-
-template <class T>
-    inline T exchange(T& target, const T& value)
-        { T temp = target; target = value; return temp; }
 
 
 // --- EXPRESSION ---------------------------------------------------------- //
@@ -350,7 +348,7 @@ ICantBelieveIUsedAGotoStatementShameShame:
 }
 
 
-void Compiler::designator()
+void Compiler::designator(bool expectAssignment)
 {
     atom();
     while (1)
@@ -362,6 +360,7 @@ void Compiler::designator()
         }
         else if (skipIf(tokLSquare))
         {
+            // TODO: Compound typecast
             expression();
             codegen->loadContainerElem();
             skip(tokRSquare, "]");
@@ -387,8 +386,13 @@ void Compiler::designator()
                 // indirect function call?
                 notimpl();
         }
-        // TODO: Compound typecast
-        // TODO: array item selection
+        else if (expectAssignment && skipIf(tokAssign))
+        {
+            str code;
+            Type* destType = codegen->detachDesignatorOp(code);
+            expression(destType);
+            codegen->store(code, destType);
+        }
         else
             break;
     }
@@ -692,16 +696,12 @@ void Compiler::variable()
         type = codegen->getTopType();
     if (type->isNullComp())
         error("Type undefined (null compound)");
+    Variable* var;
     if (blockScope != NULL)
-    {
-        Variable* var = blockScope->addLocalVar(type, ident);
-        codegen->initLocalVar(var);
-    }
+        var = blockScope->addLocalVar(type, ident);
     else
-    {
-        Variable* var = state->addThisVar(type, ident);
-        codegen->initThisVar(var);
-    }
+        var = state->addThisVar(type, ident);
+    codegen->initVar(var);
     skipSep();
 }
 
@@ -741,6 +741,18 @@ void Compiler::assertion()
 
 void Compiler::block()
 {
+    BlockScope localScope(scope, codegen);
+    scope = &localScope;
+    BlockScope* saveBlockScope = exchange(blockScope, &localScope);
+    statementList();
+    localScope.deinitLocals();
+    blockScope = saveBlockScope;
+    scope = localScope.outer;
+}
+
+
+void Compiler::statementList()
+{
     while (!skipIf(tokBlockEnd))
     {
         if (options.linenumInfo)
@@ -756,8 +768,10 @@ void Compiler::block()
             echo();
         else if (skipIf(tokAssert))
             assertion();
+        else if (skipIf(tokBlockBegin))
+            block();
         else
-            notimpl();
+            assignment();
     }
 }
 
@@ -777,7 +791,7 @@ void Compiler::compile()
     try
     {
         next();
-        block();
+        statementList();
         skip(tokEof, "<EOF>");
     }
     catch (EDuplicate& e)

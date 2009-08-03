@@ -26,6 +26,13 @@ mem CodeGen::addOp(OpCode op)
 }
 
 
+mem CodeGen::addOp(const str& s)
+{
+    lastOpOffs = codeseg->size();
+    codeseg->attach(s);
+    return lastOpOffs;
+}
+
 void CodeGen::addOpPtr(OpCode op, void* p)
     { addOp(op); addPtr(p); }
 
@@ -48,7 +55,7 @@ void CodeGen::addPtr(void* p)
 void CodeGen::close()
 {
     if (!codeseg->empty())
-        add8(opEnd);
+        addOp(opEnd);
     codeseg->close(stkMax);
 }
 
@@ -69,7 +76,7 @@ void CodeGen::discardCode(mem from)
 
 void CodeGen::revertLastLoad()
 {
-    if (isLoadOp(lastOp()))
+    if (isUndoableLoadOp(lastOp()))
         discardCode(lastOpOffs);
     else
         // discard();
@@ -318,6 +325,8 @@ void CodeGen::dup()
 
 void CodeGen::initRetVal(Type* expectType)
 {
+    // This is used for returning a result of a constant expression. At run time
+    // storeVar() should be sued.
     if (expectType != NULL)
         implicitCastTo(expectType, "Return type mismatch");
     stkPop();
@@ -326,38 +335,42 @@ void CodeGen::initRetVal(Type* expectType)
 }
 
 
-void CodeGen::initLocalVar(Variable* var)
+void CodeGen::initVar(Variable* var)
 {
-    assert(var->isLocalVar());
-    if (locals != genStack.size() - 1 || var->id != locals)
-        _fatal(0x6003);
-    locals++;
-    // Local var simply remains on the stack, so just check the types
-    implicitCastTo(var->type, "Variable type mismatch");
+    // Initializes a variable, presumably in an uninitialized area, either a
+    // stack-local var, or a this-var of the current state object. In both
+    // cases creation of these variables must immediately precede a call to
+    // initVar().
+    if (var->isLocalVar())
+    {
+        // Local var simply remains on the stack, so just check the types.
+        if (locals != genStack.size() - 1 || var->id != locals)
+            _fatal(0x6003);
+        locals++;
+        implicitCastTo(var->type, "Variable type mismatch");
+    }
+    else if (var->isThisVar() && var->state == state)
+    {
+        assert(var->id <= 255);
+        implicitCastTo(var->type, "Variable type mismatch");
+        stkPop();
+        addOp(opInitThis);
+        add8(var->id);
+    }
+    else
+        _fatal(0x6007);
 }
 
 
 void CodeGen::deinitLocalVar(Variable* var)
 {
-    // TODO: don't generate POPs if at the end of a function: just don't call
-    // deinitLocalVar()
+    // This is called from BlockScope.
+    // TODO: don't generate POPs if at the end of a function
     assert(var->isLocalVar());
     if (locals != genStack.size() || var->id != locals - 1)
         _fatal(0x6004);
     locals--;
     discard();
-}
-
-
-void CodeGen::initThisVar(Variable* var)
-{
-    assert(var->isThisVar());
-    assert(var->state == state);
-    assert(var->id <= 255);
-    implicitCastTo(var->type, "Variable type mismatch");
-    stkPop();
-    addOp(opInitThis);
-    add8(var->id);
 }
 
 
@@ -435,28 +448,32 @@ void CodeGen::loadMember(const str& ident)
 }
 
 
-// This is square brackets op - can be string, vector, array or dictionary
 void CodeGen::loadContainerElem()
 {
+    // This is square brackets op - can be string, vector, array or dictionary.
+    // This op can be reverted and converted to a store op of the same format -
+    // see detachDesignatorOp().
+    OpCode op = opInv;
     Type* contType = stkTop(1);
     if (contType->isVector())
     {
         implicitCastTo(queenBee->defInt, "Vector index must be integer");
-        addOp(contType->isString() ? opLoadStrElem : opLoadVecElem);
+        op = contType->isString() ? opLoadStrElem : opLoadVecElem;
     }
     else if (contType->isDict())
     {
         implicitCastTo(PDict(contType)->index, "Dictionary key type mismatch");
-        addOp(opLoadDictElem);
+        op = opLoadDictElem;
     }
     else if (contType->isArray())
     {
         // TODO: check the index at compile time if possible (compile time evaluation)
         implicitCastTo(PArray(contType)->index, "Array index type mismatch");
-        addOp(opLoadArrayElem);
+        op = opLoadArrayElem;
     }
     else
         error("Vector/array/dictionary type expected");
+    addOp(op);
     stkPop();
     stkReplace(CAST(Container*, contType)->elem);
 }
@@ -464,8 +481,9 @@ void CodeGen::loadContainerElem()
 
 void CodeGen::storeContainerElem(bool pop)
 {
+    // This is used only in compound constructors. Assignments are generated
+    // using detachDesignatorOp() and store() instead.
     Type* contType = stkTop(2);
-
     OpCode op = opInv;
     Type* idxType = NULL;
     if (contType->isVector())
@@ -485,16 +503,34 @@ void CodeGen::storeContainerElem(bool pop)
     }
     else
         error("Vector/array/dictionary type expected");
-        
     implicitCastTo2(idxType, "Container index type mismatch");
     implicitCastTo(PCont(contType)->elem, "Container element type mismatch");
-
     addOp(op);
     add8(pop);
     stkPop();
     stkPop();
     if (pop)
         stkPop();
+}
+
+
+Type* CodeGen::detachDesignatorOp(str& loader)
+{
+    // Returns a code chunk to be used with store() below.
+    if (!isDesignatorOp(lastOp()))
+        error("Not a designator (L-value)");
+    loader = detachLastOp();
+    return stkPop();
+}
+
+
+void CodeGen::store(str loaderCode, Type* type)
+{
+    assert(isDesignatorOp(OpCode(loaderCode[0])));
+    implicitCastTo(type, "Assignment type mismatch");
+    loaderCode[0] = uchar(getStorer(OpCode(loaderCode[0])));
+    stkPop();
+    addOp(loaderCode);
 }
 
 
@@ -928,27 +964,15 @@ void CodeGen::cmp(OpCode op)
 
 void CodeGen::empty()
 {
-    Type* type = stkPop();
-    if (type->isNone())
-    {
-        revertLastLoad();
-        loadBool(true);
-    }
-    else
-        addOp(opEmpty);
-    stkPush(queenBee->defBool);
+    addOp(opEmpty);
+    stkReplace(queenBee->defBool);
 }
 
 
 void CodeGen::count()
 {
     Type* type = stkPop();
-    if (type->isNone())
-    {
-        revertLastLoad();
-        loadInt(0);
-    }
-    else if (type->isOrdinal())
+    if (type->isOrdinal())
     {
         revertLastLoad();
         // May overflow and yield a negative number, but there is nothing we can do

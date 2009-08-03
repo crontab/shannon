@@ -90,6 +90,11 @@ template<class T>
 template<class T>
     inline T imin(T x, T y)  { return (x < y) ? x : y; }
 
+template <class T>
+    inline T exchange(T& target, const T& value)
+        { T temp = target; target = value; return temp; }
+
+
 #ifdef DEBUG
 #  define CAST(t,x) (dynamic_cast<t>(x))
 #else

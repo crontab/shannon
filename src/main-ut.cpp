@@ -425,8 +425,11 @@ void check_var(const variant& v, const char* s)
     strfifo stm(NULL);
     queenBee->defVariant->dumpValue(stm, v);
     str s1 = stm.all();
-//    sio << "Expecting: " << s << endl;
-//    sio << "Result:    " << s1 << endl;
+    if (s1 != s)
+    {
+        sio << "Expecting: " << s << endl;
+        sio << "Result:    " << s1 << endl;
+    }
     check(s1 == s);
 }
 
@@ -603,7 +606,7 @@ void test_vm()
             gen.loadStr("k1");
             gen.loadInt(15);
             gen.pairToDict(dictType);
-            gen.initLocalVar(v1);
+            gen.initVar(v1);
             gen.loadVar(v1);
             gen.loadStr("k2");
             gen.loadInt(25);
@@ -611,7 +614,7 @@ void test_vm()
 
             Variable* v2 = block.addLocalVar(arrayType, "v2");
             gen.loadNullComp(arrayType);
-            gen.initLocalVar(v2);
+            gen.initVar(v2);
             gen.loadVar(v2);
             gen.loadBool(false);
             gen.loadStr("abc");
@@ -623,7 +626,7 @@ void test_vm()
             Variable* v3 = block.addLocalVar(ordsetType, "v3");
             gen.loadNullComp(NULL);
             gen.implicitCastTo(ordsetType, "Huh?");
-            gen.initLocalVar(v3);
+            gen.initVar(v3);
             gen.loadVar(v3);
             gen.loadChar('a');
             gen.addToSet(false);
@@ -632,7 +635,7 @@ void test_vm()
 
             Variable* v4 = block.addLocalVar(setType, "v4");
             gen.loadNullComp(setType);
-            gen.initLocalVar(v4);
+            gen.initVar(v4);
             gen.loadVar(v4);
             gen.loadInt(100);
             gen.addToSet(false);
@@ -711,7 +714,7 @@ void test_vm()
 
             ThisVar* var = mod.addThisVar(queenBee->defInt, "var");
             gen.loadInt(200);
-            gen.initThisVar(var);
+            gen.initVar(var);
             gen.loadVar(var);
             gen.elemCat();
 
@@ -748,22 +751,22 @@ void test_vm()
             Variable* s0 = block.addLocalVar(queenBee->defVariant->deriveVector(), "s0");
             gen.loadNullComp(NULL);
             gen.implicitCastTo(queenBee->defVariant->deriveVector(), "Huh?");
-            gen.initLocalVar(s0);
+            gen.initVar(s0);
 
             Variable* s1 = block.addLocalVar(queenBee->defStr, "s1");
             gen.loadStr("abc");
             gen.loadStr("def");
             gen.cat();
-            gen.initLocalVar(s1);
+            gen.initVar(s1);
 
             Variable* s2 = block.addLocalVar(queenBee->defInt, "s2");
             gen.loadInt(123);
-            gen.initLocalVar(s2);
+            gen.initVar(s2);
 
             Variable* s3 = block.addLocalVar(queenBee->defStr->deriveSet(), "s3");
             gen.loadStr("abc");
             gen.elemToSet();
-            gen.initLocalVar(s3);
+            gen.initVar(s3);
             
             Variable* s4 = block.addLocalVar(queenBee->defStr->createContainer(queenBee->defBool), "s4");
             check(s4->type->isArray());
@@ -774,7 +777,7 @@ void test_vm()
             gen.loadBool(true);
             gen.loadStr("TRUE");
             gen.storeContainerElem(false);
-            gen.initLocalVar(s4);
+            gen.initVar(s4);
             
             gen.loadVar(s0);
             gen.loadVar(s1);
@@ -852,7 +855,6 @@ void test_vm()
         variant result = mod.run();
         check_var(result, "['abcdef', 123, 2, 10, 1, 1, 1, 1, 1, ['FALSE', 'TRUE']]");
     }
-
     }
     catch (exception&)
     {
@@ -860,6 +862,56 @@ void test_vm()
         throw;
     }
 
+    doneTypeSys();
+}
+
+
+void test_vm2()
+{
+    initTypeSys();
+    try
+    {
+        // Test assignment
+        Module mod("test2");
+        {
+            str s;
+            Type* t;
+            CodeGen gen(&mod);
+            BlockScope block(&mod, &gen);
+
+            Variable* r = block.addLocalVar(queenBee->defVariant->deriveVector(), "r");
+            gen.loadNullComp(r->type);
+            gen.initVar(r);
+            gen.loadVar(r);
+
+            Variable* v1 = mod.addThisVar(queenBee->defInt, "v1");
+            gen.loadInt(1);
+            gen.initVar(v1);
+            gen.loadVar(v1);
+            t = gen.detachDesignatorOp(s);
+            gen.loadInt(2);
+            gen.store(s, t);
+            gen.loadVar(v1);
+            gen.elemCat();
+            gen.discard();
+
+            gen.loadVar(queenBee->sresultvar);
+            t = gen.detachDesignatorOp(s);
+            gen.loadVar(r);
+            gen.store(s, t);
+            block.deinitLocals();
+            gen.end();
+        }
+//        outtext out(NULL, "../../src/UT0.LST");
+//        mod.listing(out);
+        variant result = mod.run();
+        check_var(result, "[2]");
+    }
+    catch (exception&)
+    {
+        doneTypeSys();
+        throw;
+    }
     doneTypeSys();
 }
 
@@ -899,6 +951,7 @@ int main()
         test_fifos();
         test_typesys();
         test_vm();
+        test_vm2();
     }
     catch (exception& e)
     {
