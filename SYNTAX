@@ -23,7 +23,7 @@ module ::= statement-list
 
 statement-list ::= { ( definition | statement ) <SEP> }
 
-definition ::= 'def' [ type-expr ] ident { type-derivator } '=' ( expr | type-expr )
+definition ::= 'def' [ type-expr ] ident { type-derivator } '=' ( const-expr | type-expr )
 
 statement ::= call | pipe | assignment | compound-statement | if-clause
     | while-clause | "break" | "continue" | case-clause | "return"
@@ -77,7 +77,15 @@ designator ::= atom { array-item-selection | member-selection | static-typecast 
 
 atom ::= number | string | ident | subexpr | enum-spec | compound-ctor
 
-type-derivator ::= array-derivator | fifo-derivator | function-derivator
+type-derivator ::= compound-derivator | fifo-derivator | function-derivator
+
+compound-derivator ::= "[" [ type-expr | ".." ] "]"
+
+fifo-derivator ::= "<>"
+
+function-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")"
+
+formal-arg ::= type-expr ident [ "=" const-expr ]
 
 subexpr ::= "(" expr ")"
 
@@ -85,7 +93,7 @@ enum-spec ::= "(" ident { "," ident } ")"
 
 compound-ctor ::= "[" [ element-ctor { "," element-ctor } "]"
 
-element-ctor ::= [ expr ( "=" | ".." ) ] expr
+element-ctor ::= expr [ ( "=" | ".." ) expr ]
 
 if-expr ::= "if" "(" expr, expr, expr ")"
 
