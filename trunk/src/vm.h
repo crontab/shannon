@@ -70,7 +70,7 @@ enum OpCode
     // Boolean operations are performed with short evaluation using jumps,
     // except NOT and XOR
     opBoolXor,          // -bool, -bool, +bool
-    
+
     // Arithmetic unary: -ord, +ord
     opNeg,              // -int, +int
     opBitNot,           // -int, +int
@@ -102,6 +102,7 @@ enum OpCode
 
     // Loaders
     // NOTE: opLoadRet through opLoadArg are in sync with Symbol::symbolId
+    // Also, this group is in sync with storers below
     opLoadRet,          // [ret-index] +var
     opLoadLocal,        // [stack-index: 8] +var
     opLoadThis,         // [this-index: 8] +var
@@ -109,18 +110,14 @@ enum OpCode
     opLoadStatic,       // [Module*, var-index: 8] +var
     opLoadMember,       // [var-index: 8] -obj, +val
     opLoadOuter,        // [level: 8, var-index: 8] +var
-
-    // Container read operations
     opLoadDictElem,     // -key, -dict, +val
-    opKeyInDict,        // -dict, -key, +bool
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
     opLoadArrayElem,    // -index, -array, +val
-    opInOrdset,         // -ordset, -ord, +bool
-    opInSet,            // -set, -key, +bool
 
     // Storers
     // NOTE: opStoreRet through opStoreArg are in sync with Symbol::symbolId
+    // Also, this group is in sync with loaders above
     opStoreRet,         // [ret-index] -var
     opStoreLocal,       // [stack-index: 8] -var
     opStoreThis,        // [this-index: 8] -var
@@ -128,20 +125,23 @@ enum OpCode
     opStoreStatic,      // [Module*, var-index: 8] -var
     opStoreMember,      // [var-index: 8] -val, -obj
     opStoreOuter,       // [level: 8, var-index: 8] -var
-
-    // Container write operations
     opStoreDictElem,    // [bool pop] -val, -key, (-dict)
-    opPairToDict,       // [Dict*] -val, -key, +dict
-    opDelDictElem,      // -key, -dict
-//    opStoreStrElem,     // -char, -index, -str
+    opStoreStrElem,     // -char, -index, -str
     opStoreVecElem,     // [bool pop] -val, -index, (-vector)
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
+
+    // Container operations
+    opKeyInDict,        // -dict, -key, +bool
+    opPairToDict,       // [Dict*] -val, -key, +dict
+    opDelDictElem,      // -key, -dict
     opPairToArray,      // [Array*] -val, -idx, +array
+    opInOrdset,         // -ordset, -ord, +bool
     opAddToOrdset,      // [bool pop] -ord, -ordset
     opElemToOrdset,     // [Ordset*] -ord, +ordset
     opRangeToOrdset,    // -range, +ordset
     opAddRangeToOrdset, // [bool pop] -range, +ordset
     opDelOrdsetElem,    // -key, -ordset
+    opInSet,            // -set, -key, +bool
     opAddToSet,         // [bool pop] -key, -set
     opElemToSet,        // [Set*] -var, +set
     opDelSetElem,       // -key, -set
@@ -160,8 +160,6 @@ enum OpCode
     opStrLen,           // -str, +int
     opVecLen,           // -vec, +int
     opRangeDiff,        // -range, +int
-    opRangeLow,         // -range, +ord
-    opRangeHigh,        // -range, +ord
 
     // Jumps; [dst] is a relative 16-bit offset.
     opJump,             // [dst 16]

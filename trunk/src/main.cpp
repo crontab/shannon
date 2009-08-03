@@ -54,7 +54,7 @@ protected:
     void orLevel();
     void expression()
             { orLevel(); }
-    void expression(Type* expectType);
+    void expression(Type* expectType, bool allowRange = false);
     Type* constExpr(Type* expectType, variant& result);
     Type* typeExpr();
 
@@ -137,20 +137,35 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 Type* Compiler::compoundCtorElem(Type* type)
 {
-    // If the type of this container is not known then it is assumed to be of:
+    // If the type of this container is not known then it is assumed one of:
     // * dictionary, if elements are key/value pairs
     // * range, if the constructor consists of a single range
     // * vector otherwise (and ranges are not allowed)
     // So sets and arrays are not possible to define if type is not known
     // beforehand.
-    expression();
+    
+    Type* first = NULL, * second = NULL;
+    if (type != NULL)
+    {
+        if (type->isDict() || type->isArray())
+        {
+            first = PCont(type)->index;
+            second = PCont(type)->elem;
+        }
+        else if (type->isVector())
+            first = PCont(type)->elem;
+        else if (type->isSet() || type->isOrdset())
+            first = PCont(type)->index;
+    }
+
+    expression(first);
     Type* elemType = codegen->getTopType();
 
     if (skipIf(tokAssign))
     {
         if (type != NULL && !type->isDict() && !type->isArray())
             error("Key/value pair not allowed here");
-        expression();
+        expression(second);
         if (type == NULL)
         {
             Type* keyType = elemType;
@@ -174,7 +189,7 @@ Type* Compiler::compoundCtorElem(Type* type)
         }
         else
             type = POrdinal(elemType)->deriveRange();
-        expression();
+        expression(PRange(type)->base);
         codegen->mkRange(PRange(type));
     }
 
@@ -207,7 +222,6 @@ void Compiler::compoundCtor(Type* expectType)
 
     // First element
     Type* type = compoundCtorElem(expectType);
-    mem numElements = 1;
 
     if (type->isRange())
     {
@@ -243,7 +257,6 @@ void Compiler::compoundCtor(Type* expectType)
         // range, compondElemCtor() returns that range type; in all other cases
         // container type is returned.
         type = compoundCtorElem(type);
-        numElements++;
         if (type->isRange())
             codegen->addRangeToOrdset(false);
         else if (type->isDict() || type->isArray())
@@ -564,17 +577,15 @@ void Compiler::orLevel()
 }
 
 
-Type* Compiler::constExpr(Type* expectType, variant& result)
+void Compiler::expression(Type* expectType, bool allowRange)
 {
-    ConstCode constCode;
-    CodeGen constCodeGen(&constCode);
-    CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-
     if (expectType != NULL)
     {
         if (expectType->isTypeRef())
+        {
             factor();
-        else if (expectType->isCompound() && token == tokLSquare)
+        }
+        else if (expectType != NULL && expectType->isCompound() && token == tokLSquare)
         {
             next();
             compoundCtor(expectType);
@@ -585,23 +596,32 @@ Type* Compiler::constExpr(Type* expectType, variant& result)
     else
         expression();
 
-    Type* valueType = codegen->getTopType();
-    if (skipIf(tokRange))
+    if (allowRange && skipIf(tokRange))
     {
-        if (expectType != NULL && !expectType->isTypeRef())
-            error("Subrange type is not expected here");
         factor();
         codegen->mkRange(NULL);
-        constCodeGen.endConstExpr(NULL);
-        constCode.run(result);
-        range* r = CAST(range*, result.as_obj());
-        result = CAST(Ordinal*, valueType)->createSubrange(r->left, r->right);
-        valueType = defTypeRef;
     }
-    else
+    else if (expectType != NULL)
+        codegen->implicitCastTo(expectType);
+}
+
+
+Type* Compiler::constExpr(Type* expectType, variant& result)
+{
+    ConstCode constCode;
+    CodeGen constCodeGen(&constCode);
+    CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
+
+    expression(expectType, true);
+
+    Type* valueType = codegen->getTopType();
+    constCodeGen.endConstExpr(NULL);
+    constCode.run(result);
+    if (valueType->isRange())
     {
-        constCodeGen.endConstExpr(expectType);
-        constCode.run(result);
+        range* r = CAST(range*, result._obj());
+        result = CAST(Range*, valueType)->base->createSubrange(r->left, r->right);
+        valueType = defTypeRef;
     }
     codegen = prevCodeGen;
     return valueType;
@@ -667,7 +687,7 @@ void Compiler::variable()
     // definition ::= 'var' [ type-expr ] ident { type-derivator } '=' expr
     str ident;
     Type* type = getTypeAndIdent(ident);
-    expression();
+    expression(type);
     if (type == NULL)
         type = codegen->getTopType();
     if (type->isNullComp())

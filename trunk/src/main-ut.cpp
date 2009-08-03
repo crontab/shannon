@@ -656,7 +656,10 @@ void test_vm()
             gen.loadContainerElem();
             gen.elemCat();
             gen.loadConst(c->type, c->value);
-            gen.loadStr("key2");
+            gen.loadStr("keyA");
+            gen.loadInt(3);
+            gen.loadChar('2');
+            gen.storeContainerElem(false);
             gen.loadContainerElem();
             gen.elemCat();
             gen.loadVar(v1);

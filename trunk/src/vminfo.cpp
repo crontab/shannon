@@ -8,8 +8,10 @@ typedef void (*argfunc)(uchar*& ip);
 
 enum ArgType
     { argNone, argChar, argInt, argType, argConst, argConst16, argIndex,
-        argModIndex, argLevelIndex, argJump16, argIntInt, argFile16Line16 };
+        argModIndex, argLevelIndex, argJump16, argIntInt, argFile16Line16,
+        argFlag };
 
+// TODO: pop argument
 
 struct OpInfo
 {
@@ -28,6 +30,7 @@ static OpInfo opTable[] =
     OP(End, None),
     OP(Nop, None),
     OP(Exit, None),
+
     OP(LoadNull, None),         // +null
     OP(LoadFalse, None),        // +false
     OP(LoadTrue, None),         // +true
@@ -48,9 +51,11 @@ static OpInfo opTable[] =
     OP(LoadConst, Const),       // [const-index: 8] +var // compound values only
     OP(LoadConst2, Const16),    // [const-index: 16] +var // compound values only
     OP(LoadTypeRef, Type),      // [Type*] +typeref
+
     OP(Pop, None),              // -var
     OP(Swap, None),
     OP(Dup, None),              // +var
+
     OP(ToBool, None),           // -var, +bool
     OP(IntToStr, None),         // -int, +bool
     OP(ToString, Type),         // [Type*] -var, +str
@@ -58,6 +63,7 @@ static OpInfo opTable[] =
     OP(ToTypeRef, None),        // -type, -var, +var
     OP(IsType, Type),           // [Type*] -var, +bool
     OP(IsTypeRef, None),        // -type, -var, +bool
+
     OP(Add, None),              // -int, +int, +int
     OP(Sub, None),              // -int, +int, +int
     OP(Mul, None),              // -int, +int, +int
@@ -72,9 +78,11 @@ static OpInfo opTable[] =
     OP(Neg, None),              // -int, +int
     OP(BitNot, None),           // -int, +int
     OP(Not, None),              // -bool, +bool
+
     OP(MkRange, Type),          // [Ordinal*] -right-int, -left-int, +range
     OP(InRange, None),          // -range, -ord, +bool
     OP(InBounds, None),         // -ord, -ord, -ord, +bool
+
     OP(CmpOrd, None),           // -ord, -ord, +{-1,0,1}
     OP(CmpStr, None),           // -str, -str, +{-1,0,1}
     OP(CmpVar, None),           // -var, -var, +{0,1}
@@ -84,9 +92,11 @@ static OpInfo opTable[] =
     OP(LessEq, None),           // -int, +bool
     OP(GreaterThan, None),      // -int, +bool
     OP(GreaterEq, None),        // -int, +bool
+
     OP(InitRet, Index),         // [ret-index] -var
 //    OP(InitLocal, Index),       // [stack-index: 8]
     OP(InitThis, Index),        // [this-index: 8]
+
     OP(LoadRet, Index),         // [ret-index] +var
     OP(LoadLocal, Index),       // [stack-index: 8] +var
     OP(LoadThis, Index),        // [this-index: 8] +var
@@ -95,12 +105,10 @@ static OpInfo opTable[] =
     OP(LoadMember, Index),      // [var-index: 8] -obj, +val
     OP(LoadOuter, LevelIndex),  // [level: 8, var-index: 8] +var
     OP(LoadDictElem, None),     // -key, -dict, +val
-    OP(KeyInDict, None),        // -dict, -key, +bool
     OP(LoadStrElem, None),      // -index, -str, +char
     OP(LoadVecElem, None),      // -index, -vector, +val
     OP(LoadArrayElem, None),    // -index, -array, +val
-    OP(InOrdset, None),         // -ordset, -ord, +bool
-    OP(InSet, None),            // -ordset, -key, +bool
+
     OP(StoreRet, Index),        // [ret-index] -var
     OP(StoreLocal, Index),      // [stack-index: 8] -var
     OP(StoreThis, Index),       // [this-index: 8] -var
@@ -108,20 +116,26 @@ static OpInfo opTable[] =
     OP(StoreStatic, ModIndex),  // [Module*, var-index: 8] -var
     OP(StoreMember, Index),     // [var-index: 8] -val, -obj
     OP(StoreOuter, LevelIndex), // [level: 8, var-index: 8] -var
-    OP(StoreDictElem, None),    // [bool pop] -val, -key, -dict
+    OP(StoreDictElem, Flag),    // [bool pop] -val, -key, -dict
+    OP(StoreStrElem, None),     // -char, -index, -str
+    OP(StoreVecElem, Flag),     // [bool pop] -val, -index, -vector
+    OP(StoreArrayElem, Flag),   // [bool pop] -val, -index, -array
+
+    OP(KeyInDict, None),        // -dict, -key, +bool
     OP(PairToDict, Type),       // [Dict*] -val, -key, +dict
     OP(DelDictElem, None),      // -key, -dict
-    OP(StoreVecElem, None),     // [bool pop] -val, -index, -vector
-    OP(StoreArrayElem, None),   // [bool pop] -val, -index, -array
     OP(PairToArray, Type),      // [Array*] -vel, -idx, +dict
-    OP(AddToOrdset, None),      // [bool pop] -ord, -ordset
-    OP(ElemToOrdset, None),     // [Ordset*] -ord, +ordset
+    OP(InOrdset, None),         // -ordset, -ord, +bool
+    OP(AddToOrdset, Flag),      // [bool pop] -ord, -ordset
+    OP(ElemToOrdset, Type),     // [Ordset*] -ord, +ordset
     OP(RangeToOrdset, None),    // -range, +ordset
-    OP(AddRangeToOrdset, None), // [bool pop] -range, +ordset
+    OP(AddRangeToOrdset, Flag), // [bool pop] -range, +ordset
     OP(DelOrdsetElem, None),    // -key, -ordset
-    OP(AddToSet, None),         // [bool pop] -key, -set
-    OP(ElemToSet, None),        // [Set*] -var, +set
+    OP(InSet, None),            // -ordset, -key, +bool
+    OP(AddToSet, Flag),         // [bool pop] -key, -set
+    OP(ElemToSet, Type),        // [Set*] -var, +set
     OP(DelSetElem, None),       // -key, -set
+
     OP(ChrToStr, None),         // -char, +str
     OP(ChrToStr2, None),        // swap, -char, +str, swap
     OP(CharCat, None),          // -char, -str, +str
@@ -129,12 +143,12 @@ static OpInfo opTable[] =
     OP(VarToVec, Type),         // [Vector*] -var, +vec
     OP(VarCat, None),           // -var, -vec, +vec
     OP(VecCat, None),           // -var, -vec, +vec
+
     OP(Empty, None),            // -var, +bool
     OP(StrLen, None),           // -str, +int
     OP(VecLen, None),           // -vec, +int
     OP(RangeDiff, None),        // -range, +int
-    OP(RangeLow, None),         // -range, +ord
-    OP(RangeHigh, None),        // -range, +ord
+
     OP(Jump, Jump16),           // [dst 16]
     OP(JumpTrue, Jump16),       // [dst 16] -bool
     OP(JumpFalse, Jump16),      // [dst 16] -bool
@@ -144,11 +158,14 @@ static OpInfo opTable[] =
     OP(CaseRange, IntInt),      // [int, int], +bool
     OP(CaseStr, None),          // -str, +bool
     OP(CaseTypeRef, None),      // -typeref, +bool
+
     OP(Call, Type),             // [Type*]
+
     OP(Dump, Type),             // [Type*], -var
     OP(EchoLn, None),
     OP(LineNum, File16Line16),  // [file-id: 16, line-num: 16]
     OP(Assert, None),           // -bool
+
     OP(MaxCode, None),
 };
 
@@ -176,6 +193,8 @@ void CodeSeg::listing(fifo& stm) const
     const uchar* ip = saveip;
     while (1)
     {
+        if (*ip >= opMaxCode)
+            fatal(0x5101, "Corrupt code");
         const OpInfo& info = opTable[*ip];
         stm << to_string(ip - saveip, 16, 4, '0') << ":\t";
         ip++;
@@ -211,6 +230,7 @@ void CodeSeg::listing(fifo& stm) const
                         break;
                     case argIntInt:     stm << ADV<integer>(ip); stm << ',' << ADV<integer>(ip); break;
                     case argFile16Line16: break;
+                    case argFlag:       stm << (ADV<uchar>(ip) ? "F" : ""); break;
                 }
             }
         }
