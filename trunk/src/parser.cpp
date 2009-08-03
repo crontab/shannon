@@ -136,12 +136,12 @@ str mkQuotedPrintable(char c)
 
 Parser::Parser(const str& fn, fifo* _input)
     : fileName(fn), input(_input), newLine(true),
-      indentStack(), linenum(1), indent(0),
+      indentStackCnt(0), linenum(1), indent(0),
       curlyLevel(0),
       prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)
 {
-    indentStack.push(0);
+    indentStackPush(0);
 }
 
 
@@ -285,14 +285,17 @@ restart:
         // the compiler needs a block-end here.
         if (curlyLevel > 0)
             error("Unbalanced curly brackets in file");
-        else if (!indentStack.empty())
+        else if (indentStackEmpty())
+        {
+            strValue = "<EOF>";
+            return token = tokEof;
+        }
+        else
         {
             strValue = "<END>";
-            indentStack.pop();
+            indentStackPop();
             return token = tokBlockEnd;
         }
-        strValue = "<EOF>";
-        return token = tokEof;
     }
 
     else if (input->is_eol_char(c))
@@ -330,19 +333,19 @@ restart:
         // This is a new line, blanks are skipped, so we are at the first 
         // non-blank, non-comment char:
         int newIndent = getIndent();
-        int oldIndent = indentStack.top();
+        int oldIndent = indentStackTop();
         if (newIndent > oldIndent)
         {
             strValue = "<INDENT>";
-            indentStack.push(newIndent);
+            indentStackPush(newIndent);
             newLine = false; // don't return to this branch again
             return token = tokIndent;
         }
         else if (newIndent < oldIndent) // unindent
         {
             strValue = "<END>";
-            indentStack.pop();
-            oldIndent = indentStack.top();
+            indentStackPop();
+            oldIndent = indentStackTop();
             if (newIndent > oldIndent)
                 error("Unmatched un-indent");
             else if (newIndent == oldIndent)
@@ -481,6 +484,14 @@ str Parser::getIdentifier()
         errorWithLoc("Identifier expected");
     str result = strValue;
     return result;
+}
+
+
+void Parser::indentStackPush(int v)
+{
+    if (indentStackCnt == IndentStackMax)
+        error("Maximum number of indent levels reached");
+    indentStack[indentStackCnt++] = v;
 }
 
 
