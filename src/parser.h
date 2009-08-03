@@ -6,8 +6,6 @@
 #include "charset.h"
 #include "runtime.h"
 
-#include <stack>
-
 
 struct EParser: public emessage
 {
@@ -60,11 +58,16 @@ enum Token
 
 class Parser: noncopyable
 {
+    enum { IndentStackMax = 16 };
 private:
     str fileName;
     objptr<fifo> input;
     bool newLine;
-    std::stack<int> indentStack;
+
+//    std::stack<int> indentStack;
+    int indentStack[IndentStackMax];
+    int indentStackCnt;
+
     int linenum;
     int indent;
     int curlyLevel;
@@ -72,6 +75,13 @@ private:
     str prevIdent; // undo()
     Token saveToken;
 
+    void indentStackPush(int);
+    int indentStackTop()
+            { assert(indentStackCnt > 0); return indentStack[indentStackCnt - 1]; }
+    void indentStackPop()
+            { assert(indentStackCnt > 0); indentStackCnt--; }
+    bool indentStackEmpty()
+            { return indentStackCnt == 0; }
     str errorLocation() const;
     void parseStringLiteral();
     void skipMultilineComment();
