@@ -101,8 +101,11 @@ enum OpCode
     opInitThis,         // [this-index: 8]
 
     // Loaders
-    // NOTE: opLoadRet through opLoadArg are in sync with Symbol::symbolId
-    // Also, this group is in sync with storers below
+    // NOTE: opLoadRet through opLoadArg are in sync with Symbol::symbolId.
+    // Also, opLoadRet..opLoadOuter are in sync with storers below: any of
+    // these ops can be replaced with a storer counterpart if assignment is
+    // encountered - see CodeGen::revertDesignatorOp() and storeDesignator().
+    // The trick doesn't work for containers though.
     opLoadRet,          // [ret-index] +var
     opLoadLocal,        // [stack-index: 8] +var
     opLoadThis,         // [this-index: 8] +var
@@ -110,14 +113,13 @@ enum OpCode
     opLoadStatic,       // [Module*, var-index: 8] +var
     opLoadMember,       // [var-index: 8] -obj, +val
     opLoadOuter,        // [level: 8, var-index: 8] +var
+
     opLoadDictElem,     // -key, -dict, +val
     opLoadStrElem,      // -index, -str, +char
     opLoadVecElem,      // -index, -vector, +val
     opLoadArrayElem,    // -index, -array, +val
 
     // Storers
-    // NOTE: opStoreRet through opStoreArg are in sync with Symbol::symbolId
-    // Also, this group is in sync with loaders above
     opStoreRet,         // [ret-index] -var
     opStoreLocal,       // [stack-index: 8] -var
     opStoreThis,        // [this-index: 8] -var
@@ -125,8 +127,9 @@ enum OpCode
     opStoreStatic,      // [Module*, var-index: 8] -var
     opStoreMember,      // [var-index: 8] -val, -obj
     opStoreOuter,       // [level: 8, var-index: 8] -var
+
     opStoreDictElem,    // [bool pop] -val, -key, (-dict)
-    opStoreStrElem,     // -char, -index, -str
+    opStoreStrElem,     // [bool pop] -char, -index, -str
     opStoreVecElem,     // [bool pop] -val, -index, (-vector)
     opStoreArrayElem,   // [bool pop] -val, -index, (-array)
 
@@ -186,16 +189,22 @@ enum OpCode
     opAssert,           // -bool
 
     opMaxCode,
-    
+
     // Special values
     opLoadBase = opLoadRet, opStoreBase = opStoreRet,
     opCmpFirst = opEqual, opCmpLast = opGreaterEq,
 };
 
 
-inline bool isLoadOp(OpCode op)
+inline bool isUndoableLoadOp(OpCode op)
     { return (op >= opLoadNull && op <= opLoadTypeRef)
         || (op >= opLoadRet && op <= opLoadOuter); }
+
+inline bool isDesignatorOp(OpCode op)
+    { return op >= opLoadRet && op <= opLoadOuter; }
+
+inline OpCode getStorer(OpCode op)
+    { assert(isDesignatorOp(op)); return OpCode(op + (opStoreRet - opLoadRet)); }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opCmpFirst && op <= opCmpLast; }
@@ -236,8 +245,9 @@ protected:
     State* state;
     mem lastOpOffs;
     StringMap stringMap;
+    // TODO: replace this vector with a static array
     PtrList<Type> genStack;
-    
+
     mem stkMax;
     mem locals;
 #ifdef DEBUG
@@ -245,6 +255,7 @@ protected:
 #endif
 
     mem addOp(OpCode);
+    mem addOp(const str&);
     void addOpPtr(OpCode, void*);
     void add8(uint8_t i);
     void add16(uint16_t i);
@@ -252,6 +263,8 @@ protected:
     void addInt(integer i);
     void addPtr(void* p);
     void revertLastLoad();
+    str detachLastOp()
+            { str t = codeseg->detach(lastOpOffs); lastOpOffs = mem(-1); return t; }
     OpCode lastOp();
     TypeReference* lastLoadedTypeRef();
     void close();
@@ -303,16 +316,17 @@ public:
     void swap();    // not used currently
     void dup();
 
-    void initRetVal(Type*);
-    void initLocalVar(Variable*);
+    void initRetVal(Type*); // for const expressions
+    void initVar(Variable*);
     void deinitLocalVar(Variable*);
-    void initThisVar(Variable*);
 
     void loadVar(Variable*);
     void storeVar(Variable*);
     void loadMember(const str& ident);
     void loadContainerElem();
     void storeContainerElem(bool pop = true);
+    Type* detachDesignatorOp(str&);
+    void store(str loaderCode, Type*);
     void delDictElem();
     void keyInDict();
     void pairToDict(Dict*);

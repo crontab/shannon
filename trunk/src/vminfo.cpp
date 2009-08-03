@@ -11,7 +11,6 @@ enum ArgType
         argModIndex, argLevelIndex, argJump16, argIntInt, argFile16Line16,
         argFlag };
 
-// TODO: pop argument
 
 struct OpInfo
 {
@@ -104,6 +103,7 @@ static OpInfo opTable[] =
     OP(LoadStatic, ModIndex),   // [Module*, var-index: 8] +var
     OP(LoadMember, Index),      // [var-index: 8] -obj, +val
     OP(LoadOuter, LevelIndex),  // [level: 8, var-index: 8] +var
+
     OP(LoadDictElem, None),     // -key, -dict, +val
     OP(LoadStrElem, None),      // -index, -str, +char
     OP(LoadVecElem, None),      // -index, -vector, +val
@@ -116,8 +116,9 @@ static OpInfo opTable[] =
     OP(StoreStatic, ModIndex),  // [Module*, var-index: 8] -var
     OP(StoreMember, Index),     // [var-index: 8] -val, -obj
     OP(StoreOuter, LevelIndex), // [level: 8, var-index: 8] -var
+
     OP(StoreDictElem, Flag),    // [bool pop] -val, -key, -dict
-    OP(StoreStrElem, None),     // -char, -index, -str
+    OP(StoreStrElem, Flag),     // [bool pop] -char, -index, -str
     OP(StoreVecElem, Flag),     // [bool pop] -val, -index, -vector
     OP(StoreArrayElem, Flag),   // [bool pop] -val, -index, -array
 

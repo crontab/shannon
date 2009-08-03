@@ -63,11 +63,8 @@ private:
     str fileName;
     objptr<fifo> input;
     bool newLine;
-
-//    std::stack<int> indentStack;
     int indentStack[IndentStackMax];
     int indentStackCnt;
-
     int linenum;
     int indent;
     int curlyLevel;
