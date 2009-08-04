@@ -42,6 +42,7 @@ protected:
     Type* compoundCtorElem(Type*);
     void compoundCtor(Type*);
     void enumeration(const str&);
+    void ifFunction();
     void atom();
     void designator(bool expectAssignment = false);
     void factor();
@@ -287,6 +288,24 @@ void Compiler::enumeration(const str& firstIdent)
 }
 
 
+void Compiler::ifFunction()
+{
+    skip(tokLParen, "(");
+    expression(queenBee->defBool);
+    mem jumpFalse = codegen->boolJumpForward(opJumpFalse);
+    skip(tokComma, ",");
+    expression();
+    Type* exprType = codegen->getTopType();
+    codegen->justForget(); // will get the expression type from the second branch
+    mem jumpOut = codegen->jumpForward();
+    codegen->resolveJump(jumpFalse);
+    skip(tokComma, ",");
+    expression(exprType);
+    codegen->resolveJump(jumpOut);
+    skip(tokRParen, ")");
+}
+
+
 void Compiler::atom()
 {
     if (token == tokPrevIdent)  // from partial (typeless) definition or enum spec
@@ -342,6 +361,9 @@ ICantBelieveIUsedAGotoStatementShameShame:
 
     else if (skipIf(tokLSquare))
         compoundCtor(NULL);
+
+    else if (skipIf(tokIf))
+        ifFunction();
 
     else
         errorWithLoc("Expression syntax");

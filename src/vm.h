@@ -292,9 +292,10 @@ public:
     CodeGen(CodeSeg*);
     ~CodeGen();
 
-    mem getLocals() { return locals; }
-    State* getState() { return state; }
-    Type* getTopType() { return stkTop(); }
+    mem getLocals()     { return locals; }
+    State* getState()   { return state; }
+    Type* getTopType()  { return stkTop(); }
+    void justForget()   { stkPop(); }
     Type* getLastTypeRef();
 
     void end();
