@@ -43,6 +43,7 @@ protected:
     void compoundCtor(Type*);
     void enumeration(const str&);
     void ifFunction();
+    void typeOf();
     void atom();
     void designator(bool expectAssignment = false);
     void factor();
@@ -306,6 +307,20 @@ void Compiler::ifFunction()
 }
 
 
+void Compiler::typeOf()
+{
+    CodeSeg nullseg(&mainModule, state);
+    CodeGen nullgen(&nullseg);
+    CodeGen* saveGen = exchange(codegen, &nullgen);
+    skip(tokLParen, "(");
+    expression();
+    Type* type = codegen->getTopType();
+    codegen = saveGen;
+    codegen->loadTypeRef(type);
+    skip(tokRParen, ")");
+}
+
+
 void Compiler::atom()
 {
     if (token == tokPrevIdent)  // from partial (typeless) definition or enum spec
@@ -364,6 +379,9 @@ ICantBelieveIUsedAGotoStatementShameShame:
 
     else if (skipIf(tokIf))
         ifFunction();
+
+    else if (skipIf(tokTypeOf))
+        typeOf();
 
     else
         errorWithLoc("Expression syntax");

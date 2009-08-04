@@ -66,7 +66,7 @@
 * Have the code generator evaluate some operations at generation time if
   possible. Need to store codeseg offset with each genstack element.
 
-* Built-ins: empty(), count(), typeof(), if() etc.
+* Built-ins: empty(), count() etc.
 
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.

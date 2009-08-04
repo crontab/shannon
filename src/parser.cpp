@@ -70,6 +70,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"return", tokReturn},
         {"shl", tokShl},
         {"shr", tokShr},
+        {"typeof", tokTypeOf},
         {"var", tokVar},
         {"while", tokWhile},
         {"xor", tokXor},
