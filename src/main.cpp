@@ -45,7 +45,7 @@ protected:
     void ifFunction();
     void typeOf();
     void atom();
-    void designator(bool expectAssignment = false);
+    void designator(bool LValue = false);
     void factor();
     void term();
     void arithmExpr();
@@ -65,8 +65,7 @@ protected:
     void variable();
     void echo();
     void assertion();
-    void assignment()
-            { designator(true); }
+    void assignment();
     void block();
     void statementList();
 
@@ -388,7 +387,7 @@ ICantBelieveIUsedAGotoStatementShameShame:
 }
 
 
-void Compiler::designator(bool expectAssignment)
+void Compiler::designator(bool LValue)
 {
     atom();
     while (1)
@@ -401,9 +400,27 @@ void Compiler::designator(bool expectAssignment)
         else if (skipIf(tokLSquare))
         {
             // TODO: Compound typecast
-            expression();
-            codegen->loadContainerElem();
-            skip(tokRSquare, "]");
+            if (LValue && skipIf(tokRSquare))
+            {
+                if (!codegen->getTopType()->isVector())
+                    error("Append operator is allowed only for vectors");
+                skip(tokAssign, "=");
+                expression();
+                codegen->elemCat();
+                codegen->discard();
+            }
+            else
+            {
+                expression();
+                skip(tokRSquare, "]");
+                if (LValue && skipIf(tokAssign))
+                {
+                    expression();
+                    codegen->storeContainerElem(true);
+                }
+                else
+                    codegen->loadContainerElem();
+            }
         }
         else if (skipIf(tokLParen))
         {
@@ -426,12 +443,12 @@ void Compiler::designator(bool expectAssignment)
                 // indirect function call?
                 notimpl();
         }
-        else if (expectAssignment && skipIf(tokAssign))
+        else if (LValue && skipIf(tokAssign))
         {
             str code;
             Type* destType = codegen->detachDesignatorOp(code);
             expression(destType);
-            codegen->store(code, destType);
+            codegen->storeDesignator(code, destType);
         }
         else
             break;
@@ -779,6 +796,15 @@ void Compiler::assertion()
 }
 
 
+void Compiler::assignment()
+{
+    mem saveStackSize = codegen->getStackSize();
+    designator(true);
+    if (codegen->getStackSize() != saveStackSize)
+        error("Expression result unused");
+}
+
+
 void Compiler::block()
 {
     BlockScope localScope(scope, codegen);
@@ -810,6 +836,11 @@ void Compiler::statementList()
             assertion();
         else if (skipIf(tokBlockBegin))
             block();
+        else if (skipIf(tokBegin))
+        {
+            skipBlockBegin();
+            block();
+        }
         else
             assignment();
     }

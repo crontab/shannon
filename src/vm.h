@@ -292,11 +292,12 @@ public:
     CodeGen(CodeSeg*);
     ~CodeGen();
 
-    mem getLocals()     { return locals; }
-    State* getState()   { return state; }
-    Type* getTopType()  { return stkTop(); }
-    void justForget()   { stkPop(); }
-    Type* getLastTypeRef();
+    mem    getLocals()      { return locals; }
+    State* getState()       { return state; }
+    Type*  getTopType()     { return stkTop(); }
+    mem    getStackSize()   { return genStack.size(); }
+    void   justForget()     { stkPop(); }
+    Type*  getLastTypeRef();
 
     void end();
     void endConstExpr(Type*);
@@ -327,7 +328,7 @@ public:
     void loadContainerElem();
     void storeContainerElem(bool pop = true);
     Type* detachDesignatorOp(str&);
-    void store(str loaderCode, Type*);
+    void storeDesignator(str loaderCode, Type*);
     void delDictElem();
     void keyInDict();
     void pairToDict(Dict*);

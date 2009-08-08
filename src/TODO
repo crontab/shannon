@@ -1,9 +1,7 @@
 
-* Assignment operator
-
 * Operators 'is' and 'as'
 
-* Nested block, if, while, case
+* if, while, case
 
 * Ordinal set operations: inversion (not), union (or), intersection (and),
   subtraction (-)

@@ -451,8 +451,6 @@ void CodeGen::loadMember(const str& ident)
 void CodeGen::loadContainerElem()
 {
     // This is square brackets op - can be string, vector, array or dictionary.
-    // This op can be reverted and converted to a store op of the same format -
-    // see detachDesignatorOp().
     OpCode op = opInv;
     Type* contType = stkTop(1);
     if (contType->isVector())
@@ -481,8 +479,6 @@ void CodeGen::loadContainerElem()
 
 void CodeGen::storeContainerElem(bool pop)
 {
-    // This is used only in compound constructors. Assignments are generated
-    // using detachDesignatorOp() and store() instead.
     Type* contType = stkTop(2);
     OpCode op = opInv;
     Type* idxType = NULL;
@@ -524,7 +520,7 @@ Type* CodeGen::detachDesignatorOp(str& loader)
 }
 
 
-void CodeGen::store(str loaderCode, Type* type)
+void CodeGen::storeDesignator(str loaderCode, Type* type)
 {
     assert(isDesignatorOp(OpCode(loaderCode[0])));
     implicitCastTo(type, "Assignment type mismatch");
