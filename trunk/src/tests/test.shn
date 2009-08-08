@@ -108,3 +108,19 @@ assert if(true, 1, 2) == 1
 assert if(false, 1, 2) == 2
 assert typeof(a3) == int
 def typeof(a3) a4 = 4
+var int a5[] = [1, 2, 3]
+a5[1] = 5
+assert a5[1] == 5
+a5[3] = 6
+assert a5[3] == 6
+a5[] = 7
+assert a5[4] == 7
+var int a6[0..2] = [0 = 4, 1 = 5, 2 = 6]
+a6[2] = 7
+assert a6[2] == 7
+var int a7[str] = []
+a7['k2'] = 1
+assert a7['k2'] == 1
+# var char a8[..] = []
+# a8['a'] = null
+# def a9 = a7['k2']

@@ -890,7 +890,7 @@ void test_vm2()
             gen.loadVar(v1);
             t = gen.detachDesignatorOp(s);
             gen.loadInt(2);
-            gen.store(s, t);
+            gen.storeDesignator(s, t);
             gen.loadVar(v1);
             gen.elemCat();
             gen.discard();
@@ -898,7 +898,7 @@ void test_vm2()
             gen.loadVar(queenBee->sresultvar);
             t = gen.detachDesignatorOp(s);
             gen.loadVar(r);
-            gen.store(s, t);
+            gen.storeDesignator(s, t);
             block.deinitLocals();
             gen.end();
         }
