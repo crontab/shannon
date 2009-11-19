@@ -237,31 +237,38 @@ void CodeGen::loadConst(Type* type, const variant& value)
         }
         break;
     case Type::RANGE: loadCompoundConst(type, value, opLoadNullRange); break;
-    case Type::DICT: loadCompoundConst(type, value, opLoadNullDict); break;
-    case Type::STR:
-        if (value.as_str().empty())
-            addOp(opLoadNullStr);
-        else
-        {
-            // Detect duplicate string consts. The reason this is done here and
-            // not, say, in the host module is because of const expressions that
-            // don't have an execution context.
-            StringMap::iterator i = stringMap.find(value._str());
-            if (i == stringMap.end())
-            {
-                mem id = loadCompoundConst(queenBee->defStr, value, opInv);
-                stringMap.insert(i, std::pair<str, mem>(value._str(), id));
-            }
-            else
-                loadConstById(i->second);
-        }
+    case Type::DICT:
+        loadCompoundConst(type, value, type->isArray() ? opLoadNullArray: opLoadNullDict);
         break;
-    case Type::VEC: loadCompoundConst(type, value, opLoadNullVec); break;
-    case Type::ARRAY: loadCompoundConst(type, value, opLoadNullArray); break;
-    case Type::ORDSET: loadCompoundConst(type, value, opLoadNullOrdset); break;
-    case Type::SET: loadCompoundConst(type, value, opLoadNullSet); break;
-    case Type::VARFIFO: loadCompoundConst(type, value, opLoadNullVarFifo); break;
-    case Type::CHARFIFO: loadCompoundConst(type, value, opLoadNullCharFifo); break;
+    case Type::VEC:
+        if (type->isString())
+        {
+            if (value.as_str().empty())
+                addOp(opLoadNullStr);
+            else
+            {
+                // Detect duplicate string consts. The reason this is done here and
+                // not, say, in the host module is because of const expressions that
+                // don't have an execution context.
+                StringMap::iterator i = stringMap.find(value._str());
+                if (i == stringMap.end())
+                {
+                    mem id = loadCompoundConst(queenBee->defStr, value, opInv);
+                    stringMap.insert(i, std::pair<str, mem>(value._str(), id));
+                }
+                else
+                    loadConstById(i->second);
+            }
+        }
+        else
+            loadCompoundConst(type, value, opLoadNullVec);
+        break;
+    case Type::SET:
+        loadCompoundConst(type, value, type->isOrdSet() ? opLoadNullOrdset : opLoadNullSet);
+        break;
+    case Type::FIFO:
+        loadCompoundConst(type, value, type->isCharFifo() ? opLoadNullCharFifo : opLoadNullVarFifo);
+        break;
     case Type::NULLCOMP: addOp(opLoadNullComp); break;
     case Type::VARIANT: error("Variant constants are not supported"); break;
     case Type::TYPEREF:
@@ -460,13 +467,13 @@ void CodeGen::loadContainerElem()
     }
     else if (contType->isDict())
     {
-        implicitCastTo(PDict(contType)->index, "Dictionary key type mismatch");
+        implicitCastTo(PCont(contType)->index, "Dictionary key type mismatch");
         op = opLoadDictElem;
     }
     else if (contType->isArray())
     {
         // TODO: check the index at compile time if possible (compile time evaluation)
-        implicitCastTo(PArray(contType)->index, "Array index type mismatch");
+        implicitCastTo(PCont(contType)->index, "Array index type mismatch");
         op = opLoadArrayElem;
     }
     else
@@ -535,7 +542,7 @@ void CodeGen::delDictElem()
     Type* dictType = stkTop(1);
     if (!dictType->isDict())
         error("Dictionary type expected");
-    implicitCastTo(PDict(dictType)->index, "Dictionary key type mismatch");
+    implicitCastTo(PCont(dictType)->index, "Dictionary key type mismatch");
     addOp(opDelDictElem);
     stkPop();
     stkPop();
@@ -547,14 +554,14 @@ void CodeGen::keyInDict()
     Type* dictType = stkTop();
     if (!dictType->isDict())
         error("Dictionary type expected");
-    implicitCastTo2(PDict(dictType)->index, "Dictionary key type mismatch");
+    implicitCastTo2(PCont(dictType)->index, "Dictionary key type mismatch");
     addOp(opKeyInDict);
     stkPop();
     stkReplace(queenBee->defBool);
 }
 
 
-void CodeGen::pairToDict(Dict* dictType)
+void CodeGen::pairToDict(Container* dictType)
 {
     implicitCastTo(dictType->elem, "Dictionary element type mismatch");
     implicitCastTo2(dictType->index, "Dictionary key type mismatch");
@@ -564,7 +571,7 @@ void CodeGen::pairToDict(Dict* dictType)
 }
 
 
-void CodeGen::pairToArray(Array* arrayType)
+void CodeGen::pairToArray(Container* arrayType)
 {
     implicitCastTo(arrayType->elem, "Array element type mismatch");
     implicitCastTo2(arrayType->index, "Array key type mismatch");
@@ -577,20 +584,20 @@ void CodeGen::pairToArray(Array* arrayType)
 void CodeGen::addToSet(bool pop)
 {
     Type* setType = stkTop(1);
-    if (setType->isOrdset())
+    if (!setType->isSet())
+        error("Set type expected");
+    if (setType->isOrdSet())
     {
         implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
         addOp(opAddToOrdset);
         add8(pop);
     }
-    else if (setType->isSet())
+    else
     {
         implicitCastTo(PCont(setType)->index, "Set element type mismatch");
         addOp(opAddToSet);
         add8(pop);
     }
-    else
-        error("Set type expected");
     stkPop();
     if (pop)
         stkPop();
@@ -600,18 +607,18 @@ void CodeGen::addToSet(bool pop)
 void CodeGen::delSetElem()
 {
     Type* setType = stkTop(1);
-    if (setType->isOrdset())
+    if (!setType->isSet())
+        error("Set type expected");
+    if (setType->isOrdSet())
     {
         implicitCastTo(PCont(setType)->index, "Ordinal set element type mismatch");
         addOp(opDelOrdsetElem);
     }
-    else if (setType->isSet())
+    else
     {
         implicitCastTo(PCont(setType)->index, "Set element type mismatch");
         addOp(opDelSetElem);
     }
-    else
-        error("Set type expected");
     stkPop();
     stkPop();
 }
@@ -621,12 +628,12 @@ void CodeGen::inSet()
 {
     Type* setType = stkTop();
     OpCode op = opInv;
-    if (setType->isOrdset())
+    if (!setType->isSet())
+        error("Set type expected");
+    if (setType->isOrdSet())
         op = opInOrdset;
     else if (setType->isSet())
         op = opInSet;
-    else
-        error("Set type expected");
     implicitCastTo2(PCont(setType)->index, "Set element type mismatch");
     addOp(op);
     stkPop();
@@ -641,19 +648,21 @@ void CodeGen::elemToSet(Container* setType)
     if (setType == NULL)
         setType = elemType->deriveSet();
     else
+    {
+        if (!setType->isSet())
+            error("Set type expected");
         implicitCastTo(setType->index, "Set element type mismatch");
-    if (setType->isOrdset())
+    }
+    if (setType->isOrdSet())
         addOpPtr(opElemToOrdset, setType);
-    else if (setType->isSet())
-        addOpPtr(opElemToSet, setType);
     else
-        error("Set type expected");
+        addOpPtr(opElemToSet, setType);
     stkPop();
     stkPush(setType);
 }
 
 
-void CodeGen::rangeToOrdset(Ordset* setType)
+void CodeGen::rangeToOrdset(Container* setType)
 {
     Type* rangeType = stkPop();
     if (!rangeType->isRange())
@@ -670,9 +679,9 @@ void CodeGen::addRangeToOrdset(bool pop)
     Type* setType = stkTop();
     if (!rangeType->isRange())
         error("Range type expected");
-    if (!setType->isOrdset())
+    if (!setType->isOrdSet())
         error("Ordinal set expected");
-    canAssign(PRange(rangeType)->base, POrdset(setType)->index, "Range element type mismatch");
+    canAssign(PRange(rangeType)->base, PCont(setType)->index, "Range element type mismatch");
     addOp(opAddRangeToOrdset);
     add8(pop);
     if (pop)
@@ -851,14 +860,14 @@ void CodeGen::boolXor()
 }
 
 
-void CodeGen::elemToVec(Vec* vecType)
+void CodeGen::elemToVec(Container* vecType)
 {
     Type* elemType = stkTop();
     if (vecType == NULL)
         vecType = elemType->deriveVector();
     else
-        implicitCastTo(vecType->elem, "Vector element type mismatch");
-    if (elemType->isChar())
+        implicitCastTo(vecType->elem, "Vector/array element type mismatch");
+    if (!vecType->isArray() && elemType->isChar())
         addOp(opChrToStr);
     else
         addOpPtr(opVarToVec, vecType);
@@ -873,7 +882,7 @@ void CodeGen::elemCat()
     Type* vecType = stkTop(1);
     if (!vecType->isVector())
         error("Vector/string type expected");
-    implicitCastTo(CAST(Vec*, vecType)->elem, "Vector/string element type mismatch");
+    implicitCastTo(PCont(vecType)->elem, "Vector/string element type mismatch");
     elemType = stkPop();
     addOp(elemType->isChar() ? opCharCat: opVarCat);
 }

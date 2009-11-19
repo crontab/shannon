@@ -221,10 +221,20 @@ void Type::dumpDef(fifo& stm, const str&) const
 
 
 void Type::dumpValue(fifo& stm, const variant& value) const
-{
-    stm << "<value>";
-}
+    { stm << "<value>"; }
 
+
+bool Type::isArray() const
+    { return isDict() && PCont(this)->index->canBeArrayIndex(); }
+
+bool Type::isString() const
+    { return isVector() && PCont(this)->elem->isChar(); }
+
+bool Type::isCharFifo() const
+    { return isFifo() && PFifo(this)->elem->isChar(); }
+
+bool Type::isOrdSet() const
+    { return isSet() && PCont(this)->index->canBeOrdsetIndex(); }
 
 bool Type::isModule() const
     { return typeId == STATE && PState(this)->level == 0; }
@@ -692,18 +702,13 @@ bool Range::canAssignTo(Type* t)
 
 
 Container::Container(Type* _index, Type* _elem)
-    : Type(defTypeRef, NONE), index(_index), elem(_elem)
+    : Type(defTypeRef, 
+        _index->isNone() ? VEC
+            : _elem->isNone() ? SET
+                : DICT), index(_index), elem(_elem)
 {
-    if (index->isNone())
-    {
-        if (elem->isNone())
-            throw emessage("Invalid container type");
-        setTypeId(elem->isChar() ? STR : VEC);
-    }
-    else if (elem->isNone())
-        setTypeId(index->canBeOrdsetIndex() ? ORDSET : SET);
-    else
-        setTypeId(index->canBeArrayIndex() ? ARRAY : DICT);
+    if (index->isNone() && elem->isNone())
+        throw emessage("Invalid container type");
 }
 
 
@@ -712,7 +717,7 @@ Container::~Container()  { }
 
 void Container::dumpDef(fifo& stm, const str& ident) const
 {
-    if (isSet() || isOrdset())
+    if (isSet())
         stm << *index << ' ' << ident << "[..]";
     else
     {
@@ -764,40 +769,43 @@ void Container::dumpValue(fifo& stm, const variant& value) const
         }
         else if (isSet())
         {
-            set* s = CAST(set*, value._obj());
-            mem count = 0;
-            for(set_iterator i = s->begin(); i != s->end(); i++)
+            if (isOrdSet())
             {
-                if (count++) stm << ", ";
-                index->dumpValue(stm, *i);
+                ordset* s = CAST(ordset*, value._obj());
+                Ordinal* o = CAST(Ordinal*, CAST(Container*, s->get_rt())->index);
+                if (o->right == INTEGER_MAX)
+                    throw emessage("This is crazy");
+                mem count = 0;
+                integer i = o->left;
+                while (i <= o->right)
+                {
+                    if (s->has(i - o->left))
+                    {
+                        if (count++) stm << ", ";
+                        index->dumpValue(stm, i);
+                        i++;
+                        if (i > o->right)
+                            break;
+                        if (!s->has(i - o->left))
+                            continue;
+                        while (i <= o->right && s->has(i - o->left))
+                            i++;
+                        stm << "..";
+                        index->dumpValue(stm, i - 1);
+                    }
+                    else
+                        i++;
+                }
             }
-        }
-        else if (isOrdset())
-        {
-            ordset* s = CAST(ordset*, value._obj());
-            Ordinal* o = CAST(Ordinal*, CAST(Ordset*, s->get_rt())->index);
-            if (o->right == INTEGER_MAX)
-                throw emessage("This is crazy");
-            mem count = 0;
-            integer i = o->left;
-            while (i <= o->right)
+            else
             {
-                if (s->has(i - o->left))
+                set* s = CAST(set*, value._obj());
+                mem count = 0;
+                for(set_iterator i = s->begin(); i != s->end(); i++)
                 {
                     if (count++) stm << ", ";
-                    index->dumpValue(stm, i);
-                    i++;
-                    if (i > o->right)
-                        break;
-                    if (!s->has(i - o->left))
-                        continue;
-                    while (i <= o->right && s->has(i - o->left))
-                        i++;
-                    stm << "..";
-                    index->dumpValue(stm, i - 1);
+                    index->dumpValue(stm, *i);
                 }
-                else
-                    i++;
             }
         }
         else
@@ -828,8 +836,8 @@ mem Container::arrayRangeSize()
 // --- Fifo ---------------------------------------------------------------- //
 
 
-Fifo::Fifo(Type* _elem): Type(defTypeRef, NONE), elem(_elem)
-    { setTypeId(elem->isChar() ? CHARFIFO : VARFIFO); }
+Fifo::Fifo(Type* _elem): Type(defTypeRef, FIFO), elem(_elem)
+    { }
 
 Fifo::~Fifo()
     { }

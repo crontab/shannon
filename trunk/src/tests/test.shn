@@ -63,7 +63,7 @@ def int s2[..] = [1, 2, 3]
 assert 1 in s2
 assert not 4 in s2
 var str a1[sign] = []
-var str a2[sign] = [-1 = 'negative', 1 = 'positive']
+var str a2[sign] = ['negative', 'zero', 'positive']
 assert a2[-1] == 'negative' and a2[1] == 'positive'
 
 # TYPECASTS
@@ -82,7 +82,7 @@ assert str('a') <> s3 and s3 <> 'a'
 assert (v2 == 32)
 def sign1 = (negative, zero, positive)
 assert int(negative) == 0 and int(zero) == 1 and int(positive) == 2
-var int sign1a[sign1] = [negative = -1, zero = 0, positive = 1]
+var int sign1a[sign1] = [-1, 0, 1]
 assert sign1a[negative] == -1
 
 var char t1[..][] = [[], ['a'..'z']]
@@ -115,7 +115,7 @@ a5[3] = 6
 assert a5[3] == 6
 a5[] = 7
 assert a5[4] == 7
-var int a6[0..2] = [0 = 4, 1 = 5, 2 = 6]
+var int a6[0..2] = [4, 5, 6]
 a6[2] = 7
 assert a6[2] == 7
 var int a7[str] = []

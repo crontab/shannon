@@ -1,4 +1,6 @@
 
+* Compound pair: should use colon, not =
+
 * Operators 'is' and 'as'
 
 * if, while, case
