@@ -137,7 +137,7 @@ enum OpCode
     opKeyInDict,        // -dict, -key, +bool
     opPairToDict,       // [Dict*] -val, -key, +dict
     opDelDictElem,      // -key, -dict
-    opPairToArray,      // [Array*] -val, -idx, +array
+    opPairToArray,      // [Array*] -val, -key, +array
     opInOrdset,         // -ordset, -ord, +bool
     opAddToOrdset,      // [bool pop] -ord, -ordset
     opElemToOrdset,     // [Ordset*] -ord, +ordset
@@ -331,13 +331,13 @@ public:
     void storeDesignator(str loaderCode, Type*);
     void delDictElem();
     void keyInDict();
-    void pairToDict(Dict*);
-    void pairToArray(Array*);
+    void pairToDict(Container*);
+    void pairToArray(Container*);
     void addToSet(bool pop);
     void delSetElem();
     void inSet();
     void elemToSet(Container* setType = NULL);
-    void rangeToOrdset(Ordset*);
+    void rangeToOrdset(Container*);
     void addRangeToOrdset(bool pop);
 
     void implicitCastTo(Type*, const char* errmsg = NULL);
@@ -351,7 +351,7 @@ public:
     void arithmUnary(OpCode);
     void _not();
     void boolXor();
-    void elemToVec(Vec* vecType = NULL);
+    void elemToVec(Container* vecType = NULL);
     void elemCat();
     void cat();
     void mkRange(Range*);

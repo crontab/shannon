@@ -583,7 +583,7 @@ void test_vm()
         seg.run(r);
         check_var(r, "[true, true, true, true, true, true, false, true, true, false]");
     }
-
+/*
     {
         Module mod("test2");
         Dict* dictType = queenBee->defInt->createContainer(queenBee->defStr);
@@ -855,7 +855,8 @@ void test_vm()
         variant result = mod.run();
         check_var(result, "['abcdef', 123, 2, 10, 1, 1, 1, 1, 1, ['FALSE', 'TRUE']]");
     }
-    }
+*/
+ }
     catch (exception&)
     {
         doneTypeSys();

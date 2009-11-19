@@ -34,13 +34,6 @@ typedef Definition ModuleAlias;
 typedef Variable ThisVar;
 typedef Variable ResultVar;
 typedef Variable LocalVar;
-typedef Container Container;
-typedef Container Vec;
-typedef Container Array;
-typedef Container Str;
-typedef Container Dict;
-typedef Container Ordset;
-typedef Container Set;
 
 
 // --- CODE SEGMENT ------------------------------------------------------- //
@@ -295,8 +288,8 @@ class Type: public object
 {
 public:
     enum TypeId { NONE, BOOL, CHAR, INT, ENUM,
-        RANGE, DICT, VEC, STR, ARRAY, ORDSET, SET, VARFIFO, CHARFIFO, NULLCOMP,
-        VARIANT, TYPEREF, STATE };
+        RANGE, DICT, VEC, SET, FIFO,
+        NULLCOMP, VARIANT, TYPEREF, STATE };
 
     enum { MAX_ARRAY_RANGE = 256 }; // trigger Dict if bigger than this
 
@@ -311,9 +304,6 @@ protected:
     Container* derivedVector;
     Container* derivedSet;
     
-    void setTypeId(TypeId t)
-            { (TypeId&)typeId = t; }
-
 public:
     ~Type();
     
@@ -325,31 +315,30 @@ public:
     str  getName()                  { return name; }
     void setName(const str _name)   { if (name.empty()) name = _name; }
 
-    bool is(TypeId t) const  { return typeId == t; }
-    TypeId getTypeId() const  { return typeId; }
-    bool isNone() const  { return typeId == NONE; }
-    bool isBool() const  { return typeId == BOOL; }
-    bool isChar() const  { return typeId == CHAR; }
-    bool isInt() const  { return typeId == INT; }
-    bool isEnum() const  { return typeId == ENUM || isBool(); }
-    bool isRange() const  { return typeId == RANGE; }
-    bool isDict() const  { return typeId == DICT; }
-    bool isArray() const  { return typeId == ARRAY; }
-    bool isString() const  { return typeId == STR; }
-    bool isVector() const  { return typeId == VEC || typeId == STR; }
-    bool isSet() const  { return typeId == SET; }
-    bool isOrdset() const  { return typeId == ORDSET; }
-    bool isCharSet() const;
-    bool isNullComp() const  { return typeId == NULLCOMP; }
-    bool isVarFifo() const  { return typeId == VARFIFO; }
-    bool isCharFifo() const  { return typeId == CHARFIFO; }
-    bool isVariant() const  { return typeId == VARIANT; }
-    bool isTypeRef() const  { return typeId == TYPEREF; }
-    bool isState() const  { return typeId == STATE; }
+    bool is(TypeId t) const     { return typeId == t; }
+    TypeId getTypeId() const    { return typeId; }
+    bool isNone() const         { return typeId == NONE; }
+    bool isBool() const         { return typeId == BOOL; }
+    bool isChar() const         { return typeId == CHAR; }
+    bool isInt() const          { return typeId == INT; }
+    bool isEnum() const         { return typeId == ENUM || isBool(); }
+    bool isRange() const        { return typeId == RANGE; }
+    bool isDict() const         { return typeId == DICT; }
+    bool isVector() const       { return typeId == VEC; }
+    bool isString() const;
+    bool isArray() const;
+    bool isSet() const          { return typeId == SET; }
+    bool isOrdSet() const;
+    bool isNullComp() const     { return typeId == NULLCOMP; }
+    bool isFifo() const         { return typeId == FIFO; }
+    bool isCharFifo() const;
+    bool isVariant() const      { return typeId == VARIANT; }
+    bool isTypeRef() const      { return typeId == TYPEREF; }
+    bool isState() const        { return typeId == STATE; }
 
     bool isOrdinal() const  { return typeId >= BOOL && typeId <= ENUM; }
 //    bool isContainer() const  { return typeId >= DICT && typeId <= SET; }
-    bool isCompound() const  { return typeId >= RANGE && typeId <= CHARFIFO; }
+    bool isCompound() const  { return typeId >= RANGE && typeId <= FIFO; }
     bool isModule() const;
     bool canBeArrayIndex() const;
     bool canBeOrdsetIndex() const;
@@ -521,12 +510,6 @@ public:
 
 // typedef Container* PContainer;
 typedef Container* PCont;
-typedef Vec* PVec;
-typedef Dict* PDict;
-typedef Array* PArray;
-typedef Str* PStr;
-typedef Set* PSet;
-typedef Ordset* POrdset;
 
 // Depending on the index and element types, can be one of:
 //   DICT:      any, any

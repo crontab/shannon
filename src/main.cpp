@@ -146,14 +146,14 @@ Type* Compiler::compoundCtorElem(Type* type)
     Type* first = NULL, * second = NULL;
     if (type != NULL)
     {
-        if (type->isDict() || type->isArray())
+        if (type->isVector() || type->isArray())
+            first = PCont(type)->elem;
+        else if (type->isDict())
         {
             first = PCont(type)->index;
             second = PCont(type)->elem;
         }
-        else if (type->isVector())
-            first = PCont(type)->elem;
-        else if (type->isSet() || type->isOrdset())
+        else if (type->isSet())
             first = PCont(type)->index;
     }
 
@@ -162,8 +162,8 @@ Type* Compiler::compoundCtorElem(Type* type)
 
     if (skipIf(tokAssign))
     {
-        if (type != NULL && !type->isDict() && !type->isArray())
-            error("Key/value pair not allowed here");
+        if (type != NULL && !type->isDict())
+            error("Key/value pair is only allowed for dictionaries");
         expression(second);
         if (type == NULL)
         {
@@ -179,8 +179,8 @@ Type* Compiler::compoundCtorElem(Type* type)
             error("Ordinal expected as range boundary");
         if (type != NULL)
         {
-            if (type->isOrdset())
-                type = CAST(Ordinal*, POrdset(type)->index)->deriveRange();
+            if (type->isOrdSet())
+                type = CAST(Ordinal*, PCont(type)->index)->deriveRange();
             else if (type->isRange())
                 ;
             else
@@ -196,7 +196,7 @@ Type* Compiler::compoundCtorElem(Type* type)
     {
         if (type != NULL)
         {
-            if (!type->isOrdset() && !type->isSet() && !type->isVector())
+            if (!type->isSet() && !type->isVector() && !type->isArray())
                 error("Invalid container constructor");
         }
         else
@@ -225,8 +225,8 @@ void Compiler::compoundCtor(Type* expectType)
     if (type->isRange())
     {
         // If type is known and it's ordset
-        if (expectType != NULL && expectType->isOrdset())
-            codegen->rangeToOrdset(POrdset(expectType));
+        if (expectType != NULL && expectType->isOrdSet())
+            codegen->rangeToOrdset(PCont(expectType));
         // Otherwise we allow only a single range
         else
         {
@@ -236,13 +236,11 @@ void Compiler::compoundCtor(Type* expectType)
             return;
         }
     }
+    else if (type->isVector() || type->isArray())
+        codegen->elemToVec(PCont(type));
     else if (type->isDict())
-        codegen->pairToDict(PDict(type));
-    else if (type->isArray())
-        codegen->pairToArray(PArray(type));
-    else if (type->isVector())
-        codegen->elemToVec(PVec(type));
-    else if (type->isOrdset() || type->isSet())
+        codegen->pairToDict(PCont(type));
+    else if (type->isSet())
         codegen->elemToSet(PCont(type));
     else
         notimpl();
@@ -258,11 +256,11 @@ void Compiler::compoundCtor(Type* expectType)
         type = compoundCtorElem(type);
         if (type->isRange())
             codegen->addRangeToOrdset(false);
-        else if (type->isDict() || type->isArray())
-            codegen->storeContainerElem(false);
-        else if (type->isVector())
+        else if (type->isVector() || type->isArray())
             codegen->elemCat();
-        else if (type->isOrdset() || type->isSet())
+        else if (type->isDict())
+            codegen->storeContainerElem(false);
+        else if (type->isSet())
             codegen->addToSet(false);
         else
             notimpl();
@@ -548,7 +546,7 @@ void Compiler::relation()
         {
             if (type->isRange())
                 codegen->inRange();
-            else if (type->isOrdset() || type->isSet())
+            else if (type->isSet())
                 codegen->inSet();
             else if (type->isDict())
                 codegen->keyInDict();

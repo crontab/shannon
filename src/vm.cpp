@@ -88,7 +88,7 @@ static void dump(Type* type, const variant& v)
 
 static integer ordsetIndex(ordset* s, integer idx)
 {
-    Ordinal* ordType = CAST(Ordinal*, CAST(Ordset*, s->get_rt())->index);
+    Ordinal* ordType = CAST(Ordinal*, CAST(Container*, s->get_rt())->index);
     if (!ordType->isInRange(idx))
         idxOverflow();
     idx -= ordType->left;
@@ -109,7 +109,7 @@ static void ordsetAddDel(variant*& stk, bool del)
 
 static integer arrayIndex(vector* v, integer idx)
 {
-    Ordinal* ordType = CAST(Ordinal*, CAST(Vec*, v->get_rt())->index);
+    Ordinal* ordType = CAST(Ordinal*, CAST(Container*, v->get_rt())->index);
     if (!ordType->isInRange(idx))
         idxOverflow();
     idx -= ordType->left;
@@ -151,19 +151,12 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opLoad1:           PUSH(stk, integer(1)); break;
             case opLoadInt:         PUSH(stk, ADV<integer>(ip)); break;
             case opLoadNullRange:   PUSH(stk, new range(ADV<Range*>(ip))); break;
-            case opLoadNullDict:    PUSH(stk, new dict(ADV<Dict*>(ip))); break;
+            case opLoadNullDict:    PUSH(stk, new dict(ADV<Container*>(ip))); break;
             case opLoadNullStr:     PUSH(stk, null_str); break;
-            case opLoadNullVec:     PUSH(stk, new vector(ADV<Vec*>(ip))); break;
-            case opLoadNullArray:
-                {
-                    Array* arrayType = ADV<Array*>(ip);
-                    vector* v = new vector(arrayType);
-                    PUSH(stk, v);
-                    v->resize(arrayType->arrayRangeSize());
-                }
-                break;
-            case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Ordset*>(ip))); break;
-            case opLoadNullSet:     PUSH(stk, new set(ADV<Set*>(ip))); break;
+            case opLoadNullVec:
+            case opLoadNullArray:   PUSH(stk, new vector(ADV<Container*>(ip))); break;
+            case opLoadNullOrdset:  PUSH(stk, new ordset(ADV<Container*>(ip))); break;
+            case opLoadNullSet:     PUSH(stk, new set(ADV<Container*>(ip))); break;
             case opLoadNullVarFifo: PUSH(stk, new memfifo(ADV<Fifo*>(ip), false)); break;
             case opLoadNullCharFifo:PUSH(stk, new memfifo(ADV<Fifo*>(ip), true)); break;
             case opLoadNullComp:    PUSH(stk, (object*)NULL); break;
@@ -342,24 +335,13 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opKeyInDict: *(stk - 1) = CAST(dict*, stk->_obj())->has(*(stk - 1)); POP(stk); break;
             case opPairToDict:
                 {
-                    objptr<dict> d = new dict(ADV<Dict*>(ip));
+                    objptr<dict> d = new dict(ADV<Container*>(ip));
                     d->tie(*(stk - 1), *stk);
                     POP(stk);
                     *stk = d.get();
                 }
                 break;
             case opDelDictElem: CAST(dict*, (stk - 1)->_obj())->untie(*stk); POP(stk); POP(stk); break;
-            case opPairToArray:
-                {
-                    Array* arrayType = ADV<Array*>(ip);
-                    objptr<vector> v = new vector(arrayType);
-                    v->resize(arrayType->arrayRangeSize());
-                    mem idx = arrayIndex(v, (stk - 1)->_ord());
-                    v->put(idx, *stk);
-                    POP(stk);
-                    *stk = v.get();
-                }
-                break;
             case opInOrdset:
                 {
                     objptr<ordset> s = CAST(ordset*, stk->_obj());
@@ -374,7 +356,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opElemToOrdset:
                 {
-                    objptr<ordset> s = new ordset(ADV<Ordset*>(ip));
+                    objptr<ordset> s = new ordset(ADV<Container*>(ip));
                     s->tie(ordsetIndex(s, stk->_ord()));
                     *stk = s.get();
                 }
@@ -405,7 +387,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
                 break;
             case opElemToSet:
                 {
-                    set* s = new set(ADV<Set*>(ip));
+                    set* s = new set(ADV<Container*>(ip));
                     s->tie(*stk);
                     *stk = s;
                 }
@@ -417,7 +399,7 @@ void CodeSeg::run(varstack& stack, langobj* self, variant* result)
             case opChrToStr2:   *(stk - 1) = str(1, (stk - 1)->_uchar()); break;
             case opCharCat:     (stk - 1)->_strw().push_back(stk->_uchar()); POPORD(stk); break;
             case opStrCat:      (stk - 1)->_strw().append(stk->_str()); POP(stk); break;
-            case opVarToVec:    *stk = new vector(ADV<Vec*>(ip), 1, *stk); break;
+            case opVarToVec:    *stk = new vector(ADV<Container*>(ip), 1, *stk); break;
             case opVarCat:      CAST(vector*, (stk - 1)->_obj())->push_back(*stk); POP(stk); break;
             case opVecCat:      vecCat(*stk, stk - 1); POP(stk); break;
 

@@ -125,7 +125,7 @@ static OpInfo opTable[] =
     OP(KeyInDict, None),        // -dict, -key, +bool
     OP(PairToDict, Type),       // [Dict*] -val, -key, +dict
     OP(DelDictElem, None),      // -key, -dict
-    OP(PairToArray, Type),      // [Array*] -vel, -idx, +dict
+    OP(PairToArray, Type),      // [Array*] -val, -key, +array
     OP(InOrdset, None),         // -ordset, -ord, +bool
     OP(AddToOrdset, Flag),      // [bool pop] -ord, -ordset
     OP(ElemToOrdset, Type),     // [Ordset*] -ord, +ordset
