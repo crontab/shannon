@@ -4,7 +4,7 @@
 
 Legend: (^) - not implemented at the moment, (?) - questionable feature, may be changed or removed.
 
-*Syntax* is Python-style - indents and colons, however you can have C-style blocks, too. Once a curly bracket is opened, indentation is ignored in all nested blocks and only curly brackets matter. A C-style block can start with a colon if it consists of a single statement. When embedded in HTML the parser starts in curly-bracket mode, otherwise - in indent mode. In both cases ';' is optional and works as a placeholder for a new line. Use '\' to glue lines. If the first character of compiler's input is `<`, the compiler starts in embedded HTML mode. Code snippets must be surrounded with `<?` and `?>`. (^)
+*Syntax* is JavaScript-style: curly brackets denote code blocks and both the newline and the semicolon are statement separators. One non-JavaScript feature is that a single-statement block starts with a colon. Use '\' to glue a staement split into multiple lines. If the first character of compiler's input is `<`, the compiler starts in embedded HTML mode. Code snippets must be surrounded with `<?` and `?>`. (^)
 
 *Data types* are: int, char, enum, bool and their subranges; string, range, vector, array, dictionary, set, fifo, state (functions and classes unified), typeref, variant and none. Each described below in more detail. (Floating point type is not supported in this release.)
 
