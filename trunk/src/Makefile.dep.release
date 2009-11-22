@@ -2,13 +2,5 @@
 
 release/common.o: common.h
 release/charset.o: charset.h
-release/variant.o: runtime.h common.h charset.h
-release/parser.o: bsearch.h parser.h common.h charset.h runtime.h
-release/fifo.o: runtime.h common.h charset.h
-release/typesys.o: version.h typesys.h common.h runtime.h charset.h vm.h
-release/typesys.o: parser.h
-release/vm.o: common.h typesys.h runtime.h charset.h vm.h
-release/vminfo.o: vm.h common.h runtime.h charset.h typesys.h parser.h
-release/codegen.o: vm.h common.h runtime.h charset.h typesys.h
-release/main.o: common.h runtime.h charset.h parser.h typesys.h vm.h
-release/main-ut.o: common.h runtime.h charset.h parser.h typesys.h vm.h
+release/main.o: common.h runtime.h charset.h
+release/main-ut.o: common.h runtime.h charset.h

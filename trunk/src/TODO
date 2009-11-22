@@ -1,5 +1,19 @@
 
-* Compound pair: should use colon, not =
+* Drop Python-like syntax. Comments are C++-style. # is unused now. $ is for
+  run-time symbols (keyword-like string literals).
+
+* Set constructors use <>. Set type is defined as, e.g. char myset<>. Operator
+  <> tests presence of an item in a set or a key in a map. Set delete and add
+  operations? "unset" maybe?
+  
+* Fifos are defined as char myfifo[..] (?)
+
+* Mutability derivator ^ for compound types. By default compound objects are
+  const, which means among other things that an empty container is NULL while
+  a mutable container is not. Const containers support concatenation but not
+  modification or removal of elements.
+
+* Operator 'split': a combination of 'case' and 'while' for fifos
 
 * Operators 'is' and 'as'
 
@@ -7,12 +21,6 @@
 
 * Ordinal set operations: inversion (not), union (or), intersection (and),
   subtraction (-)
-
-* Include for sets? set s['item'] (set is a keyword anyway - get/set property)
-  But it's a "soft" keyword that can be used as an identifier. So something
-  else maybe.
-
-* Operator delete, e.g.: delete d['key'] (applies to sets too)
 
 * Iterators for all container types. Iterators should lock the container to
   prevent modification.
@@ -30,17 +38,11 @@
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
 
-* Strings are immutable, and they are not references like containers. But any
-  char vector is a string and thus it's not a reference. What to do? So this is
-  a big TODO: implement a shared string class which is not copy-on-write.
-
-* Implement our own vector class with realloc()
-
 * Range types and ordinal sets should be mutually convertible
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
-* Multiple return values: allow to assign them to a vector?
+* Composite return values?
 
 * Optimize function calls: if "self" is not used, define all local vars as
   just locals, not "this" vars. Actually this means if a function doesn't
@@ -49,8 +51,8 @@
 
 * HTML embedded mode
 
-* Compiler directives: #$DEBUG ON|OFF  #$RANGE_CHECK ON|OFF  #$ASSERT ON|OFF
-  #$ECHO ON|OFF  #$EMBED ON|OFF  #$CURLY ON|OFF
+* Compiler directives: DEBUG ON|OFF  RANGE_CHECK ON|OFF  ASSERT ON|OFF
+  ECHO ON|OFF  MARKUP ON|OFF (syntax?)
 
 * := assignment as a function?
 

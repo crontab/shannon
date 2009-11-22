@@ -8,9 +8,6 @@
 #include <assert.h>
 #include <limits.h>
 
-#include <string>
-#include <exception>
-
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
 #endif
@@ -62,9 +59,8 @@
 #endif
 
 
-typedef size_t mem;
-typedef int16_t joffs_t;    // jump offset in code
-typedef std::string str;
+typedef long memint;
+
 
 typedef unsigned char uchar;
 
@@ -101,21 +97,6 @@ template <class T>
 #  define CAST(t,x) ((t)x)
 #endif
 
-// The eternal int-to-string problem in C++
-str _to_string(long long value, int base, int width, char fill);
-str _to_string(long long);
-template<class T>
-    inline str to_string(const T& value, int base, int width = 0, char fill = '0')
-        { return _to_string((long long)value, base, width, fill); }
-template<class T>
-    inline str to_string(const T& value)
-        { return _to_string((long long)value); }
-
-unsigned long long from_string(const char*, bool* error, bool* overflow, int base = 10);
-
-str remove_filename_path(const str&);
-str remove_filename_ext(const str&);
-
 
 class noncopyable 
 {
@@ -129,30 +110,22 @@ public:
 
 
 
+class exception: public noncopyable
+{
+public:
+    exception();
+    virtual ~exception();
+    virtual const char* what() const = 0;
+};
+
+
 #define DEF_EXCEPTION(name,msg) \
-    struct name: public std::exception \
+    struct name: public exception \
         { virtual const char* what() const throw() { return msg; } };
 
 
-typedef std::exception exception;
-
-struct emessage: public exception
-{
-    const str message;
-    emessage(const str&) throw();
-    emessage(const char*) throw();
-    ~emessage() throw();
-    virtual const char* what() const throw();
-};
-
-
-struct esyserr: public emessage
-{
-    esyserr(int icode, const str& iArg = "");
-};
-
-
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
+
 
 #ifdef SINGLE_THREADED
 
