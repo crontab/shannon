@@ -10,102 +10,11 @@
 #   glue: ## (otherwise elements are separated by whitespace or can be 
 #       distinguished by the parser)
 #   end of statement: <SEP> (end-of-line or ';')
-#   block-begin and block-end: <BEGIN> and <END> (':' followed by indented
-#       blocks until unindent to the previous level, or a special case with
-#       a single line that follows after ':', also C-style blocks are 
-#       supported.
+#   block-begin and block-end: <BEGIN> and <END> (either curly brackets or
+#   or a colon followed by a single statement).
 #
-
-
-module ::= statement-list
-
-# ---------- Statements
-
-statement-list ::= { ( definition | statement ) <SEP> }
-
-definition ::= 'def' [ type-expr ] ident { type-derivator } '=' ( const-expr | type-expr )
-
-statement ::= call | pipe | assignment | compound-statement | if-clause
-    | while-clause | "break" | "continue" | case-clause | "return"
-    | var-def
-
-var-def ::= 'var' [ type-expr ] ident { type-derivator } '=' expr
-
-assignment ::= designator "=" expr
-
-compound-statement ::= "begin" block
-
-block ::= <BEGIN> statement-list <END>
-
-if-clause ::= "if" expr <BEGIN> statement-list
-        { <END> "elif" <BEGIN> statement-list }
-        [ <END> "else" <BEGIN> statement-list ]
-        <END>
-
-while-clause ::= "while" expr block
-
-case-clause ::= "case" expr <BEGIN>
-        { case-label { "," case-label } block }
-        [ "else" block ]
-        <END>
-
-case-label ::= const-expr | subrange
-
-
-# ---------- Expressions
-
-type-expr ::= factor [ ".." factor ]
-
-expr ::= and-expr { ( "or" | "xor" ) and-expr }
-
-and-expr ::= not-expr { ( "and" | "shl" | "shr" ) not-expr }
-
-not-expr ::= [ "not" ] rel-expr
-
-rel-expr ::= ( simple-expr { ( "==" | "<" | "<=" | ">=" | ">" | "!=" | "<>" ) simple-expr } )
-    | ( simple-expr "in" simple-expr [ ".." simple-expr ] )
-
-simple-expr ::= arithm-expr { "|" arithm-expr }
-
-arithm-expr ::= term { ( "+" | "-" ) term }
-
-term ::= factor { ( "*" | "/" | "mod" ) factor }
-
-factor ::= [ "-" ] designator [ '*' { type-derivator } ]
-
-designator ::= atom { array-item-selection | member-selection | static-typecast | function-call }
-
-atom ::= number | string | ident | subexpr | enum-spec | compound-ctor
-
-type-derivator ::= compound-derivator | fifo-derivator | function-derivator
-
-compound-derivator ::= "[" [ type-expr | ".." ] "]"
-
-fifo-derivator ::= "<>"
-
-function-derivator ::= "(" [ formal-arg { "," formal-arg } ] ")"
-
-formal-arg ::= type-expr ident [ "=" const-expr ]
-
-subexpr ::= "(" expr ")"
-
-enum-spec ::= "(" ident { "," ident } ")"
-
-compound-ctor ::= "[" [ element-ctor { "," element-ctor } "]"
-
-element-ctor ::= expr [ ( "=" | ".." ) expr ]
-
-if-expr ::= "if" "(" expr, expr, expr ")"
-
-array-item-selection ::= "[" expr "]"
-
-member-selection ::= '.' ident
-
-function-call ::= "(" [ expr-list ] ")"
-
-expr-list ::= expr { "," expr }
-
-static-typecast ::= "(" expr ")"
+#   Comments in Shannon are like in C++ /* */ and //
+#
 
 
 # Basic elements
