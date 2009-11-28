@@ -3,6 +3,7 @@
 #include "common.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 
@@ -31,7 +32,7 @@ void _fatal(int code)
 
 void notimpl()
 {
-    fatal(1, "Feature not implemented yet");
+    fatal(0x0001, "Feature not implemented yet");
 }
 
 

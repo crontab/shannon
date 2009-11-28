@@ -7,6 +7,8 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <string.h>
+
 
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
@@ -60,9 +62,14 @@
 
 
 typedef long memint;
-
+#define MEMINT_MAX LONG_MAX
+#define ALLOC_MAX (MEMINT_MAX-255)
 
 typedef unsigned char uchar;
+typedef char* pchar;
+typedef uchar* puchar;
+typedef const char* pconst;
+typedef const uchar* puconst;
 
 
 // --- MISC --------------------------------------------------------------- //
@@ -90,7 +97,6 @@ template <class T>
     inline T exchange(T& target, const T& value)
         { T temp = target; target = value; return temp; }
 
-
 #ifdef DEBUG
 #  define CAST(t,x) (dynamic_cast<t>(x))
 #else
@@ -98,7 +104,7 @@ template <class T>
 #endif
 
 
-class noncopyable 
+class noncopyable
 {
 private:
     noncopyable(const noncopyable&);
@@ -107,7 +113,6 @@ public:
     noncopyable() {}
     ~noncopyable() {}
 };
-
 
 
 class exception: public noncopyable
@@ -122,6 +127,25 @@ public:
 #define DEF_EXCEPTION(name,msg) \
     struct name: public exception \
         { virtual const char* what() const throw() { return msg; } };
+
+
+inline memint pstrlen(const char* s)
+    { return s == NULL ? 0 : ::strlen(s); }
+
+
+// Default placement versions of operator new.
+inline void* operator new(size_t, void* p) throw() { return p; }
+inline void* operator new[](size_t, void* p) throw() { return p; }
+
+// Default placement versions of operator delete.
+inline void  operator delete  (void*, void*) throw() { }
+inline void  operator delete[](void*, void*) throw() { }
+
+// Disable all new/delete by default; redefine where necessary
+void* operator new(size_t) throw();
+void* operator new[](size_t) throw();
+void  operator delete  (void*) throw();
+void  operator delete[](void*) throw();
 
 
 // --- ATOMIC OPERATIONS -------------------------------------------------- //

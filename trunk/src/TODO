@@ -1,6 +1,6 @@
 
-* Drop Python-like syntax. Comments are C++-style. # is unused now. $ is for
-  run-time symbols (keyword-like string literals).
+* Drop Python-like syntax. Comments are C++-style. # is for directives. $ is
+  for run-time symbols (keyword-like string literals).
 
 * Set constructors use <>. Set type is defined as, e.g. char myset<>. Operator
   <> tests presence of an item in a set or a key in a map. Set delete and add
@@ -8,12 +8,12 @@
   
 * Fifos are defined as char myfifo[..] (?)
 
-* Mutability derivator ^ for compound types. By default compound objects are
-  const, which means among other things that an empty container is NULL while
-  a mutable container is not. Const containers support concatenation but not
-  modification or removal of elements.
+* Enqueue and dequeue operators: << and >>, like the iostream operators in C++
 
-* Operator 'split': a combination of 'case' and 'while' for fifos
+* Immutability modifier ^ for compound types: elements can't be modified or
+  deleted.
+
+* Operator 'split': a combination of 'case' and 'while' for fifos (?)
 
 * Operators 'is' and 'as'
 
