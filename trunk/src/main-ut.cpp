@@ -171,6 +171,7 @@ void test_string()
     s7 += "HIJKL";
     check(s7.size() == 12);
     check(s7 == "ABCDEFGHIJKL");
+    check(s7.back() == 'L');
     s7 += s4;
     check(s7.size() == 16);
     check(s7 == "ABCDEFGHIJKLMumu");
@@ -234,6 +235,71 @@ void test_strutils()
 }
 
 
+void test_podvec()
+{
+    podvec<int> v1;
+    check(v1.unique());
+    podvec<int> v2 = v1;
+    check(v1.unique());
+    check(v1.empty() && v2.empty());
+    v1.push_back(10);
+    v1.push_back(20);
+    v1.push_back(30);
+    v1.push_back(40);
+    check(v1.size() == 4);
+    check(v2.empty());
+    check(v1[0] == 10);
+    check(v1[1] == 20);
+    check(v1[2] == 30);
+    check(v1[3] == 40);
+    v2 = v1;
+    check(!v1.unique() && !v2.unique());
+    check(v2.size() == 4);
+    v1.erase(2);
+    check(v1.size() == 3);
+    check(v2.size() == 4);
+    check(v1[0] == 10);
+    check(v1[1] == 20);
+    check(v1[2] == 40);
+    v1.erase(2);
+    check(v1.size() == 2);
+    v1.insert(0, 50);
+    check(v1.size() == 3);
+    check(v1[0] == 50);
+    check(v1[1] == 10);
+    check(v1[2] == 20);
+    v2.clear();
+    check(v2.empty());
+    check(!v1.empty());
+}
+
+
+void test_vector()
+{
+    vector<str> v1;
+    v1.push_back("ABC");
+    check(v1[0] == "ABC");
+    vector<str> v2 = v1;
+    check(v2[0] == "ABC");
+    v1.push_back("DEF");
+    v1.push_back("GHI");
+    v1.push_back("JKL");
+    vector<str> v3 = v1;
+    check(v1.size() == 4);
+    check(v2.size() == 1);
+    check(v3.size() == 4);
+    check(v1[0] == "ABC");
+    check(v1[1] == "DEF");
+    check(v1[2] == "GHI");
+    check(v1[3] == "JKL");
+    v1.erase(2);
+    check(v1[0] == "ABC");
+    check(v1[1] == "DEF");
+    check(v1[2] == "JKL");
+    check(v1.back() == "JKL");
+    v3 = v1;
+}
+
 
 int main()
 {
@@ -269,6 +335,8 @@ int main()
         test_container();
         test_string();
         test_strutils();
+        test_podvec();
+        test_vector();
     }
     catch (exception& e)
     {

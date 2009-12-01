@@ -122,6 +122,17 @@ void container::_idxerr()
 const char* container::at(memint i) const
     { _idx(i); return data(i); }
 
+const char* container::back() const
+    { if (empty()) _idxerr(); return data(size() - 1); }
+
+
+void container::put(memint pos, char c)
+{
+    _idx(pos);
+    mkunique();
+    *dyn->data(pos) = c;
+}
+
 
 void container::clear()
 {
@@ -228,7 +239,7 @@ char* container::insert(memint pos, memint len)
         if (newsize > dyn->memsize())
             dyn = _grow_realloc(newsize);
         else
-            dyn->size(newsize);
+            dyn->set_size(newsize);
         char* p = dyn->data(pos);
         if (remain)
             ::memmove(p + len, p, remain);
@@ -237,7 +248,8 @@ char* container::insert(memint pos, memint len)
     else
     {
         rcdynamic* d = _grow_alloc(newsize);
-        ::memcpy(d->data(), dyn->data(), pos);
+        if (pos)
+            ::memcpy(d->data(), dyn->data(), pos);
         char* p = d->data(pos);
         if (remain)
             ::memcpy(p + len, dyn->data(pos), remain);
@@ -277,7 +289,7 @@ char* container::append(memint len)
         if (newsize > dyn->memsize())
             dyn = _grow_realloc(newsize);
         else
-            dyn->size(newsize);
+            dyn->set_size(newsize);
     }
     else
     {
@@ -322,12 +334,13 @@ void container::erase(memint pos, memint len)
             dyn = _precise_realloc(newsize);
         if (remain)
             ::memmove(dyn->data(pos), dyn->data(epos), remain);
-        dyn->size(newsize);
+        dyn->set_size(newsize);
     }
     else
     {
         rcdynamic* d = _precise_alloc(newsize);
-        ::memcpy(d->data(), dyn->data(), pos);
+        if (pos)
+            ::memcpy(d->data(), dyn->data(), pos);
         if (remain)
             ::memcpy(d->data(pos), dyn->data(epos), remain);
         _replace(d);
@@ -344,7 +357,7 @@ void container::pop_back(memint len)
         clear();
     else if (unique())
     {
-        dyn->size(newsize);
+        dyn->set_size(newsize);
     }
     else
     {
@@ -380,6 +393,7 @@ void container::resize(memint newsize, char fill)
         memset(p, fill, newsize - oldsize);
 }
 
+
 // --- string -------------------------------------------------------------- //
 
 
@@ -391,7 +405,7 @@ const char* str::c_str() const
         if (t == memsize())
         {
             ((str*)this)->push_back<char>(0);
-            dyn->size(t);
+            dyn->set_size(t);
         }
         *dyn->data(t) = 0;
     }
@@ -564,7 +578,7 @@ static void _itobase2(str& result, long long value, int base, int width, char pa
             result.resize(width, padchar);
         result.append(p, reslen);
         if (neg)
-            result.mkunique()[0] = '-';
+            result.put(0, '-');
     }
     else 
         result.assign(p, reslen);
