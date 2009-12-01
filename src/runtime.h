@@ -55,10 +55,7 @@ template <class T>
 
 class rcdynamic: public rcblock
 {
-    friend class container;
-    friend class str;
-
-protected:
+public:
     memint capacity;
     memint used;
 
@@ -68,7 +65,8 @@ protected:
         T* data(memint i) const { return (T*)data(i * sizeof(T)); }
     memint empty() const        { return used == 0; }
     memint size() const         { return used; }
-    void size(memint _used)     { assert(_used > 0 && _used <= capacity); used = _used; }
+    void set_size(memint _used) { assert(unique() && !empty() && _used > 0 && _used <= capacity); used = _used; }
+    void dec_size(memint d)     { assert(unique() && used >= d); used -= d; }
     memint memsize() const      { return capacity; }
 
     static rcdynamic* alloc(memint _capacity, memint _used)
@@ -136,7 +134,9 @@ public:
     const char* data() const                { return dyn->data(); }
     const char* data(memint i) const        { return dyn->data(i); }
     const char* at(memint i) const;
-    char* mkunique()                        { if (unique()) return dyn->data(); return _mkunique(); }
+    const char* back() const;
+    void mkunique()                         { if (!unique()) _mkunique(); }
+    void put(memint pos, char c);
 
     void clear();
     char* assign(memint);
@@ -154,6 +154,8 @@ public:
     char* resize(memint);
     void resize(memint, char);
 
+    template <class T>
+        const T& back() const               { if (empty()) _idxerr(); return *(T*)data(size() - sizeof(T)); }
     template <class T>
         void push_back(const T& t)          { *(T*)append(sizeof(T)) = t; }
     template <class T>
@@ -182,7 +184,8 @@ public:
 
     const char* c_str() const;
     const char& operator[](memint i) const  { return *data(i); }
-//          char& operator[](memint i)        { return mkunique()[i]; }
+    const char& at(memint pos) const        { return *container::at(pos); }
+    const char& back() const                { return *container::back(); }
     int cmp(const char*, memint) const;
     memint find(char c) const;
     memint rfind(char c) const;
@@ -222,6 +225,137 @@ unsigned long long from_string(const char*, bool* error, bool* overflow, int bas
 
 str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
+
+
+// --- podvec -------------------------------------------------------------- //
+
+
+template <class T>
+class podvec: protected container
+{
+    friend void test_podvec();
+
+protected:
+    enum { Tsize = sizeof(T) };
+    T* data(memint i) const                 { return (T*)container::data(i * Tsize); }
+
+public:
+    podvec(): container()                   { }
+    podvec(const podvec& v): container(v)   { }
+    ~podvec()                               { }
+    bool empty() const                      { return container::empty(); }
+    memint size() const                     { return container::size() / Tsize; }
+    const T& operator[] (memint i) const    { return *(T*)container::data(i * Tsize); }
+    const T& at(memint i) const             { return *(T*)container::at(i * Tsize); }
+    const T& back() const                   { return container::back<T>(); }
+    void clear()                            { container::clear(); }
+    void operator= (const podvec& v)        { container::assign(v); }
+    void push_back(const T& t)              { *(T*)container::append(Tsize) = t; }
+    void pop_back()                         { container::pop_back<T>(); }
+    void insert(memint pos, const T& t)     { *(T*)container::insert(pos * Tsize, Tsize) = t; }
+    void erase(memint pos)                  { container::erase(pos * Tsize, Tsize); }
+};
+
+
+// --- vector -------------------------------------------------------------- //
+
+
+template <class T>
+class vector: public podvec<T>
+{
+    // Note: the inheritance is public for the sake of simplicity, but be
+    // careful when adding new methods to podvec: make sure they work properly
+    // in vector too, or otherwise redefine them here.
+protected:
+    enum { Tsize = sizeof(T) };
+    void _fin();
+    void _mkunique();
+    void mkunique()                         { if (!vector::unique()) _mkunique(); }
+
+public:
+    vector(): podvec<T>()                   { }
+    vector(const vector& v): podvec<T>(v)   { }
+    ~vector()                               { _fin(); }
+    void clear()                            { _fin(); vector::_init(); }
+    void operator= (const vector& v);
+    void push_back(const T& t);
+    void pop_back();
+    void insert(memint pos, const T& t);
+    void erase(memint pos);
+};
+
+
+template <class T>
+void vector<T>::_mkunique()
+{
+    rcdynamic* d = container::_precise_alloc(container::size());
+    for (memint i = 0; i < vector::size(); i++)
+        ::new(d->data<T>(i)) T(vector::operator[](i));
+    vector::_replace(d);
+}
+
+
+template <class T>
+void vector<T>::_fin()
+{
+     if (!vector::empty())
+     {
+        if (vector::dyn->deref())
+        {
+            for (memint i = vector::size() - 1; i >= 0; i--)
+                vector::operator[](i).~T();
+            delete vector::dyn;
+        }
+        container::_init(); // make the base dtors happy
+     }
+}
+
+
+template <class T>
+void vector<T>::operator= (const vector& v)
+{
+    if (vector::dyn != v.dyn)
+    {
+        _fin();
+        container::_init(v);
+    }
+}
+
+
+template <class T>
+void vector<T>::push_back(const T& t)
+{
+    mkunique();
+    new((T*)container::append(Tsize)) T(t);
+}
+
+
+// The 3 methods below can be improved in terms of performance but will be
+// bigger in that case
+template <class T>
+void vector<T>::pop_back()
+{
+    mkunique();
+    container::back<T>().~T();
+    vector::dyn->dec_size(Tsize);
+}
+
+
+template <class T>
+void vector<T>::insert(memint pos, const T& t)
+{
+    mkunique();
+    new((T*)container::insert(pos * Tsize, Tsize)) T(t);
+}
+
+
+template <class T>
+void vector<T>::erase(memint pos)
+{
+    mkunique();
+    vector::at(pos).~T();
+    podvec<T>::erase(pos);
+}
 
 
 #endif // __RUNTIME_H
