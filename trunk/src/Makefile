@@ -4,14 +4,14 @@ CXXDOPTS = -Wall -Werror -DDEBUG -g
 CXXROPTS = -Wall -Werror -fno-rtti -DNDEBUG -O2
 
 
-DOBJS = debug/common.o debug/charset.o
+DOBJS = debug/common.o debug/charset.o debug/runtime.o
 
-ROBJS = release/common.o release/charset.o
+ROBJS = release/common.o release/charset.o debug/runtime.o
 
-SRCS = common.cpp charset.cpp \
+SRCS = common.cpp charset.cpp runtime.cpp \
 	main.cpp main-ut.cpp
 
-HDRS = version.h common.h charset.h runtime.h bsearch.h
+HDRS = version.h common.h charset.h bsearch.h runtime.h
 
 
 all: dirs shannon shannon-ut
