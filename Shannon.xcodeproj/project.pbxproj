@@ -13,6 +13,8 @@
 		365B4A72100283E40023D0FD /* common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4A70100283E40023D0FD /* common.cpp */; };
 		365B4B871002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
 		365B4B881002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
+		365B728F10C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
+		365B729010C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,6 +49,7 @@
 		365B4A70100283E40023D0FD /* common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = common.cpp; path = src/common.cpp; sourceTree = "<group>"; };
 		365B4B861002B01D0023D0FD /* charset.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = charset.cpp; path = src/charset.cpp; sourceTree = "<group>"; };
 		365B4B891002B0390023D0FD /* charset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = charset.h; path = src/charset.h; sourceTree = "<group>"; };
+		365B728E10C2861200D14118 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		36668F531003CD8600FF0C90 /* bsearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bsearch.h; path = src/bsearch.h; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,6 +86,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				365B728E10C2861200D14118 /* runtime.cpp */,
 				36C8E962100EA94D00117341 /* version.h */,
 				363127AB10080E6900AF5F47 /* runtime.h */,
 				36668F531003CD8600FF0C90 /* bsearch.h */,
@@ -179,6 +183,7 @@
 				363C710D0EF70FBE00866D2C /* main-ut.cpp in Sources */,
 				365B4A72100283E40023D0FD /* common.cpp in Sources */,
 				365B4B881002B01D0023D0FD /* charset.cpp in Sources */,
+				365B729010C2861200D14118 /* runtime.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +194,7 @@
 				363C70F70EF70F4400866D2C /* main.cpp in Sources */,
 				365B4A71100283E40023D0FD /* common.cpp in Sources */,
 				365B4B871002B01D0023D0FD /* charset.cpp in Sources */,
+				365B728F10C2861200D14118 /* runtime.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,7 +252,7 @@
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
-				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_PEDANTIC = NO;
 				GCC_WARN_PROTOTYPE_CONVERSION = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
@@ -294,7 +300,7 @@
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
-				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_PEDANTIC = NO;
 				GCC_WARN_PROTOTYPE_CONVERSION = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
