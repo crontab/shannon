@@ -40,6 +40,17 @@ exception::exception()  { }
 exception::~exception()  { }
 
 
+static void newdel()
+{
+    fatal(0x0002, "Global new/delete are disabled");
+}
+
+void* operator new(size_t) throw()       { newdel(); return NULL; }
+void* operator new[](size_t) throw()     { newdel(); return NULL; }
+void  operator delete  (void*) throw()   { newdel(); }
+void  operator delete[](void*) throw()   { newdel(); }
+
+
 #ifndef SINGLE_THREADED
 
 #if defined(__GNUC__) && (defined(__i386__) || defined(__I386__)|| defined(__x86_64__))

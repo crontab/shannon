@@ -6,10 +6,10 @@
 #include "runtime.h"
 
 
-// --- rcblock ------------------------------------------------------------- //
+// --- object & objptr ----------------------------------------------------- //
 
 
-int rcblock::allocated = 0;
+int object::allocated = 0;
 
 
 void outofmem()
@@ -18,76 +18,181 @@ void outofmem()
 }
 
 
-void* rcblock::operator new(size_t self)
+object* object::_realloc(object* p, size_t self, memint extra)
+{
+    assert(p->unique());
+    assert(self > 0 && extra >= 0);
+    p = (object*)::realloc(p, self + extra);
+    if (p == NULL)
+        outofmem();
+    return p;
+}
+
+
+void object::_assignto(object*& p)
+    { if (p != this) { p->release(); p = this->ref(); } }
+
+
+void* object::operator new(size_t self)
 {
     void* p = ::malloc(self);
     if (p == NULL)
         outofmem();
 #ifdef DEBUG
-    pincrement(&rcblock::allocated);
+    pincrement(&object::allocated);
 #endif
     return p;
 }
 
 
-void* rcblock::operator new(size_t self, memint extra)
+void* object::operator new(size_t self, memint extra)
 {
     assert(self + extra > 0);
     void* p = ::malloc(self + extra);
     if (p == NULL)
         outofmem();
 #ifdef DEBUG
-    pincrement(&rcblock::allocated);
+    pincrement(&object::allocated);
 #endif
     return p;
 }
 
 
-rcblock* rcblock::realloc(rcblock* p, memint size)
+void object::operator delete(void* p)
 {
-    assert(p->refcount == 1);
-    assert(size > 0);
-    p = (rcblock*)::realloc(p, size);
-    if (p == NULL)
-        outofmem();
-    return p;
-}
-
-
-void rcblock::operator delete(void* p)
-{
+    assert(((object*)p)->refcount == 0);
 #ifdef DEBUG
-    pdecrement(&rcblock::allocated);
+    pdecrement(&object::allocated);
 #endif
     ::free(p);
 }
 
 
-// --- rcdynamic ----------------------------------------------------------- //
+object::~object()  { }
+
+bool object::empty() const  { return false; }
+
+Type* object::type() const  { return NULL; }
 
 
-rcdynamic* rcdynamic::realloc(rcdynamic* p, memint _capacity, memint _used)
+void object::release()
 {
-    assert(p->unique());
-    p = (rcdynamic*)rcblock::realloc(p, sizeof(rcdynamic) + _capacity);
-    p->capacity = _capacity;
-    p->used = _used;
-    return p;
+    if (this == NULL)
+        return;
+    assert(refcount > 0); // 0 means static
+    if (pdecrement(&refcount) == 0)
+        delete this;
 }
 
 
-// --- container ----------------------------------------------------------- //
+// --- container & contptr ------------------------------------------------- //
 
 
-container::_nulldyn container::_null;
+void container::overflow()
+    { fatal(0x1002, "Container overflow"); }
 
 
-char* container::_init(memint len)
+void container::idxerr()
+    { fatal(0x1003, "Container index error"); }
+
+
+container::~container()
+    { clear(); }
+
+
+bool container::empty() const // virt. override
+    { return _size == 0; }
+
+
+void container::clear()
 {
+    if (_size)
+    {
+        finalize(data(), _size);
+        _size = 0;
+    }
+}
+
+
+container* container::new_(memint cap, memint siz)
+{
+    return new(cap) container(cap, siz);
+}
+
+
+void container::finalize(void*, memint)  { }
+
+
+void container::copy(void* dest, const void* src, memint len)
+    { ::memcpy(dest, src, len); }
+
+
+inline memint container::calc_prealloc(memint newsize)
+{
+    if (newsize <= 32)
+        return 64;
+    else
+        return newsize + newsize / 2;
+}
+
+
+/*
+inline bool container::can_shrink(memint newsize)
+{
+    return newsize > 64 && newsize < _capacity / 2;
+}
+*/
+
+container* container::new_growing(memint newsize)
+{
+    if (newsize <= 0)
+        overflow();
+    memint newcap = _capacity > 0 ? calc_prealloc(newsize) : newsize;
+    if (newcap <= 0)
+        overflow();
+    return new_(newcap, newsize);
+}
+
+
+container* container::new_precise(memint newsize)
+{
+    if (newsize <= 0)
+        overflow();
+    return new_(newsize, newsize);
+}
+
+
+container* container::realloc(memint newsize)
+{
+    if (newsize <= 0)
+        overflow();
+    assert(unique());
+    assert(newsize > _capacity || newsize < _size);
+    _size = newsize;
+    _capacity = _size > _capacity ? calc_prealloc(_size) : _size;
+    if (_capacity <= 0)
+        overflow();
+    return (container*)_realloc(this, sizeof(*this), _capacity);
+}
+
+
+container contptr::null;
+
+
+const char* contptr::at(memint i) const
+    { chkidx(i); return data(i); }
+
+const char* contptr::back() const
+    { if (empty()) container::idxerr(); return obj->end() - 1; }
+
+
+char* contptr::_init(memint len)
+{
+    assert(len >= 0);
     if (len > 0)
     {
-        dyn = rcref2(_precise_alloc(len));
-        return dyn->data();
+        obj = null.new_growing(len)->ref<container>();
+        return obj->data();
     }
     else
     {
@@ -97,295 +202,249 @@ char* container::_init(memint len)
 }
 
 
-void container::_init(const char* buf, memint len)
+void contptr::_init(const char* buf, memint len)
 {
-    ::memcpy(_init(len), buf, len);
+    null.copy(_init(len), buf, len);
 }
 
 
-void container::_dofin()
+void contptr::operator= (const contptr& s)
 {
-    if (dyn->deref())
-        delete dyn;
-#ifdef DEBUG
-    dyn = NULL;
-#endif
+    if (obj != s.obj)
+        _assign(s.obj);
 }
 
 
-void container::_overflow()
-    { fatal(0x1002, "Container overflow"); }
-
-void container::_idxerr()
-    { fatal(0x1003, "Container index error"); }
-
-const char* container::at(memint i) const
-    { _idx(i); return data(i); }
-
-const char* container::back() const
-    { if (empty()) _idxerr(); return data(size() - 1); }
-
-
-void container::put(memint pos, char c)
+void contptr::assign(const char* buf, memint len)
 {
-    _idx(pos);
-    mkunique();
-    *dyn->data(pos) = c;
+    _fin();
+    _init(buf, len);
 }
 
 
-void container::clear()
+void contptr::clear()
 {
     _fin();
     _init();
 }
 
 
-char* container::assign(memint len)
+char* contptr::mkunique()
 {
-    _fin();
-    return _init(len);
-}
-
-
-void container::assign(const char* buf, memint len)
-{
-    ::memcpy(assign(len), buf, len);
-}
-
-
-void container::assign(const container& c)
-{
-    if (dyn != c.dyn)
+    if (empty() || unique())
+        return obj->data();
+    else
     {
-        _fin();
-        _init(c);
+        container* o = obj->new_precise(obj->size());
+        obj->copy(o->data(), obj->data(), obj->size());
+        _assign(o);
+        return obj->data();
     }
 }
 
 
-memint container::_calc_capcity(memint size)
+char* contptr::_insertnz(memint pos, memint len)
 {
-    if (size <= 16)
-        return 32;
-    else if (size < 1024)
-        return 2 * size;
-    else
-        return size + size / 4;
-}
-
-
-inline bool container::_can_shrink(memint newsize)
-{
-    return newsize > 32 && newsize < memsize() / 2;
-}
-
-
-rcdynamic* container::_grow_alloc(memint newsize)
-{
-    assert(newsize > 0);
-    return rcdynamic::alloc(_calc_capcity(newsize), newsize);
-}
-
-
-rcdynamic* container::_precise_alloc(memint newsize)
-{
-    assert(newsize > 0);
-    return rcdynamic::alloc(newsize, newsize);
-}
-
-
-rcdynamic* container::_grow_realloc(memint newsize)
-{
-    assert(newsize > 0);
-    return rcdynamic::realloc(dyn, _calc_capcity(newsize), newsize);
-}
-
-
-rcdynamic* container::_precise_realloc(memint newsize)
-{
-    assert(newsize > 0);
-    return rcdynamic::realloc(dyn, newsize, newsize);
-}
-
-
-char* container::_mkunique()
-{
-    rcdynamic* d = _precise_alloc(size());
-    ::memcpy(d->data(), dyn->data(), size());
-    _replace(d);
-    return dyn->data();
-}
-
-
-char* container::insert(memint pos, memint len)
-{
-    _idxa(pos);
-    if (unsigned(pos) > unsigned(size()))
-        _idxerr();
-    if (len <= 0)
-        return NULL;
-    if (empty())
-        return assign(len);
-
+    assert(len > 0);
+    chkidxa(pos);
     memint oldsize = size();
     memint newsize = oldsize + len;
-    if (newsize < dyn->size() || newsize > ALLOC_MAX)
-        _overflow();
     memint remain = oldsize - pos;
-
     if (unique())
     {
-        if (newsize > dyn->memsize())
-            dyn = _grow_realloc(newsize);
+        if (newsize > obj->capacity())
+            obj = obj->realloc(newsize);
         else
-            dyn->set_size(newsize);
-        char* p = dyn->data(pos);
+            obj->set_size(newsize);
+        char* p = obj->data(pos);
         if (remain)
             ::memmove(p + len, p, remain);
         return p;
     }
     else
     {
-        rcdynamic* d = _grow_alloc(newsize);
+        container* o = obj->new_growing(newsize);
         if (pos)
-            ::memcpy(d->data(), dyn->data(), pos);
-        char* p = d->data(pos);
+            obj->copy(o->data(), obj->data(), pos);
+        char* p = o->data(pos);
         if (remain)
-            ::memcpy(p + len, dyn->data(pos), remain);
-        _replace(d);
+            obj->copy(p + len, obj->data(pos), remain);
+        _assign(o);
         return p;
     }
 }
 
 
-void container::insert(memint pos, const char* buf, memint len)
+char* contptr::_appendnz(memint len)
 {
-    memcpy(insert(pos, len), buf, len);
-}
-
-
-void container::insert(memint pos, const container& c)
-{
-    if (empty() && pos == 0)
-        assign(c);
-    else
-        insert(pos, c.data(), c.size());
-}
-
-
-char* container::append(memint len)
-{
-    if (len <= 0)
-        return NULL;
+    assert(len > 0);
     memint oldsize = size();
     memint newsize = oldsize + len;
-    if (oldsize == 0)
-        return assign(len);
-    if (newsize < oldsize || newsize > ALLOC_MAX)
-        _overflow();
-    else if (unique())
+    if (unique())
     {
-        if (newsize > dyn->memsize())
-            dyn = _grow_realloc(newsize);
+        if (newsize > obj->capacity())
+            obj = obj->realloc(newsize);
         else
-            dyn->set_size(newsize);
+            obj->set_size(newsize);
+        return obj->data(oldsize);
     }
     else
     {
-        rcdynamic* d = _grow_alloc(newsize);
-        ::memcpy(d->data(), dyn->data(), oldsize);
-        _replace(d);
+        container* o = obj->new_growing(newsize);
+        if (oldsize)
+            obj->copy(o->data(), obj->data(), oldsize);
+        _assign(o);
+        return obj->data(oldsize);
     }
-    return dyn->data(oldsize);
 }
 
 
-void container::append(const char* buf, memint len)
+void contptr::_erasenz(memint pos, memint len)
 {
-    memcpy(append(len), buf, len);
-}
-
-
-void container::append(const container& c)
-{
-    if (empty())
-        assign(c);
-    else
-        append(c.data(), c.size());
-}
-
-
-void container::erase(memint pos, memint len)
-{
-    _idx(pos);
-    if (len <= 0 || empty())
-        return;
+    // This function can't handle the case when the container becomes empty,
+    // because we want to reuse it in descendant classes. It also never
+    // reallocates the container if it's unique.
+    chkidx(pos);
     memint oldsize = size();
     memint epos = pos + len;
-    _idxa(epos);
+    chkidxa(epos);
     memint newsize = oldsize - len;
+    assert(newsize != 0);
     memint remain = oldsize - epos;
-    if (newsize == 0)
-        clear();
-    else if (unique())
+    if (unique())
     {
-        if (_can_shrink(newsize))
-            dyn = _precise_realloc(newsize);
+        char* p = obj->data(pos);
+        obj->finalize(p, len);
         if (remain)
-            ::memmove(dyn->data(pos), dyn->data(epos), remain);
-        dyn->set_size(newsize);
+            ::memmove(p, p + len, remain);
+        obj->set_size(newsize);
     }
     else
     {
-        rcdynamic* d = _precise_alloc(newsize);
+        container* o = obj->new_precise(newsize);
         if (pos)
-            ::memcpy(d->data(), dyn->data(), pos);
+            obj->copy(o->data(), obj->data(), pos);
         if (remain)
-            ::memcpy(d->data(pos), dyn->data(epos), remain);
-        _replace(d);
+            obj->copy(o->data(pos), obj->data(epos), remain);
+        _assign(o);
     }
 }
 
 
-void container::pop_back(memint len)
+void contptr::_popnz(memint len)
 {
+    // See comments for _erasenz()
     memint oldsize = size();
     memint newsize = oldsize - len;
-    _idx(newsize);
-    if (newsize == 0)
-        clear();
-    else if (unique())
+    chkidx(newsize);
+    assert(newsize != 0);
+    if (unique())
     {
-        dyn->set_size(newsize);
+        obj->finalize(obj->data(newsize), len);
+        obj->set_size(newsize);
     }
     else
     {
-        rcdynamic* d = _precise_alloc(newsize);
-        ::memcpy(d->data(), dyn->data(), newsize);
-        _replace(d);
+        container* o = obj->new_precise(newsize);
+        obj->copy(o->data(), obj->data(), newsize);
+        _assign(o);
     }
 }
 
 
-char* container::resize(memint newsize)
+void contptr::insert(memint pos, const char* buf, memint len)
+{
+    if (len > 0)
+        obj->copy(_insertnz(pos, len), buf, len);
+}
+
+
+void contptr::insert(memint pos, const contptr& s)
+{
+    if (empty())
+    {
+        if (pos)
+            container::idxerr();
+        _init(s);
+    }
+    else
+    {
+        memint len = s.size();
+        if (len)
+        {
+            // Be careful as s maybe the same as (*this)
+            char* p = _insertnz(pos, len);
+            obj->copy(p, s.data(), len);
+        }
+    }
+}
+
+
+void contptr::append(const char* buf, memint len)
+{
+    if (len > 0)
+        obj->copy(_appendnz(len), buf, len);
+}
+
+
+void contptr::append(const contptr& s)
+{
+    if (empty())
+        _init(s);
+    else
+    {
+        memint len = s.size();
+        if (len)
+        {
+            // Be careful as s maybe the same as (*this)
+            char* p = _appendnz(len);
+            obj->copy(p, s.data(), len);
+        }
+    }
+}
+
+
+void contptr::erase(memint pos, memint len)
+{
+    if (pos == 0 && len == size())
+        clear();
+    else if (len > 0)
+        _erasenz(pos, len);
+}
+
+
+void contptr::pop_back(memint len)
+{
+    if (len == size())
+        clear();
+    else if (len > 0)
+        _popnz(len);
+}
+
+
+char* contptr::resize(memint newsize)
 {
     if (newsize < 0)
-        _overflow();
+        container::overflow();
     memint oldsize = size();
     if (newsize == oldsize)
         return NULL;
+    else if (newsize == 0)
+    {
+        clear();
+        return NULL;
+    }
     else if (newsize < oldsize)
     {
-        erase(newsize, oldsize - newsize);
+        _erasenz(newsize, oldsize - newsize);
         return NULL;
     }
     else
-        return append(newsize - oldsize);
+        return _appendnz(newsize - oldsize);
 }
 
 
-void container::resize(memint newsize, char fill)
+void contptr::resize(memint newsize, char fill)
 {
     memint oldsize = size();
     char* p = resize(newsize);
@@ -394,36 +453,52 @@ void container::resize(memint newsize, char fill)
 }
 
 
-// --- string -------------------------------------------------------------- //
+
+// --- str ----------------------------------------------------------------- //
+
+
+void str::_init(const char* buf, memint len)
+{
+    if (len > 0)
+    {
+        // Reserve extra byte for the NULL char
+        obj = null.new_(len + 1, len)->ref<container>();
+        ::memcpy(obj->data(), buf, len);
+    }
+    else
+        contptr::_init();
+}
+
+
+str::str(const char* s)
+{
+    memint len = pstrlen(s);
+    if (len > 0)
+        _init(s, len);
+    else
+        contptr::_init();
+}
 
 
 const char* str::c_str() const
 {
-    memint t = size();
-    if (t)
+    if (empty())
+        return "";
+    else if (obj->has_room())
+        *obj->end() = 0;
+    else
     {
-        if (t == memsize())
-        {
-            ((str*)this)->push_back<char>(0);
-            dyn->set_size(t);
-        }
-        *dyn->data(t) = 0;
+        ((str*)this)->push_back(char(0));
+        obj->dec_size();
     }
-    return data();
+    return obj->data();
 }
 
 
-int str::cmp(const char* s, memint blen) const
+void str::put(memint pos, char c)
 {
-    memint alen = size();
-    memint len = imin(alen, blen);
-    if (len == 0)
-        return alen - blen;
-    int result = ::memcmp(data(), s, len);
-    if (result == 0)
-        return alen - blen;
-    else
-        return result;
+    chkidx(pos);
+    mkunique()[pos] = c;
 }
 
 
@@ -456,13 +531,17 @@ memint str::rfind(char c) const
 }
 
 
-void str::_init(const char* s)
+int str::cmp(const char* s, memint blen) const
 {
-    memint len = pstrlen(s);
-    if (len <= 0)
-        container::_init();
+    memint alen = size();
+    memint len = imin(alen, blen);
+    if (len == 0)
+        return int(alen - blen);
+    int result = ::memcmp(data(), s, len);
+    if (result == 0)
+        return int(alen - blen);
     else
-        container::_init(s, len);
+        return result;
 }
 
 
@@ -470,7 +549,10 @@ void str::operator+= (const char* s)
 {
     memint len = pstrlen(s);
     if (len > 0)
-        container::append(s, len);
+    {
+        append(s, len + 1);
+        obj->dec_size();
+    }
 }
 
 
@@ -480,10 +562,20 @@ str str::substr(memint pos, memint len) const
         return *this;
     if (len <= 0)
         return str();
-    _idx(pos);
-    _idxa(pos + len);
+    chkidxa(pos);
+    chkidxa(pos + len);
     return str(data(pos), len);
 }
+
+
+str str::substr(memint pos) const
+{
+    if (pos == 0)
+        return *this;
+    chkidxa(pos);
+    return str(data(pos), size() - pos);
+}
+
 
 // --- string utilities ---------------------------------------------------- //
 

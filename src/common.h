@@ -97,10 +97,13 @@ template <class T>
     inline T exchange(T& target, const T& value)
         { T temp = target; target = value; return temp; }
 
+
+template <class T, class X>
+    T cast(X x)
 #ifdef DEBUG
-#  define CAST(t,x) (dynamic_cast<t>(x))
+        { return dynamic_cast<T>(x); }
 #else
-#  define CAST(t,x) ((t)x)
+        { return (T)x; }
 #endif
 
 
