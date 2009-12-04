@@ -15,6 +15,8 @@
 		365B4B881002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
 		365B728F10C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
 		365B729010C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
+		36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
+		36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -51,6 +53,8 @@
 		365B4B891002B0390023D0FD /* charset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = charset.h; path = src/charset.h; sourceTree = "<group>"; };
 		365B728E10C2861200D14118 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		36668F531003CD8600FF0C90 /* bsearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bsearch.h; path = src/bsearch.h; sourceTree = "<group>"; };
+		36C3887810C9A6E100CD1B37 /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
+		36C3887910C9A6E100CD1B37 /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -96,6 +100,8 @@
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				363C70ED0EF70F4400866D2C /* main.cpp */,
 				365B4B891002B0390023D0FD /* charset.h */,
+				36C3887810C9A6E100CD1B37 /* typesys.h */,
+				36C3887910C9A6E100CD1B37 /* typesys.cpp */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -184,6 +190,7 @@
 				365B4A72100283E40023D0FD /* common.cpp in Sources */,
 				365B4B881002B01D0023D0FD /* charset.cpp in Sources */,
 				365B729010C2861200D14118 /* runtime.cpp in Sources */,
+				36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +202,7 @@
 				365B4A71100283E40023D0FD /* common.cpp in Sources */,
 				365B4B871002B01D0023D0FD /* charset.cpp in Sources */,
 				365B728F10C2861200D14118 /* runtime.cpp in Sources */,
+				36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

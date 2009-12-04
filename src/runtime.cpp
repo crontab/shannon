@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "runtime.h"
+#include "typesys.h"
 
 
 // --- object & objptr ----------------------------------------------------- //
@@ -88,6 +89,9 @@ void object::release()
 // --- container & contptr ------------------------------------------------- //
 
 
+container _null_container;
+
+
 void container::overflow()
     { fatal(0x1002, "Container overflow"); }
 
@@ -97,26 +101,22 @@ void container::idxerr()
 
 
 container::~container()
-    { clear(); }
+    { }
 
 
 bool container::empty() const // virt. override
     { return _size == 0; }
 
 
-void container::clear()
-{
-    if (_size)
-    {
-        finalize(data(), _size);
-        _size = 0;
-    }
-}
-
-
 container* container::new_(memint cap, memint siz)
 {
     return new(cap) container(cap, siz);
+}
+
+
+container* container::null_obj()
+{
+    return &_null_container;
 }
 
 
@@ -176,35 +176,42 @@ container* container::realloc(memint newsize)
 }
 
 
-container contptr::null;
+const char* contptr::back(memint i) const
+{
+    if (i <= 0 || i > size())
+        container::idxerr();
+    return obj->end() - i;
+}
 
 
-const char* contptr::at(memint i) const
-    { chkidx(i); return data(i); }
-
-const char* contptr::back() const
-    { if (empty()) container::idxerr(); return obj->end() - 1; }
-
-
-char* contptr::_init(memint len)
+char* contptr::_init(container* factory, memint len)
 {
     assert(len >= 0);
     if (len > 0)
     {
-        obj = null.new_growing(len)->ref<container>();
+        obj = factory->new_growing(len)->ref();
         return obj->data();
     }
     else
     {
-        _init();
+        obj = factory->null_obj();
         return NULL;
     }
 }
 
 
-void contptr::_init(const char* buf, memint len)
+void contptr::_init(container* factory, const char* buf, memint len)
 {
-    null.copy(_init(len), buf, len);
+    char* p = _init(factory, len);
+    if (p)
+        factory->copy(p, buf, len);
+}
+
+
+void contptr::_dofin()
+{
+    obj->finalize(obj->data(), obj->size());
+    obj->release();
 }
 
 
@@ -217,15 +224,20 @@ void contptr::operator= (const contptr& s)
 
 void contptr::assign(const char* buf, memint len)
 {
+    container* null = obj->null_obj();
     _fin();
-    _init(buf, len);
+    _init(null, buf, len);
 }
 
 
 void contptr::clear()
 {
-    _fin();
-    _init();
+    if (!empty())
+    {
+        container* null = obj->null_obj();
+        _fin();
+        obj = null;
+    }
 }
 
 
@@ -301,17 +313,15 @@ char* contptr::_appendnz(memint len)
 
 void contptr::_erasenz(memint pos, memint len)
 {
-    // This function can't handle the case when the container becomes empty,
-    // because we want to reuse it in descendant classes. It also never
-    // reallocates the container if it's unique.
     chkidx(pos);
     memint oldsize = size();
     memint epos = pos + len;
     chkidxa(epos);
     memint newsize = oldsize - len;
-    assert(newsize != 0);
     memint remain = oldsize - epos;
-    if (unique())
+    if (newsize == 0)
+        clear();
+    else if (unique())
     {
         char* p = obj->data(pos);
         obj->finalize(p, len);
@@ -333,12 +343,12 @@ void contptr::_erasenz(memint pos, memint len)
 
 void contptr::_popnz(memint len)
 {
-    // See comments for _erasenz()
     memint oldsize = size();
     memint newsize = oldsize - len;
     chkidx(newsize);
-    assert(newsize != 0);
-    if (unique())
+    if (newsize == 0)
+        clear();
+    else if (unique())
     {
         obj->finalize(obj->data(newsize), len);
         obj->set_size(newsize);
@@ -404,24 +414,6 @@ void contptr::append(const contptr& s)
 }
 
 
-void contptr::erase(memint pos, memint len)
-{
-    if (pos == 0 && len == size())
-        clear();
-    else if (len > 0)
-        _erasenz(pos, len);
-}
-
-
-void contptr::pop_back(memint len)
-{
-    if (len == size())
-        clear();
-    else if (len > 0)
-        _popnz(len);
-}
-
-
 char* contptr::resize(memint newsize)
 {
     if (newsize < 0)
@@ -454,7 +446,20 @@ void contptr::resize(memint newsize, char fill)
 
 
 
-// --- str ----------------------------------------------------------------- //
+// --- string -------------------------------------------------------------- //
+
+
+strcont _null_strcont;
+
+
+Type* strcont::type() const
+    { return defString; }
+
+container* strcont::new_(memint cap, memint siz)
+    { return new(cap) strcont(cap, siz); }
+
+container* strcont::null_obj()
+    { return &_null_strcont; }
 
 
 void str::_init(const char* buf, memint len)
@@ -462,11 +467,11 @@ void str::_init(const char* buf, memint len)
     if (len > 0)
     {
         // Reserve extra byte for the NULL char
-        obj = null.new_(len + 1, len)->ref<container>();
-        ::memcpy(obj->data(), buf, len);
+        contptr::_init(&_null_strcont, buf, len + 1);
+        obj->dec_size();
     }
     else
-        contptr::_init();
+        _init();
 }
 
 
@@ -476,7 +481,7 @@ str::str(const char* s)
     if (len > 0)
         _init(s, len);
     else
-        contptr::_init();
+        _init();
 }
 
 

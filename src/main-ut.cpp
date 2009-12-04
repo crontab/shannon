@@ -81,11 +81,10 @@ void test_contptr()
     check(c2.capacity() == 3);
 
     contptr c2a("", 0);
-    check(c2a.obj == &contptr::null);
+    check(c2a.obj == &_null_container);
     check(c2a.empty());
     check(c2a.size() == 0);
     check(c2a.capacity() == 0);
-    check(c2a.obj == &contptr::null);
 
     check(!c1.unique());
     check(c2.unique());
@@ -150,6 +149,7 @@ void test_contptr()
     check(memcmp(c1.data(), "@AB!!!", 3) == 0);
     c1.resize(0);
     check(c1.empty());
+    check(c1.obj == &_null_container);
 }
 
 
@@ -160,6 +160,7 @@ void test_string()
     check(s1.empty());
     check(s1.size() == 0);
     check(s1.c_str()[0] == 0);
+    check(s1.obj == &_null_strcont);
     str s2 = "Kuku";
     check(!s2.empty());
     check(s2.size() == 4);
@@ -217,6 +218,9 @@ void test_string()
     check(s1.rfind('t') == 2);
     check(s1.rfind('B') == 0);
     check(s1.rfind('v') == str::npos);
+
+    s1.clear();
+    check(s1.obj == &_null_strcont);
 }
 
 
@@ -259,45 +263,6 @@ void test_strutils()
 
 
 /*
-void test_podvec()
-{
-    podvec<int> v1;
-    check(v1.unique());
-    podvec<int> v2 = v1;
-    check(v1.unique());
-    check(v1.empty() && v2.empty());
-    v1.push_back(10);
-    v1.push_back(20);
-    v1.push_back(30);
-    v1.push_back(40);
-    check(v1.size() == 4);
-    check(v2.empty());
-    check(v1[0] == 10);
-    check(v1[1] == 20);
-    check(v1[2] == 30);
-    check(v1[3] == 40);
-    v2 = v1;
-    check(!v1.unique() && !v2.unique());
-    check(v2.size() == 4);
-    v1.erase(2);
-    check(v1.size() == 3);
-    check(v2.size() == 4);
-    check(v1[0] == 10);
-    check(v1[1] == 20);
-    check(v1[2] == 40);
-    v1.erase(2);
-    check(v1.size() == 2);
-    v1.insert(0, 50);
-    check(v1.size() == 3);
-    check(v1[0] == 50);
-    check(v1[1] == 10);
-    check(v1[2] == 20);
-    v2.clear();
-    check(v2.empty());
-    check(!v1.empty());
-}
-
-
 void test_vector()
 {
     vector<str> v1;
