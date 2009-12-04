@@ -6,207 +6,212 @@
 #include "common.h"
 
 
-// --- rcblock ------------------------------------------------------------- //
+// --- object & objptr ----------------------------------------------------- //
 
 
-// Basic reference-counted, resizable memory block. For internal use.
+// Basic reference-counted object with a virtual destructor. Also a basic smart
+// pointer is defined, objptr.
 
-class rcblock: public noncopyable
+class Type; // see typesys.h
+
+class object: public noncopyable
 {
-    friend void test_rcblock();
-
 protected:
     int refcount;
 
-    static rcblock* alloc(memint extra)
-        { return new(extra) rcblock(); }
-    static rcblock* realloc(rcblock*, memint size);
+    static object* _realloc(object* p, size_t self, memint extra);
+    void _assignto(object*& p);
 
 public:
-    static int allocated; // for detecting memory leaks in DEBUG mode
+    object()                    : refcount(0) { }
+    virtual ~object();
+    virtual bool empty() const; // abstract
+    virtual Type* type() const;
+
+    static int allocated; // used only in DEBUG mode
 
     void* operator new(size_t);
     void* operator new(size_t, memint extra);
-    void  operator delete (void* p);
+    void  operator delete(void* p);
+//    template <class T>
+//        static void realloc(T*& p, memint extra)
+//            { p = (T*)_realloc(p, sizeof(T), extra); }
 
-    rcblock(): refcount(0)  { }
-    bool unique() const     { return refcount == 1; }
-    void ref()              { pincrement(&refcount); }
-    bool deref()            { assert(refcount >= 1); return pdecrement(&refcount) == 0; }
-};
-
-
-template <class T>
-    inline T* rcref(T* o)           { if (o) o->ref(); return o; }
-template <class T>
-    inline T* rcref2(T* o)          { o->ref(); return o; }
-template <class T>
-    inline void rcrelease(T* o)     { if (o && o->deref()) delete o; }
-template <class T>
-    void rcassign(T*& p, T* o)      { if (p != o) { rcrelease(p); p = rcref(o); } }
-
-
-
-// --- rcdynamic ----------------------------------------------------------- //
-
-
-// Memory block for dynamic strings and vectors; maintains current length
-// (used) and allocated memory (capacity). For internal use.
-
-class rcdynamic: public rcblock
-{
-public:
-    memint capacity;
-    memint used;
-
-    char* data() const          { return (char*)this + sizeof(rcdynamic); }
-    char* data(memint i) const  { assert(i >= 0 && i <= used); return data() + i; }
+    bool unique() const         { assert(refcount > 0); return refcount == 1; }
+    void release();
+    object* ref()               { if (this) pincrement(&refcount); return this; }
+    object* refnz()             { pincrement(&refcount); return this; }
     template <class T>
-        T* data(memint i) const { return (T*)data(i * sizeof(T)); }
-    memint empty() const        { return used == 0; }
-    memint size() const         { return used; }
-    void set_size(memint _used) { assert(unique() && !empty() && _used > 0 && _used <= capacity); used = _used; }
-    void dec_size(memint d)     { assert(unique() && used >= d); used -= d; }
-    memint memsize() const      { return capacity; }
-
-    static rcdynamic* alloc(memint _capacity, memint _used)
-        { return new(_capacity) rcdynamic(_capacity, _used); }
-    static rcdynamic* realloc(rcdynamic*, memint _capacity, memint _used);
-
-    rcdynamic(memint _capacity, memint _used)
-        : rcblock(), capacity(_capacity), used(_used)
-                { assert(_capacity >= 0 && _used >= 0 && _used <= _capacity); }
+        T* ref()                { object::ref(); return cast<T*>(this); }
+    template <class T>
+        void assignto(T*& p)    { _assignto((object*&)p); }
 };
 
 
-// --- container ----------------------------------------------------------- //
-
-
-// Generic dynamic copy-on-write buffer for POD data. For internal use.
-
-class container: public noncopyable
+template <class T>
+class objptr
 {
-    friend void test_container();
+protected:
+    T* obj;
+    
+public:
+    objptr()                            : obj(NULL) { }
+    objptr(const objptr& p)             { obj = (T*)p.obj->ref(); }
+    objptr(T* o)                        { obj = (T*)o->ref(); }
+    ~objptr()                           { obj->release(); }
+    void clear()                        { obj->release(); obj = NULL; }
+    bool empty() const                  { return obj == NULL; }
+    void operator= (const objptr& p)    { p.obj->assignto(obj); }
+    void operator= (T* o)               { o->assignto(obj); }
+    T& operator* ()                     { return *obj; }
+    const T& operator* () const         { return *obj; }
+    T* operator-> () const              { return obj; }
+    operator T*() const                 { return obj; }
+};
+
+
+
+// --- container & contptr ------------------------------------------------- //
+
+
+// Basic resizable container, for internal use
+
+class container: public object
+{
+protected:
+    memint _capacity;
+    memint _size;
+
+public:
+    container(): _capacity(0), _size(0)  { } // for the _null object
+    container(memint cap, memint siz)
+        : _capacity(cap), _size(siz)  { assert(siz > 0 && cap >= siz); }
+    ~container();
+
+    static void overflow();
+    static void idxerr();
+    void clear();
+    char* data() const          { return (char*)(this + 1); }
+    char* data(memint i) const  { assert(i >= 0 && i <= _size); return data() + i; }
+    char* end() const           { return data() + _size; }
+    bool empty() const; // virt. override
+    memint size() const         { return _size; }
+    memint capacity() const     { return _capacity; }
+    bool unique() const         { return _size && object::unique(); }
+    bool has_room() const       { return _size < _capacity; }
+
+    static memint calc_prealloc(memint);
+
+    virtual container* new_(memint cap, memint siz);
+    virtual void finalize(void*, memint);
+    virtual void copy(void* dest, const void* src, memint size);
+    
+    container* new_growing(memint newsize);
+    container* new_precise(memint newsize);
+    container* realloc(memint newsize); // Make this virtual if sizeof(*this) > sizeof(container)
+    void set_size(memint newsize)
+        { assert(newsize > 0 && newsize <= _capacity); _size = newsize; }
+    void dec_size()             { assert(_size > 0); _size--; }
+};
+
+
+class contptr: public noncopyable
+{
+    friend void test_contptr();
     friend void test_string();
 
 protected:
-    struct _nulldyn: public rcdynamic
-    {
-        char dummy[16];
-        _nulldyn(): rcdynamic(0, 0)  { }
-        bool valid()  { return size() == 0 && memsize() == 0 && dummy[0] == 0; }
-    };
-    static _nulldyn _null;
+    container* obj;
 
-    rcdynamic* dyn;
-
-    void _init()                            { dyn = &_null; }
+    void _init()                        { obj = &null; }
+    void _init(const contptr& s)        { obj = (container*)s.obj->refnz(); }
     char* _init(memint);
     void _init(const char*, memint);
-    void _init(const container& c)          { dyn = rcref2(c.dyn); }
-    void _dofin();
-    void _fin()                             { if (!empty()) _dofin(); }
-    void _replace(rcdynamic* d)             { _fin(); dyn = rcref2(d); }
-
-    static void _overflow();
-    static void _idxerr();
-    void _idx(memint i) const               { if (unsigned(i) >= unsigned(size())) _idxerr(); }
-    void _idxa(memint i) const              { if (unsigned(i) > unsigned(size())) _idxerr(); }
-    static memint _calc_capcity(memint newsize);
-    bool _can_shrink(memint newsize);
-    static rcdynamic* _grow_alloc(memint);
-    static rcdynamic* _precise_alloc(memint);
-    rcdynamic* _grow_realloc(memint);
-    rcdynamic* _precise_realloc(memint);
-
-    memint memsize() const                  { return dyn->memsize(); }
-    bool unique() const                     { return empty() || dyn->unique(); }
-    char* _mkunique();
+    void _fin()                         { if (!empty()) obj->release(); }
+    bool unique() const                 { return obj->unique(); }
+    char* mkunique();
+    void chkidx(memint i) const         { if (unsigned(i) >= unsigned(obj->size())) container::idxerr(); }
+    void chkidxa(memint i) const        { if (unsigned(i) > unsigned(obj->size())) container::idxerr(); }
+    void _assign(container* o)          { _fin(); obj = (container*)o->refnz(); }
+    char* _insertnz(memint pos, memint len);
+    char* _appendnz(memint len);
+    void _erasenz(memint pos, memint len);
+    void _popnz(memint len);
 
 public:
-    container()                             { _init(); }
-    container(const char* buf, memint len)  { _init(buf, len); }
-    container(const container& c)           { _init(c); }
-    ~container()                            { _fin(); }
+    static container null;
 
-    bool empty() const                      { return dyn->empty(); }
-    memint size() const                     { return dyn->size(); }
-    const char* data() const                { return dyn->data(); }
-    const char* data(memint i) const        { return dyn->data(i); }
+    contptr()                           { _init(); }                // *
+    contptr(const contptr& s)           { _init(s); }
+    contptr(const char* s, memint len)  { _init(s, len); }          // *
+    ~contptr()                          { _fin(); }
+
+    void operator= (const contptr& s);
+    void assign(const char*, memint);                               // *
+    void clear();                                                   // *
+
+    bool empty() const                  { return !obj->size(); }
+    memint size() const                 { return obj->size(); }
+    memint capacity() const             { return obj->capacity(); }
+    const char* data() const            { return obj->data(); }
+    const char* data(memint pos) const  { return obj->data(pos); }
     const char* at(memint i) const;
     const char* back() const;
-    void mkunique()                         { if (!unique()) _mkunique(); }
-    void put(memint pos, char c);
 
-    void clear();
-    char* assign(memint);
-    void assign(const char*, memint);
-    void assign(const container&);
-    void operator= (const container& c)     { assign(c); }
-    char* insert(memint pos, memint len);
-    void insert(memint pos, const char*, memint len);
-    void insert(memint pos, const container&);
-    char* append(memint len);
-    void append(const char*, memint len);
-    void append(const container&);
-    void erase(memint pos, memint len);
-    void pop_back(memint);
-    char* resize(memint);
-    void resize(memint, char);
+    void insert(memint pos, const char* buf, memint len);
+    void insert(memint pos, const contptr& s);
+    void append(const char* buf, memint len);
+    void append(const contptr& s);
+    void erase(memint pos, memint len);                             // *
+    void push_back(char c)              { *_appendnz(1) = c; }
+    void pop_back(memint len);                                      // *
 
-    template <class T>
-        const T& back() const               { if (empty()) _idxerr(); return *(T*)data(size() - sizeof(T)); }
-    template <class T>
-        void push_back(const T& t)          { *(T*)append(sizeof(T)) = t; }
-    template <class T>
-        void pop_back()                     { pop_back(sizeof(T)); }
+    char* resize(memint);                                           // *
+    void resize(memint, char);                                      // *
 };
+// * - must be redefiend in descendant templates because of the null object
 
 
-// --- string -------------------------------------------------------------- //
+// --- str ----------------------------------------------------------------- //
 
 
-// Dynamic copy-on-write strings. Note that c_str() is a bit costly, because
-// it's not used a lot in Shannon. Many methods are simply inherited from
-// container.
-
-class str: public container
+class str: public contptr
 {
 protected:
-    void _init(const char*);
+    void _init(const char*, memint len);
 
 public:
-    str(): container()                      { }
-    str(const char* s)                      { _init(s); }
-    str(const str& s): container(s)         { }
-    str(const char* buf, memint len): container(buf, len)  { }
-    ~str()                                  { }
+    str(): contptr()  { }
+    str(const char* buf, memint len) { _init(buf, len); }
+    str(const char*);
+    str(const str& s): contptr(s)  { }
+    
+    const char* c_str() const; // can actually modify the object
+    char operator[] (memint i) const        { return *obj->data(i); }
+    char at(memint i) const                 { return *contptr::at(i); }
+    char back() const                       { return *contptr::back(); }
+    void put(memint pos, char c);
 
-    const char* c_str() const;
-    const char& operator[](memint i) const  { return *data(i); }
-    const char& at(memint pos) const        { return *container::at(pos); }
-    const char& back() const                { return *container::back(); }
-    int cmp(const char*, memint) const;
+    enum { npos = -1 };
     memint find(char c) const;
     memint rfind(char c) const;
 
+    typedef char* const_iterator;
+    const char* begin() const               { return obj->data(); }
+    const char* end() const                 { return obj->end(); }
+
+    int cmp(const char*, memint) const;
     bool operator== (const char* s) const   { return cmp(s, pstrlen(s)) == 0; }
     bool operator== (const str& s) const    { return cmp(s.data(), s.size()) == 0; }
     bool operator!= (const char* s) const   { return !(*this == s); }
     bool operator!= (const str& s) const    { return !(*this == s); }
-    void operator+= (const char* s);
-    void operator+= (const str& s)          { container::append(s); }
-    str  substr(memint pos, memint len) const;
-    str  substr(memint pos) const           { return substr(pos, size() - pos); }
 
-    enum { npos = -1 };
+    void operator+= (const char* s);
+    void operator+= (const str& s)          { append(s); }
+    str  substr(memint pos, memint len) const;
+    str  substr(memint pos) const;
 };
 
-inline bool operator== (const char* s1, const str& s2)
-    { return s2.cmp(s1, pstrlen(s1)) == 0; }
-
-inline bool operator!= (const char* s1, const str& s2)
-    { return !(s1 == s2); }
 
 
 // --- string utilities ---------------------------------------------------- //
@@ -227,6 +232,7 @@ str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
 
 
+/*
 // --- podvec -------------------------------------------------------------- //
 
 
@@ -357,5 +363,5 @@ void vector<T>::erase(memint pos)
     podvec<T>::erase(pos);
 }
 
-
+*/
 #endif // __RUNTIME_H

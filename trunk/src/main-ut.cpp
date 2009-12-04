@@ -41,50 +41,71 @@ void test_common()
 }
 
 
-void test_rcblock()
+void test_object()
 {
-    rcblock* b = rcref(rcblock::alloc(10));
-    check(b->refcount == 1);
-    rcblock* c = rcref(b);
-    check(b->refcount == 2);
-    rcrelease(c);
-    check(b->refcount == 1);
-    rcassign(b, rcblock::alloc(20));
-    rcrelease(b);
+    {
+        object* b = (new object())->ref();
+        check(b->unique());
+        object* c = b->ref();
+        check(!b->unique());
+        c->release();
+        check(b->unique());
+        b->release();
+        b = (new object())->ref();
+        b->release();
+    }
+    {
+        objptr<object> p1;
+        objptr<object> p2 = p1;
+        check(p1.empty());
+        check(p2.empty());
+        objptr<object> p3 = new object;
+        objptr<object> p4 = p3;
+        check(!p3.empty());
+        check(!p4.empty());
+    }
 }
 
 
-void test_container()
+void test_contptr()
 {
     // TODO: check the number of reallocations
-    container c1;
+    contptr c1;
     check(c1.empty());
     check(c1.size() == 0);
-    check(c1.memsize() == 0);
+    check(c1.capacity() == 0);
 
-    container c2("ABC", 3);
+    contptr c2("ABC", 3);
     check(!c2.empty());
     check(c2.size() == 3);
-    check(c2.memsize() == 3);
+    check(c2.capacity() == 3);
 
-    check(c1.unique());
+    contptr c2a("", 0);
+    check(c2a.obj == &contptr::null);
+    check(c2a.empty());
+    check(c2a.size() == 0);
+    check(c2a.capacity() == 0);
+    check(c2a.obj == &contptr::null);
+
+    check(!c1.unique());
     check(c2.unique());
-    c1.assign(c2);
+    c1 = c2;
     check(!c2.unique());
     check(!c1.unique());
-    container c3("DEFG", 4);
+
+    contptr c3("DEFG", 4);
     c1.insert(3, c3);
     check(c1.unique());
     check(c1.size() == 7);
-    check(c1.memsize() > 7);
+    check(c1.capacity() > 7);
     check(memcmp(c1.data(), "ABCDEFG", 7) == 0);
 
-    container c4 = c1;
+    contptr c4 = c1;
     check(!c1.unique());
     c1.insert(3, "ab", 2);
     check(c1.unique());
     check(c1.size() == 9);
-    check(c1.memsize() > 9);
+    check(c1.capacity() > 9);
     check(memcmp(c1.data(), "ABCabDEFG", 9) == 0);
     c1.insert(0, "@", 1);
     check(c1.unique());
@@ -115,24 +136,26 @@ void test_container()
     c1.erase(8, 5);
     check(memcmp(c1.data(), "@ABCDEFG", 8) == 0);
 
-    c1.push_back('!');
-    check(c1.size() == 9);
-    check(memcmp(c1.data(), "@ABCDEFG!", 9) == 0);
-    c4 = c1;
-    c1.push_back('?');
-    check(c1.size() == 10);
-    check(memcmp(c1.data(), "@ABCDEFG!?", 10) == 0);
-    c1.pop_back<char>();
-    check(memcmp(c1.data(), "@ABCDEFG!", 9) == 0);
-    c1.pop_back(9);
+    c1.pop_back(2);
+    check(c1.size() == 6);
+    check(memcmp(c1.data(), "@ABCDE", 6) == 0);
+    c1.pop_back(6);
     check(c1.empty());
-
-    check(container::_null.valid());
+    
+    c1.resize(3);
+    check(c1.size() == 3);
+    check(memcmp(c1.data(), "@AB", 3) == 0);
+    c1.resize(6, '!');
+    check(c1.size() == 6);
+    check(memcmp(c1.data(), "@AB!!!", 3) == 0);
+    c1.resize(0);
+    check(c1.empty());
 }
 
 
 void test_string()
 {
+    // TODO: insert
     str s1;
     check(s1.empty());
     check(s1.size() == 0);
@@ -140,7 +163,7 @@ void test_string()
     str s2 = "Kuku";
     check(!s2.empty());
     check(s2.size() == 4);
-    check(s2.memsize() == 4);
+    check(s2.capacity() == 5);
     check(s2 == "Kuku");
     str s3 = s1;
     check(s3.empty());
@@ -235,6 +258,7 @@ void test_strutils()
 }
 
 
+/*
 void test_podvec()
 {
     podvec<int> v1;
@@ -300,7 +324,7 @@ void test_vector()
     v3 = v1;
 }
 
-
+*/
 int main()
 {
 /*
@@ -314,6 +338,7 @@ int main()
 */
     check(sizeof(int) == 4);
     check(sizeof(memint) >= 4);
+    check(sizeof(memint) == sizeof(size_t));
 
 #ifdef SH64
     check(sizeof(integer) == 8);
@@ -331,12 +356,14 @@ int main()
     try
     {
         test_common();
-        test_rcblock();
-        test_container();
+        test_object();
+        test_contptr();
         test_string();
         test_strutils();
+/*
         test_podvec();
         test_vector();
+*/
     }
     catch (exception& e)
     {
@@ -344,12 +371,13 @@ int main()
         exitcode = 201;
     }
 
+/*
     if (rcblock::allocated != 0)
     {
         fprintf(stderr, "Error: object::alloc = %d\n", rcblock::allocated);
         exitcode = 202;
     }
-
+*/
     return exitcode;
 }
 

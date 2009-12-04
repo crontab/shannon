@@ -28,13 +28,14 @@
 #endif
 
 
+
 int main()
 {
-    printf("%lu %lu %lu\n", sizeof(rcblock), sizeof(rcdynamic), sizeof(container));
+    printf("%lu %lu\n", sizeof(object), sizeof(container));
 
-    if (rcblock::allocated != 0)
+    if (object::allocated != 0)
     {
-        fprintf(stderr, "rcblock::allocated: %d\n", rcblock::allocated);
+        fprintf(stderr, "object::allocated: %d\n", object::allocated);
         _fatal(0xff01);
     }
 
