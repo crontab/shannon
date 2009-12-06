@@ -1,10 +1,6 @@
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "runtime.h"
-#include "typesys.h"
 
 
 // --- object & objptr ----------------------------------------------------- //
@@ -71,10 +67,6 @@ void object::operator delete(void* p)
 
 object::~object()  { }
 
-bool object::empty() const  { return false; }
-
-Type* object::type() const  { return NULL; }
-
 
 void object::release()
 {
@@ -89,9 +81,6 @@ void object::release()
 // --- container & contptr ------------------------------------------------- //
 
 
-container _null_container;
-
-
 void container::overflow()
     { fatal(0x1002, "Container overflow"); }
 
@@ -100,31 +89,11 @@ void container::idxerr()
     { fatal(0x1003, "Container index error"); }
 
 
-container::~container()
-    { }
-
-
 bool container::empty() const // virt. override
     { return _size == 0; }
 
-
-container* container::new_(memint cap, memint siz)
-{
-    return new(cap) container(cap, siz);
-}
-
-
-container* container::null_obj()
-{
-    return &_null_container;
-}
-
-
-void container::finalize(void*, memint)  { }
-
-
-void container::copy(void* dest, const void* src, memint len)
-    { ::memcpy(dest, src, len); }
+int container::compare(memint index, void* key)
+    { _fatal(0x1004); return 0; }
 
 
 inline memint container::calc_prealloc(memint newsize)
@@ -176,12 +145,29 @@ container* container::realloc(memint newsize)
 }
 
 
-const char* contptr::back(memint i) const
+bool container::bsearch(void* key, memint& index, memint h)
 {
-    if (i <= 0 || i > size())
-        container::idxerr();
-    return obj->end() - i;
+    memint l, i, c;
+    l = 0;
+    h--;
+    bool ret = false;
+    while (l <= h) 
+    {
+        i = (l + h) / 2;
+        c = compare(i, key);
+        if (c < 0)
+            l = i + 1;
+        else
+        {
+            h = i - 1;
+            if (c == 0)
+                ret = true;
+        }
+    }
+    index = l;
+    return ret;
 }
+
 
 
 char* contptr::_init(container* factory, memint len)
@@ -208,10 +194,11 @@ void contptr::_init(container* factory, const char* buf, memint len)
 }
 
 
-void contptr::_dofin()
+const char* contptr::back(memint i) const
 {
-    obj->finalize(obj->data(), obj->size());
-    obj->release();
+    if (i <= 0 || i > size())
+        container::idxerr();
+    return obj->end() - i;
 }
 
 
@@ -449,17 +436,20 @@ void contptr::resize(memint newsize, char fill)
 // --- string -------------------------------------------------------------- //
 
 
-strcont _null_strcont;
+str::cont str::null;
 
 
-Type* strcont::type() const
-    { return defString; }
+container* str::cont::new_(memint cap, memint siz)
+    { return new(cap) cont(cap, siz); }
 
-container* strcont::new_(memint cap, memint siz)
-    { return new(cap) strcont(cap, siz); }
+container* str::cont::null_obj()
+    { return &str::null; }
 
-container* strcont::null_obj()
-    { return &_null_strcont; }
+void str::cont::finalize(void*, memint)
+    { }
+
+void str::cont::copy(void* dest, const void* src, memint len)
+    { ::memcpy(dest, src, len); }
 
 
 void str::_init(const char* buf, memint len)
@@ -467,7 +457,7 @@ void str::_init(const char* buf, memint len)
     if (len > 0)
     {
         // Reserve extra byte for the NULL char
-        contptr::_init(&_null_strcont, buf, len + 1);
+        contptr::_init(&null, buf, len + 1);
         obj->dec_size();
     }
     else
@@ -475,7 +465,7 @@ void str::_init(const char* buf, memint len)
 }
 
 
-str::str(const char* s)
+void str::_init(const char* s)
 {
     memint len = pstrlen(s);
     if (len > 0)
@@ -485,7 +475,7 @@ str::str(const char* s)
 }
 
 
-const char* str::c_str() const
+const char* str::c_str()
 {
     if (empty())
         return "";
@@ -493,17 +483,17 @@ const char* str::c_str() const
         *obj->end() = 0;
     else
     {
-        ((str*)this)->push_back(char(0));
+        push_back(char(0));
         obj->dec_size();
     }
     return obj->data();
 }
 
 
-void str::put(memint pos, char c)
+void str::operator= (const char* s)
 {
-    chkidx(pos);
-    mkunique()[pos] = c;
+    _fin();
+    _init(s);
 }
 
 
@@ -536,7 +526,7 @@ memint str::rfind(char c) const
 }
 
 
-int str::cmp(const char* s, memint blen) const
+int str::compare(const char* s, memint blen) const
 {
     memint alen = size();
     memint len = imin(alen, blen);
@@ -675,7 +665,7 @@ static void _itobase2(str& result, long long value, int base, int width, char pa
             result.resize(width, padchar);
         result.append(p, reslen);
         if (neg)
-            result.put(0, '-');
+            result.replace(0, '-');
     }
     else 
         result.assign(p, reslen);
