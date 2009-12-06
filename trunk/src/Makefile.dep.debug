@@ -2,7 +2,7 @@
 
 debug/common.o: common.h
 debug/charset.o: charset.h
-debug/runtime.o: runtime.h charset.h common.h typesys.h
+debug/runtime.o: runtime.h charset.h common.h
 debug/typesys.o: typesys.h runtime.h charset.h common.h
 debug/main.o: common.h runtime.h charset.h
 debug/main-ut.o: common.h runtime.h charset.h

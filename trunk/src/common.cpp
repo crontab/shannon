@@ -2,10 +2,6 @@
 
 #include "common.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
 
 void _fatal(int code, const char* msg) 
 {

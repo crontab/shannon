@@ -12,8 +12,6 @@
 // Basic reference-counted object with a virtual destructor. Also a basic smart
 // pointer is defined, objptr.
 
-class Type; // see typesys.h
-
 class object: public noncopyable
 {
 protected:
@@ -25,14 +23,13 @@ protected:
 public:
     object()                    : refcount(0) { }
     virtual ~object();
-    virtual bool empty() const; // abstract
-    virtual Type* type() const;
+    virtual bool empty() const = 0; // abstract
 
     static int allocated; // used only in DEBUG mode
 
     void* operator new(size_t);
     void* operator new(size_t, memint extra);
-    void  operator delete(void* p);
+    void  operator delete(void*);
 
     bool unique() const         { assert(refcount > 0); return refcount == 1; }
     void release();
@@ -86,6 +83,8 @@ protected:
     static void idxerr();
     char* data() const          { return (char*)(this + 1); }
     char* data(memint i) const  { assert(i >= 0 && i <= _size); return data() + i; }
+    template <class T>
+        T* data(memint i) const { return (T*)data(i * sizeof(T)); }
     char* end() const           { return data() + _size; }
     bool empty() const; // virt. override
     memint size() const         { return _size; }
@@ -95,30 +94,30 @@ protected:
 
     static memint calc_prealloc(memint);
 
-    virtual container* new_(memint cap, memint siz);
-    virtual container* null_obj();
-    virtual void finalize(void*, memint);
-    virtual void copy(void* dest, const void* src, memint size);
-
     container* new_growing(memint newsize);
     container* new_precise(memint newsize);
-    container* realloc(memint newsize); // Make this virtual if sizeof(*this) > sizeof(container)
+    container* realloc(memint newsize);
     void set_size(memint newsize)
         { assert(newsize > 0 && newsize <= _capacity); _size = newsize; }
     void dec_size()             { assert(_size > 0); _size--; }
-    
     container* ref()            { return (container*)_refnz(); }
+    bool bsearch(void* key, memint& i, memint count);
+    
+    virtual container* new_(memint cap, memint siz) = 0;
+    virtual container* null_obj() = 0;
+    virtual void finalize(void*, memint) = 0;
+    virtual void copy(void* dest, const void* src, memint) = 0;
+    virtual int compare(memint index, void* key); // aborts
 
 public:
     container(): _capacity(0), _size(0)  { } // for the _null object
     container(memint cap, memint siz)
         : _capacity(cap), _size(siz)  { assert(siz > 0 && cap >= siz); }
-    ~container();
 };
 
 
-extern container _null_container;
-
+// A "smart" pointer that holds a reference to a container object; this is
+// a base for strings, vectors, maps etc.
 
 class contptr: public noncopyable
 {
@@ -128,12 +127,10 @@ class contptr: public noncopyable
 protected:
     container* obj;
 
-    void _init()                        { obj = &_null_container; }
     void _init(const contptr& s)        { obj = s.obj->ref(); }
     char* _init(container* factory, memint);
     void _init(container* factory, const char*, memint);
-    void _dofin();
-    void _fin()                         { if (!empty()) _dofin(); }
+    void _fin()                         { if (!empty()) obj->release(); }
     bool unique() const                 { return obj->unique(); }
     char* mkunique();
     void chkidx(memint i) const         { if (unsigned(i) >= unsigned(obj->size())) container::idxerr(); }
@@ -145,9 +142,9 @@ protected:
     void _popnz(memint len);
 
 public:
-    contptr()                           { _init(); }                        // *
+    contptr(): obj(NULL)                { }  // must be redefined
+    contptr(container* _obj): obj(_obj) { }
     contptr(const contptr& s)           { _init(s); }
-    contptr(const char* s, memint len)  { _init(&_null_container, s, len); } // *
     ~contptr()                          { _fin(); }
 
     void operator= (const contptr& s);
@@ -160,6 +157,7 @@ public:
     const char* data() const            { return obj->data(); }
     const char* data(memint pos) const  { return obj->data(pos); }
     const char* at(memint i) const      { chkidx(i); return data(i); }
+    char* atw(memint i)                 { chkidx(i); return mkunique() + i; }
     const char* back(memint i) const;
 
     void insert(memint pos, const char* buf, memint len);
@@ -172,61 +170,71 @@ public:
 
     char* resize(memint);
     void resize(memint, char);
+
+    template <class T>
+        const T* data(memint pos) const { return (T*)data(pos * sizeof(T)); }
+    template <class T>
+        const T* at(memint pos) const   { return (T*)at(pos * sizeof(T)); }
+    template <class T>
+        T* atw(memint pos)              { return (T*)atw(pos * sizeof(T)); }
+    template <class T>
+        const T* back() const           { return (T*)back(sizeof(T)); }
+    template <class T>
+        bool bsearch(const T& key, memint& index) const
+            { return obj->bsearch((void*)&key, index, size() / sizeof(T)); }
 };
-// * - must be redefiend in descendant templates because of the null object
 
 
 // --- string -------------------------------------------------------------- //
-
-
-// String container: returns the proper runtime type
-
-class strcont: public container
-{
-protected:
-    virtual Type* type() const;
-    virtual container* new_(memint cap, memint siz);
-    virtual container* null_obj();
-
-public:
-    strcont(): container()  { }
-    strcont(memint cap, memint siz): container(cap, siz)  { }
-};
-
-extern strcont _null_strcont;
 
 
 // The string class
 
 class str: public contptr
 {
+    friend void test_contptr();
+    friend void test_string();
+
 protected:
-    void _init()                            { obj = &_null_strcont; }
+
+    void _init()                            { obj = &null; }
     void _init(const char*, memint);
+    void _init(const char*);
 
 public:
+
+    class cont: public container
+    {
+    protected:
+        container* new_(memint cap, memint siz);
+        container* null_obj();
+        void finalize(void*, memint);
+        void copy(void* dest, const void* src, memint size);
+    public:
+        cont(): container()  { }
+        cont(memint cap, memint siz): container(cap, siz)  { }
+    };
+
     str()                                   { _init(); }
     str(const char* buf, memint len)        { _init(buf, len); }
-    str(const char*);
+    str(const char* s)                      { _init(s); }
     str(const str& s): contptr(s)           { }
-    
-    const char* c_str() const; // can actually modify the object
+
+    const char* c_str(); // can actually modify the object
     char operator[] (memint i) const        { return *obj->data(i); }
     char at(memint i) const                 { return *contptr::at(i); }
     char back() const                       { return *contptr::back(1); }
-    void put(memint pos, char c);
+    void replace(memint pos, char c)        { *contptr::atw(pos) = c; }
+    void operator= (const char* c);
 
     enum { npos = -1 };
     memint find(char c) const;
     memint rfind(char c) const;
 
-    typedef char* const_iterator;
-    const char* begin() const               { return obj->data(); }
-    const char* end() const                 { return obj->end(); }
-
-    int cmp(const char*, memint) const;
-    bool operator== (const char* s) const   { return cmp(s, pstrlen(s)) == 0; }
-    bool operator== (const str& s) const    { return cmp(s.data(), s.size()) == 0; }
+    int compare(const char*, memint) const;
+    int compare(const str& s) const         { return compare(s.data(), s.size()); }
+    bool operator== (const char* s) const   { return compare(s, pstrlen(s)) == 0; }
+    bool operator== (const str& s) const    { return compare(s.data(), s.size()) == 0; }
     bool operator!= (const char* s) const   { return !(*this == s); }
     bool operator!= (const str& s) const    { return !(*this == s); }
 
@@ -234,6 +242,8 @@ public:
     void operator+= (const str& s)          { append(s); }
     str  substr(memint pos, memint len) const;
     str  substr(memint pos) const;
+
+    static cont null;
 };
 
 
@@ -254,6 +264,115 @@ unsigned long long from_string(const char*, bool* error, bool* overflow, int bas
 
 str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
+
+
+
+// --- podvec -------------------------------------------------------------- //
+
+
+// Vector template for POD elements (int, pointers, et al). Used internally
+// by the compiler itself.
+
+template <class T>
+class podvec: protected contptr
+{
+    friend void test_podvec();
+    friend void test_vector();
+
+protected:
+    enum { Tsize = sizeof(T) };
+
+    static str::cont null;
+
+    podvec(container* _obj): contptr(_obj)  { }
+
+public:
+    podvec(): contptr(&null)                { }
+    podvec(const podvec& v): contptr(v)     { }
+    bool empty() const                      { return contptr::empty(); }
+    memint size() const                     { return contptr::size() / Tsize; }
+    const T& operator[] (memint i) const    { return *contptr::data<T>(i); }
+    const T& at(memint i) const             { return *contptr::at<T>(i); }
+    const T& back() const                   { return *contptr::back<T>(); }
+    void clear()                            { contptr::clear(); }
+    void operator= (const podvec& v)        { contptr::operator= (v); }
+    void push_back(const T& t)              { new(contptr::_appendnz(Tsize)) T(t); }
+    void pop_back()                         { contptr::pop_back(Tsize); }
+    void insert(memint pos, const T& t)     { new(contptr::_insertnz(pos * Tsize, Tsize)) T(t); }
+    void replace(memint pos, const T& t)    { *contptr::atw<T>(pos) = t; }
+    void erase(memint pos)                  { contptr::erase(pos * Tsize, Tsize); }
+
+    template <class U>
+        void push_back(const U& u)          { new(contptr::_appendnz(Tsize)) T(u); }
+    template <class U>
+        void insert(memint pos, const U& u) { new(contptr::_insertnz(pos * Tsize, Tsize)) T(u); }
+    template <class U>
+        void replace(memint pos, const U& u) { *contptr::atw<T>(pos) = u; }
+};
+
+
+template <class T>
+    str::cont podvec<T>::null;
+
+
+// --- vector -------------------------------------------------------------- //
+
+
+template <class T>
+class vector: public podvec<T>
+{
+    friend void test_vector();
+
+    enum { Tsize = sizeof(T) };
+
+protected:
+    typedef podvec<T> parent;
+    typedef T* Tptr;
+    typedef Tptr& Tref;
+
+    class cont: public container
+    {
+
+    protected:
+        container* new_(memint cap, memint siz)
+            { return new(cap) cont(cap, siz); }
+
+        container* null_obj()
+            { return &vector::null; }
+
+        void finalize(void* p, memint count)
+        {
+            for ( ; count; count -= Tsize, Tref(p)++)
+                Tptr(p)->~T();
+        }
+        
+        void copy(void* dest, const void* src, memint count)
+        {
+            for ( ; count; count -= Tsize, Tref(dest)++, Tref(src)++)
+                new(dest) T(*Tptr(src));
+        }
+
+    public:
+        cont(): container()  { }
+        cont(memint cap, memint siz): container(cap, siz)  { }
+        ~cont()
+        {
+            if (_size)
+                { finalize(data(), _size); _size = 0; }
+        }
+    };
+
+    static cont null;
+
+    vector(container* o): parent(o)  { }
+
+public:
+    vector(): parent(&null)  { }
+};
+
+
+template <class T>
+    typename vector<T>::cont vector<T>::null;
 
 
 #endif // __RUNTIME_H

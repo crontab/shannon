@@ -1,11 +1,12 @@
 #ifndef __BSEARCH_H
 #define __BSEARCH_H
 
+
 template <class Container, class T>
-bool bsearch(const Container& cont, const T& t, int count, int& idx) {
+bool bsearch(const Container& cont, const T& t, int& idx) {
     int l, h, i, c;
     l = 0;
-    h = count - 1;
+    h = cont.size() - 1;
     bool ret = false;
     while (l <= h) 
     {
@@ -23,5 +24,6 @@ bool bsearch(const Container& cont, const T& t, int count, int& idx) {
     idx = l;
     return ret;
 }
+
 
 #endif

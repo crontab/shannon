@@ -4,16 +4,15 @@
 #include "common.h"
 #include "runtime.h"
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
 
+static void ut_fail(unsigned line, const char* e)
+{
+    fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, line, e);
+    exit(200);
+}
 
-#define fail(e) \
-    (fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, __LINE__, e), exit(200))
-
-#define check(e) \
-    { if (!(e)) fail(#e); }
+#define fail(e)     ut_fail(__LINE__, e)
+#define check(e)    { if (!(e)) fail(#e); }
 
 #define check_throw(a) \
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
@@ -41,17 +40,23 @@ void test_common()
 }
 
 
+struct testobj: public object
+{
+    bool empty() const { return false; }
+    testobj()  { }
+};
+
 void test_object()
 {
     {
-        object* b = (new object())->ref();
+        object* b = (new testobj())->ref();
         check(b->unique());
         object* c = b->ref();
         check(!b->unique());
         c->release();
         check(b->unique());
         b->release();
-        b = (new object())->ref();
+        b = (new testobj())->ref();
         b->release();
     }
     {
@@ -59,7 +64,7 @@ void test_object()
         objptr<object> p2 = p1;
         check(p1.empty());
         check(p2.empty());
-        objptr<object> p3 = new object;
+        objptr<object> p3 = new testobj();
         objptr<object> p4 = p3;
         check(!p3.empty());
         check(!p4.empty());
@@ -70,18 +75,18 @@ void test_object()
 void test_contptr()
 {
     // TODO: check the number of reallocations
-    contptr c1;
+    str c1;
     check(c1.empty());
     check(c1.size() == 0);
     check(c1.capacity() == 0);
 
-    contptr c2("ABC", 3);
+    str c2("ABC", 3);
     check(!c2.empty());
     check(c2.size() == 3);
-    check(c2.capacity() == 3);
+    check(c2.capacity() == 4);
 
-    contptr c2a("", 0);
-    check(c2a.obj == &_null_container);
+    str c2a("", 0);
+    check(c2a.obj == &str::null);
     check(c2a.empty());
     check(c2a.size() == 0);
     check(c2a.capacity() == 0);
@@ -92,7 +97,7 @@ void test_contptr()
     check(!c2.unique());
     check(!c1.unique());
 
-    contptr c3("DEFG", 4);
+    str c3("DEFG", 4);
     c1.insert(3, c3);
     check(c1.unique());
     check(c1.size() == 7);
@@ -149,7 +154,7 @@ void test_contptr()
     check(memcmp(c1.data(), "@AB!!!", 3) == 0);
     c1.resize(0);
     check(c1.empty());
-    check(c1.obj == &_null_container);
+    check(c1.obj == &str::null);
 }
 
 
@@ -160,7 +165,7 @@ void test_string()
     check(s1.empty());
     check(s1.size() == 0);
     check(s1.c_str()[0] == 0);
-    check(s1.obj == &_null_strcont);
+    check(s1.obj == &str::null);
     str s2 = "Kuku";
     check(!s2.empty());
     check(s2.size() == 4);
@@ -220,7 +225,7 @@ void test_string()
     check(s1.rfind('v') == str::npos);
 
     s1.clear();
-    check(s1.obj == &_null_strcont);
+    check(s1.obj == &str::null);
 }
 
 
@@ -262,7 +267,45 @@ void test_strutils()
 }
 
 
-/*
+void test_podvec()
+{
+    podvec<int> v1;
+    check(v1.empty());
+    podvec<int> v2 = v1;
+    check(v1.empty() && v2.empty());
+    v1.push_back(10);
+    v1.push_back(20);
+    v1.push_back(30);
+    v1.push_back(40);
+    check(v1.size() == 4);
+    check(v2.empty());
+    check(v1[0] == 10);
+    check(v1[1] == 20);
+    check(v1[2] == 30);
+    check(v1[3] == 40);
+    v2 = v1;
+    check(!v1.unique() && !v2.unique());
+    check(v2.size() == 4);
+    v1.erase(2);
+    check(v1.size() == 3);
+    check(v2.size() == 4);
+    check(v1[0] == 10);
+    check(v1[1] == 20);
+    check(v1[2] == 40);
+    v1.erase(2);
+    check(v1.size() == 2);
+    v1.insert(0, 50);
+    check(v1.size() == 3);
+    check(v1[0] == 50);
+    check(v1[1] == 10);
+    check(v1[2] == 20);
+    v2.clear();
+    check(v2.empty());
+    check(!v1.empty());
+    check(v1.back() == 20);
+}
+
+
 void test_vector()
 {
     vector<str> v1;
@@ -287,9 +330,12 @@ void test_vector()
     check(v1[2] == "JKL");
     check(v1.back() == "JKL");
     v3 = v1;
+    v1.replace(2, "MNO");
+    check(v1[2] == "MNO");
+    check(v3[2] == "JKL");
 }
 
-*/
+
 int main()
 {
 /*
@@ -325,10 +371,8 @@ int main()
         test_contptr();
         test_string();
         test_strutils();
-/*
         test_podvec();
         test_vector();
-*/
     }
     catch (exception& e)
     {

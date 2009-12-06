@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
@@ -136,13 +138,9 @@ inline memint pstrlen(const char* s)
     { return s == NULL ? 0 : ::strlen(s); }
 
 
-// Default placement versions of operator new.
+// Default placement versions of new and delete
 inline void* operator new(size_t, void* p) throw() { return p; }
-inline void* operator new[](size_t, void* p) throw() { return p; }
-
-// Default placement versions of operator delete.
-inline void  operator delete  (void*, void*) throw() { }
-inline void  operator delete[](void*, void*) throw() { }
+inline void  operator delete (void*, void*) throw() { }
 
 // Disable all new/delete by default; redefine where necessary
 void* operator new(size_t) throw();
