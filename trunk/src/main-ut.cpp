@@ -42,7 +42,6 @@ void test_common()
 
 struct testobj: public object
 {
-    bool empty() const { return false; }
     testobj()  { }
 };
 
@@ -60,10 +59,6 @@ void test_object()
         b->release();
     }
     {
-        objptr<object> p1;
-        objptr<object> p2 = p1;
-        check(p1.empty());
-        check(p2.empty());
         objptr<object> p3 = new testobj();
         objptr<object> p4 = p3;
         check(!p3.empty());
@@ -336,6 +331,61 @@ void test_vector()
 }
 
 
+void test_set()
+{
+    set<str> s1;
+    check(s1.insert("GHI"));
+    check(s1.insert("ABC"));
+    check(s1.insert("DEF"));
+    check(!s1.insert("ABC"));
+    check(s1.size() == 3);
+    check(s1[0] == "ABC");
+    check(s1[1] == "DEF");
+    check(s1[2] == "GHI");
+    s1.erase("DEF");
+    check(s1.size() == 2);
+    check(s1[0] == "ABC");
+    check(s1[1] == "GHI");
+}
+
+
+void test_dict()
+{
+    dict<str, int> d1;
+    d1.replace("three", 3);
+    d1.replace("one", 1);
+    d1.replace("two", 2);
+    check(d1.size() == 3);
+    check(d1[0].key == "one");
+    check(d1[1].key == "three");
+    check(d1[2].key == "two");
+    dict<str, int> d2 = d1;
+    d1.erase("three");
+    check(d1.size() == 2);
+    check(d1[0].key == "one");
+    check(d1[1].key == "two");
+    check(*d1.find("one") == 1);
+    check(d1.find("three") == NULL);
+    check(d2.size() == 3);
+}
+
+
+void test_symvec()
+{
+    symvec<symbol> s1;
+    objptr<symbol> p1 = new symbol("abc");
+    s1.insert(0, p1.get());
+    check(s1[0] == p1.get());
+    check(s1.at(0) == p1.get());
+    check(s1.back() == p1.get());
+    memint i;
+    check(s1.bsearch("abc", i));
+    check(i == 0);
+    check(!s1.bsearch("def", i));
+}
+
+
+
 int main()
 {
 /*
@@ -373,6 +423,9 @@ int main()
         test_strutils();
         test_podvec();
         test_vector();
+        test_set();
+        test_dict();
+        test_symvec();
     }
     catch (exception& e)
     {

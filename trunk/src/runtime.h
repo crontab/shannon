@@ -19,11 +19,12 @@ protected:
 
     static object* _realloc(object* p, size_t self, memint extra);
     void _assignto(object*& p);
+    object* _refnz()            { pincrement(&refcount); return this; }
 
 public:
     object()                    : refcount(0) { }
     virtual ~object();
-    virtual bool empty() const = 0; // abstract
+    virtual bool empty() const;
 
     static int allocated; // used only in DEBUG mode
 
@@ -33,8 +34,7 @@ public:
 
     bool unique() const         { assert(refcount > 0); return refcount == 1; }
     void release();
-    object* ref()               { if (this) pincrement(&refcount); return this; }
-    object* _refnz()            { pincrement(&refcount); return this; }
+    object* ref()               { pincrement(&refcount); return this; }
     template <class T>
         T* ref()                { object::ref(); return cast<T*>(this); }
     template <class T>
@@ -47,7 +47,6 @@ class objptr
 {
 protected:
     T* obj;
-    
 public:
     objptr()                            : obj(NULL) { }
     objptr(const objptr& p)             { obj = (T*)p.obj->ref(); }
@@ -60,9 +59,9 @@ public:
     T& operator* ()                     { return *obj; }
     const T& operator* () const         { return *obj; }
     T* operator-> () const              { return obj; }
-    operator T*() const                 { return obj; }
+//    operator T*() const                 { return obj; }
+    T* get() const                      { return obj; }
 };
-
 
 
 // --- container & contptr ------------------------------------------------- //
@@ -74,6 +73,7 @@ class container: public object
 {
     friend class contptr;
     friend class str;
+    friend class variant;
 
 protected:
     memint _capacity;
@@ -86,7 +86,8 @@ protected:
     template <class T>
         T* data(memint i) const { return (T*)data(i * sizeof(T)); }
     char* end() const           { return data() + _size; }
-    bool empty() const; // virt. override
+    bool empty() const;  // virt. override
+    bool _empty() const         { return _size == 0; } // actual fast empty test
     memint size() const         { return _size; }
     memint capacity() const     { return _capacity; }
     bool unique() const         { return _size && object::unique(); }
@@ -121,8 +122,7 @@ public:
 
 class contptr: public noncopyable
 {
-    friend void test_contptr();
-    friend void test_string();
+    friend class variant;
 
 protected:
     container* obj;
@@ -151,7 +151,7 @@ public:
     void assign(const char*, memint);
     void clear();
 
-    bool empty() const                  { return !obj->size(); }
+    bool empty() const                  { return obj->_empty(); }
     memint size() const                 { return obj->size(); }
     memint capacity() const             { return obj->capacity(); }
     const char* data() const            { return obj->data(); }
@@ -196,7 +196,6 @@ class str: public contptr
     friend void test_string();
 
 protected:
-
     void _init()                            { obj = &null; }
     void _init(const char*, memint);
     void _init(const char*);
@@ -220,7 +219,7 @@ public:
     str(const char* s)                      { _init(s); }
     str(const str& s): contptr(s)           { }
 
-    const char* c_str(); // can actually modify the object
+    const char* c_str() const; // can actually modify the object
     char operator[] (memint i) const        { return *obj->data(i); }
     char at(memint i) const                 { return *contptr::at(i); }
     char back() const                       { return *contptr::back(1); }
@@ -247,7 +246,6 @@ public:
 };
 
 
-
 // --- string utilities ---------------------------------------------------- //
 
 
@@ -266,53 +264,51 @@ str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
 
 
-
 // --- podvec -------------------------------------------------------------- //
 
 
 // Vector template for POD elements (int, pointers, et al). Used internally
-// by the compiler itself.
+// by the compiler itself. Also podvec is a basis for the universal vector.
+// This hopefully generates minimal static code.
 
 template <class T>
 class podvec: protected contptr
 {
     friend void test_podvec();
-    friend void test_vector();
 
 protected:
     enum { Tsize = sizeof(T) };
+    typedef contptr parent;
 
-    static str::cont null;
-
-    podvec(container* _obj): contptr(_obj)  { }
+    podvec(container* _obj): parent(_obj)  { }
 
 public:
-    podvec(): contptr(&null)                { }
-    podvec(const podvec& v): contptr(v)     { }
-    bool empty() const                      { return contptr::empty(); }
-    memint size() const                     { return contptr::size() / Tsize; }
-    const T& operator[] (memint i) const    { return *contptr::data<T>(i); }
-    const T& at(memint i) const             { return *contptr::at<T>(i); }
-    const T& back() const                   { return *contptr::back<T>(); }
-    void clear()                            { contptr::clear(); }
-    void operator= (const podvec& v)        { contptr::operator= (v); }
-    void push_back(const T& t)              { new(contptr::_appendnz(Tsize)) T(t); }
-    void pop_back()                         { contptr::pop_back(Tsize); }
-    void insert(memint pos, const T& t)     { new(contptr::_insertnz(pos * Tsize, Tsize)) T(t); }
-    void replace(memint pos, const T& t)    { *contptr::atw<T>(pos) = t; }
-    void erase(memint pos)                  { contptr::erase(pos * Tsize, Tsize); }
+    podvec(): parent(&str::null)           { }
+    podvec(const podvec& v): parent(v)     { }
+    bool empty() const                      { return parent::empty(); }
+    memint size() const                     { return parent::size() / Tsize; }
+    const T& operator[] (memint i) const    { return *parent::data<T>(i); }
+    const T& at(memint i) const             { return *parent::at<T>(i); }
+    const T& back() const                   { return *parent::back<T>(); }
+    void clear()                            { parent::clear(); }
+    void operator= (const podvec& v)        { parent::operator= (v); }
+    void push_back(const T& t)              { new(parent::_appendnz(Tsize)) T(t); }
+    void pop_back()                         { parent::pop_back(Tsize); }
+    void insert(memint pos, const T& t)     { new(parent::_insertnz(pos * Tsize, Tsize)) T(t); }
+    void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
+    void erase(memint pos)                  { parent::_erasenz(pos * Tsize, Tsize); }
 
+    // Give a chance to alternative constructors, e.g. str can be constructed
+    // from (const char*). Without these templates below temp objects are
+    // created and then copied into the vector. Though these are somewhat
+    // dangerous too.
     template <class U>
-        void push_back(const U& u)          { new(contptr::_appendnz(Tsize)) T(u); }
+        void push_back(const U& u)          { new(parent::_appendnz(Tsize)) T(u); }
     template <class U>
-        void insert(memint pos, const U& u) { new(contptr::_insertnz(pos * Tsize, Tsize)) T(u); }
+        void insert(memint pos, const U& u) { new(parent::_insertnz(pos * Tsize, Tsize)) T(u); }
     template <class U>
-        void replace(memint pos, const U& u) { *contptr::atw<T>(pos) = u; }
+        void replace(memint pos, const U& u) { *parent::atw<T>(pos) = u; }
 };
-
-
-template <class T>
-    str::cont podvec<T>::null;
 
 
 // --- vector -------------------------------------------------------------- //
@@ -321,37 +317,30 @@ template <class T>
 template <class T>
 class vector: public podvec<T>
 {
-    friend void test_vector();
-
-    enum { Tsize = sizeof(T) };
-
 protected:
+    enum { Tsize = sizeof(T) };
     typedef podvec<T> parent;
     typedef T* Tptr;
     typedef Tptr& Tref;
 
     class cont: public container
     {
-
     protected:
-        container* new_(memint cap, memint siz)
-            { return new(cap) cont(cap, siz); }
-
-        container* null_obj()
-            { return &vector::null; }
-
-        void finalize(void* p, memint count)
+        // Virtual overrides
+        container* new_(memint cap, memint siz)  { return new(cap) cont(cap, siz); }
+        container* null_obj()                    { return &vector::null; }
+        void finalize(void* p, memint len)
         {
-            for ( ; count; count -= Tsize, Tref(p)++)
+            // Finalization goes backwards
+            (char*&)p += len - Tsize;
+            for ( ; len; len -= Tsize, Tref(p)--)
                 Tptr(p)->~T();
         }
-        
-        void copy(void* dest, const void* src, memint count)
+        void copy(void* dest, const void* src, memint len)
         {
-            for ( ; count; count -= Tsize, Tref(dest)++, Tref(src)++)
+            for ( ; len; len -= Tsize, Tref(dest)++, Tref(src)++)
                 new(dest) T(*Tptr(src));
         }
-
     public:
         cont(): container()  { }
         cont(memint cap, memint siz): container(cap, siz)  { }
@@ -362,17 +351,269 @@ protected:
         }
     };
 
-    static cont null;
-
     vector(container* o): parent(o)  { }
 
 public:
     vector(): parent(&null)  { }
+
+    static cont null;
 };
 
 
 template <class T>
     typename vector<T>::cont vector<T>::null;
+
+
+// --- set ----------------------------------------------------------------- //
+
+
+template <class T>
+    struct comparator
+        { int operator() (const T& a, const T& b) { return int(a - b); } };
+
+template <>
+    struct comparator<str>
+        { int operator() (const str& a, const str& b) { return a.compare(b); } };
+
+template <>
+    struct comparator<const char*>
+        { int operator() (const char* a, const char* b) { return strcmp(a, b); } };
+
+
+template <class T, class Comp = comparator<T> >
+class set: protected vector<T>
+{
+protected:
+    typedef vector<T> parent;
+    typedef T* Tptr;
+    typedef Tptr& Tref;
+    
+    class cont: public parent::cont
+    {
+        typedef typename parent::cont parent;
+        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
+        container* null_obj()                   { return &set::null; }
+        int compare(memint index, void* key)
+        {
+            static Comp comp;
+            return comp(*container::data<T>(index), *Tptr(key));
+        }
+    public:
+        cont(): parent()  { }
+        cont(memint cap, memint siz): parent(cap, siz)  { }
+    };
+
+    static cont null;
+
+public:
+    set(): parent(&null)            { }
+    set(const set& s): parent(s)    { }
+
+    bool empty() const              { return parent::empty(); }
+    memint size() const             { return parent::size(); }
+    const T& operator[] (memint index) const
+        { return parent::operator[] (index); }
+
+    bool has(const T& item) const
+    {
+        memint index;
+        return contptr::bsearch<T>(item, index);
+    }
+
+    bool insert(const T& item)
+    {
+        memint index;
+        if (!contptr::bsearch<T>(item, index))
+        {
+            parent::insert(index, item);
+            return true;
+        }
+        else
+            return false;
+    }
+
+    void erase(const T& item)
+    {
+        memint index;
+        if (contptr::bsearch<T>(item, index))
+            parent::erase(index);
+    }
+};
+
+
+template <class T, class Comp>
+    typename set<T, Comp>::cont set<T, Comp>::null;
+
+
+// --- dict ---------------------------------------------------------------- //
+
+
+template <class Tkey, class Tval>
+struct dictitem: public object
+{
+    const Tkey key;
+    Tval val;
+    dictitem(const Tkey& _key, const Tval& _val)
+        : key(_key), val(_val) { }
+};
+
+
+template <class Tkey, class Tval, class Comp = comparator<Tkey> >
+class dict: protected vector<objptr<dictitem<Tkey, Tval> > >
+{
+protected:
+    typedef dictitem<Tkey, Tval> Titem;
+    typedef objptr<Titem> T;
+    typedef vector<T> parent;
+    typedef T* Tptr;
+    typedef Tptr& Tref;
+    enum { Tsize = sizeof(T) };
+
+    class cont: public parent::cont
+    {
+        typedef typename parent::cont parent;
+        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
+        container* null_obj()                   { return &dict::null; }
+        int compare(memint index, void* key)
+        {
+            static Comp comp;
+            return comp((*container::data<T>(index))->key, *(Tkey*)key);
+        }
+    public:
+        cont(): parent()  { }
+        cont(memint cap, memint siz): parent(cap, siz)  { }
+    };
+
+    static cont null;
+
+public:
+    dict(): parent(&null)           { }
+    dict(const dict& s): parent(s)  { }
+    
+    bool empty() const              { return parent::empty(); }
+    memint size() const             { return parent::size(); }
+
+    typedef Titem item_type;
+    const item_type& operator[] (memint index) const
+        { return *parent::operator[] (index); }
+
+    const Tval* find(const Tkey& key) const
+    {
+        memint index;
+        if (contptr::bsearch<Tkey>(key, index))
+            return &parent::operator[] (index)->val;
+        else
+            return NULL;
+    }
+
+    void replace(const Tkey& key, const Tval& val)
+    {
+        memint index;
+        if (!contptr::bsearch<Tkey>(key, index))
+            parent::insert(index, new Titem(key, val));
+        else if (parent::unique())
+            (parent::operator[] (index))->val = val;
+        else
+            parent::replace(index, new Titem(key, val));
+    }
+
+    void erase(const Tkey& key)
+    {
+        memint index;
+        if (contptr::bsearch<Tkey>(key, index))
+            parent::erase(index);
+    }
+};
+
+
+template <class Tkey, class Tval, class Comp>
+    typename dict<Tkey, Tval, Comp>::cont dict<Tkey, Tval, Comp>::null;
+
+
+// --- object collection --------------------------------------------------- //
+
+
+class symbol: public object
+{
+public:
+    const str name;
+    symbol(const str& s): name(s)  { }
+    symbol(const char* s): name(s)  { }
+    ~symbol();
+};
+
+
+// Collection of pointers to symbol objects; doesn't free the objects
+
+class symvec_impl: public podvec<symbol*>
+{
+protected:
+    typedef podvec<symbol*> parent;
+
+    class cont: public str::cont
+    {
+        typedef str::cont parent;
+        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
+        container* null_obj()                   { return &symvec_impl::null; }
+        int compare(memint index, void* key)
+            { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
+    public:
+        cont(): parent()  { }
+        cont(memint cap, memint siz): parent(cap, siz)  { }
+    };
+
+    static cont null;
+
+public:
+    symvec_impl(): parent(&null)  { }
+    symvec_impl(const symvec_impl& s): parent(s)  { }
+};
+
+
+template <class T>
+class symvec: protected symvec_impl
+{
+    typedef symvec_impl parent;
+public:
+    symvec(): parent()                      { }
+    symvec(const symvec& s): parent(s)      { }
+    bool empty() const                      { return parent::empty(); }
+    memint size() const                     { return parent::size(); }
+    T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
+    T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
+    T* back() const                         { return cast<T*>(parent::back()); }
+    void clear()                            { parent::clear(); }
+    void operator= (const symvec& v)        { parent::operator= (v); }
+    void push_back(T* t)                    { parent::push_back(t); }
+    void pop_back()                         { parent::pop_back(); }
+    void insert(memint pos, T* t)           { parent::insert(pos, t); }
+    void erase(memint pos)                  { parent::erase(pos); }
+    bool bsearch(const str& n, memint& i)   { return parent::bsearch(n, i); }
+};
+
+
+// --- exceptions ---------------------------------------------------------- //
+
+
+struct ecmessage: public exception
+{
+    const char* msg;
+    ecmessage(const ecmessage&); // not defined
+    ecmessage(const char* _msg);
+    ~ecmessage();
+    const char* what() const;
+};
+
+
+struct emessage: public exception
+{
+    str msg;
+    emessage(const emessage&); // not defined
+    emessage(const str& _msg);
+    emessage(const char* _msg);
+    ~emessage();
+    const char* what() const;
+};
 
 
 #endif // __RUNTIME_H

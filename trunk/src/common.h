@@ -120,9 +120,8 @@ public:
 };
 
 
-class exception: public noncopyable
+struct exception: public noncopyable
 {
-public:
     exception();
     virtual ~exception();
     virtual const char* what() const = 0;

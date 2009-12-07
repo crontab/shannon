@@ -9,6 +9,9 @@
 int object::allocated = 0;
 
 
+bool object::empty() const { return false; }
+
+
 void outofmem()
 {
     fatal(0x1001, "Out of memory");
@@ -72,7 +75,7 @@ void object::release()
 {
     if (this == NULL)
         return;
-    assert(refcount > 0); // 0 means static
+    assert(refcount > 0);
     if (pdecrement(&refcount) == 0)
         delete this;
 }
@@ -221,6 +224,8 @@ void contptr::clear()
 {
     if (!empty())
     {
+        // Preserve the original object type by getting the null obj from
+        // the factory.
         container* null = obj->null_obj();
         _fin();
         obj = null;
@@ -475,7 +480,7 @@ void str::_init(const char* s)
 }
 
 
-const char* str::c_str()
+const char* str::c_str() const
 {
     if (empty())
         return "";
@@ -483,7 +488,7 @@ const char* str::c_str()
         *obj->end() = 0;
     else
     {
-        push_back(char(0));
+        ((str*)this)->push_back(char(0));
         obj->dec_size();
     }
     return obj->data();
@@ -767,4 +772,24 @@ str remove_filename_ext(const str& fn)
     return fn.substr(0, i);
 }
 
+
+// --- object collection --------------------------------------------------- //
+
+
+symvec_impl::cont symvec_impl::null;
+
+symbol::~symbol()  { }
+
+
+// --- exceptions ---------------------------------------------------------- //
+
+
+ecmessage::ecmessage(const char* _msg): msg(_msg)  { }
+ecmessage::~ecmessage()  { }
+const char* ecmessage::what() const  { return msg; }
+
+emessage::emessage(const str& _msg): msg(_msg)  { }
+emessage::emessage(const char* _msg): msg(_msg)  { }
+emessage::~emessage()  { }
+const char* emessage::what() const  { return msg.c_str(); }
 
