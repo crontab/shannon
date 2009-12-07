@@ -4,172 +4,202 @@
 #include "runtime.h"
 
 
-// --- set ----------------------------------------------------------------- //
+// --- range --------------------------------------------------------------- //
 
 
-template <class T>
-    struct comparator
-        { int operator() (const T& a, const T& b) { return int(a - b); } };
-
-template <>
-    struct comparator<str>
-        { int operator() (const str& a, const str& b) { return a.compare(b); } };
-
-template <>
-    struct comparator<const char*>
-        { int operator() (const char* a, const char* b) { return strcmp(a, b); } };
-
-
-template <class T, class Comp = comparator<T> >
-class set: protected vector<T>
+class range: public noncopyable
 {
 protected:
-    typedef vector<T> parent;
-    typedef T* Tptr;
-    typedef Tptr& Tref;
-    
-    class cont: public parent::cont
+
+    struct cont: public object
     {
-        typedef typename parent::cont parent;
-        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
-        container* null_obj()                   { return &set::null; }
-        int compare(memint index, void* key)
-        {
-            static Comp comp;
-            return comp(*container::data<T>(index), *Tptr(key));
-        }
-    public:
-        cont(): parent()  { }
-        cont(memint cap, memint siz): parent(cap, siz)  { }
+        integer left;
+        integer right;
+        cont(): left(0), right(-1)  { }
+        cont(integer l, integer r): left(l), right(r)  { }
     };
 
-    static cont null;
+    cont* obj;
 
 public:
-    set(): parent(&null)            { }
-    set(const set& s): parent(s)    { }
+    range(): obj(&null)  { }
+    range(const range& r): obj(r.obj->ref<cont>())  { }
+    range(integer l, integer r);
+    ~range();
+    
+    bool empty() const  { return obj->left > obj->right; }
+    void operator= (const range& r);
+/*
+    void assign(integer l, integer r)   { left = l; right = r; }
+    uinteger diff() const               { return right - left; }
+    bool has(integer i) const           { return i >= left && i <= right; }
+    bool equals(integer l, integer r) const
+        { return left == l && right == r; }
+    bool equals(const range& other) const
+        { return left == other.left && right == other.right; }
+*/
+    int compare(const range&) const;
 
-    bool empty() const              { return parent::empty(); }
-    memint size() const             { return parent::size(); }
-    const T& operator[] (memint index) const
-        { return parent::operator[] (index); }
-
-    bool find(const T& item) const
-    {
-        memint index;
-        return contptr::bsearch<T>(item, index);
-    }
-
-    bool insert(const T& item)
-    {
-        memint index;
-        if (!contptr::bsearch<T>(item, index))
-        {
-            parent::insert(index, item);
-            return true;
-        }
-        else
-            return false;
-    }
-
-    void erase(const T& item)
-    {
-        memint index;
-        if (contptr::bsearch<T>(item, index))
-            parent::erase(index);
-    }
+    static cont null;
 };
 
 
-template <class T, class Comp>
-    typename set<T, Comp>::cont set<T, Comp>::null;
+// --- range --------------------------------------------------------------- //
 
 
+range::cont range::null;
 
-// --- dict ---------------------------------------------------------------- //
+
+range::range(integer l, integer r)
+    : obj((new cont(l, r))->ref<cont>())  { }
+
+range::~range()
+    { if (!empty()) obj->release(); }
 
 
-template <class Tkey, class Tval>
-struct dictitem: public object
+int range::compare(const range& r) const
 {
-    const Tkey key;
-    Tval val;
-    dictitem(const Tkey& _key, const Tval& _val)
-        : key(_key), val(_val) { }
-    bool empty() const { return false; }
+    int result = int(obj->left - r.obj->left);
+    if (result == 0)
+        result = int(obj->right - r.obj->right);
+    return result;
+}
+
+
+// --- ordset -------------------------------------------------------------- //
+
+
+class ordset: public object, public charset
+{
+    ordset(const ordset&);
+public:
+    ordset(): object() { }
 };
 
 
-template <class Tkey, class Tval, class Comp = comparator<Tkey> >
-class dict: protected vector<objptr<dictitem<Tkey, Tval> > >
+// --- variant ------------------------------------------------------------- //
+
+
+class variant: public noncopyable
 {
+    friend void test_variant();
+
+public:
+
+    enum Type
+        { NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RANGE, OBJ,
+            REFCNT = STR };
+
 protected:
-    typedef dictitem<Tkey, Tval> Titem;
-    typedef objptr<Titem> T;
-    typedef vector<T> parent;
-    typedef T* Tptr;
-    typedef Tptr& Tref;
-    enum { Tsize = sizeof(T) };
 
-    class cont: public parent::cont
+    Type type;
+    union
     {
-        typedef typename parent::cont parent;
-        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
-        container* null_obj()                   { return &dict::null; }
-        int compare(memint index, void* key)
-        {
-            static Comp comp;
-            return comp((*container::data<T>(index))->key, *(Tkey*)key);
-        }
-    public:
-        cont(): parent()  { }
-        cont(memint cap, memint siz): parent(cap, siz)  { }
-    };
+        integer  _ord;      // int, char and bool
+        real     _real;
+        object*  _obj;
+    } val;
 
-    static cont null;
+    typedef vector<variant> vec_t;
+    typedef set<variant> set_t;
+    typedef dict<variant, variant> dict_t;
+
+    static void _type_err();
+    static void _range_err();
+#ifdef DEBUG
+    void _dbg(Type t) const             { if (type != t) _type_err(); }
+#else
+    void _dbg(Type t) const             { }
+#endif
+
+    void _fin()                         { if (is_refcnt()) val._obj->release(); }
 
 public:
-    dict(): parent(&null)           { }
-    dict(const dict& s): parent(s)  { }
-    
-    bool empty() const              { return parent::empty(); }
-    memint size() const             { return parent::size(); }
+    variant(): type(NONE)               { }
+    variant(const variant& v)
+        : type(v.type), val(v.val)      { if (is_refcnt()) v.val._obj->ref(); }
+    variant(bool v): type(ORD)          { val._ord = v; }
+    variant(char v): type(ORD)          { val._ord = uchar(v); }
+    variant(uchar v): type(ORD)         { val._ord = v; }
+    variant(int v): type(ORD)           { val._ord = v; }
+#ifdef SH64
+    variant(long long v): type(ORD)     { val._ord = v; }
+#endif
+    variant(real v): type(REAL)         { val._real = v; }
+    variant(object* v): type(OBJ)       { val._obj = v; }
+    variant(const str& v): type(STR)    { val._obj = v.obj->ref(); }
+    variant(const vector<variant>& s): type(VEC)    { val._obj = s.obj->ref(); }
+    ~variant()                          { _fin(); }
 
-    typedef Titem item_type;
-    const item_type& operator[] (memint index) const
-        { return *parent::operator[] (index); }
+    void operator= (const variant&);
+    int compare(const variant&) const;
 
-    const Tval* find(const Tkey& key) const
-    {
-        memint index;
-        if (contptr::bsearch<Tkey>(key, index))
-            return &parent::operator[] (index)->val;
-        else
-            return NULL;
-    }
+    Type getType() const                { return type; }
+    bool is_refcnt() const              { return type >= REFCNT; }
 
-    void replace(const Tkey& key, const Tval& val)
-    {
-        memint index;
-        if (!contptr::bsearch<Tkey>(key, index))
-            parent::insert(index, new Titem(key, val));
-        else if (parent::unique())
-            (parent::operator[] (index))->val = val;
-        else
-            parent::replace(index, new Titem(key, val));
-    }
-
-    void erase(const Tkey& key)
-    {
-        memint index;
-        if (contptr::bsearch<Tkey>(key, index))
-            parent::erase(index);
-    }
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool       _bool()          const { _dbg(ORD); return val._ord; }
+    uchar      _uchar()         const { _dbg(ORD); return val._ord; }
+    integer    _int()           const { _dbg(ORD); return val._ord; }
+    integer&   _intw()                { _dbg(ORD); return val._ord; }
+    integer    _ord()           const { _dbg(ORD); return val._ord; }
+    const str& _str()           const { _dbg(STR); return *(str*)&val._obj; }
+    const vec_t& _vec()         const { _dbg(VEC); return *(vec_t*)&val._obj; }
+    const set_t& _set()         const { _dbg(SET); return *(set_t*)&val._obj; }
+    object*    _obj()           const { _dbg(OBJ); return val._obj; }
 };
 
+template <>
+    struct comparator<variant>
+        { int operator() (const variant& a, const variant& b) { return a.compare(b); } };
 
-template <class Tkey, class Tval, class Comp>
-    typename dict<Tkey, Tval, Comp>::cont dict<Tkey, Tval, Comp>::null;
+
+extern template class vector<variant>;
+extern template class set<variant>;
+extern template class dict<variant, variant>;
+extern template class podvec<variant>;
+
+typedef vector<variant> varlist;
+
+
+template class vector<variant>;
+template class podvec<variant>;
+template class set<variant>;
+template class dict<variant, variant>;
+
+
+void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
+void variant::_range_err() { throw ecmessage("Variant range error"); }
+
+
+void variant::operator= (const variant& v)
+{
+    if (v.is_refcnt())
+    {
+        if (val._obj != v.val._obj)
+            val._obj = v.val._obj->ref();
+    }
+    else
+        val = v.val;
+    type = v.type;
+}
+
+
+int variant::compare(const variant& v) const
+{
+    notimpl();
+    return 0;
+/*
+    switch(type)
+    {
+    case NONE: return 0;
+    case ORD: return int(val._ord - v.val._ord);
+    case REAL: return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+    case STR: return _str().compare(v._str());
+    // , VEC, SET, ORDSET, DICT, RANGE, OBJ
+    }
+*/
+}
 
 
 
@@ -186,42 +216,30 @@ void ut_fail(unsigned line, const char* e)
 #define check(e)    { if (!(e)) fail(#e); }
 
 
-void test_set()
+void test_range()
 {
-    set<str> s1;
-    check(s1.insert("GHI"));
-    check(s1.insert("ABC"));
-    check(s1.insert("DEF"));
-    check(!s1.insert("ABC"));
-    check(s1.size() == 3);
-    check(s1[0] == "ABC");
-    check(s1[1] == "DEF");
-    check(s1[2] == "GHI");
-    s1.erase("DEF");
-    check(s1.size() == 2);
-    check(s1[0] == "ABC");
-    check(s1[1] == "GHI");
+    range r1;
+    range r2 = r1;
+    range r3(1, 3);
+    range r4 = r3;
+    r1 = r3;
+    check(r2.empty());
 }
 
 
-void test_dict()
+void test_variant()
 {
-    dict<str, int> d1;
-    d1.replace("three", 3);
-    d1.replace("one", 1);
-    d1.replace("two", 2);
-    check(d1.size() == 3);
-    check(d1[0].key == "one");
-    check(d1[1].key == "three");
-    check(d1[2].key == "two");
-    dict<str, int> d2 = d1;
-    d1.erase("three");
-    check(d1.size() == 2);
-    check(d1[0].key == "one");
-    check(d1[1].key == "two");
-    check(*d1.find("one") == 1);
-    check(d1.find("three") == NULL);
-    check(d2.size() == 3);
+    variant v1;
+    variant v2 = v1;
+}
+
+
+void ttt(const variant& v)
+{
+    variant v0 = v;
+    vector<variant> v1;
+    podvec<variant> v2;
+    v2.push_back(1);
 }
 
 
@@ -229,8 +247,8 @@ int main()
 {
     printf("%lu %lu\n", sizeof(object), sizeof(container));
 
-    test_set();
-    test_dict();
+    test_range();
+    test_variant();
 
     if (object::allocated != 0)
     {
