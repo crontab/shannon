@@ -24,7 +24,6 @@ protected:
 public:
     object()                    : refcount(0) { }
     virtual ~object();
-    virtual bool empty() const;
 
     static int allocated; // used only in DEBUG mode
 
@@ -59,8 +58,80 @@ public:
     T& operator* ()                     { return *obj; }
     const T& operator* () const         { return *obj; }
     T* operator-> () const              { return obj; }
-//    operator T*() const                 { return obj; }
+    operator T*() const                 { return obj; }
     T* get() const                      { return obj; }
+};
+
+
+// --- range --------------------------------------------------------------- //
+
+
+class range: public noncopyable
+{
+    friend class variant;
+protected:
+    struct cont: public object
+    {
+        integer left;
+        integer right;
+        cont(): left(0), right(-1)  { }
+        cont(integer l, integer r): left(l), right(r)  { }
+    };
+    cont* obj;
+    void _fin()                         { if (obj != &null) obj->release(); }
+    void _init(const range& r)          { obj = r.obj->ref<cont>(); }
+    void _init(integer l, integer r)    { obj = (new cont(l, r))->ref<cont>(); }
+public:
+    range()                             : obj(&null) { }
+    range(const range& r)               { _init(r); }
+    range(integer l, integer r)         { _init(l, r); }
+    ~range()                            { _fin(); }
+    bool empty() const                  { return obj->left > obj->right; }
+    void operator= (const range& r);
+    void assign(integer l, integer r);
+    uinteger diff() const               { return obj->right - obj->left; }
+    bool has(integer i) const           { return i >= obj->left && i <= obj->right; }
+    bool equals(integer l, integer r) const
+        { return obj->left == l && obj->right == r; }
+    bool operator== (const range& other) const;
+    memint compare(const range&) const;
+
+    static cont null;
+};
+
+
+// --- ordset -------------------------------------------------------------- //
+
+
+class ordset: public noncopyable
+{
+    friend void test_ordset();
+    friend class variant;
+protected:
+    struct cont: public object
+    {
+        charset cset;
+        bool empty() const  { return this == &ordset::null || cset.empty(); }
+    };
+    cont* obj;
+    void _fin()                         { if (obj != &null) obj->release(); }
+    void _init(const ordset& r)         { obj = r.obj->ref<cont>(); }
+    bool unique()                       { return obj != &null && obj->unique(); }
+    void _mkunique();
+    charset& mkunique()                 { if (!unique()) _mkunique(); return obj->cset; }
+public:
+    ordset()                            : obj(&null)  { }
+    ordset(const ordset& s)             : obj(s.obj->ref<cont>())  { }
+    ~ordset()                           { _fin(); }
+    bool empty() const                  { return obj == &null || obj->cset.empty(); }
+    void operator= (const ordset&);
+    bool operator== (const ordset& s) const   { return this == &s || obj->cset == s.obj->cset; }
+    memint compare(const ordset& s) const { return memcmp(&obj->cset, &s.obj->cset, sizeof(obj->cset)); }
+    bool has(integer v) const           { return obj->cset[int(v)]; }
+    void insert(integer v)              { mkunique().include(int(v)); }
+    void insert(integer l, integer h)   { mkunique().include(int(l), int(h)); }
+    void erase(integer v)               { mkunique().exclude(int(v)); }
+    static cont null;
 };
 
 
@@ -86,8 +157,7 @@ protected:
     template <class T>
         T* data(memint i) const { return (T*)data(i * sizeof(T)); }
     char* end() const           { return data() + _size; }
-    bool empty() const;  // virt. override
-    bool _empty() const         { return _size == 0; } // actual fast empty test
+    bool empty() const          { return _size == 0; }
     memint size() const         { return _size; }
     memint capacity() const     { return _capacity; }
     bool unique() const         { return _size && object::unique(); }
@@ -108,7 +178,7 @@ protected:
     virtual container* null_obj() = 0;
     virtual void finalize(void*, memint) = 0;
     virtual void copy(void* dest, const void* src, memint) = 0;
-    virtual int compare(memint index, void* key); // aborts
+    virtual memint compare(memint index, void* key); // aborts
 
 public:
     container(): _capacity(0), _size(0)  { } // for the _null object
@@ -148,10 +218,11 @@ public:
     ~contptr()                          { _fin(); }
 
     void operator= (const contptr& s);
+    bool operator== (const contptr& s) const  { return obj == s.obj; }
     void assign(const char*, memint);
     void clear();
 
-    bool empty() const                  { return obj->_empty(); }
+    bool empty() const                  { return obj->empty(); }
     memint size() const                 { return obj->size(); }
     memint capacity() const             { return obj->capacity(); }
     const char* data() const            { return obj->data(); }
@@ -230,8 +301,8 @@ public:
     memint find(char c) const;
     memint rfind(char c) const;
 
-    int compare(const char*, memint) const;
-    int compare(const str& s) const         { return compare(s.data(), s.size()); }
+    memint compare(const char*, memint) const;
+    memint compare(const str& s) const      { return compare(s.data(), s.size()); }
     bool operator== (const char* s) const   { return compare(s, pstrlen(s)) == 0; }
     bool operator== (const str& s) const    { return compare(s.data(), s.size()) == 0; }
     bool operator!= (const char* s) const   { return !(*this == s); }
@@ -283,8 +354,8 @@ protected:
     podvec(container* _obj): parent(_obj)  { }
 
 public:
-    podvec(): parent(&str::null)           { }
-    podvec(const podvec& v): parent(v)     { }
+    podvec(): parent(&str::null)            { }
+    podvec(const podvec& v): parent(v)      { }
     bool empty() const                      { return parent::empty(); }
     memint size() const                     { return parent::size() / Tsize; }
     const T& operator[] (memint i) const    { return *parent::data<T>(i); }
@@ -369,15 +440,15 @@ template <class T>
 
 template <class T>
     struct comparator
-        { int operator() (const T& a, const T& b) { return int(a - b); } };
+        { memint operator() (const T& a, const T& b) { return memint(a - b); } };
 
 template <>
     struct comparator<str>
-        { int operator() (const str& a, const str& b) { return a.compare(b); } };
+        { memint operator() (const str& a, const str& b) { return a.compare(b); } };
 
 template <>
     struct comparator<const char*>
-        { int operator() (const char* a, const char* b) { return strcmp(a, b); } };
+        { memint operator() (const char* a, const char* b) { return strcmp(a, b); } };
 
 
 template <class T, class Comp = comparator<T> >
@@ -393,7 +464,7 @@ protected:
         typedef typename parent::cont parent;
         container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
         container* null_obj()                   { return &set::null; }
-        int compare(memint index, void* key)
+        memint compare(memint index, void* key)
         {
             static Comp comp;
             return comp(*container::data<T>(index), *Tptr(key));
@@ -474,7 +545,7 @@ protected:
         typedef typename parent::cont parent;
         container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
         container* null_obj()                   { return &dict::null; }
-        int compare(memint index, void* key)
+        memint compare(memint index, void* key)
         {
             static Comp comp;
             return comp((*container::data<T>(index))->key, *(Tkey*)key);
@@ -555,7 +626,7 @@ protected:
         typedef str::cont parent;
         container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
         container* null_obj()                   { return &symvec_impl::null; }
-        int compare(memint index, void* key)
+        memint compare(memint index, void* key)
             { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
     public:
         cont(): parent()  { }
@@ -592,9 +663,10 @@ public:
 };
 
 
-// --- exceptions ---------------------------------------------------------- //
+// --- ecmessag/emessage --------------------------------------------------- //
 
 
+// This is for static C-style string constants
 struct ecmessage: public exception
 {
     const char* msg;
@@ -605,6 +677,7 @@ struct ecmessage: public exception
 };
 
 
+// For dynamically generated strings
 struct emessage: public exception
 {
     str msg;
@@ -614,6 +687,144 @@ struct emessage: public exception
     ~emessage();
     const char* what() const;
 };
+
+
+// --- variant ------------------------------------------------------------- //
+
+
+typedef vector<variant> varvec;
+typedef set<variant> varset;
+typedef dict<variant, variant> vardict;
+
+
+class variant: public noncopyable
+{
+    friend void test_variant();
+
+public:
+
+    enum Type
+        { NONE, ORD, REAL, STR, RANGE, VEC, SET, ORDSET, DICT, OBJ,
+            REFCNT = STR };
+
+    struct _None { int dummy; }; 
+    static _None none;
+
+protected:
+
+    Type type;
+    union
+    {
+        integer  _ord;      // int, char and bool
+        real     _real;
+        object*  _obj;
+    } val;
+
+    static void _type_err();
+    static void _range_err();
+    void _req(Type t) const             { if (type != t) _type_err(); }
+#ifdef DEBUG
+    void _dbg(Type t) const             { if (type != t) _type_err(); }
+#else
+    void _dbg(Type t) const             { }
+#endif
+
+    void _init()                        { type = NONE; }
+    void _init(_None)                   { type = NONE; }
+    void _init(bool v)                  { type = ORD; val._ord = v; }
+    void _init(char v)                  { type = ORD; val._ord = uchar(v); }
+    void _init(uchar v)                 { type = ORD; val._ord = v; }
+    void _init(int v)                   { type = ORD; val._ord = v; }
+#ifdef SH64
+    void _init(long long v)             { type = ORD; val._ord = v; }
+#endif
+    void _init(real v)                  { type = REAL; val._real = v; }
+    void _init(const str& v)            { _init(STR, v.obj); }
+    void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
+    void _init(const range& v)          { _init(RANGE, v.obj); }
+    void _init(const varvec& v)         { _init(VEC, v.obj); }
+    void _init(const varset& v)         { _init(SET, v.obj); }
+    void _init(const ordset& v)         { _init(ORDSET, v.obj); }
+    void _init(const vardict& v)        { _init(DICT, v.obj); }
+    void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
+    void _fin_refcnt();
+    void _fin()                         { if (is_refcnt()) _fin_refcnt(); }
+
+public:
+    variant()                           { _init(); }
+    variant(const variant& v)
+        : type(v.type), val(v.val)      { if (is_refcnt()) v.val._obj->ref(); }
+    template <class T>
+        variant(const T& v)             { _init(v); }
+    ~variant()                          { _fin(); }
+
+    template <class T>
+        void operator= (const T& v)     { _fin(); _init(v); }
+    void operator= (const variant&);
+    void clear()                        { _fin(); _init(); }
+    bool empty() const;
+
+    memint compare(const variant&) const;
+    bool operator== (const variant&) const;
+    bool operator!= (const variant& v) const { return !(operator==(v)); }
+
+    Type getType() const                { return type; }
+    bool is(Type t) const               { return type == t; }
+    bool is_none() const                { return type == NONE; }
+    bool is_refcnt() const              { return type >= REFCNT; }
+
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool        _bool()           const { _dbg(ORD); return val._ord; }
+    uchar       _uchar()          const { _dbg(ORD); return val._ord; }
+    integer     _int()            const { _dbg(ORD); return val._ord; }
+    integer     _ord()            const { _dbg(ORD); return val._ord; }
+    const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
+    const range& _range()         const { _dbg(RANGE); return *(range*)&val._obj; }
+    const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
+    const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
+    const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
+    object*     _obj()            const { _dbg(OBJ); return val._obj; }
+    integer&    _ord()                  { _dbg(ORD); return val._ord; }
+    str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
+    range&      _range()                { _dbg(RANGE); return *(range*)&val._obj; }
+    varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
+    varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
+    ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
+    object*&    _obj()                  { _dbg(OBJ); return val._obj; }
+
+    // Safer access methods; may throw an exception
+    bool        as_bool()         const { _req(ORD); return _bool(); }
+    uchar       as_uchar()        const { _req(ORD); return _uchar(); }
+    integer     as_int()          const { _req(ORD); return _int(); }
+    integer     as_ord()          const { _req(ORD); return _ord(); }
+    const str&  as_str()          const { _req(STR); return _str(); }
+    const range& as_range()       const { _req(RANGE); return _range(); }
+    const varvec& as_vec()        const { _req(VEC); return _vec(); }
+    const varset& as_set()        const { _req(SET); return _set(); }
+    const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
+    const vardict& as_dict()      const { _req(DICT); return _dict(); }
+    object*     as_obj()          const { _req(OBJ); return _obj(); }
+    integer&    as_ord()                { _req(ORD); return _ord(); }
+    str&        as_str()                { _req(STR); return _str(); }
+    range&      as_range()              { _req(RANGE); return _range(); }
+    varvec&     as_vec()                { _req(VEC); return _vec(); }
+    varset&     as_set()                { _req(SET); return _set(); }
+    ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
+    vardict&    as_dict()               { _req(DICT); return _dict(); }
+    object*&    as_obj()                { _req(OBJ); return _obj(); }
+};
+
+template <>
+    struct comparator<variant>
+        { memint operator() (const variant& a, const variant& b) { return a.compare(b); } };
+
+
+extern template class vector<variant>;
+extern template class set<variant>;
+extern template class dict<variant, variant>;
+extern template class podvec<variant>;
 
 
 #endif // __RUNTIME_H

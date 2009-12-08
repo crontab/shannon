@@ -67,6 +67,40 @@ void test_object()
 }
 
 
+void test_range()
+{
+    range r1;
+    range r2 = r1;
+    range r3(1, 3);
+    range r4 = r3;
+    r1 = r3;
+    check(r2.empty());
+    r1 = range(10, 20);
+    r2.assign(10, 20);
+    check(r1 == r2);
+}
+
+
+void test_ordset()
+{
+    ordset s1;
+    check(s1.empty());
+    s1.insert(100);
+    check(s1.has(100));
+    check(!s1.has(101));
+    check(!s1.empty());
+    ordset s2 = s1;
+    check(s2.has(100));
+    check(!s2.has(101));
+    check(!s2.empty());
+    s1.erase(100);
+    check(s1.empty());
+    check(!s2.empty());
+    ordset s3;
+    s3 = s1;
+}
+
+
 void test_contptr()
 {
     // TODO: check the number of reallocations
@@ -385,6 +419,57 @@ void test_symvec()
 }
 
 
+void test_variant()
+{
+    variant v0;
+    check(v0.empty() && v0.is(variant::NONE));
+    {
+        variant v1 = variant::none;
+        check(v1.empty() && v1.is_none());
+        variant v2 = v1;
+        check(v2.empty() && v2.is_none());
+        variant v3;
+        v3 = v2;
+        check(v3.empty() && v3.is_none());
+    }
+    {
+        variant v1 = 10; check(v1.as_int() == 10);
+        variant v2 = v1; check(v2.as_int() == 10);
+        variant v3; v3 = v2; check(v3.as_int() == 10);
+    }
+    {
+        variant v1 = "abc"; check(v1.as_str() == "abc");
+        variant v2 = v1; check(v2.as_str() == "abc");
+        variant v3; v3 = v2; check(v3.as_str() == "abc");
+        str s = "def";
+        variant v4 = s; check(v4.as_str() == "def");
+        v4 = 20; check(v4.as_int() == 20);
+    }
+    {
+        variant v1 = range(20, 50); check(v1.is(variant::RANGE)); check(v1.as_range().equals(20, 50));
+        variant v2 = v1; check(v2.is(variant::RANGE)); check(v2.as_range().equals(20, 50));
+        variant v3; v3 = v1; check(v3.is(variant::RANGE)); check(v3.as_range().equals(20, 50));
+        check(v2 == v3 && v1 == v3);
+    }
+    {
+        variant v1 = varvec(); check(v1.is(variant::VEC));
+        variant v2 = v1;
+        check(v1 == v2);
+        v2.as_vec().push_back("ABC");
+        check(v2.as_vec()[0].as_str() == "ABC");
+        check(v1 != v2);
+    }
+    {
+        variant v1 = varset(); check(v1.is(variant::SET));
+    }
+    {
+        variant v1 = ordset(); check(v1.is(variant::ORDSET));
+    }
+    {
+        variant v1 = vardict(); check(v1.is(variant::DICT));
+    }
+}
+
 
 int main()
 {
@@ -397,8 +482,9 @@ int main()
          << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
          << "  object: " << sizeof(object) << "  joffs: " << sizeof(joffs_t) << '\n';
 */
-    check(sizeof(int) == 4);
-    check(sizeof(memint) >= 4);
+//    check(sizeof(int) == 4);
+    check(sizeof(memint) == sizeof(void*));
+    check(sizeof(void*) >= sizeof(integer));
     check(sizeof(memint) == sizeof(size_t));
 
 #ifdef SH64
@@ -418,6 +504,8 @@ int main()
     {
         test_common();
         test_object();
+        test_range();
+        test_ordset();
         test_contptr();
         test_string();
         test_strutils();
@@ -426,6 +514,7 @@ int main()
         test_set();
         test_dict();
         test_symvec();
+        test_variant();
     }
     catch (exception& e)
     {

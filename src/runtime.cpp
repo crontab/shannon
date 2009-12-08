@@ -9,9 +9,6 @@
 int object::allocated = 0;
 
 
-bool object::empty() const { return false; }
-
-
 void outofmem()
 {
     fatal(0x1001, "Out of memory");
@@ -81,21 +78,72 @@ void object::release()
 }
 
 
+// --- range --------------------------------------------------------------- //
+
+
+range::cont range::null;
+
+
+void range::operator= (const range& r)
+{
+    if (!operator==(r))
+        { _fin(); _init(r); }
+}
+
+
+void range::assign(integer l, integer r)
+{
+    if (!equals(l, r))
+        { _fin(); _init(l, r); }
+}
+
+
+bool range::operator== (const range& other) const
+{
+    return this == &other ||
+        (obj->left == other.obj->left && obj->right == other.obj->right);
+}
+
+
+memint range::compare(const range& r) const
+{
+    memint result = memint(obj->left - r.obj->left);
+    if (result == 0)
+        result = memint(obj->right - r.obj->right);
+    return result;
+}
+
+
+// --- ordset -------------------------------------------------------------- //
+
+
+ordset::cont ordset::null;
+
+
+void ordset::_mkunique()
+{
+    _fin();
+    obj = (new cont())->ref<cont>();
+}
+
+
+void ordset::operator= (const ordset& s)
+{
+    if (!operator==(s))
+        { _fin(); _init(s); }
+}
+
+
 // --- container & contptr ------------------------------------------------- //
 
 
 void container::overflow()
     { fatal(0x1002, "Container overflow"); }
 
-
 void container::idxerr()
     { fatal(0x1003, "Container index error"); }
 
-
-bool container::empty() const // virt. override
-    { return _size == 0; }
-
-int container::compare(memint index, void* key)
+memint container::compare(memint index, void* key)
     { _fatal(0x1004); return 0; }
 
 
@@ -531,15 +579,15 @@ memint str::rfind(char c) const
 }
 
 
-int str::compare(const char* s, memint blen) const
+memint str::compare(const char* s, memint blen) const
 {
     memint alen = size();
     memint len = imin(alen, blen);
     if (len == 0)
-        return int(alen - blen);
+        return alen - blen;
     int result = ::memcmp(data(), s, len);
     if (result == 0)
-        return int(alen - blen);
+        return alen - blen;
     else
         return result;
 }
@@ -781,7 +829,7 @@ symvec_impl::cont symvec_impl::null;
 symbol::~symbol()  { }
 
 
-// --- exceptions ---------------------------------------------------------- //
+// --- ecmessag/emessage --------------------------------------------------- //
 
 
 ecmessage::ecmessage(const char* _msg): msg(_msg)  { }
@@ -792,4 +840,115 @@ emessage::emessage(const str& _msg): msg(_msg)  { }
 emessage::emessage(const char* _msg): msg(_msg)  { }
 emessage::~emessage()  { }
 const char* emessage::what() const  { return msg.c_str(); }
+
+
+// --- variant ------------------------------------------------------------- //
+
+
+template class vector<variant>;
+template class podvec<variant>;
+template class set<variant>;
+template class dict<variant, variant>;
+
+
+variant::_None variant::none;
+
+
+void variant::_fin_refcnt()
+{
+    switch(type)
+    {
+    case NONE:
+    case ORD:
+    case REAL:      break;
+    case STR:       _str().~str(); break;
+    case RANGE:     _range().~range(); break;
+    case VEC:       _vec().~varvec(); break;
+    case SET:       _set().~varset(); break;
+    case ORDSET:    _ordset().~ordset(); break;
+    case DICT:      _dict().~vardict(); break;
+    case OBJ:       val._obj->release(); break;
+    }
+}
+
+
+void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
+void variant::_range_err() { throw ecmessage("Variant range error"); }
+
+
+void variant::operator= (const variant& v)
+{
+    if (v.is_refcnt())
+    {
+        if (val._obj != v.val._obj)
+            val._obj = v.val._obj->ref();
+    }
+    else
+        val = v.val;
+    type = v.type;
+}
+
+
+memint variant::compare(const variant& v) const
+{
+    if (type == v.type)
+    {
+        switch(type)
+        {
+        case NONE:  return 0;
+        case ORD:   return val._ord - v.val._ord;
+        case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+        case STR:   return _str().compare(v._str());
+        case RANGE: return _range().compare(v._range());
+        // TODO: define "deep" comparison? but is it really needed for hashing?
+        case VEC:
+        case SET:
+        case ORDSET:
+        case DICT:
+        case OBJ:   return memint(val._obj) - memint(v.val._obj);
+        }
+    }
+    return int(type - v.type);
+}
+
+
+bool variant::operator== (const variant& v) const
+{
+    if (type == v.type)
+    {
+        switch(type)
+        {
+        case NONE:      return true;
+        case ORD:       return val._ord == v.val._ord;
+        case REAL:      return val._real == v.val._real;
+        case STR:       return _str() == v._str();
+        case RANGE:     return _range() == v._range();
+        case VEC:       return _vec() == v._vec();
+        case SET:       return _set() == v._set();
+        case ORDSET:    return _ordset() == v._ordset();
+        case DICT:      return _dict() == v._dict();
+        case OBJ:       return val._obj == v.val._obj;
+        }
+    }
+    return false;
+}
+
+
+bool variant:: empty() const
+{
+    switch(type)
+    {
+    case NONE:      return true;
+    case ORD:       return val._ord == 0;
+    case REAL:      return val._real == 0;
+    case STR:       return _str().empty();
+    case RANGE:     return _range().empty();
+    case VEC:       return _vec().empty();
+    case SET:       return _set().empty();
+    case ORDSET:    return _ordset().empty();
+    case DICT:      return _dict().empty();
+    case OBJ:       return false; // ?
+    }
+    return false;
+}
 
