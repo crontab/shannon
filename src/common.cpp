@@ -35,6 +35,10 @@ void notimpl()
 exception::exception()  { }
 exception::~exception()  { }
 
+void outofmemory()
+{
+    fatal(0x1001, "Out of memory");
+}
 
 static void newdel()
 {
