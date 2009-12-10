@@ -5,11 +5,15 @@
 #  define NDEBUG    // to suppress assert()
 #endif
 
+// All standard library headers should go only here
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
@@ -64,6 +68,7 @@
 
 
 typedef long memint;
+typedef unsigned long umemint;
 #define MEMINT_MAX LONG_MAX
 #define ALLOC_MAX (MEMINT_MAX-255)
 
@@ -135,6 +140,20 @@ struct exception: public noncopyable
 
 inline memint pstrlen(const char* s)
     { return s == NULL ? 0 : ::strlen(s); }
+
+void outofmemory();
+
+inline void* pmemcheck(void* p)
+    { if (p == NULL) outofmemory(); return p; }
+
+inline void* pmemalloc(memint s)
+    { return pmemcheck(::malloc(s)); }
+
+inline void* pmemrealloc(void* p, memint s)
+    { return pmemcheck(::realloc(p, s)); }
+
+inline void pmemfree(void* p)
+    { ::free(p); }
 
 
 // Default placement versions of new and delete

@@ -138,7 +138,9 @@ public:
 // --- container & contptr ------------------------------------------------- //
 
 
-// Basic resizable container, for internal use
+// Basic resizable container and a class factory at the same time; for internal
+// use. Defines virtual methods for object instantiation and for container 
+// functionality in derived classes.
 
 class container: public object
 {
@@ -149,11 +151,12 @@ class container: public object
 protected:
     memint _capacity;
     memint _size;
+    char _data[0];
 
     static void overflow();
     static void idxerr();
-    char* data() const          { return (char*)(this + 1); }
-    char* data(memint i) const  { assert(i >= 0 && i <= _size); return data() + i; }
+    char* data() const          { return (char*)_data; }
+    char* data(memint i) const  { assert(i >= 0 && i <= _size); return (char*)_data + i; }
     template <class T>
         T* data(memint i) const { return (T*)data(i * sizeof(T)); }
     char* end() const           { return data() + _size; }
@@ -188,7 +191,12 @@ public:
 
 
 // A "smart" pointer that holds a reference to a container object; this is
-// a base for strings, vectors, maps etc.
+// a base for strings, vectors, maps etc. Individual classes maintain their
+// null objects, which serve a purpose of a class factory and an empty object
+// at the same time; i.e. the object pointer "obj" is never NULL and always 
+// points to an object of a correct class with instantiation methods, as well
+// as other virtual methods needed for container functionality (see class
+// container). Contptr can't be used directly.
 
 class contptr: public noncopyable
 {
@@ -203,8 +211,8 @@ protected:
     void _fin()                         { if (!empty()) obj->release(); }
     bool unique() const                 { return obj->unique(); }
     char* mkunique();
-    void chkidx(memint i) const         { if (unsigned(i) >= unsigned(obj->size())) container::idxerr(); }
-    void chkidxa(memint i) const        { if (unsigned(i) > unsigned(obj->size())) container::idxerr(); }
+    void chkidx(memint i) const         { if (umemint(i) >= umemint(obj->size())) container::idxerr(); }
+    void chkidxa(memint i) const        { if (umemint(i) > umemint(obj->size())) container::idxerr(); }
     void _assign(container* o)          { _fin(); obj = o->ref(); }
     char* _insertnz(memint pos, memint len);
     char* _appendnz(memint len);
@@ -310,11 +318,17 @@ public:
 
     void operator+= (const char* s);
     void operator+= (const str& s)          { append(s); }
+    str  operator+ (const char* s) const    { str r = *this; r += s; return r; }
+    str  operator+ (const str& s) const     { str r = *this; r += s; return r; }
     str  substr(memint pos, memint len) const;
     str  substr(memint pos) const;
 
     static cont null;
 };
+
+
+inline str operator+ (const char* s1, const str& s2)
+    { str r = s1; r += s2; return r; }
 
 
 // --- string utilities ---------------------------------------------------- //
@@ -663,7 +677,7 @@ public:
 };
 
 
-// --- ecmessag/emessage --------------------------------------------------- //
+// --- ecmessag/emessage/esyserr ------------------------------------------- //
 
 
 // This is for static C-style string constants
@@ -686,6 +700,13 @@ struct emessage: public exception
     emessage(const char* _msg);
     ~emessage();
     const char* what() const;
+};
+
+
+// UNIX system errors
+struct esyserr: public emessage
+{
+    esyserr(int icode, const str& iArg = "");
 };
 
 
@@ -796,6 +817,7 @@ public:
 
     // Safer access methods; may throw an exception
     bool        as_bool()         const { _req(ORD); return _bool(); }
+    char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
@@ -825,6 +847,329 @@ extern template class vector<variant>;
 extern template class set<variant>;
 extern template class dict<variant, variant>;
 extern template class podvec<variant>;
+
+
+// --- runtime objects ----------------------------------------------------- //
+
+
+class reference: public object
+{
+public:
+    variant var;
+    reference(const variant& v): var(v)  { }
+    template <class T>
+        reference(const T& v): var(v)  { }
+    ~reference();
+};
+
+
+class Type;    // defined in typesys.h
+class State;   // same
+
+class rtobject: public object
+{
+protected:
+    Type* _type;
+public:
+    rtobject(Type* t): _type(t)  { }
+    Type* type()  { return _type; }
+};
+
+
+class stateobj: public rtobject
+{
+protected:
+#ifdef DEBUG
+    memint varcount;
+    static void idxerr();
+#endif
+    variant vars[0];
+    stateobj(State* t);
+
+public:
+    static stateobj* new_(State* state);
+    ~stateobj();
+    State* type()  { return (State*)_type; }
+    variant* var(memint index)
+    {
+#ifdef DEBUG
+        if (umemint(index) >= umemint(varcount))
+            idxerr();
+#endif
+        return vars + index;
+    }    
+};
+
+
+// --- FIFO ---------------------------------------------------------------- //
+
+
+// *BSD/Darwin hack
+#ifndef O_LARGEFILE
+#  define O_LARGEFILE 0
+#endif
+
+
+const memint _varsize = memint(sizeof(variant));
+
+
+// The abstract FIFO interface. There are 2 modes of operation: variant FIFO
+// and character FIFO. Destruction of variants is basically not handled by
+// this class to give more flexibility to implementations (e.g. there may be
+// buffers shared between 2 fifos or other container objects). If you implement,
+// say, only input methods, the default output methods will throw an exception
+// with a message "FIFO is read-only", and vice versa. Iterators may be
+// implemented in descendant classes but are not supported by default.
+class fifo: public rtobject
+{
+    fifo& operator<< (bool);   // compiler traps
+    fifo& operator<< (void*);
+    fifo& operator<< (object*);
+
+protected:
+    enum { TAB_SIZE = 8 };
+
+    bool _is_char_fifo;
+
+    static void _empty_err();
+    static void _wronly_err();
+    static void _rdonly_err();
+    static void _fifo_type_err();
+    void _req(bool req_char) const      { if (req_char != _is_char_fifo) _fifo_type_err(); }
+    void _req_non_empty() const;
+    void _req_non_empty(bool _char) const;
+
+    // Minimal set of methods required for both character and variant FIFO
+    // operations. Implementations should guarantee variants will never be
+    // fragmented, so that a buffer returned by get_tail() always contains at
+    // least sizeof(variant) bytes (8, 12 or 16 bytes depending on the host
+    // platform) in variant mode, or at least 1 byte in character mode.
+    virtual const char* get_tail();          // Get a pointer to tail data
+    virtual const char* get_tail(memint*);   // ... also return the length
+    virtual void deq_bytes(memint);          // Discard n consecutive bytes returned by get_tail()
+    virtual variant* enq_var();              // Reserve uninitialized space for a variant
+    virtual memint enq_chars(const char*, memint); // Push arbitrary number of bytes, return actual number, char fifo only
+
+    void _token(const charset& chars, str* result);
+
+public:
+    fifo(Type*, bool is_char);
+    ~fifo();
+
+    enum { CHAR_ALL = MEMINT_MAX - 2, CHAR_SOME = MEMINT_MAX - 1 };
+
+    virtual bool empty() const;     // throws efifowronly
+    virtual void flush();           // empty, overridden in file fifos
+
+    // Main FIFO operations, work on both char and variant fifos; for char
+    // fifos the variant is read as either a char or a string.
+    void var_enq(const variant&);
+    void var_preview(variant&);
+    void var_deq(variant&);
+    void var_eat();
+
+    // Character FIFO operations
+    bool is_char_fifo() const           { return _is_char_fifo; }
+    int preview(); // returns -1 on eof
+    uchar get();
+    bool get_if(char c);
+    str  deq(memint);  // CHAR_ALL, CHAR_SOME can be specified
+    str  deq(const charset& c)          { str s; _token(c, &s); return s; }
+    str  token(const charset& c)        { return deq(c); } // alias
+    void eat(const charset& c)          { _token(c, NULL); }
+    void skip(const charset& c)         { eat(c); } // alias
+    str  line();
+    bool eol();
+    void skip_eol();
+    static bool is_eol_char(char c)     { return c == '\r' || c == '\n'; }
+    int  skip_indent(); // spaces and tabs, tab lenghts are properly calculated
+    bool eof() const                    { return empty(); }
+
+    memint  enq(const char* p, memint count)  { return enq_chars(p, count); }
+    void enq(const char* s);
+    void enq(const str& s);
+    void enq(char c);
+    void enq(uchar c);
+    void enq(long long i);
+
+    fifo& operator<< (const char* s)   { enq(s); return *this; }
+    fifo& operator<< (const str& s)    { enq(s); return *this; }
+    fifo& operator<< (char c)          { enq(c); return *this; }
+    fifo& operator<< (uchar c)         { enq(c); return *this; }
+    fifo& operator<< (long long i)     { enq((long long)i); return *this; }
+    fifo& operator<< (int i)           { enq((long long)i); return *this; }
+    fifo& operator<< (memint i)        { enq((long long)i); return *this; }
+};
+
+const char endl = '\n';
+
+
+// The memfifo class implements a linked list of "chunks" in memory, where
+// each chunk is the size of 32 * sizeof(variant). Both enqueue and deqeue
+// operations are O(1), and memory usage is better than that of a plain linked 
+// list of elements, as "next" pointers are kept for bigger chunks of elements
+// rather than for each element. Can be used both for variants and chars. This
+// class "owns" variants, i.e. proper construction and desrtuction is done.
+class memfifo: public fifo
+{
+public:
+#ifdef DEBUG
+    static memint CHUNK_SIZE; // settable from unit tests
+#else
+    enum { CHUNK_SIZE = 32 * _varsize };
+#endif
+
+protected:
+    struct chunk: noncopyable
+    {
+        chunk* next;
+        char data[0];
+        
+#ifdef DEBUG
+        chunk(): next(NULL)         { pincrement(&object::allocated); }
+        ~chunk()                    { pdecrement(&object::allocated); }
+#else
+        chunk(): next(NULL) { }
+#endif
+        void* operator new(size_t)  { return ::pmemalloc(sizeof(chunk) + CHUNK_SIZE); }
+        void operator delete(void* p)  { ::pmemfree(p); }
+    };
+
+    chunk* head;    // in
+    chunk* tail;    // out
+    int head_offs;
+    int tail_offs;
+
+    void enq_chunk();
+    void deq_chunk();
+
+    // Overrides
+    const char* get_tail();
+    const char* get_tail(memint*);
+    void deq_bytes(memint);
+    variant* enq_var();
+    memint enq_chars(const char*, memint);
+
+    char* enq_space(memint);
+    memint enq_avail();
+
+public:
+    memfifo(Type*, bool is_char);
+    ~memfifo();
+
+    void clear();
+    bool empty() const;
+};
+
+
+// This is an abstract buffered fifo class. Implementations should validate the
+// buffer in the overridden empty() and flush() methods, for input and output
+// fifos respectively. To simplify things, buffifo objects are not supposed to
+// be reusable, i.e. once the end of file is reached, the implementation is not
+// required to reset its state. Variant fifo implementations should guarantee
+// at least sizeof(variant) bytes in calls to get_tail() and enq_var().
+class buffifo: public fifo
+{
+protected:
+    char* buffer;
+    memint   bufsize;
+    memint   bufhead;
+    memint   buftail;
+
+    const char* get_tail();
+    const char* get_tail(memint*);
+    void deq_bytes(memint);
+    variant* enq_var();
+    memint enq_chars(const char*, memint);
+
+    char* enq_space(memint);
+    memint enq_avail();
+
+public:
+    buffifo(Type*, bool is_char);
+    ~buffifo();
+
+    bool empty() const; // throws efifowronly
+    void flush(); // throws efifordonly
+};
+
+
+class strfifo: public buffifo
+{
+protected:
+    str string;
+    void clear();
+public:
+    strfifo(Type*);
+    strfifo(Type*, const str&);
+    ~strfifo();
+    bool empty() const; // override
+    void flush(); // override
+    str all() const;
+};
+
+
+class intext: public buffifo
+{
+protected:
+    enum { BUF_SIZE = 2048 * sizeof(integer) };
+
+    const str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _eof;
+
+    void error(int code); // throws esyserr
+    void doopen();
+    void doread();
+
+public:
+    intext(Type*, const str& fn);
+    ~intext();
+    
+    bool empty() const; //override
+    str  get_file_name() const { return file_name; }
+    void open()                { empty(); /* attempt to fill the buffer */ }
+};
+
+
+class outtext: public buffifo
+{
+protected:
+    enum { BUF_SIZE = 2048 * sizeof(integer) };
+
+    const str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _err;
+
+    void error(int code); // throws esyserr
+
+public:
+    outtext(Type*, const str& fn);
+    ~outtext();
+
+    str  get_file_name() const { return file_name; }
+    void flush(); // override
+    void open()                { flush(); }
+};
+
+
+// Standard input/output object, a two-way fifo. In case of sterr it is
+// write-only.
+class stdfile: public intext
+{
+protected:
+    int _ofd;
+    virtual memint enq_chars(const char*, memint);
+public:
+    stdfile(int infd, int outfd);
+    ~stdfile();
+};
+
+
+extern stdfile sio;
+extern stdfile serr;
 
 
 #endif // __RUNTIME_H
