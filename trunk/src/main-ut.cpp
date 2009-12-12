@@ -554,19 +554,72 @@ void test_fifos()
 
 void test_typesys()
 {
-    Scope scope(NULL);
-    objptr<Definition> d1 = new Definition("abc", NULL, 0);
-    check(d1->name == "abc");
-    scope.addDefinition("def", NULL, 1);
-    scope.addDefinition("ghi", NULL, 2);
-    Symbol* s = scope.find("def");
-    check(s != NULL);
-    check(s->isDefinition());
-    check(s->name == "def");
-    scope.findShallow("def");
-    scope.findDeep("def");
+    {
+        Scope scope(NULL);
+        objptr<Definition> d1 = new Definition("abc", NULL, 0);
+        check(d1->name == "abc");
+        scope.addDefinition("def", NULL, 1);
+        scope.addDefinition("ghi", NULL, 2);
+        Symbol* s = scope.find("def");
+        check(s != NULL);
+        check(s->isDefinition());
+        check(s->name == "def");
+        scope.findShallow("def");
+        scope.findDeep("def");
+    }
 
     check(queenBee->defBool->definition() == "(false, true)");
+    check(defTypeRef->isTypeRef());
+    check(defTypeRef->type == defTypeRef);
+    check(defNone->isNone());
+    check(defNone->type == defTypeRef);
+    check(queenBee->defInt->isInt());
+    check(queenBee->defInt->type == defTypeRef);
+    check(queenBee->defInt->isAnyOrd());
+    check(queenBee->defBool->isBool());
+    check(queenBee->defBool->type == defTypeRef);
+    check(queenBee->defBool->isEnum());
+    check(queenBee->defBool->isAnyOrd());
+    check(queenBee->defBool->left == 0 && queenBee->defBool->right == 1);
+    check(queenBee->defChar->isChar());
+    check(queenBee->defChar->type == defTypeRef);
+    check(queenBee->defChar->isAnyOrd());
+    check(queenBee->defStr->isString());
+    check(queenBee->defStr->type == defTypeRef);
+    check(queenBee->defStr->isVec());
+    check(queenBee->defChar->deriveVec() == queenBee->defStr);
+    check_throw(defNone->deriveSet());
+    check_throw(defNone->deriveVec());
+
+    Symbol* b = queenBee->findDeep("true");
+    check(b != NULL && b->isDefinition());
+    check(PDefinition(b)->value.as_int() == 1);
+    check(PDefinition(b)->type->isBool());
+}
+
+
+void test_parser()
+{
+    {
+        Parser p("mem", new strfifo(NULL,
+            INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
+            " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
+        check(p.next() == tokIntValue);
+        check(p.intValue == INTEGER_MAX);
+        check(p.next() == tokSep);
+        check(p.getLineNum() == 2);
+        check(p.next() == tokIntValue);
+        check(p.next() == tokSep);
+        check(p.getLineNum() == 3);
+        check(p.next() == tokIf);
+        check(p.next() == tokSep);
+        check(p.getLineNum() == 4);
+        check(p.next() == tokIdent);
+        check_throw(p.next()); // unexpected end of line
+        check(p.next() == tokStrValue);
+        check(p.strValue == "[\t\r\nA\\]");
+        check_throw(p.next()); // bad hex sequence
+    }
 }
 
 
@@ -615,6 +668,7 @@ int main()
         test_variant();
         test_fifos();
         test_typesys();
+        test_parser();
     }
     catch (exception& e)
     {

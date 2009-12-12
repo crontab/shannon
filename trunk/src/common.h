@@ -33,14 +33,6 @@
 #  error Unknown architecure.
 #endif
 
-// On a Mac:
-// short: 2  long: 4  long long: 8  int: 4  void*: 4  float: 4  double: 8
-// integer: 4  mem: 4  real: 4  variant: 8
-
-// On 64-bit Linux:
-// short: 2  long: 8  long long: 8  int: 4  void*: 8  float: 4  double: 8
-// integer: 8  mem: 8  real: 8  variant: 16  object: 16/24
-
 // SH64 can be enabled both on 64 and 32-bit systems
 #ifdef PTR64
 #  define SH64
@@ -67,16 +59,16 @@
 #endif
 
 
+// Equivalent of size_t, signed; used everywhere for container sizes/indexes
 typedef long memint;
 typedef unsigned long umemint;
 #define MEMINT_MAX LONG_MAX
 #define ALLOC_MAX (MEMINT_MAX-255)
 
+// Convenient aliases
 typedef unsigned char uchar;
-typedef char* pchar;
-typedef uchar* puchar;
-typedef const char* pconst;
-typedef const uchar* puconst;
+typedef long long large;
+typedef unsigned long long ularge;
 
 
 // --- MISC --------------------------------------------------------------- //
@@ -104,7 +96,6 @@ template <class T>
     inline T exchange(T& target, const T& value)
         { T temp = target; target = value; return temp; }
 
-
 template <class T, class X>
     T cast(X x)
 #ifdef DEBUG
@@ -112,6 +103,27 @@ template <class T, class X>
 #else
         { return (T)x; }
 #endif
+
+
+template <class Container, class Tint>
+inline bool bsearch(const Container& cont, Tint high, void* key, Tint& idx)
+{
+    idx = 0;
+    Tint low = 0;
+    while (low <= high) 
+    {
+        idx = (low + high) / 2;
+        Tint comp = cont.compare(idx, key);
+        if (comp < 0)
+            low = idx + 1;
+        else if (comp > 0)
+            high = idx - 1;
+        else
+            return true;
+    }
+    idx = low;
+    return false;
+}
 
 
 class noncopyable

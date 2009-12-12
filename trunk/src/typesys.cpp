@@ -135,6 +135,9 @@ bool Type::isSmallOrd() const
 bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
 
+bool Type::isString() const
+    { return isVec() && PContainer(this)->elem->isChar(); }
+
 bool Type::identicalTo(Type* t) const
     { return t == this; }
 
@@ -191,7 +194,7 @@ Reference::~Reference()
     { }
 
 str Reference::definition() const
-    { return to->definition() + "^"; }
+    { return to->definition() + "*^"; }
 
 bool Reference::identicalTo(Type* t) const
     { return t->isReference() && to->identicalTo(PReference(t)->to); }
@@ -284,10 +287,10 @@ str Enumeration::definition() const
         return values[0]->name + ".." + values[right]->name;
     else
     {
-        str result = "(";
+        str result = "enum(";
         for (memint i = 0; i < values.size(); i++)
             result += (i ? ", " : "") + values[i]->name;
-        result += ")";
+        result += ')';
         return result;
     }
 }
@@ -326,10 +329,10 @@ str Container::definition() const
         return index->definition() + "<>";
     else
     {
-        str result = elem->definition() + "[";
+        str result = elem->definition() + '[';
         if (!isVec())
             result += index->definition();
-        result += "]";
+        result += ']';
         return result;
     }
 }

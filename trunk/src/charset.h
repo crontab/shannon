@@ -25,7 +25,7 @@ public:
     charset(const charset& s)                      { assign(s); }
     charset(const char* setinit)                   { assign(setinit); }
 
-    void assign(const charset& s)                  { memcpy(data, s.data, BYTES); }
+    void assign(const charset& s);
     void assign(const char* setinit);
     bool empty() const;
     void clear()                                   { memset(data, 0, BYTES); }

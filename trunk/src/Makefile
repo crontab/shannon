@@ -4,14 +4,16 @@ CXXDOPTS = -Wall -Werror -DDEBUG -g
 CXXROPTS = -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
-DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/typesys.o
+DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/parser.o \
+    debug/typesys.o
 
-ROBJS = release/common.o release/charset.o release/runtime.o release/typesys.o
+ROBJS = release/common.o release/charset.o release/runtime.o release/parser.o \
+    release/typesys.o
 
-SRCS = common.cpp charset.cpp runtime.cpp typesys.cpp \
-	main.cpp main-ut.cpp
+SRCS = common.cpp charset.cpp runtime.cpp parser.cpp typesys.cpp \
+    main.cpp main-ut.cpp
 
-HDRS = version.h common.h charset.h bsearch.h runtime.h typesys.h
+HDRS = version.h common.h charset.h runtime.h typesys.h parser.h
 
 
 all: dirs shannon shannon-ut
@@ -19,7 +21,8 @@ all: dirs shannon shannon-ut
 release: dirs shn
 
 ut unit-test: dirs shannon-ut
-	@if ./shannon-ut ; then echo ; echo "Unit tests succeeded." ; else echo; echo "***** Unit tests failed *****" ; fi
+	@echo
+	@if ./shannon-ut ; then echo "Unit tests succeeded." ; else echo "***** Unit tests failed *****" ; fi
 	@echo
 
 dirs:
