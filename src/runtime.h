@@ -1025,7 +1025,8 @@ public:
     fifo& operator<< (uchar c)         { enq(c); return *this; }
     fifo& operator<< (long long i)     { enq((long long)i); return *this; }
     fifo& operator<< (int i)           { enq((long long)i); return *this; }
-    fifo& operator<< (memint i)        { enq((long long)i); return *this; }
+    fifo& operator<< (long i)          { enq((long long)i); return *this; }
+    fifo& operator<< (size_t i)        { enq((long long)i); return *this; }
 };
 
 const char endl = '\n';

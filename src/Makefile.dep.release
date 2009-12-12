@@ -5,4 +5,4 @@ release/charset.o: charset.h
 release/runtime.o: charset.h runtime.h common.h typesys.h
 release/typesys.o: typesys.h runtime.h charset.h common.h
 release/main.o: common.h runtime.h charset.h typesys.h
-release/main-ut.o: common.h runtime.h charset.h
+release/main-ut.o: common.h runtime.h charset.h typesys.h

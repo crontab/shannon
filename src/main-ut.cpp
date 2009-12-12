@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "runtime.h"
-
+#include "typesys.h"
 
 static void ut_fail(unsigned line, const char* e)
 {
@@ -67,6 +67,7 @@ void test_object()
 }
 
 
+/*
 void test_range()
 {
     range r1;
@@ -79,7 +80,7 @@ void test_range()
     r2.assign(10, 20);
     check(r1 == r2);
 }
-
+*/
 
 void test_ordset()
 {
@@ -454,12 +455,14 @@ void test_variant()
         variant v4 = s; check(v4.as_str() == "def");
         v4 = 20; check(v4.as_int() == 20);
     }
+/*
     {
         variant v1 = range(20, 50); check(v1.is(variant::RANGE)); check(v1.as_range().equals(20, 50));
         variant v2 = v1; check(v2.is(variant::RANGE)); check(v2.as_range().equals(20, 50));
         variant v3; v3 = v1; check(v3.is(variant::RANGE)); check(v3.as_range().equals(20, 50));
         check(v2 == v3 && v1 == v3);
     }
+*/
     {
         variant v1 = varvec();
         check(v1.is(variant::VEC));
@@ -528,7 +531,7 @@ void test_fifos()
     f.var_enq(t);
     f.var_enq("abc");
     f.var_enq("def");
-    variant w = range(1, 2);
+    variant w = varset();
     f.var_enq(w);
     // f.dump(std::cout); std::cout << std::endl;
     variant x;
@@ -539,7 +542,7 @@ void test_fifos()
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is(variant::RANGE));
+    check(vr.is(variant::SET));
 
     memfifo fc(NULL, true);
     test_bidir_char_fifo(fc);
@@ -549,18 +552,35 @@ void test_fifos()
 }
 
 
+void test_typesys()
+{
+    Scope scope(NULL);
+    objptr<Definition> d1 = new Definition("abc", NULL, 0);
+    check(d1->name == "abc");
+    scope.addDefinition("def", NULL, 1);
+    scope.addDefinition("ghi", NULL, 2);
+    Symbol* s = scope.find("def");
+    check(s != NULL);
+    check(s->isDefinition());
+    check(s->name == "def");
+    scope.findShallow("def");
+    scope.findDeep("def");
+
+    check(queenBee->defBool->definition() == "(false, true)");
+}
+
+
 int main()
 {
-/*
+
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
          << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
          << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
          << "  double: " << sizeof(double) << '\n';
-    sio << "integer: " << sizeof(integer) << "  mem: " << sizeof(mem)
+    sio << "integer: " << sizeof(integer) << "  memint: " << sizeof(memint)
          << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
-         << "  object: " << sizeof(object) << "  joffs: " << sizeof(joffs_t) << '\n';
-*/
-//    check(sizeof(int) == 4);
+         << "  object: " << sizeof(object) << "  rtobject: " << sizeof(rtobject) << '\n';
+
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(void*) >= sizeof(integer));
     check(sizeof(memint) == sizeof(size_t));
@@ -568,21 +588,21 @@ int main()
 #ifdef SH64
     check(sizeof(integer) == 8);
 #  ifdef PTR64
-//    check(sizeof(variant) == 16);
+    check(sizeof(variant) == 16);
 #  else
-//    check(sizeof(variant) == 12);
+    check(sizeof(variant) == 12);
 #  endif
 #else
     check(sizeof(integer) == 4);
-//    check(sizeof(variant) == 8);
+    check(sizeof(variant) == 8);
 #endif
 
+    initTypeSys();
     int exitcode = 0;
     try
     {
         test_common();
         test_object();
-        test_range();
         test_ordset();
         test_contptr();
         test_string();
@@ -594,20 +614,21 @@ int main()
         test_symvec();
         test_variant();
         test_fifos();
+        test_typesys();
     }
     catch (exception& e)
     {
         fprintf(stderr, "Exception: %s\n", e.what());
         exitcode = 201;
     }
+    doneTypeSys();
 
-/*
-    if (rcblock::allocated != 0)
+    if (object::allocated != 0)
     {
-        fprintf(stderr, "Error: object::alloc = %d\n", rcblock::allocated);
+        fprintf(stderr, "Error: object::allocated = %d\n", object::allocated);
         exitcode = 202;
     }
-*/
+
     return exitcode;
 }
 
