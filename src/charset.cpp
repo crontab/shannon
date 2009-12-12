@@ -85,6 +85,10 @@ void charset::assign(const char* p)
 }
 
 
+void charset::assign(const charset& s)
+    { memcpy(data, s.data, BYTES); }
+
+
 bool charset::empty() const
 {
     for(int i = 0; i < WORDS; i++) 

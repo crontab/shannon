@@ -1,7 +1,6 @@
 #ifndef __TYPESYS_H
 #define __TYPESYS_H
 
-
 #include "runtime.h"
 
 
@@ -163,6 +162,7 @@ public:
     bool isSet() const          { return typeId == SET; }
     bool isDict() const         { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
+    bool isString() const;
 
     bool isFifo() const         { return typeId == FIFO; }
     bool isCharFifo() const;

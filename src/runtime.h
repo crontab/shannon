@@ -196,13 +196,13 @@ protected:
     container* ref()            { return (container*)_refnz(); }
     bool bsearch(void* key, memint& i, memint count) const;
     
+public:
     virtual container* new_(memint cap, memint siz) = 0;
     virtual container* null_obj() = 0;
     virtual void finalize(void*, memint) = 0;
     virtual void copy(void* dest, const void* src, memint) = 0;
     virtual memint compare(memint index, void* key) const; // aborts
 
-public:
     container(): _capacity(0), _size(0)  { } // for the _null object
     container(memint cap, memint siz)
         : _capacity(cap), _size(siz)  { assert(siz > 0 && cap >= siz); }
@@ -321,6 +321,7 @@ public:
     str()                                   { _init(); }
     str(const char* buf, memint len)        { _init(buf, len); }
     str(const char* s)                      { _init(s); }
+    str(char c)                             { _init(&c, 1); }
     str(const str& s): contptr(s)           { }
 
     const char* c_str() const; // can actually modify the object
@@ -329,6 +330,7 @@ public:
     char back() const                       { return *contptr::back(1); }
     void replace(memint pos, char c)        { *contptr::atw(pos) = c; }
     void operator= (const char* c);
+    void operator= (char c);
 
     enum { npos = -1 };
     memint find(char c) const;
@@ -338,13 +340,17 @@ public:
     memint compare(const str& s) const      { return compare(s.data(), s.size()); }
     bool operator== (const char* s) const   { return compare(s, pstrlen(s)) == 0; }
     bool operator== (const str& s) const    { return compare(s.data(), s.size()) == 0; }
+    bool operator== (char c) const          { return size() == 1 && *data() == c; }
     bool operator!= (const char* s) const   { return !(*this == s); }
     bool operator!= (const str& s) const    { return !(*this == s); }
+    bool operator!= (char c) const          { return !(*this == c); }
 
     void operator+= (const char* s);
     void operator+= (const str& s)          { append(s); }
+    void operator+= (char c)                { push_back(c); }
     str  operator+ (const char* s) const    { str r = *this; r += s; return r; }
     str  operator+ (const str& s) const     { str r = *this; r += s; return r; }
+    str  operator+ (char c) const           { str r = *this; r += c; return r; }
     str  substr(memint pos, memint len) const;
     str  substr(memint pos) const;
 
@@ -355,23 +361,23 @@ public:
 inline str operator+ (const char* s1, const str& s2)
     { str r = s1; r += s2; return r; }
 
+inline str operator+ (char c, const str& s2)
+    { str r = c; r += s2; return r; }
+
 
 // --- string utilities ---------------------------------------------------- //
 
 
-extern const charset printable_chars;
-
-
-str _to_string(long long value, int base, int width, char fill);
-str _to_string(long long);
+str _to_string(large value, int base, int width, char fill);
+str _to_string(large);
 template<class T>
     inline str to_string(const T& value, int base, int width = 0, char fill = '0')
-        { return _to_string((long long)value, base, width, fill); }
+        { return _to_string(large(value), base, width, fill); }
 template<class T>
     inline str to_string(const T& value)
-        { return _to_string((long long)value); }
+        { return _to_string(large(value)); }
 
-unsigned long long from_string(const char*, bool* error, bool* overflow, int base = 10);
+ularge from_string(const char*, bool* error, bool* overflow, int base = 10);
 
 str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
@@ -801,7 +807,7 @@ protected:
     void _init(uchar v)                 { type = ORD; val._ord = v; }
     void _init(int v)                   { type = ORD; val._ord = v; }
 #ifdef SH64
-    void _init(long long v)             { type = ORD; val._ord = v; }
+    void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
     void _init(const str& v)            { _init(STR, v.obj); }
@@ -1009,7 +1015,6 @@ public:
     bool eol();
     void skip_eol();
     static bool is_eol_char(char c)     { return c == '\r' || c == '\n'; }
-    int  skip_indent(); // spaces and tabs, tab lenghts are properly calculated
     bool eof() const                    { return empty(); }
 
     memint  enq(const char* p, memint count)  { return enq_chars(p, count); }
@@ -1017,16 +1022,16 @@ public:
     void enq(const str& s);
     void enq(char c);
     void enq(uchar c);
-    void enq(long long i);
+    void enq(large i);
 
     fifo& operator<< (const char* s)   { enq(s); return *this; }
     fifo& operator<< (const str& s)    { enq(s); return *this; }
     fifo& operator<< (char c)          { enq(c); return *this; }
     fifo& operator<< (uchar c)         { enq(c); return *this; }
-    fifo& operator<< (long long i)     { enq((long long)i); return *this; }
-    fifo& operator<< (int i)           { enq((long long)i); return *this; }
-    fifo& operator<< (long i)          { enq((long long)i); return *this; }
-    fifo& operator<< (size_t i)        { enq((long long)i); return *this; }
+    fifo& operator<< (large i)         { enq(large(i)); return *this; }
+    fifo& operator<< (int i)           { enq(large(i)); return *this; }
+    fifo& operator<< (long i)          { enq(large(i)); return *this; }
+    fifo& operator<< (size_t i)        { enq(large(i)); return *this; }
 };
 
 const char endl = '\n';

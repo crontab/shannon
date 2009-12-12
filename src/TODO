@@ -4,7 +4,7 @@
 
 * Set constructors use <>. Set type is defined as, e.g. char myset<>. Operator
   <> tests presence of an item in a set or a key in a map. Set delete and add
-  operations? "unset" maybe?
+  operations? "unset" maybe? The <> operator can be applicable even to vectors
   
 * Fifos are defined as char myfifo[..] (?)
 
@@ -13,6 +13,16 @@
 * All values except states are immutable unless declared as references with the
   ^ type derivator. Operation ^ (prefix) makes a value a reference. Dereference
   in expressions is automatic.
+
+* Typerefs must contain asterisk, e.g. int*[] to resolve ambiguity between type
+  casts, function calls, state construction, and also function defs where the
+  return value is a state. Besides, int[1, 2, 3] is a form of a compound
+  constructor that specifies the element type. So with the asterisk notation
+  all ambiguity is resolved.
+
+* Range (e.g. A..B) is possible only: (1) in const type expressions where it
+  denotes a range type, (2) in ordinal set constructors, (3) in operator 'for',
+  (4) with operator 'in'
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
 

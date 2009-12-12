@@ -15,6 +15,8 @@
 		365B4B881002B01D0023D0FD /* charset.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4B861002B01D0023D0FD /* charset.cpp */; };
 		365B728F10C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
 		365B729010C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
+		36A416BF10D3CD850069568A /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A416BE10D3CD850069568A /* parser.cpp */; };
+		36A416C010D3CD850069568A /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A416BE10D3CD850069568A /* parser.cpp */; };
 		36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 		36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 /* End PBXBuildFile section */
@@ -52,7 +54,8 @@
 		365B4B861002B01D0023D0FD /* charset.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = charset.cpp; path = src/charset.cpp; sourceTree = "<group>"; };
 		365B4B891002B0390023D0FD /* charset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = charset.h; path = src/charset.h; sourceTree = "<group>"; };
 		365B728E10C2861200D14118 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
-		36668F531003CD8600FF0C90 /* bsearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bsearch.h; path = src/bsearch.h; sourceTree = "<group>"; };
+		36A416BD10D3CD850069568A /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
+		36A416BE10D3CD850069568A /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = src/parser.cpp; sourceTree = "<group>"; };
 		36C3887810C9A6E100CD1B37 /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
 		36C3887910C9A6E100CD1B37 /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
@@ -94,13 +97,14 @@
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				36C3887810C9A6E100CD1B37 /* typesys.h */,
 				36C3887910C9A6E100CD1B37 /* typesys.cpp */,
+				36A416BD10D3CD850069568A /* parser.h */,
+				36A416BE10D3CD850069568A /* parser.cpp */,
 				363127AB10080E6900AF5F47 /* runtime.h */,
 				365B728E10C2861200D14118 /* runtime.cpp */,
 				361AF9621000E38D00E12EAE /* common.h */,
 				365B4A70100283E40023D0FD /* common.cpp */,
 				365B4B891002B0390023D0FD /* charset.h */,
 				365B4B861002B01D0023D0FD /* charset.cpp */,
-				36668F531003CD8600FF0C90 /* bsearch.h */,
 				36C8E962100EA94D00117341 /* version.h */,
 			);
 			name = Source;
@@ -191,6 +195,7 @@
 				365B4B881002B01D0023D0FD /* charset.cpp in Sources */,
 				365B729010C2861200D14118 /* runtime.cpp in Sources */,
 				36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */,
+				36A416BF10D3CD850069568A /* parser.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +208,7 @@
 				365B4B871002B01D0023D0FD /* charset.cpp in Sources */,
 				365B728F10C2861200D14118 /* runtime.cpp in Sources */,
 				36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */,
+				36A416C010D3CD850069568A /* parser.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,5 @@
 
 
-#include "charset.h"
 #include "runtime.h"
 #include "typesys.h"
 
@@ -198,7 +197,11 @@ container* container::realloc(memint newsize)
 }
 
 
-bool container::bsearch(void* key, memint& index, memint h) const
+bool container::bsearch(void* key, memint& index, memint count) const
+{
+    return ::bsearch(*this, count - 1, key, index);
+}
+/*
 {
     memint l, i, c;
     l = 0;
@@ -220,7 +223,7 @@ bool container::bsearch(void* key, memint& index, memint h) const
     index = l;
     return ret;
 }
-
+*/
 
 
 char* contptr::_init(container* factory, memint len)
@@ -554,6 +557,13 @@ void str::operator= (const char* s)
 }
 
 
+void str::operator= (char c)
+{
+    _fin();
+    _init(&c, 1);
+}
+
+
 memint str::find(char c) const
 {
     if (empty())
@@ -632,7 +642,7 @@ str str::substr(memint pos) const
 // --- string utilities ---------------------------------------------------- //
 
 
-static const char* _itobase(long long value, char* buf, int base, int& len, bool _signed)
+static const char* _itobase(large value, char* buf, int base, int& len, bool _signed)
 {
     // internal conversion routine: converts the value to a string 
     // at the end of the buffer and returns a pointer to the first
@@ -654,22 +664,17 @@ static const char* _itobase(long long value, char* buf, int base, int& len, bool
     buf[i] = 0;
 
     bool neg = false;
-    unsigned long long v = value;
+    ularge v = value;
     if (_signed && base == 10 && value < 0)
     {
         v = -value;
         // since we can't handle the lowest signed value, we just return a built-in string.
-        if (((long long)v) < 0)   // an minimum value negated results in the same value
+        if (large(v) < 0)   // a minimum value negated results in the same value
         {
             if (sizeof(value) == 8)
             {
                 len = 20;
                 return "-9223372036854775808";
-            }
-            else if (sizeof(value) == 4)
-            {
-                len = 11;
-                return "-2147483648";
             }
             else
                 abort();
@@ -691,7 +696,7 @@ static const char* _itobase(long long value, char* buf, int base, int& len, bool
 }
 
 
-static void _itobase2(str& result, long long value, int base, int width, char padchar, bool _signed)
+static void _itobase2(str& result, large value, int base, int width, char padchar, bool _signed)
 {
     result.clear();
 
@@ -729,7 +734,7 @@ static void _itobase2(str& result, long long value, int base, int width, char pa
 }
 
 
-str _to_string(long long value, int base, int width, char padchar) 
+str _to_string(large value, int base, int width, char padchar) 
 {
     str result;
     _itobase2(result, value, base, width, padchar, true);
@@ -737,7 +742,7 @@ str _to_string(long long value, int base, int width, char padchar)
 }
 
 
-str _to_string(long long value)
+str _to_string(large value)
 {
     str result;
     _itobase2(result, value, 10, 0, ' ', true);
@@ -753,7 +758,7 @@ str _to_string(memint value)
 }
 
 
-unsigned long long from_string(const char* p, bool* error, bool* overflow, int base)
+ularge from_string(const char* p, bool* error, bool* overflow, int base)
 {
     *error = false;
     *overflow = false;
@@ -761,7 +766,7 @@ unsigned long long from_string(const char* p, bool* error, bool* overflow, int b
     if (p == 0 || *p == 0 || base < 2 || base > 64)
         { *error = true; return 0; }
 
-    unsigned long long result = 0;
+    ularge result = 0;
 
     do 
     {
@@ -787,7 +792,7 @@ unsigned long long from_string(const char* p, bool* error, bool* overflow, int b
         if (c < 0 || c >= base)
             { *error = true; return 0; }
 
-        unsigned long long t = result * unsigned(base);
+        ularge t = result * unsigned(base);
         if (t / base != result)
             { *overflow = true; return 0; }
         result = t;
@@ -825,7 +830,7 @@ str remove_filename_ext(const str& fn)
 }
 
 
-const charset printable_chars = "~20-~7E~81-~FE";
+static const charset printable_chars = "~20-~7E~81-~FE";
 
 
 static void _to_printable(char c, str& s)
@@ -1298,11 +1303,11 @@ str fifo::line()
 }
 
 
-void fifo::enq(const char* s)  { if (s != NULL) enq(s, strlen(s)); }
-void fifo::enq(const str& s)   { enq_chars(s.data(), s.size()); }
-void fifo::enq(char c)         { enq_chars(&c, 1); }
-void fifo::enq(uchar c)        { enq_chars((char*)&c, 1); }
-void fifo::enq(long long i)    { enq(to_string(i)); }
+void fifo::enq(const char* s)   { if (s != NULL) enq(s, strlen(s)); }
+void fifo::enq(const str& s)    { enq_chars(s.data(), s.size()); }
+void fifo::enq(char c)          { enq_chars(&c, 1); }
+void fifo::enq(uchar c)         { enq_chars((char*)&c, 1); }
+void fifo::enq(large i)         { enq(to_string(i)); }
 
 
 // --- memfifo ------------------------------------------------------------- //
