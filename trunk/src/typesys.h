@@ -93,7 +93,7 @@ struct EUnknownIdent: public exception
 
 class Scope
 {
-    friend void test_scope();
+    friend void test_typesys();
 
 protected:
     symvec<Symbol> symbols;     // symbol table for search
@@ -356,5 +356,6 @@ void doneTypeSys();
 
 extern objptr<TypeReference> defTypeRef;
 extern objptr<None> defNone;
+extern objptr<QueenBee> queenBee;
 
 #endif // __TYPESYS_H
