@@ -63,19 +63,36 @@ public:
 };
 
 
+class Type;    // defined in typesys.h
+class State;   // same
+
+class rtobject: public object
+{
+protected:
+    Type* _type;
+public:
+    Type*  const type;
+    rtobject(Type* t): type(t)  { }
+    ~rtobject();
+    virtual bool empty() const = 0;
+};
+
+
 // --- range --------------------------------------------------------------- //
 
-
+/*
 class range: public noncopyable
 {
     friend class variant;
 protected:
-    struct cont: public object
+    class cont: public object
     {
+    public:
         integer left;
         integer right;
         cont(): left(0), right(-1)  { }
         cont(integer l, integer r): left(l), right(r)  { }
+        ~cont();
     };
     cont* obj;
     void _fin()                         { if (obj != &null) obj->release(); }
@@ -95,10 +112,9 @@ public:
         { return obj->left == l && obj->right == r; }
     bool operator== (const range& other) const;
     memint compare(const range&) const;
-
     static cont null;
 };
-
+*/
 
 // --- ordset -------------------------------------------------------------- //
 
@@ -108,9 +124,12 @@ class ordset: public noncopyable
     friend void test_ordset();
     friend class variant;
 protected:
-    struct cont: public object
+    class cont: public object
     {
+    public:
         charset cset;
+        cont();
+        ~cont();
         bool empty() const  { return this == &ordset::null || cset.empty(); }
     };
     cont* obj;
@@ -175,18 +194,19 @@ protected:
         { assert(newsize > 0 && newsize <= _capacity); _size = newsize; }
     void dec_size()             { assert(_size > 0); _size--; }
     container* ref()            { return (container*)_refnz(); }
-    bool bsearch(void* key, memint& i, memint count);
+    bool bsearch(void* key, memint& i, memint count) const;
     
     virtual container* new_(memint cap, memint siz) = 0;
     virtual container* null_obj() = 0;
     virtual void finalize(void*, memint) = 0;
     virtual void copy(void* dest, const void* src, memint) = 0;
-    virtual memint compare(memint index, void* key); // aborts
+    virtual memint compare(memint index, void* key) const; // aborts
 
 public:
     container(): _capacity(0), _size(0)  { } // for the _null object
     container(memint cap, memint siz)
         : _capacity(cap), _size(siz)  { assert(siz > 0 && cap >= siz); }
+    ~container();
 };
 
 
@@ -220,7 +240,11 @@ protected:
     void _popnz(memint len);
 
 public:
+#ifdef DEBUG
     contptr(): obj(NULL)                { }  // must be redefined
+#else
+    contptr()                           { }  // must be redefined
+#endif
     contptr(container* _obj): obj(_obj) { }
     contptr(const contptr& s)           { _init(s); }
     ~contptr()                          { _fin(); }
@@ -291,6 +315,7 @@ public:
     public:
         cont(): container()  { }
         cont(memint cap, memint siz): container(cap, siz)  { }
+        ~cont();
     };
 
     str()                                   { _init(); }
@@ -334,6 +359,9 @@ inline str operator+ (const char* s1, const str& s2)
 // --- string utilities ---------------------------------------------------- //
 
 
+extern const charset printable_chars;
+
+
 str _to_string(long long value, int base, int width, char fill);
 str _to_string(long long);
 template<class T>
@@ -347,6 +375,10 @@ unsigned long long from_string(const char*, bool* error, bool* overflow, int bas
 
 str remove_filename_path(const str&);
 str remove_filename_ext(const str&);
+str to_printable(char);
+str to_printable(const str&);
+str to_quoted(char c);
+str to_quoted(const str&);
 
 
 // --- podvec -------------------------------------------------------------- //
@@ -372,6 +404,7 @@ public:
     podvec(const podvec& v): parent(v)      { }
     bool empty() const                      { return parent::empty(); }
     memint size() const                     { return parent::size() / Tsize; }
+    bool operator== (const podvec& v) const { return parent::operator==(v); }
     const T& operator[] (memint i) const    { return *parent::data<T>(i); }
     const T& at(memint i) const             { return *parent::at<T>(i); }
     const T& back() const                   { return *parent::back<T>(); }
@@ -478,7 +511,7 @@ protected:
         typedef typename parent::cont parent;
         container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
         container* null_obj()                   { return &set::null; }
-        memint compare(memint index, void* key)
+        memint compare(memint index, void* key) const
         {
             static Comp comp;
             return comp(*container::data<T>(index), *Tptr(key));
@@ -486,18 +519,19 @@ protected:
     public:
         cont(): parent()  { }
         cont(memint cap, memint siz): parent(cap, siz)  { }
+        ~cont()  { }
     };
 
     static cont null;
 
 public:
-    set(): parent(&null)            { }
-    set(const set& s): parent(s)    { }
+    set(): parent(&null)                     { }
+    set(const set& s): parent(s)             { }
 
-    bool empty() const              { return parent::empty(); }
-    memint size() const             { return parent::size(); }
-    const T& operator[] (memint index) const
-        { return parent::operator[] (index); }
+    bool empty() const                       { return parent::empty(); }
+    memint size() const                      { return parent::size(); }
+    bool operator== (const set& s) const     { return parent::operator==(s); }
+    const T& operator[] (memint index) const { return parent::operator[] (index); }
 
     bool has(const T& item) const
     {
@@ -534,12 +568,14 @@ template <class T, class Comp>
 
 
 template <class Tkey, class Tval>
-struct dictitem: public object
+class dictitem: public object
 {
+public:
     const Tkey key;
     Tval val;
     dictitem(const Tkey& _key, const Tval& _val)
         : key(_key), val(_val) { }
+    ~dictitem()  { }
 };
 
 
@@ -557,9 +593,11 @@ protected:
     class cont: public parent::cont
     {
         typedef typename parent::cont parent;
-        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
-        container* null_obj()                   { return &dict::null; }
-        memint compare(memint index, void* key)
+        container* new_(memint cap, memint siz)
+            { return new(cap) cont(cap, siz); }
+        container* null_obj()
+            { return &dict::null; }
+        memint compare(memint index, void* key) const
         {
             static Comp comp;
             return comp((*container::data<T>(index))->key, *(Tkey*)key);
@@ -567,16 +605,18 @@ protected:
     public:
         cont(): parent()  { }
         cont(memint cap, memint siz): parent(cap, siz)  { }
+        ~cont()  { }
     };
 
     static cont null;
 
 public:
-    dict(): parent(&null)           { }
-    dict(const dict& s): parent(s)  { }
+    dict(): parent(&null)                   { }
+    dict(const dict& s): parent(s)          { }
     
-    bool empty() const              { return parent::empty(); }
-    memint size() const             { return parent::size(); }
+    bool empty() const                      { return parent::empty(); }
+    memint size() const                     { return parent::size(); }
+    bool operator== (const dict& s) const   { return parent::operator==(s); }
 
     typedef Titem item_type;
     const item_type& operator[] (memint index) const
@@ -621,14 +661,14 @@ template <class Tkey, class Tval, class Comp>
 class symbol: public object
 {
 public:
-    const str name;
+    str const name;
     symbol(const str& s): name(s)  { }
     symbol(const char* s): name(s)  { }
     ~symbol();
 };
 
 
-// Collection of pointers to symbol objects; doesn't free the objects
+// Collection of pointers to symbol objects, possibly sorted, not "owned"
 
 class symvec_impl: public podvec<symbol*>
 {
@@ -638,13 +678,13 @@ protected:
     class cont: public str::cont
     {
         typedef str::cont parent;
-        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
-        container* null_obj()                   { return &symvec_impl::null; }
-        memint compare(memint index, void* key)
-            { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
+        container* new_(memint cap, memint siz);
+        container* null_obj();
+        memint compare(memint index, void* key) const;
     public:
         cont(): parent()  { }
         cont(memint cap, memint siz): parent(cap, siz)  { }
+        ~cont();
     };
 
     static cont null;
@@ -652,37 +692,37 @@ protected:
 public:
     symvec_impl(): parent(&null)  { }
     symvec_impl(const symvec_impl& s): parent(s)  { }
+    void release_all();
 };
 
 
 template <class T>
-class symvec: protected symvec_impl
+class symvec: public symvec_impl
 {
     typedef symvec_impl parent;
 public:
     symvec(): parent()                      { }
     symvec(const symvec& s): parent(s)      { }
-    bool empty() const                      { return parent::empty(); }
-    memint size() const                     { return parent::size(); }
     T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
     T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
     T* back() const                         { return cast<T*>(parent::back()); }
-    void clear()                            { parent::clear(); }
-    void operator= (const symvec& v)        { parent::operator= (v); }
     void push_back(T* t)                    { parent::push_back(t); }
     void pop_back()                         { parent::pop_back(); }
     void insert(memint pos, T* t)           { parent::insert(pos, t); }
-    void erase(memint pos)                  { parent::erase(pos); }
-    bool bsearch(const str& n, memint& i)   { return parent::bsearch(n, i); }
+    bool bsearch(const str& n, memint& i) const  { return parent::bsearch(n, i); }
 };
+
+
+extern template class podvec<symbol*>;
 
 
 // --- ecmessag/emessage/esyserr ------------------------------------------- //
 
 
 // This is for static C-style string constants
-struct ecmessage: public exception
+class ecmessage: public exception
 {
+public:
     const char* msg;
     ecmessage(const ecmessage&); // not defined
     ecmessage(const char* _msg);
@@ -692,8 +732,9 @@ struct ecmessage: public exception
 
 
 // For dynamically generated strings
-struct emessage: public exception
+class emessage: public exception
 {
+public:
     str msg;
     emessage(const emessage&); // not defined
     emessage(const str& _msg);
@@ -704,9 +745,11 @@ struct emessage: public exception
 
 
 // UNIX system errors
-struct esyserr: public emessage
+class esyserr: public emessage
 {
+public:
     esyserr(int icode, const str& iArg = "");
+    ~esyserr();
 };
 
 
@@ -725,7 +768,7 @@ class variant: public noncopyable
 public:
 
     enum Type
-        { NONE, ORD, REAL, STR, RANGE, VEC, SET, ORDSET, DICT, OBJ,
+        { NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ,
             REFCNT = STR };
 
     struct _None { int dummy; }; 
@@ -736,9 +779,10 @@ protected:
     Type type;
     union
     {
-        integer  _ord;      // int, char and bool
-        real     _real;
-        object*  _obj;
+        integer     _ord;      // int, char and bool
+        real        _real;
+        object*     _obj;
+        rtobject*   _rtobj;
     } val;
 
     static void _type_err();
@@ -762,26 +806,26 @@ protected:
     void _init(real v)                  { type = REAL; val._real = v; }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
-    void _init(const range& v)          { _init(RANGE, v.obj); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
     void _init(const varset& v)         { _init(SET, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
     void _init(const vardict& v)        { _init(DICT, v.obj); }
     void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
+    void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->ref<rtobject>(); }
+    void _init(const variant& v);
     void _fin_refcnt();
     void _fin()                         { if (is_refcnt()) _fin_refcnt(); }
 
 public:
     variant()                           { _init(); }
-    variant(const variant& v)
-        : type(v.type), val(v.val)      { if (is_refcnt()) v.val._obj->ref(); }
+    variant(const variant& v)           { _init(v); }
     template <class T>
         variant(const T& v)             { _init(v); }
     ~variant()                          { _fin(); }
 
     template <class T>
         void operator= (const T& v)     { _fin(); _init(v); }
-    void operator= (const variant&);
+    void operator= (const variant& v)   { assert(this != &v); _fin(); _init(v); }
     void clear()                        { _fin(); _init(); }
     bool empty() const;
 
@@ -800,20 +844,17 @@ public:
     integer     _int()            const { _dbg(ORD); return val._ord; }
     integer     _ord()            const { _dbg(ORD); return val._ord; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
-    const range& _range()         const { _dbg(RANGE); return *(range*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
-    object*     _obj()            const { _dbg(OBJ); return val._obj; }
+    rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     integer&    _ord()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
-    range&      _range()                { _dbg(RANGE); return *(range*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
     varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
     ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
     vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
-    object*&    _obj()                  { _dbg(OBJ); return val._obj; }
 
     // Safer access methods; may throw an exception
     bool        as_bool()         const { _req(ORD); return _bool(); }
@@ -822,20 +863,17 @@ public:
     integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
     const str&  as_str()          const { _req(STR); return _str(); }
-    const range& as_range()       const { _req(RANGE); return _range(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { _req(SET); return _set(); }
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
     const vardict& as_dict()      const { _req(DICT); return _dict(); }
-    object*     as_obj()          const { _req(OBJ); return _obj(); }
+    rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
     integer&    as_ord()                { _req(ORD); return _ord(); }
     str&        as_str()                { _req(STR); return _str(); }
-    range&      as_range()              { _req(RANGE); return _range(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
     varset&     as_set()                { _req(SET); return _set(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
-    object*&    as_obj()                { _req(OBJ); return _obj(); }
 };
 
 template <>
@@ -852,27 +890,15 @@ extern template class podvec<variant>;
 // --- runtime objects ----------------------------------------------------- //
 
 
-class reference: public object
+class reference: public rtobject
 {
 public:
     variant var;
-    reference(const variant& v): var(v)  { }
+    reference(Type* t, const variant& v): rtobject(t), var(v)  { }
     template <class T>
         reference(const T& v): var(v)  { }
     ~reference();
-};
-
-
-class Type;    // defined in typesys.h
-class State;   // same
-
-class rtobject: public object
-{
-protected:
-    Type* _type;
-public:
-    rtobject(Type* t): _type(t)  { }
-    Type* type()  { return _type; }
+    bool empty() const; // override
 };
 
 
@@ -889,6 +915,7 @@ protected:
 public:
     static stateobj* new_(State* state);
     ~stateobj();
+    bool empty() const; // override
     State* type()  { return (State*)_type; }
     variant* var(memint index)
     {

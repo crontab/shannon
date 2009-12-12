@@ -1,5 +1,6 @@
 
 
+#include "charset.h"
 #include "runtime.h"
 #include "typesys.h"
 
@@ -66,8 +67,15 @@ void object::release()
 }
 
 
+rtobject::~rtobject()
+    { }
+
+
 // --- range --------------------------------------------------------------- //
 
+/*
+range::cont::~cont()
+    { }
 
 range::cont range::null;
 
@@ -100,10 +108,13 @@ memint range::compare(const range& r) const
         result = memint(obj->right - r.obj->right);
     return result;
 }
+*/
 
 
 // --- ordset -------------------------------------------------------------- //
 
+ordset::cont::cont() { }
+ordset::cont::~cont() { }
 
 ordset::cont ordset::null;
 
@@ -125,13 +136,16 @@ void ordset::operator= (const ordset& s)
 // --- container & contptr ------------------------------------------------- //
 
 
+container::~container()
+    { }
+
 void container::overflow()
     { fatal(0x1002, "Container overflow"); }
 
 void container::idxerr()
     { fatal(0x1003, "Container index error"); }
 
-memint container::compare(memint index, void* key)
+memint container::compare(memint index, void* key) const
     { _fatal(0x1004); return 0; }
 
 
@@ -184,7 +198,7 @@ container* container::realloc(memint newsize)
 }
 
 
-bool container::bsearch(void* key, memint& index, memint h)
+bool container::bsearch(void* key, memint& index, memint h) const
 {
     memint l, i, c;
     l = 0;
@@ -476,6 +490,8 @@ void contptr::resize(memint newsize, char fill)
 
 // --- string -------------------------------------------------------------- //
 
+
+str::cont::~cont()  { }
 
 str::cont str::null;
 
@@ -809,12 +825,78 @@ str remove_filename_ext(const str& fn)
 }
 
 
+const charset printable_chars = "~20-~7E~81-~FE";
+
+
+static void _to_printable(char c, str& s)
+{
+    if (c == '\\')
+        s += "\\\\";
+    else if (c == '\'')
+        s += "\\\'";
+    else if (printable_chars[c])
+        s.append(&c, 1);
+    else
+    {
+        s += "\\x";
+        s += to_string(uchar(c), 16, 2, '0');
+    }
+}
+
+
+str to_printable(char c)
+{
+    str result;
+    _to_printable(c, result);
+    return result;
+}
+
+
+str to_printable(const str& s)
+{
+    str result;
+    for (memint i = 0; i < s.size(); i++)
+        _to_printable(s[i], result);
+    return result;
+}
+
+
+str to_quoted(char c)
+    { return "'" + to_printable(c) + "'"; }
+
+
+str to_quoted(const str& s)
+    { return "'" + to_printable(s) + "'"; }
+
+
 // --- object collection --------------------------------------------------- //
 
 
+symbol::~symbol()  { }
+
 symvec_impl::cont symvec_impl::null;
 
-symbol::~symbol()  { }
+template class podvec<symbol*>;
+
+container* symvec_impl::cont::new_(memint cap, memint siz)
+    { return new(cap) cont(cap, siz); }
+
+container* symvec_impl::cont::null_obj()
+    { return &symvec_impl::null; }
+
+memint symvec_impl::cont::compare(memint index, void* key) const
+    { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
+
+symvec_impl::cont::~cont()
+    { }
+
+void symvec_impl::release_all()
+{
+    memint count = size();
+    while (count--)
+        operator[](count)->release();
+    clear();
+}
 
 
 // --- ecmessag/emessage --------------------------------------------------- //
@@ -849,6 +931,8 @@ static str sysErrorStr(int code, const str& arg)
 esyserr::esyserr(int code, const str& arg)
     : emessage(sysErrorStr(code, arg))  { }
 
+esyserr::~esyserr()  { }
+
 
 // --- variant ------------------------------------------------------------- //
 
@@ -870,12 +954,11 @@ void variant::_fin_refcnt()
     case ORD:
     case REAL:      break;
     case STR:       _str().~str(); break;
-    case RANGE:     _range().~range(); break;
     case VEC:       _vec().~varvec(); break;
     case SET:       _set().~varset(); break;
     case ORDSET:    _ordset().~ordset(); break;
     case DICT:      _dict().~vardict(); break;
-    case OBJ:       val._obj->release(); break;
+    case RTOBJ:     _rtobj()->release(); break;
     }
 }
 
@@ -884,16 +967,12 @@ void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
 void variant::_range_err() { throw ecmessage("Variant range error"); }
 
 
-void variant::operator= (const variant& v)
+void variant::_init(const variant& v)
 {
-    if (v.is_refcnt())
-    {
-        if (val._obj != v.val._obj)
-            val._obj = v.val._obj->ref();
-    }
-    else
-        val = v.val;
     type = v.type;
+    val = v.val;
+    if (is_refcnt())
+        val._obj->ref();
 }
 
 
@@ -907,13 +986,12 @@ memint variant::compare(const variant& v) const
         case ORD:   return val._ord - v.val._ord;
         case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
         case STR:   return _str().compare(v._str());
-        case RANGE: return _range().compare(v._range());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
         case SET:
         case ORDSET:
         case DICT:
-        case OBJ:   return memint(val._obj) - memint(v.val._obj);
+        case RTOBJ: return memint(_rtobj()) - memint(v._rtobj());
         }
     }
     return int(type - v.type);
@@ -930,12 +1008,11 @@ bool variant::operator== (const variant& v) const
         case ORD:       return val._ord == v.val._ord;
         case REAL:      return val._real == v.val._real;
         case STR:       return _str() == v._str();
-        case RANGE:     return _range() == v._range();
         case VEC:       return _vec() == v._vec();
         case SET:       return _set() == v._set();
         case ORDSET:    return _ordset() == v._ordset();
         case DICT:      return _dict() == v._dict();
-        case OBJ:       return val._obj == v.val._obj;
+        case RTOBJ:     return _rtobj() == v._rtobj();
         }
     }
     return false;
@@ -950,12 +1027,11 @@ bool variant:: empty() const
     case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0;
     case STR:       return _str().empty();
-    case RANGE:     return _range().empty();
     case VEC:       return _vec().empty();
     case SET:       return _set().empty();
     case ORDSET:    return _ordset().empty();
     case DICT:      return _dict().empty();
-    case OBJ:       return false; // ?
+    case RTOBJ:     return _rtobj()->empty();
     }
     return false;
 }
@@ -966,6 +1042,8 @@ bool variant:: empty() const
 
 reference::~reference() { }
 
+bool reference::empty() const  { return var.empty(); }
+
 
 #ifdef DEBUG
 void stateobj::idxerr()
@@ -975,19 +1053,21 @@ void stateobj::idxerr()
 stateobj::stateobj(State* t)
     : rtobject(t)  { }
 
+bool stateobj::empty() const
+    { return false; }
+
 stateobj::~stateobj()
 {
     if (type() != NULL)
     {
-        memint count = type()->thisSize();
-        while (count--)
+        for (memint count = type()->selfVarCount(); count--; )
             vars[count].~variant();
     }
 }
 
 stateobj* stateobj::new_(State* type)
 {
-    memint varcount = type->thisSize();
+    memint varcount = type->selfVarCount();
     stateobj* obj = new(varcount * sizeof(variant)) stateobj(type);
 #ifdef DEBUG
     obj->varcount = varcount;

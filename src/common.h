@@ -125,7 +125,7 @@ public:
 };
 
 
-struct exception: public noncopyable
+struct exception // : public noncopyable -- doesn't work
 {
     exception();
     virtual ~exception();

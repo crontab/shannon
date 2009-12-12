@@ -293,6 +293,13 @@ void test_strutils()
     check(remove_filename_ext("/usr/bin/true.exe") == "/usr/bin/true");
     check(remove_filename_ext("true.exe") == "true");
     check(remove_filename_ext("true") == "true");
+
+    check(to_printable('a') == "a");
+    check(to_printable('\\') == "\\\\");
+    check(to_printable('\'') == "\\'");
+    check(to_printable('\x00') == "\\x00");
+    check(to_printable('\x7f') == "\\x7F");
+    check(to_printable("abc \x01'\\") == "abc \\x01\\'\\\\");
 }
 
 
@@ -421,8 +428,10 @@ void test_symvec()
 
 void test_variant()
 {
-    variant v0;
-    check(v0.empty() && v0.is(variant::NONE));
+    {
+        variant v1;
+        check(v1.empty() && v1.is(variant::NONE));
+    }
     {
         variant v1 = variant::none;
         check(v1.empty() && v1.is_none());
@@ -452,12 +461,17 @@ void test_variant()
         check(v2 == v3 && v1 == v3);
     }
     {
-        variant v1 = varvec(); check(v1.is(variant::VEC));
+        variant v1 = varvec();
+        check(v1.is(variant::VEC));
         variant v2 = v1;
         check(v1 == v2);
         v2.as_vec().push_back("ABC");
         check(v2.as_vec()[0].as_str() == "ABC");
         check(v1 != v2);
+        v1 = 20;
+        v1 = v2;
+        v2 = 30;
+        v1 = v2;
     }
     {
         variant v1 = varset(); check(v1.is(variant::SET));
@@ -468,6 +482,70 @@ void test_variant()
     {
         variant v1 = vardict(); check(v1.is(variant::DICT));
     }
+}
+
+
+void test_bidir_char_fifo(fifo& fc)
+{
+    check(fc.is_char_fifo());
+    fc.enq("0123456789abcdefghijklmnopqrstuvwxy");
+    fc.var_enq(variant('z'));
+    fc.var_enq(variant("./"));
+    check(fc.preview() == '0');
+    check(fc.get() == '0');
+    variant v;
+    fc.var_deq(v);
+    check(v.as_char() == '1');
+    v.clear();
+    fc.var_preview(v);
+    check(v.as_char() == '2');
+    check(fc.deq(16) == "23456789abcdefgh");
+    check(fc.deq(memfifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
+    check(fc.empty());
+
+    fc.enq("0123456789");
+    fc.enq("abcdefghijklmnopqrstuvwxyz");
+    check(fc.get() == '0');
+    while (!fc.empty())
+        fc.deq(fifo::CHAR_SOME);
+
+    fc.enq("0123456789abcdefghijklmnopqrstuvwxyz");
+    check(fc.deq("0-9") == "0123456789");
+    check(fc.deq("a-z") == "abcdefghijklmnopqrstuvwxyz");
+    check(fc.empty());
+}
+
+
+void test_fifos()
+{
+#ifdef DEBUG
+    memfifo::CHUNK_SIZE = 2 * sizeof(variant);
+#endif
+
+    memfifo f(NULL, false);
+    varvec t;
+    t.push_back(0);
+    f.var_enq(t);
+    f.var_enq("abc");
+    f.var_enq("def");
+    variant w = range(1, 2);
+    f.var_enq(w);
+    // f.dump(std::cout); std::cout << std::endl;
+    variant x;
+    f.var_deq(x);
+    check(x.is(variant::VEC));
+    f.var_deq(w);
+    check(w.is(variant::STR));
+    f.var_eat();
+    variant vr;
+    f.var_preview(vr);
+    check(vr.is(variant::RANGE));
+
+    memfifo fc(NULL, true);
+    test_bidir_char_fifo(fc);
+    
+    strfifo fs(NULL);
+    test_bidir_char_fifo(fs);
 }
 
 
@@ -515,6 +593,7 @@ int main()
         test_dict();
         test_symvec();
         test_variant();
+        test_fifos();
     }
     catch (exception& e)
     {

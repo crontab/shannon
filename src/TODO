@@ -10,8 +10,9 @@
 
 * Enqueue and dequeue operators: << and >>, like the iostream operators in C++
 
-* Immutability modifier ^ for compound types: elements can't be modified or
-  deleted.
+* All values except states are immutable unless declared as references with the
+  ^ type derivator. Operation ^ (prefix) makes a value a reference. Dereference
+  in expressions is automatic.
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
 
@@ -26,10 +27,10 @@
   prevent modification.
 
 * A `pair` data type, which is a dictionary iteration element. But maybe not
-  only. Can be a built-in state with two fields.
+  only. Can be a built-in state with two fields (?)
 
 * for loop: allow types, also range as an exception can have variable
-  boundaries
+  boundaries. E.g. for i = a ...
 
 * Functions
 
