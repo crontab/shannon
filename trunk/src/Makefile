@@ -1,8 +1,8 @@
 
 
 CXXDOPTS = -Wall -Werror -DDEBUG -g
-CXXROPTS = -Wall -Werror -fno-rtti -DNDEBUG -O2
-
+CXXROPTS = -Wall -Werror -DNDEBUG -O2
+LDLIBS = 
 
 DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/typesys.o
 
