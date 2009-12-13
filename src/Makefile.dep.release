@@ -6,4 +6,4 @@ release/runtime.o: runtime.h charset.h common.h typesys.h
 release/parser.o: parser.h common.h charset.h runtime.h
 release/typesys.o: typesys.h runtime.h charset.h common.h
 release/main.o: common.h runtime.h charset.h parser.h typesys.h
-release/main-ut.o: common.h runtime.h charset.h typesys.h
+release/main-ut.o: common.h runtime.h charset.h parser.h typesys.h

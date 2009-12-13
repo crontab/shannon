@@ -7,6 +7,7 @@
 class Symbol;
 class Variable;
 class Definition;
+class Scope;
 class Type;
 class Reference;
 class Ordinal;
@@ -18,6 +19,7 @@ class QueenBee;
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
 typedef Definition* PDefinition;
+typedef Scope* PScope;
 typedef Type* PType;
 typedef Reference* PReference;
 typedef Ordinal* POrdinal;
@@ -93,24 +95,17 @@ struct EUnknownIdent: public exception
 class Scope
 {
     friend void test_typesys();
-
 protected:
-    symvec<Symbol> symbols;     // symbol table for search
-    symvec<Definition> defs;    // owned
-    symvec<Module> uses;
-
+    symtbl symbols;         // symbol table for search
+    objvec<Module> uses;
     Symbol* find(const str&) const;
     void addUnique(Symbol* s);
-
 public:
     Scope* const outer;
     Scope(Scope* _outer);
     ~Scope();
     Symbol* findShallow(const str& _name) const;
     Symbol* findDeep(const str&) const;
-    Definition* addDefinition(const str&, Type*, const variant&);
-    Definition* addTypeAlias(const str&, Type*);
-    void addUses(Module*); // comes from the global module cache
 };
 
 
@@ -120,6 +115,7 @@ public:
 class Type: public rtobject
 {
     friend class Module;
+    friend class State;
 
 public:
     enum TypeId {
@@ -130,13 +126,15 @@ public:
 
 protected:
     TypeId const typeId;
-    Module* host;   // derivators are inserted into the owner's repositories
+    str alias;      // for more readable diagnostics output, but not really needed
+    State* host;    // derivators are inserted into the hosts's repository
     Container* derivedVec;
     Container* derivedSet;
 
     Type(TypeId);
     bool empty() const;
-    void setHost(Module* o)    { assert(host == NULL); host = o; }
+    void setAlias(const str& s) { if (alias.empty()) alias = s; }
+    void setHost(State* o)     { assert(host == NULL); host = o; }
     static TypeId contType(Type* i, Type* e);
 
 public:
@@ -173,7 +171,7 @@ public:
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
-    virtual str definition() const = 0;
+    virtual str definition(const str& ident) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canConvertTo(Type*) const;
 
@@ -198,7 +196,6 @@ class TypeReference: public Type
 protected:
     TypeReference();
     ~TypeReference();
-    str definition() const;
 };
 
 
@@ -209,7 +206,6 @@ class None: public Type
 protected:
     None();
     ~None();
-    str definition() const;
 };
 
 
@@ -219,7 +215,6 @@ class Variant: public Type
 protected:
     Variant();
     ~Variant();
-    str definition() const;
 };
 
 
@@ -229,7 +224,7 @@ public:
     Type* const to;
     Reference(Type* _to);
     ~Reference();
-    str definition() const;
+    str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
     bool canConvertTo(Type* t) const;
 };
@@ -250,7 +245,7 @@ protected:
 public:
     integer const left;
     integer const right;
-    str definition() const;
+    str definition(const str& ident) const;
     bool canConvertTo(Type*) const;
     bool isSmallOrd() const
         { return left >= 0 && right <= 255; }
@@ -264,7 +259,7 @@ class Enumeration: public Ordinal
 {
     friend class QueenBee;
 protected:
-    typedef symvec<Definition> EnumValues;
+    typedef objvec<Definition> EnumValues;
     EnumValues values;
     Enumeration(TypeId _typeId);                    // built-in enums, e.g. bool
     Enumeration(const EnumValues&, integer, integer);     // subrange
@@ -272,9 +267,9 @@ protected:
 public:
     Enumeration();                                  // user-defined enums
     ~Enumeration();
-    str definition() const;
+    str definition(const str& ident) const;
     bool canConvertTo(Type*) const;
-    void addValue(Scope*, const str&);
+    void addValue(State*, const str&);
 };
 
 
@@ -291,7 +286,7 @@ public:
     Type* const index;
     Type* const elem;
     ~Container();
-    str definition() const;
+    str definition(const str& ident) const;
 };
 
 
@@ -301,11 +296,20 @@ public:
 class State: public Type, public Scope
 {
 protected:
-    symvec<Variable> selfVars;
+    objvec<Type> types;             // owned
+    objvec<Definition> defs;        // owned
+    objvec<Variable> selfVars;      // owned
+    Type* _registerType(Type*);
 public:
     State(TypeId, State* parent);
     ~State();
-    memint selfVarCount() { return selfVars.size(); } // TODO
+    memint selfVarCount() { return selfVars.size(); }
+    template <class T>
+        T* registerType(T* t)  { return (T*)_registerType(t); }
+    template <class T>
+        T* registerType(objptr<T> t)  { return (T*)_registerType(t); }
+    Definition* addDefinition(const str&, Type*, const variant&);
+    Definition* addTypeAlias(const str&, Type*);
 };
 
 
@@ -314,18 +318,9 @@ public:
 
 class Module: public State
 {
-protected:
-    vector<objptr<Type> > types;
-    Type* _registerType(Type*);
 public:
-    str const name;
     Module(const str& _name);
     ~Module();
-    str definition() const;
-    template <class T>
-        T* registerType(T* t)  { return (T*)_registerType(t); }
-    template <class T>
-        T* registerType(objptr<T> t)  { return (T*)_registerType(t); }
 };
 
 
