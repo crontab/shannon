@@ -250,6 +250,10 @@ void contptr::_init(container* factory, const char* buf, memint len)
 }
 
 
+void contptr::_fin()
+    { if (!empty()) obj->release(); }
+
+
 const char* contptr::back(memint i) const
 {
     if (i <= 0 || i > size())
@@ -987,7 +991,9 @@ memint variant::compare(const variant& v) const
         switch(type)
         {
         case NONE:  return 0;
-        case ORD:   return val._ord - v.val._ord;
+        case ORD:
+            integer d = val._ord - v.val._ord;
+            return d < 0 ? -1 : d > 0 ? 1 : 0;
         case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?

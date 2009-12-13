@@ -99,9 +99,6 @@ void typeMismatch()
         { throw ecmessage("Type mismatch"); }
 
 
-template class vector<objptr<Type> >;
-
-
 Type::Type(TypeId id)
     : rtobject(id == TYPEREF ? this : defTypeRef.get()), typeId(id),
       host(NULL), derivedVec(NULL), derivedSet(NULL)  { }
@@ -269,7 +266,7 @@ str Enumeration::definition(const str& ident) const
 {
     str result;
     if (left > 0 || right < values.size() - 1)
-        result = values[0]->name + ".." + values[right]->name;
+        result = values[0]->name + ".." + values[memint(right)]->name;
     else
     {
         result = "enum(";

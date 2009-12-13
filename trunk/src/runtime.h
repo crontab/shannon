@@ -228,7 +228,7 @@ protected:
     void _init(const contptr& s)        { obj = s.obj->ref(); }
     char* _init(container* factory, memint);
     void _init(container* factory, const char*, memint);
-    void _fin()                         { if (!empty()) obj->release(); }
+    void _fin();                        // { if (!empty()) obj->release(); }
     bool unique() const                 { return obj->unique(); }
     char* mkunique();
     void chkidx(memint i) const         { if (umemint(i) >= umemint(obj->size())) container::idxerr(); }

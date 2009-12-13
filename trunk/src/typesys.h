@@ -183,9 +183,6 @@ public:
 void typeMismatch();
 
 
-extern template class vector<objptr<Type> >;
-
-
 // --- General Types ------------------------------------------------------- //
 
 

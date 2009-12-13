@@ -30,13 +30,11 @@
 #elif defined(__i386__)
 #  define PTR32
 #else
-#  error Unknown architecure.
+#  error Unsupported architecure.
 #endif
 
 // SH64 can be enabled both on 64 and 32-bit systems
-#ifdef PTR64
-#  define SH64
-#endif
+// #define SH64
 
 
 // --- BASIC DATA TYPES --------------------------------------------------- //
@@ -57,7 +55,6 @@
 #   define INTEGER_MIN INT_MIN
 #   define INTEGER_MAX INT_MAX
 #endif
-
 
 // Equivalent of size_t, signed; used everywhere for container sizes/indexes
 typedef long memint;

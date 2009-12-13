@@ -8,6 +8,10 @@
 
 // ------------------------------------------------------------------------- //
 
+// TODO: less loaders: for args and locals one instruction can be used
+// TODO: assert: use constant repository for file names
+// TODO: multiple return values probably not needed
+
 
 // --- tests --------------------------------------------------------------- //
 

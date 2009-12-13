@@ -637,7 +637,7 @@ int main()
          << "  object: " << sizeof(object) << "  rtobject: " << sizeof(rtobject) << '\n';
 
     check(sizeof(memint) == sizeof(void*));
-    check(sizeof(void*) >= sizeof(integer));
+//    check(sizeof(void*) >= sizeof(integer));
     check(sizeof(memint) == sizeof(size_t));
 
 #ifdef SH64
