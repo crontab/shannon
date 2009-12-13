@@ -47,6 +47,8 @@ int main()
 
     initTypeSys();
     
+    Parser p("mem", new strfifo(NULL, ""));
+    
     doneTypeSys();
 
     if (object::allocated != 0)

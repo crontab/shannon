@@ -3,7 +3,9 @@
 
 #include "common.h"
 #include "runtime.h"
+#include "parser.h"
 #include "typesys.h"
+
 
 static void ut_fail(unsigned line, const char* e)
 {
@@ -414,7 +416,7 @@ void test_dict()
 
 void test_symvec()
 {
-    symvec<symbol> s1;
+    symtbl s1;
     objptr<symbol> p1 = new symbol("abc");
     s1.insert(0, p1.get());
     check(s1[0] == p1.get());
@@ -555,20 +557,20 @@ void test_fifos()
 void test_typesys()
 {
     {
-        Scope scope(NULL);
+        State state(Type::MODULE, NULL);
         objptr<Definition> d1 = new Definition("abc", NULL, 0);
         check(d1->name == "abc");
-        scope.addDefinition("def", NULL, 1);
-        scope.addDefinition("ghi", NULL, 2);
-        Symbol* s = scope.find("def");
+        state.addDefinition("def", NULL, 1);
+        state.addDefinition("ghi", NULL, 2);
+        Symbol* s = state.find("def");
         check(s != NULL);
         check(s->isDefinition());
         check(s->name == "def");
-        scope.findShallow("def");
-        scope.findDeep("def");
+        state.findShallow("def");
+        state.findDeep("def");
     }
 
-    check(queenBee->defBool->definition() == "(false, true)");
+    check(queenBee->defBool->definition("") == "enum(false, true)");
     check(defTypeRef->isTypeRef());
     check(defTypeRef->type == defTypeRef);
     check(defNone->isNone());

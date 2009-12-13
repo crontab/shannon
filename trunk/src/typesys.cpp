@@ -43,16 +43,14 @@ Scope::Scope(Scope* _outer)
 
 
 Scope::~Scope()
-{
-    defs.release_all();
-}
+    { }
 
 
 Symbol* Scope::find(const str& ident) const
 {
     memint i;
     if (symbols.bsearch(ident, i))
-        return symbols[i];
+        return cast<Symbol*>(symbols[i]);
     else
         return NULL;
 }
@@ -94,21 +92,6 @@ Symbol* Scope::findDeep(const str& ident) const
 }
 
 
-Definition* Scope::addDefinition(const str& name, Type* type, const variant& value)
-{
-    objptr<Definition> d = new Definition(name, type, value);
-    addUnique(d); // may throw
-    defs.push_back(d->ref<Definition>());
-    return d;
-}
-
-
-Definition* Scope::addTypeAlias(const str& name, Type* type)
-{
-    return addDefinition(name, defTypeRef, type);
-}
-
-
 // --- Type ---------------------------------------------------------------- //
 
 
@@ -145,6 +128,16 @@ bool Type::canConvertTo(Type* t) const
     { return identicalTo(t); }
 
 
+str Type::definition(const str& ident) const
+{
+    assert(!alias.empty());
+    str result = alias;
+    if (!ident.empty())
+        result += ' ' + ident;
+    return result;
+}
+
+
 #define new_Vector(x) (new Container(defNone, x))
 #define new_Set(x) (new Container(x, defNone))
 
@@ -174,17 +167,14 @@ Container* Type::deriveSet()
 
 TypeReference::TypeReference(): Type(TYPEREF)  { }
 TypeReference::~TypeReference()  { }
-str TypeReference::definition() const  { return "typeref"; }
 
 
 None::None(): Type(NONE)  { }
 None::~None()  { }
-str None::definition() const  { return "none"; }
 
 
 Variant::Variant(): Type(VARIANT)  { }
 Variant::~Variant()  { }
-str Variant::definition() const  { return "any"; }
 
 
 Reference::Reference(Type* _to)
@@ -193,8 +183,8 @@ Reference::Reference(Type* _to)
 Reference::~Reference()
     { }
 
-str Reference::definition() const
-    { return to->definition() + "*^"; }
+str Reference::definition(const str& ident) const
+    { return to->definition(ident) + '^'; }
 
 bool Reference::identicalTo(Type* t) const
     { return t->isReference() && to->identicalTo(PReference(t)->to); }
@@ -227,25 +217,19 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 }
 
 
-str Ordinal::definition() const
+str Ordinal::definition(const str& ident) const
 {
     switch(typeId)
     {
     case INT:
-        if (left == INTEGER_MIN && right == INTEGER_MAX)
-            return "int";
-        else
-            return to_string(left) + ".." + to_string(right);
+        return to_string(left) + ".." + to_string(right);
     case CHAR:
-        if (left == 0 && right == 255)
-            return "char";
-        else
-            return to_quoted(uchar(left)) + ".." + to_quoted(uchar(right));
-    default:
-        assert(false);
-        return "?";
+        return to_quoted(uchar(left)) + ".." + to_quoted(uchar(right));
+        break;
+    default: return "?"; break;
     }
 }
+
 
 bool Ordinal::canConvertTo(Type* t) const
     { return t->is(typeId); }
@@ -270,29 +254,30 @@ Ordinal* Enumeration::_createSubrange(integer l, integer r)
     { return new Enumeration(values, l, r); }
 
 
-void Enumeration::addValue(Scope* scope, const str& ident)
+void Enumeration::addValue(State* state, const str& ident)
 {
     integer n = integer(values.size());
     if (n >= 256)
         throw emessage("Maximum number of enum constants reached");
-    Definition* d = scope->addDefinition(ident, this, n);
+    Definition* d = state->addDefinition(ident, this, n);
     values.push_back(d);
     reassignRight(n);
 }
 
 
-str Enumeration::definition() const
+str Enumeration::definition(const str& ident) const
 {
+    str result;
     if (left > 0 || right < values.size() - 1)
-        return values[0]->name + ".." + values[right]->name;
+        result = values[0]->name + ".." + values[right]->name;
     else
     {
-        str result = "enum(";
+        result = "enum(";
         for (memint i = 0; i < values.size(); i++)
             result += (i ? ", " : "") + values[i]->name;
         result += ')';
-        return result;
     }
+    return result;
 }
 
 
@@ -323,15 +308,15 @@ Container::Container(Type* i, Type* e)
 Container::~Container()
     { }
 
-str Container::definition() const
+str Container::definition(const str& ident) const
 {
     if (isSet())
-        return index->definition() + "<>";
+        return index->definition(ident) + "<>";
     else
     {
-        str result = elem->definition() + '[';
+        str result = elem->definition(ident) + '[';
         if (!isVec())
-            result += index->definition();
+            result += index->definition("");
         result += ']';
         return result;
     }
@@ -345,23 +330,41 @@ State::State(TypeId _id, State* parent)
     : Type(_id), Scope(parent)  { }
 
 State::~State()
-    { selfVars.release_all(); }
+{
+    selfVars.release_all();
+    defs.release_all();
+    types.release_all();
+}
+
+Type* State::_registerType(Type* t)
+    { t->setHost(this); types.push_back(t->ref<Type>()); return t; }
+
+
+Definition* State::addDefinition(const str& n, Type* t, const variant& v)
+{
+    objptr<Definition> d = new Definition(n, t, v);
+    addUnique(d); // may throw
+    defs.push_back(d->ref<Definition>());
+    return d;
+}
+
+
+Definition* State::addTypeAlias(const str& n, Type* t)
+{
+    if (type->host == this)
+        type->setAlias(n);
+    return addDefinition(n, defTypeRef, t);
+}
 
 
 // --- Module -------------------------------------------------------------- //
 
 
 Module::Module(const str& _name)
-    : State(MODULE, NULL), name(_name)  { }
+    : State(MODULE, NULL)  { setAlias(_name); }
 
 Module::~Module()
     { }
-
-str Module::definition() const
-    { return name; }
-
-Type* Module::_registerType(Type* t)
-    { t->setHost(this); types.push_back(t); return t; }
 
 
 // --- QueenBee ------------------------------------------------------------ //

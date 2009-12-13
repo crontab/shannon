@@ -877,31 +877,30 @@ str to_quoted(const str& s)
 // --- object collection --------------------------------------------------- //
 
 
-symbol::~symbol()  { }
-
-symvec_impl::cont symvec_impl::null;
-
-template class podvec<symbol*>;
-
-container* symvec_impl::cont::new_(memint cap, memint siz)
-    { return new(cap) cont(cap, siz); }
-
-container* symvec_impl::cont::null_obj()
-    { return &symvec_impl::null; }
-
-memint symvec_impl::cont::compare(memint index, void* key) const
-    { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
-
-symvec_impl::cont::~cont()
-    { }
-
-void symvec_impl::release_all()
+void objvec_impl::release_all()
 {
     memint count = size();
     while (count--)
         operator[](count)->release();
     clear();
 }
+
+
+symbol::~symbol()  { }
+
+symtbl::cont symtbl::null;
+
+container* symtbl::cont::new_(memint cap, memint siz)
+    { return new(cap) cont(cap, siz); }
+
+container* symtbl::cont::null_obj()
+    { return &symtbl::null; }
+
+memint symtbl::cont::compare(memint index, void* key) const
+    { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
+
+symtbl::cont::~cont()
+    { }
 
 
 // --- ecmessag/emessage --------------------------------------------------- //

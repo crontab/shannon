@@ -661,7 +661,38 @@ template <class Tkey, class Tval, class Comp>
     typename dict<Tkey, Tval, Comp>::cont dict<Tkey, Tval, Comp>::null;
 
 
-// --- object collection --------------------------------------------------- //
+// --- object collections -------------------------------------------------- //
+
+
+// For internal use in the compiler itself
+
+class objvec_impl: public podvec<object*>
+{
+protected:
+    typedef podvec<object*> parent;
+    objvec_impl(container* o): parent(o)  { }
+public:
+    objvec_impl(): parent()  { }
+    objvec_impl(const objvec_impl& s): parent(s)  { }
+    void release_all();
+};
+
+
+template <class T>
+class objvec: public objvec_impl
+{
+protected:
+    typedef objvec_impl parent;
+    objvec(container* o): parent(o)         { }
+public:
+    objvec(): parent()                      { }
+    objvec(const objvec& s): parent(s)      { }
+    T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
+    T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
+    T* back() const                         { return cast<T*>(parent::back()); }
+    void push_back(T* t)                    { parent::push_back(t); }
+    void insert(memint pos, T* t)           { parent::insert(pos, t); }
+};
 
 
 class symbol: public object
@@ -674,12 +705,10 @@ public:
 };
 
 
-// Collection of pointers to symbol objects, possibly sorted, not "owned"
-
-class symvec_impl: public podvec<symbol*>
+class symtbl: public objvec<symbol>
 {
 protected:
-    typedef podvec<symbol*> parent;
+    typedef objvec<symbol> parent;
 
     class cont: public str::cont
     {
@@ -696,30 +725,10 @@ protected:
     static cont null;
 
 public:
-    symvec_impl(): parent(&null)  { }
-    symvec_impl(const symvec_impl& s): parent(s)  { }
-    void release_all();
-};
-
-
-template <class T>
-class symvec: public symvec_impl
-{
-    typedef symvec_impl parent;
-public:
-    symvec(): parent()                      { }
-    symvec(const symvec& s): parent(s)      { }
-    T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
-    T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
-    T* back() const                         { return cast<T*>(parent::back()); }
-    void push_back(T* t)                    { parent::push_back(t); }
-    void pop_back()                         { parent::pop_back(); }
-    void insert(memint pos, T* t)           { parent::insert(pos, t); }
+    symtbl(): parent(&null)  { }
+    symtbl(const symtbl& s): parent(s)  { }
     bool bsearch(const str& n, memint& i) const  { return parent::bsearch(n, i); }
 };
-
-
-extern template class podvec<symbol*>;
 
 
 // --- ecmessag/emessage/esyserr ------------------------------------------- //
