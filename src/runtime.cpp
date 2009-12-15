@@ -250,8 +250,8 @@ void contptr::_init(container* factory, const char* buf, memint len)
 }
 
 
-void contptr::_fin()
-    { if (!empty()) obj->release(); }
+// void contptr::_fin()
+//     { if (!empty()) obj->release(); }
 
 
 const char* contptr::back(memint i) const
@@ -946,12 +946,12 @@ esyserr::~esyserr()  { }
 
 
 template class vector<variant>;
-template class podvec<variant>;
 template class set<variant>;
 template class dict<variant, variant>;
+template class podvec<variant>;
 
 
-variant::_None variant::none;
+variant::_None variant::null;
 
 
 void variant::_fin_refcnt()

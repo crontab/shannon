@@ -83,24 +83,32 @@ void _fatal(int code);
 void notimpl();
 
 
-template<class T>
+template <class T>
     inline T imax(T x, T y)  { return (x > y) ? x : y; }
 
-template<class T>
+template <class T>
     inline T imin(T x, T y)  { return (x < y) ? x : y; }
 
 template <class T>
     inline T exchange(T& target, const T& value)
         { T temp = target; target = value; return temp; }
 
+
 template <class T, class X>
-    T cast(X x)
+    inline T cast(const X& x)  
 #ifdef DEBUG
         { return dynamic_cast<T>(x); }
 #else
         { return (T)x; }
 #endif
 
+/*
+#ifdef DEBUG
+#  define CAST(T, x) (dynamic_cast<T>(x))
+#else
+#  define CAST(T, x) ((T)(x))
+#endif
+*/
 
 template <class Container, class Tint>
 inline bool bsearch(const Container& cont, Tint high, void* key, Tint& idx)

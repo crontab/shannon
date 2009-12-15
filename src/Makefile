@@ -7,10 +7,10 @@ CXXROPTS = $(ARCH) $(SHBITS) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/parser.o \
-    debug/typesys.o
+    debug/typesys.o debug/vm.o
 
 ROBJS = release/common.o release/charset.o release/runtime.o release/parser.o \
-    release/typesys.o
+    release/typesys.o release/vm.o
 
 SRCS = common.cpp charset.cpp runtime.cpp parser.cpp typesys.cpp \
     main.cpp main-ut.cpp

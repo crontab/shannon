@@ -17,6 +17,8 @@
 		365B729010C2861200D14118 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B728E10C2861200D14118 /* runtime.cpp */; };
 		36A416BF10D3CD850069568A /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A416BE10D3CD850069568A /* parser.cpp */; };
 		36A416C010D3CD850069568A /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A416BE10D3CD850069568A /* parser.cpp */; };
+		36A419EC10D5630D0069568A /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A419EA10D5630D0069568A /* vm.cpp */; };
+		36A419ED10D5630D0069568A /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A419EA10D5630D0069568A /* vm.cpp */; };
 		36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 		36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 /* End PBXBuildFile section */
@@ -56,6 +58,8 @@
 		365B728E10C2861200D14118 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		36A416BD10D3CD850069568A /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
 		36A416BE10D3CD850069568A /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = src/parser.cpp; sourceTree = "<group>"; };
+		36A419EA10D5630D0069568A /* vm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vm.cpp; path = src/vm.cpp; sourceTree = "<group>"; };
+		36A419EB10D5630D0069568A /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vm.h; path = src/vm.h; sourceTree = "<group>"; };
 		36C3887810C9A6E100CD1B37 /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
 		36C3887910C9A6E100CD1B37 /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
@@ -95,6 +99,8 @@
 			children = (
 				363C70ED0EF70F4400866D2C /* main.cpp */,
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
+				36A419EB10D5630D0069568A /* vm.h */,
+				36A419EA10D5630D0069568A /* vm.cpp */,
 				36C3887810C9A6E100CD1B37 /* typesys.h */,
 				36C3887910C9A6E100CD1B37 /* typesys.cpp */,
 				36A416BD10D3CD850069568A /* parser.h */,
@@ -196,6 +202,7 @@
 				365B729010C2861200D14118 /* runtime.cpp in Sources */,
 				36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 				36A416BF10D3CD850069568A /* parser.cpp in Sources */,
+				36A419EC10D5630D0069568A /* vm.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,6 +216,7 @@
 				365B728F10C2861200D14118 /* runtime.cpp in Sources */,
 				36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 				36A416C010D3CD850069568A /* parser.cpp in Sources */,
+				36A419ED10D5630D0069568A /* vm.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
