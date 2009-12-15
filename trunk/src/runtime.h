@@ -81,7 +81,7 @@ public:
 // --- range --------------------------------------------------------------- //
 
 /*
-class range: public noncopyable
+class range: noncopyable
 {
     friend class variant;
 protected:
@@ -119,7 +119,7 @@ public:
 // --- ordset -------------------------------------------------------------- //
 
 
-class ordset: public noncopyable
+class ordset: noncopyable
 {
     friend void test_ordset();
     friend class variant;
@@ -216,9 +216,12 @@ public:
 // at the same time; i.e. the object pointer "obj" is never NULL and always 
 // points to an object of a correct class with instantiation methods, as well
 // as other virtual methods needed for container functionality (see class
-// container). Contptr can't be used directly.
+// container). Contptr can't be used directly. Contptr and all its dscendants
+// always have a size of (void*) and never have virtual methods. All
+// functionality is implemented in the descendants of container, while contptr
+// family is just a facede, mostly inlined.
 
-class contptr: public noncopyable
+class contptr: noncopyable
 {
     friend class variant;
 
@@ -228,7 +231,7 @@ protected:
     void _init(const contptr& s)        { obj = s.obj->ref(); }
     char* _init(container* factory, memint);
     void _init(container* factory, const char*, memint);
-    void _fin();                        // { if (!empty()) obj->release(); }
+    void _fin()                         { if (!empty()) obj->release(); }
     bool unique() const                 { return obj->unique(); }
     char* mkunique();
     void chkidx(memint i) const         { if (umemint(i) >= umemint(obj->size())) container::idxerr(); }
@@ -268,7 +271,7 @@ public:
     void append(const char* buf, memint len);
     void append(const contptr& s);
     void erase(memint pos, memint len)  { if (len) _erasenz(pos, len); }
-    void push_back(char c)              { *_appendnz(1) = c; }
+//    void push_back(char c)              { *_appendnz(1) = c; }
     void pop_back(memint len)           { if (len) _popnz(len); }
 
     char* resize(memint);
@@ -283,6 +286,8 @@ public:
     template <class T>
         const T* back() const           { return (T*)back(sizeof(T)); }
     template <class T>
+        void push_back(const T& t)      { new(_appendnz(sizeof(T))) T(t); }
+    template <class T>
         bool bsearch(const T& key, memint& index) const
             { return obj->bsearch((void*)&key, index, size() / sizeof(T)); }
 };
@@ -290,8 +295,6 @@ public:
 
 // --- string -------------------------------------------------------------- //
 
-
-// The string class
 
 class str: public contptr
 {
@@ -416,11 +419,17 @@ public:
     const T& back() const                   { return *parent::back<T>(); }
     void clear()                            { parent::clear(); }
     void operator= (const podvec& v)        { parent::operator= (v); }
-    void push_back(const T& t)              { new(parent::_appendnz(Tsize)) T(t); }
+    void push_back(const T& t)              { new(_appendnz(Tsize)) T(t); }
     void pop_back()                         { parent::pop_back(Tsize); }
-    void insert(memint pos, const T& t)     { new(parent::_insertnz(pos * Tsize, Tsize)) T(t); }
+    void insert(memint pos, const T& t)     { new(_insertnz(pos * Tsize, Tsize)) T(t); }
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
+    void replace_back(const T& t)           { *parent::atw<T>(size() - 1) = t; }
     void erase(memint pos)                  { parent::_erasenz(pos * Tsize, Tsize); }
+
+    T* reserve(memint cnt)
+        { if (cnt) return (T*)_appendnz(cnt * Tsize); else return NULL; }
+    void free(memint cnt)
+        { if (cnt) _popnz(cnt * Tsize); }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are
@@ -490,6 +499,13 @@ template <class T>
 
 // --- set ----------------------------------------------------------------- //
 
+
+// Sets and maps are essentially sorted vectors. The comparison method works
+// like strcmp(): it returns negative, 0, or positive. For any custom element
+// type for sets and maps a comparator must be provided if the default
+// subtraction doesn't work. Note that comparators return memint result, which
+// is always of the same size as (void*), but may be smaller than the deafult
+// "integer" type (see common.h)
 
 template <class T>
     struct comparator
@@ -770,13 +786,15 @@ public:
 
 // --- variant ------------------------------------------------------------- //
 
+class variant;
 
 typedef vector<variant> varvec;
 typedef set<variant> varset;
 typedef dict<variant, variant> vardict;
+typedef podvec<variant> varpool;
 
 
-class variant: public noncopyable
+class variant
 {
     friend void test_variant();
 
@@ -787,17 +805,16 @@ public:
             REFCNT = STR };
 
     struct _None { int dummy; }; 
-    static _None none;
+    static _None null;
 
 protected:
-
     Type type;
     union
     {
-        integer     _ord;      // int, char and bool
-        real        _real;
-        object*     _obj;
-        rtobject*   _rtobj;
+        integer     _ord;       // int, char and bool
+        real        _real;      // not implemented in the VM yet
+        object*     _obj;       // str, vector, set, map and their variantons
+        rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
 
     static void _type_err();
@@ -836,6 +853,7 @@ public:
     variant(const variant& v)           { _init(v); }
     template <class T>
         variant(const T& v)             { _init(v); }
+    variant(Type t, object* o)          { _init(t, o); }
     ~variant()                          { _fin(); }
 
     template <class T>
@@ -926,7 +944,6 @@ protected:
 #endif
     variant vars[0];
     stateobj(State* t);
-
 public:
     static stateobj* new_(State* state);
     ~stateobj();
@@ -984,8 +1001,8 @@ protected:
     // Minimal set of methods required for both character and variant FIFO
     // operations. Implementations should guarantee variants will never be
     // fragmented, so that a buffer returned by get_tail() always contains at
-    // least sizeof(variant) bytes (8, 12 or 16 bytes depending on the host
-    // platform) in variant mode, or at least 1 byte in character mode.
+    // least sizeof(variant) bytes (8, 12 or 16 bytes depending on the config.
+    // and platform) in variant mode, or at least 1 byte in character mode.
     virtual const char* get_tail();          // Get a pointer to tail data
     virtual const char* get_tail(memint*);   // ... also return the length
     virtual void deq_bytes(memint);          // Discard n consecutive bytes returned by get_tail()

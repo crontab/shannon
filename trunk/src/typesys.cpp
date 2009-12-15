@@ -1,5 +1,6 @@
 
 #include "typesys.h"
+#include "vm.h"
 
 
 // --- Symbols & Scope ----------------------------------------------------- //
@@ -100,8 +101,8 @@ void typeMismatch()
 
 
 Type::Type(TypeId id)
-    : rtobject(id == TYPEREF ? this : defTypeRef.get()), typeId(id),
-      host(NULL), derivedVec(NULL), derivedSet(NULL)  { }
+    : rtobject(id == TYPEREF ? this : defTypeRef.get()),
+      host(NULL), derivedVec(NULL), derivedSet(NULL), typeId(id)  { }
 
 Type::~Type()
     { }
@@ -121,7 +122,7 @@ bool Type::isString() const
 bool Type::identicalTo(Type* t) const
     { return t == this; }
 
-bool Type::canConvertTo(Type* t) const
+bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
 
 
@@ -186,8 +187,8 @@ str Reference::definition(const str& ident) const
 bool Reference::identicalTo(Type* t) const
     { return t->isReference() && to->identicalTo(PReference(t)->to); }
 
-bool Reference::canConvertTo(Type* t) const
-    { return t->isReference() && to->canConvertTo(PReference(t)->to); }
+bool Reference::canAssignTo(Type* t) const
+    { return t->isReference() && to->canAssignTo(PReference(t)->to); }
 
 
 // --- Ordinals ------------------------------------------------------------ //
@@ -228,8 +229,8 @@ str Ordinal::definition(const str& ident) const
 }
 
 
-bool Ordinal::canConvertTo(Type* t) const
-    { return t->is(typeId); }
+bool Ordinal::canAssignTo(Type* t) const
+    { return t->typeId == typeId; }
 
 
 // --- //
@@ -278,8 +279,8 @@ str Enumeration::definition(const str& ident) const
 }
 
 
-bool Enumeration::canConvertTo(Type* t) const
-    { return t->is(typeId) && values == PEnumeration(t)->values; }
+bool Enumeration::canAssignTo(Type* t) const
+    { return t->typeId == typeId && values == PEnumeration(t)->values; }
 
 
 // --- Containers ---------------------------------------------------------- //
@@ -319,12 +320,18 @@ str Container::definition(const str& ident) const
     }
 }
 
+bool Container::identicalTo(Type* t) const
+{
+    return t->isAnyCont() && elem->identicalTo(PContainer(t)->elem)
+        && index->identicalTo(PContainer(t)->index);
+}
+
 
 // --- State --------------------------------------------------------------- //
 
 
 State::State(TypeId _id, State* parent)
-    : Type(_id), Scope(parent)  { }
+    : Type(_id), Scope(parent), code(new CodeSeg())  { }
 
 State::~State()
 {
@@ -378,6 +385,7 @@ QueenBee::QueenBee()
 {
     addTypeAlias("typeref", registerType(defTypeRef));
     addTypeAlias("none", registerType(defNone));
+    addDefinition("null", defNone, variant::null);
     addTypeAlias("any", registerType(defVariant));
     addTypeAlias("int", registerType(defInt));
     addTypeAlias("char", registerType(defChar));

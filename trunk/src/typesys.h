@@ -125,7 +125,6 @@ public:
         FIFO, FUNC, PROC, OBJECT, MODULE };
 
 protected:
-    TypeId const typeId;
     str alias;      // for more readable diagnostics output, but not really needed
     State* host;    // derivators are inserted into the hosts's repository
     Container* derivedVec;
@@ -138,9 +137,9 @@ protected:
     static TypeId contType(Type* i, Type* e);
 
 public:
-    ~Type();
+    TypeId const typeId;
 
-    bool is(TypeId t) const     { return typeId == t; }
+    ~Type();
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
     bool isNone() const         { return typeId == NONE; }
@@ -173,7 +172,7 @@ public:
 
     virtual str definition(const str& ident) const;
     virtual bool identicalTo(Type*) const;
-    virtual bool canConvertTo(Type*) const;
+    virtual bool canAssignTo(Type*) const;
 
     Container* deriveVec();
     Container* deriveSet();
@@ -223,7 +222,7 @@ public:
     ~Reference();
     str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
-    bool canConvertTo(Type* t) const;
+    bool canAssignTo(Type* t) const;
 };
 
 
@@ -243,7 +242,7 @@ public:
     integer const left;
     integer const right;
     str definition(const str& ident) const;
-    bool canConvertTo(Type*) const;
+    bool canAssignTo(Type*) const;
     bool isSmallOrd() const
         { return left >= 0 && right <= 255; }
     bool isBitOrd() const
@@ -265,7 +264,7 @@ public:
     Enumeration();                                  // user-defined enums
     ~Enumeration();
     str definition(const str& ident) const;
-    bool canConvertTo(Type*) const;
+    bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
 };
 
@@ -284,6 +283,7 @@ public:
     Type* const elem;
     ~Container();
     str definition(const str& ident) const;
+    bool identicalTo(Type*) const;
 };
 
 
@@ -292,19 +292,22 @@ public:
 
 class State: public Type, public Scope
 {
+    friend class CodeSeg;
+    friend class CodeGen;
 protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
+    objptr<CodeSeg> code;
     Type* _registerType(Type*);
 public:
     State(TypeId, State* parent);
     ~State();
-    memint selfVarCount() { return selfVars.size(); }
+    memint selfVarCount()               { return selfVars.size(); }
     template <class T>
-        T* registerType(T* t)  { return (T*)_registerType(t); }
+        T* registerType(T* t)           { return (T*)_registerType(t); }
     template <class T>
-        T* registerType(objptr<T> t)  { return (T*)_registerType(t); }
+        T* registerType(objptr<T> t)    { return (T*)_registerType(t); }
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
 };
@@ -315,9 +318,12 @@ public:
 
 class Module: public State
 {
+protected:
+    set<str> stringConsts; // TODO: find duplicates?
 public:
     Module(const str& _name);
     ~Module();
+    str registerString(const str&);
 };
 
 

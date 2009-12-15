@@ -1,14 +1,20 @@
 
-* Drop Python-like syntax. Comments are C++-style. # is for directives. $ is
-  for run-time symbols (keyword-like string literals).
+* $ is for run-time symbols (keyword-like string literals) (?)
 
-* Set constructors use <>. Set type is defined as, e.g. char myset<>. Operator
-  <> tests presence of an item in a set or a key in a map. Set delete and add
-  operations? "unset" maybe? The <> operator can be applicable even to vectors
-  
-* Fifos are defined as char myfifo[..] (?)
+* Vector constructor is a comma-separated list of expressions. Can be enclosed
+  in parentheses of course. A single element can be automatically converted to
+  a vector when necessary. Same for char/str, since char is not distinguishable
+  deom string syntactically anyway.
 
-* Enqueue and dequeue operators: << and >>, like the iostream operators in C++
+* Dicts and sets are declared as "elem-type name[index-type]". For sets the
+  element type is "none". Operator "in" is applicable to both dicts and sets.
+  Dict/set constructors are in square brackets.
+
+* Fifos are defined as "elem-type name<>"
+
+* Enqueue and dequeue operators: << and >>, like the iostream operators in C++.
+  The leftmost operand is always a fifo. (Precedence compared to the pipe
+  operator "||" ?)
 
 * All values except states are immutable unless declared as references with the
   ^ type derivator. Operation ^ (prefix) makes a value a reference. Dereference
@@ -64,6 +70,9 @@
 
 * Compiler directives: DEBUG ON|OFF  RANGE_CHECK ON|OFF  ASSERT ON|OFF
   ECHO ON|OFF  MARKUP ON|OFF (syntax?)
+
+* Two versions of the binary: debug and release. Debug helps to debug both the
+  program (assertions, dumps and range checking are on) and the compiler itself
 
 * := assignment as a function?
 
