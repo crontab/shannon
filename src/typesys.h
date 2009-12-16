@@ -127,8 +127,10 @@ public:
 protected:
     str alias;      // for more readable diagnostics output, but not really needed
     State* host;    // derivators are inserted into the hosts's repository
+
     Container* derivedVec;
     Container* derivedSet;
+    dict<Type*, Container*> derivedDicts;
 
     Type(TypeId);
     bool empty() const;
@@ -176,6 +178,7 @@ public:
 
     Container* deriveVec();
     Container* deriveSet();
+    Container* deriveDict(Type* elemType);
 };
 
 
@@ -319,11 +322,11 @@ public:
 class Module: public State
 {
 protected:
-    set<str> stringConsts; // TODO: find duplicates?
+    set<str> constStrings; // TODO: find duplicates?
 public:
     Module(const str& _name);
     ~Module();
-    str registerString(const str&);
+    void registerString(str&); // may return a previously registered string if found
 };
 
 

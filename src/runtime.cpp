@@ -144,9 +144,6 @@ void container::overflow()
 void container::idxerr()
     { fatal(0x1003, "Container index error"); }
 
-memint container::compare(memint index, void* key) const
-    { _fatal(0x1004); return 0; }
-
 
 inline memint container::calc_prealloc(memint newsize)
 {
@@ -196,35 +193,12 @@ container* container::realloc(memint newsize)
     return (container*)_realloc(this, sizeof(*this), _capacity);
 }
 
-
+/*
 bool container::bsearch(void* key, memint& index, memint count) const
 {
     return ::bsearch(*this, count - 1, key, index);
 }
-/*
-{
-    memint l, i, c;
-    l = 0;
-    h--;
-    bool ret = false;
-    while (l <= h) 
-    {
-        i = (l + h) / 2;
-        c = compare(i, key);
-        if (c < 0)
-            l = i + 1;
-        else
-        {
-            h = i - 1;
-            if (c == 0)
-                ret = true;
-        }
-    }
-    index = l;
-    return ret;
-}
 */
-
 
 char* contptr::_init(container* factory, memint len)
 {
@@ -892,19 +866,11 @@ void objvec_impl::release_all()
 
 symbol::~symbol()  { }
 
-symtbl::cont symtbl::null;
+memint symtbl::compare(memint i, const str& key) const
+    { comparator<str> comp; return comp(operator[](i)->name, key); }
 
-container* symtbl::cont::new_(memint cap, memint siz)
-    { return new(cap) cont(cap, siz); }
-
-container* symtbl::cont::null_obj()
-    { return &symtbl::null; }
-
-memint symtbl::cont::compare(memint index, void* key) const
-    { return (*container::data<symbol*>(index))->name.compare(*(str*)key); }
-
-symtbl::cont::~cont()
-    { }
+bool symtbl::bsearch(const str& key, memint& index) const
+    { return ::bsearch(*this, parent::size() - 1, key, index); }
 
 
 // --- ecmessag/emessage --------------------------------------------------- //

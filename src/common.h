@@ -110,8 +110,8 @@ template <class T, class X>
 #endif
 */
 
-template <class Container, class Tint>
-inline bool bsearch(const Container& cont, Tint high, void* key, Tint& idx)
+template <class Container, class Key, class Tint>
+inline bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
 {
     idx = 0;
     Tint low = 0;

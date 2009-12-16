@@ -436,7 +436,7 @@ void test_variant()
         check(v1.empty() && v1.is(variant::NONE));
     }
     {
-        variant v1 = variant::none;
+        variant v1 = variant::null;
         check(v1.empty() && v1.is_none());
         variant v2 = v1;
         check(v2.empty() && v2.is_none());
@@ -597,6 +597,10 @@ void test_typesys()
     check(b != NULL && b->isDefinition());
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
+    
+    Container* cont1 = defTypeRef->deriveDict(queenBee->defChar);
+    Container* cont2 = defTypeRef->deriveDict(queenBee->defChar);
+    check(cont1 == cont2);
 }
 
 
