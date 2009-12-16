@@ -194,14 +194,12 @@ protected:
         { assert(newsize > 0 && newsize <= _capacity); _size = newsize; }
     void dec_size()             { assert(_size > 0); _size--; }
     container* ref()            { return (container*)_refnz(); }
-    bool bsearch(void* key, memint& i, memint count) const;
     
 public:
     virtual container* new_(memint cap, memint siz) = 0;
     virtual container* null_obj() = 0;
     virtual void finalize(void*, memint) = 0;
     virtual void copy(void* dest, const void* src, memint) = 0;
-    virtual memint compare(memint index, void* key) const; // aborts
 
     container(): _capacity(0), _size(0)  { } // for the _null object
     container(memint cap, memint siz)
@@ -287,9 +285,6 @@ public:
         const T* back() const           { return (T*)back(sizeof(T)); }
     template <class T>
         void push_back(const T& t)      { new(_appendnz(sizeof(T))) T(t); }
-    template <class T>
-        bool bsearch(const T& key, memint& index) const
-            { return obj->bsearch((void*)&key, index, size() / sizeof(T)); }
 };
 
 
@@ -393,6 +388,19 @@ str to_quoted(const str&);
 // --- podvec -------------------------------------------------------------- //
 
 
+template <class T>
+    struct comparator
+        { memint operator() (const T& a, const T& b) { return memint(a - b); } };
+
+template <>
+    struct comparator<str>
+        { memint operator() (const str& a, const str& b) { return a.compare(b); } };
+
+template <>
+    struct comparator<const char*>
+        { memint operator() (const char* a, const char* b) { return strcmp(a, b); } };
+
+
 // Vector template for POD elements (int, pointers, et al). Used internally
 // by the compiler itself. Also podvec is a basis for the universal vector.
 // This hopefully generates minimal static code.
@@ -441,6 +449,12 @@ public:
         void insert(memint pos, const U& u) { new(parent::_insertnz(pos * Tsize, Tsize)) T(u); }
     template <class U>
         void replace(memint pos, const U& u) { *parent::atw<T>(pos) = u; }
+
+    memint compare(memint i, const T& elem) const
+        { comparator<T> comp; return comp(operator[](i), elem); }
+
+    bool bsearch(const T& elem, memint& index) const
+        { return ::bsearch(*this, size() - 1, elem, index); }
 };
 
 
@@ -484,8 +498,6 @@ protected:
         }
     };
 
-    vector(container* o): parent(o)  { }
-
 public:
     vector(): parent(&null)  { }
 
@@ -508,63 +520,27 @@ template <class T>
 // "integer" type (see common.h)
 
 template <class T>
-    struct comparator
-        { memint operator() (const T& a, const T& b) { return memint(a - b); } };
-
-template <>
-    struct comparator<str>
-        { memint operator() (const str& a, const str& b) { return a.compare(b); } };
-
-template <>
-    struct comparator<const char*>
-        { memint operator() (const char* a, const char* b) { return strcmp(a, b); } };
-
-
-template <class T, class Comp = comparator<T> >
-class set: protected vector<T>
+class set: public vector<T>
 {
 protected:
     typedef vector<T> parent;
     typedef T* Tptr;
     typedef Tptr& Tref;
-    
-    class cont: public parent::cont
-    {
-        typedef typename parent::cont parent;
-        container* new_(memint cap, memint siz) { return new(cap) cont(cap, siz); }
-        container* null_obj()                   { return &set::null; }
-        memint compare(memint index, void* key) const
-        {
-            static Comp comp;
-            return comp(*container::data<T>(index), *Tptr(key));
-        }
-    public:
-        cont(): parent()  { }
-        cont(memint cap, memint siz): parent(cap, siz)  { }
-        ~cont()  { }
-    };
-
-    static cont null;
 
 public:
-    set(): parent(&null)                     { }
-    set(const set& s): parent(s)             { }
-
-    bool empty() const                       { return parent::empty(); }
-    memint size() const                      { return parent::size(); }
-    bool operator== (const set& s) const     { return parent::operator==(s); }
-    const T& operator[] (memint index) const { return parent::operator[] (index); }
+    set(): parent()                             { }
+    set(const set& s): parent(s)                { }
 
     bool has(const T& item) const
     {
         memint index;
-        return contptr::bsearch<T>(item, index);
+        return bsearch(item, index);
     }
 
     bool insert(const T& item)
     {
         memint index;
-        if (!contptr::bsearch<T>(item, index))
+        if (!bsearch(item, index))
         {
             parent::insert(index, item);
             return true;
@@ -576,14 +552,10 @@ public:
     void erase(const T& item)
     {
         memint index;
-        if (contptr::bsearch<T>(item, index))
+        if (bsearch(item, index))
             parent::erase(index);
     }
 };
-
-
-template <class T, class Comp>
-    typename set<T, Comp>::cont set<T, Comp>::null;
 
 
 // --- dict ---------------------------------------------------------------- //
@@ -601,8 +573,8 @@ public:
 };
 
 
-template <class Tkey, class Tval, class Comp = comparator<Tkey> >
-class dict: protected vector<objptr<dictitem<Tkey, Tval> > >
+template <class Tkey, class Tval >
+class dict: public vector<objptr<dictitem<Tkey, Tval> > >
 {
 protected:
     typedef dictitem<Tkey, Tval> Titem;
@@ -612,34 +584,10 @@ protected:
     typedef Tptr& Tref;
     enum { Tsize = sizeof(T) };
 
-    class cont: public parent::cont
-    {
-        typedef typename parent::cont parent;
-        container* new_(memint cap, memint siz)
-            { return new(cap) cont(cap, siz); }
-        container* null_obj()
-            { return &dict::null; }
-        memint compare(memint index, void* key) const
-        {
-            static Comp comp;
-            return comp((*container::data<T>(index))->key, *(Tkey*)key);
-        }
-    public:
-        cont(): parent()  { }
-        cont(memint cap, memint siz): parent(cap, siz)  { }
-        ~cont()  { }
-    };
-
-    static cont null;
-
 public:
-    dict(): parent(&null)                   { }
+    dict(): parent()                        { }
     dict(const dict& s): parent(s)          { }
     
-    bool empty() const                      { return parent::empty(); }
-    memint size() const                     { return parent::size(); }
-    bool operator== (const dict& s) const   { return parent::operator==(s); }
-
     typedef Titem item_type;
     const item_type& operator[] (memint index) const
         { return *parent::operator[] (index); }
@@ -647,7 +595,7 @@ public:
     const Tval* find(const Tkey& key) const
     {
         memint index;
-        if (contptr::bsearch<Tkey>(key, index))
+        if (bsearch(key, index))
             return &parent::operator[] (index)->val;
         else
             return NULL;
@@ -656,7 +604,7 @@ public:
     void replace(const Tkey& key, const Tval& val)
     {
         memint index;
-        if (!contptr::bsearch<Tkey>(key, index))
+        if (!bsearch(key, index))
             parent::insert(index, new Titem(key, val));
         else if (parent::unique())
             (parent::operator[] (index))->val = val;
@@ -667,14 +615,16 @@ public:
     void erase(const Tkey& key)
     {
         memint index;
-        if (contptr::bsearch<Tkey>(key, index))
+        if (bsearch(key, index))
             parent::erase(index);
     }
+
+    memint compare(memint i, const Tkey& key) const
+        { comparator<Tkey> comp; return comp(operator[](i).key, key); }
+
+    bool bsearch(const Tkey& key, memint& index) const
+        { return ::bsearch(*this, parent::size() - 1, key, index); }
 };
-
-
-template <class Tkey, class Tval, class Comp>
-    typename dict<Tkey, Tval, Comp>::cont dict<Tkey, Tval, Comp>::null;
 
 
 // --- object collections -------------------------------------------------- //
@@ -686,7 +636,6 @@ class objvec_impl: public podvec<object*>
 {
 protected:
     typedef podvec<object*> parent;
-    objvec_impl(container* o): parent(o)  { }
 public:
     objvec_impl(): parent()  { }
     objvec_impl(const objvec_impl& s): parent(s)  { }
@@ -699,7 +648,6 @@ class objvec: public objvec_impl
 {
 protected:
     typedef objvec_impl parent;
-    objvec(container* o): parent(o)         { }
 public:
     objvec(): parent()                      { }
     objvec(const objvec& s): parent(s)      { }
@@ -726,24 +674,12 @@ class symtbl: public objvec<symbol>
 protected:
     typedef objvec<symbol> parent;
 
-    class cont: public str::cont
-    {
-        typedef str::cont parent;
-        container* new_(memint cap, memint siz);
-        container* null_obj();
-        memint compare(memint index, void* key) const;
-    public:
-        cont(): parent()  { }
-        cont(memint cap, memint siz): parent(cap, siz)  { }
-        ~cont();
-    };
-
-    static cont null;
-
 public:
-    symtbl(): parent(&null)  { }
+    symtbl(): parent()  { }
     symtbl(const symtbl& s): parent(s)  { }
-    bool bsearch(const str& n, memint& i) const  { return parent::bsearch(n, i); }
+
+    memint compare(memint i, const str& key) const;
+    bool bsearch(const str& key, memint& index) const;
 };
 
 
@@ -901,6 +837,7 @@ public:
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
     const vardict& as_dict()      const { _req(DICT); return _dict(); }
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
+    object*     as_anyobj()       const { if (!is_refcnt()) _type_err(); return val._obj; }
     integer&    as_ord()                { _req(ORD); return _ord(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }

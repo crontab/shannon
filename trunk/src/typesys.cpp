@@ -160,6 +160,20 @@ Container* Type::deriveSet()
 }
 
 
+Container* Type::deriveDict(Type* elemType)
+{
+    memint i;
+    if (derivedDicts.bsearch(elemType, i))
+        return derivedDicts[i].val;
+    else
+    {
+        Container* cont = host->registerType(new Container(this, elemType));
+        derivedDicts.insert(i, new dictitem<Type*, Container*>(elemType, cont));
+        return cont;
+    }
+}
+
+
 // --- General Types ------------------------------------------------------- //
 
 
@@ -370,6 +384,14 @@ Module::Module(const str& _name)
 Module::~Module()
     { }
 
+void Module::registerString(str& s)
+{
+    memint i;
+    if (constStrings.bsearch(s, i))
+        s = constStrings[i];
+    else
+        constStrings.insert(s);
+}
 
 // --- QueenBee ------------------------------------------------------------ //
 

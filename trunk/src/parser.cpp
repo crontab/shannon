@@ -23,13 +23,13 @@ public:
         }
     }
 
-    int compare(int index, void* b) const
-        { return strcmp(keywords[index].kw, (const char*)b); }
+    int compare(int index, const char* b) const
+        { return strcmp(keywords[index].kw, b); }
 
     Token find(const char* s)
     {
         int index;
-        if (::bsearch(*this, count - 1, (void*)s, index))
+        if (::bsearch(*this, count - 1, s, index))
             return keywords[index].token;
         else
             return tokUndefined;

@@ -145,10 +145,10 @@ void CodeGen::loadConst(Type* type, const variant& value)
     //       NULLCONT, VEC, SET, DICT, FIFO, FUNC, PROC, OBJECT, MODULE
     switch (type->typeId)
     {
-    case Type::TYPEREF: addOp(opLoadTypeRef, value._rtobj()); break;
-    case Type::NONE: addOp(opLoadNull); break;
-    case Type::VARIANT: error("Variant constants are not supported"); break;
-    case Type::REF: error("Reference constants are not supported"); break;
+    case Type::TYPEREF:     addOp(opLoadTypeRef, value._rtobj()); break;
+    case Type::NONE:        addOp(opLoadNull); break;
+    case Type::VARIANT:     error("Variant constants are not supported"); break;
+    case Type::REF:         error("Reference constants are not supported"); break;
     case Type::BOOL:
     case Type::CHAR:
     case Type::INT:
@@ -166,7 +166,18 @@ void CodeGen::loadConst(Type* type, const variant& value)
         }
         break;
     case Type::NULLCONT: addOp(opLoadNull); break;
-    default: notimpl();
+    case Type::VEC:
+    case Type::SET:
+    case Type::DICT:
+    case Type::FIFO:
+    case Type::FUNC:
+    case Type::PROC:
+    case Type::OBJECT:
+    case Type::MODULE:
+        addOp(opLoadConstObj);
+        add<uchar>(value.getType());
+        add<object*>(value.as_anyobj());
+        break;
     }
     stkPush(type);
 }
