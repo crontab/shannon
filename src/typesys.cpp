@@ -23,11 +23,18 @@ Definition::~Definition()  { }
 
 Type* Definition::aliasedType() const
 {
-    if (value.is(variant::RTOBJ) && value._rtobj()->type->isTypeRef())
+    if (value.is(variant::RTOBJ) && value._rtobj()->getType()->isTypeRef())
         return cast<Type*>(value._rtobj());
     else
         return NULL;
 }
+
+
+Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state)
+    : Symbol(_name, _sid, _type), id(_id), state(_state)  { }
+
+Variable::~Variable()
+    { }
 
 
 EDuplicate::EDuplicate(const str& _ident): ident(_ident)  { }
@@ -116,9 +123,6 @@ bool Type::isSmallOrd() const
 bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
 
-bool Type::isString() const
-    { return isVec() && PContainer(this)->elem->isChar(); }
-
 bool Type::identicalTo(Type* t) const
     { return t == this; }
 
@@ -160,8 +164,12 @@ Container* Type::deriveSet()
 }
 
 
-Container* Type::deriveDict(Type* elemType)
+Container* Type::deriveContainer(Type* elemType)
 {
+    if (this->isNone())
+        return elemType->deriveVec();
+    if (elemType->isNone())
+        return deriveSet();
     memint i;
     if (derivedDicts.bsearch(elemType, i))
         return derivedDicts[i].val;
@@ -322,16 +330,11 @@ Container::~Container()
 
 str Container::definition(const str& ident) const
 {
-    if (isSet())
-        return index->definition(ident) + "<>";
-    else
-    {
-        str result = elem->definition(ident) + '[';
-        if (!isVec())
-            result += index->definition("");
-        result += ']';
-        return result;
-    }
+    str result = elem->definition(ident) + '[';
+    if (!isVec())
+        result += index->definition("");
+    result += ']';
+    return result;
 }
 
 bool Container::identicalTo(Type* t) const
@@ -345,7 +348,7 @@ bool Container::identicalTo(Type* t) const
 
 
 State::State(TypeId _id, State* parent)
-    : Type(_id), Scope(parent), code(new CodeSeg())  { }
+    : Type(_id), Scope(parent)  { }
 
 State::~State()
 {
@@ -369,9 +372,16 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 Definition* State::addTypeAlias(const str& n, Type* t)
 {
-    if (type->host == this)
-        type->setAlias(n);
+    if (getType()->host == this)
+        getType()->setAlias(n);
     return addDefinition(n, defTypeRef, t);
+}
+
+
+void State::setInitCode(CodeSeg* code)
+{
+    assert(code->getType() == this);
+    addDefinition("__init", this, code);
 }
 
 
@@ -390,7 +400,7 @@ void Module::registerString(str& s)
     if (constStrings.bsearch(s, i))
         s = constStrings[i];
     else
-        constStrings.insert(s);
+        constStrings.insert(i, s);
 }
 
 // --- QueenBee ------------------------------------------------------------ //

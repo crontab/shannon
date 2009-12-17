@@ -71,9 +71,9 @@ class rtobject: public object
 protected:
     Type* _type;
 public:
-    Type*  const type;
-    rtobject(Type* t): type(t)  { }
+    rtobject(Type* t): _type(t)  { }
     ~rtobject();
+    Type* getType() const  { return _type; }
     virtual bool empty() const = 0;
 };
 
@@ -450,11 +450,39 @@ public:
     template <class U>
         void replace(memint pos, const U& u) { *parent::atw<T>(pos) = u; }
 
-    memint compare(memint i, const T& elem) const
-        { comparator<T> comp; return comp(operator[](i), elem); }
+    // If you keep the vector sorted, the following will provide a set-like
+    // functionality:
+    bool has(const T& item) const
+    {
+        memint index;
+        return bsearch(item, index);
+    }
 
+    bool find_insert(const T& item)
+    {
+        memint index;
+        if (!bsearch(item, index))
+        {
+            insert(index, item);
+            return true;
+        }
+        else
+            return false;
+    }
+
+    void find_erase(const T& item)
+    {
+        memint index;
+        if (bsearch(item, index))
+            erase(index);
+    }
+
+    // Internal methods, but should be public for technical reasons
     bool bsearch(const T& elem, memint& index) const
         { return ::bsearch(*this, size() - 1, elem, index); }
+
+    memint compare(memint i, const T& elem) const
+        { comparator<T> comp; return comp(operator[](i), elem); }
 };
 
 
@@ -509,55 +537,6 @@ template <class T>
     typename vector<T>::cont vector<T>::null;
 
 
-// --- set ----------------------------------------------------------------- //
-
-
-// Sets and maps are essentially sorted vectors. The comparison method works
-// like strcmp(): it returns negative, 0, or positive. For any custom element
-// type for sets and maps a comparator must be provided if the default
-// subtraction doesn't work. Note that comparators return memint result, which
-// is always of the same size as (void*), but may be smaller than the deafult
-// "integer" type (see common.h)
-
-template <class T>
-class set: public vector<T>
-{
-protected:
-    typedef vector<T> parent;
-    typedef T* Tptr;
-    typedef Tptr& Tref;
-
-public:
-    set(): parent()                             { }
-    set(const set& s): parent(s)                { }
-
-    bool has(const T& item) const
-    {
-        memint index;
-        return bsearch(item, index);
-    }
-
-    bool insert(const T& item)
-    {
-        memint index;
-        if (!bsearch(item, index))
-        {
-            parent::insert(index, item);
-            return true;
-        }
-        else
-            return false;
-    }
-
-    void erase(const T& item)
-    {
-        memint index;
-        if (bsearch(item, index))
-            parent::erase(index);
-    }
-};
-
-
 // --- dict ---------------------------------------------------------------- //
 
 
@@ -580,9 +559,6 @@ protected:
     typedef dictitem<Tkey, Tval> Titem;
     typedef objptr<Titem> T;
     typedef vector<T> parent;
-    typedef T* Tptr;
-    typedef Tptr& Tref;
-    enum { Tsize = sizeof(T) };
 
 public:
     dict(): parent()                        { }
@@ -601,7 +577,7 @@ public:
             return NULL;
     }
 
-    void replace(const Tkey& key, const Tval& val)
+    void find_replace(const Tkey& key, const Tval& val)
     {
         memint index;
         if (!bsearch(key, index))
@@ -612,7 +588,7 @@ public:
             parent::replace(index, new Titem(key, val));
     }
 
-    void erase(const Tkey& key)
+    void find_erase(const Tkey& key)
     {
         memint index;
         if (bsearch(key, index))
@@ -725,7 +701,7 @@ public:
 class variant;
 
 typedef vector<variant> varvec;
-typedef set<variant> varset;
+typedef varvec varset;
 typedef dict<variant, variant> vardict;
 typedef podvec<variant> varpool;
 
@@ -737,7 +713,7 @@ class variant
 public:
 
     enum Type
-        { NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ,
+        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
             REFCNT = STR };
 
     struct _None { int dummy; }; 
@@ -775,7 +751,6 @@ protected:
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
-    void _init(const varset& v)         { _init(SET, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
     void _init(const vardict& v)        { _init(DICT, v.obj); }
     void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
@@ -814,14 +789,14 @@ public:
     integer     _ord()            const { _dbg(ORD); return val._ord; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
-    const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
+    const varset& _set()          const { return _vec(); }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     integer&    _ord()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
-    varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
+    varset&     _set()                  { return _vec(); }
     ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
     vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
 
@@ -833,7 +808,7 @@ public:
     integer     as_ord()          const { _req(ORD); return _ord(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
-    const varset& as_set()        const { _req(SET); return _set(); }
+    const varset& as_set()        const { return as_vec(); }
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
     const vardict& as_dict()      const { _req(DICT); return _dict(); }
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
@@ -841,7 +816,7 @@ public:
     integer&    as_ord()                { _req(ORD); return _ord(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
-    varset&     as_set()                { _req(SET); return _set(); }
+    varset&     as_set()                { return as_vec(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
 };
@@ -852,7 +827,6 @@ template <>
 
 
 extern template class vector<variant>;
-extern template class set<variant>;
 extern template class dict<variant, variant>;
 extern template class podvec<variant>;
 
@@ -956,6 +930,7 @@ public:
 
     virtual bool empty() const;     // throws efifowronly
     virtual void flush();           // empty, overridden in file fifos
+    virtual str get_name() const = 0;
 
     // Main FIFO operations, work on both char and variant fifos; for char
     // fifos the variant is read as either a char or a string.
@@ -977,7 +952,6 @@ public:
     str  line();
     bool eol();
     void skip_eol();
-    static bool is_eol_char(char c)     { return c == '\r' || c == '\n'; }
     bool eof() const                    { return empty(); }
 
     memint  enq(const char* p, memint count)  { return enq_chars(p, count); }
@@ -1054,7 +1028,8 @@ public:
     ~memfifo();
 
     void clear();
-    bool empty() const;
+    bool empty() const;     // override
+    str get_name() const;   // override
 };
 
 
@@ -1099,8 +1074,9 @@ public:
     strfifo(Type*);
     strfifo(Type*, const str&);
     ~strfifo();
-    bool empty() const; // override
-    void flush(); // override
+    bool empty() const;     // override
+    void flush();           // override
+    str get_name() const;   // override
     str all() const;
 };
 
@@ -1123,9 +1099,9 @@ public:
     intext(Type*, const str& fn);
     ~intext();
     
-    bool empty() const; //override
-    str  get_file_name() const { return file_name; }
-    void open()                { empty(); /* attempt to fill the buffer */ }
+    bool empty() const;     //override
+    str get_name() const;   // override
+    void open()             { empty(); /* attempt to open */ }
 };
 
 
@@ -1145,9 +1121,9 @@ public:
     outtext(Type*, const str& fn);
     ~outtext();
 
-    str  get_file_name() const { return file_name; }
-    void flush(); // override
-    void open()                { flush(); }
+    void flush();           // override
+    str get_name() const;   // override
+    void open()             { flush(); /* attempt to open */ }
 };
 
 

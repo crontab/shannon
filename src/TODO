@@ -12,13 +12,24 @@
 
 * Fifos are defined as "elem-type name<>"
 
+* finally { ... } is a nested block which is executed if the enclosing block
+  reaches its end, i.e. the finally label. For states this is the destructor.
+  Not the same as try ... finally construct.
+
+* A code block in an expression is an anonymous function; the exact type is
+  determined by the target.
+
+* Tuples are almost like vectors, except element types are specified
+  individually. Can be used for returning multiple values from functions.
+
 * Enqueue and dequeue operators: << and >>, like the iostream operators in C++.
   The leftmost operand is always a fifo. (Precedence compared to the pipe
   operator "||" ?)
 
 * All values except states are immutable unless declared as references with the
   ^ type derivator. Operation ^ (prefix) makes a value a reference. Dereference
-  in expressions is automatic.
+  in expressions is automatic. A reference internally is represented as a 
+  pointer to an object and an offset inside it.
 
 * Typerefs must contain asterisk, e.g. int*[] to resolve ambiguity between type
   casts, function calls, state construction, and also function defs where the
@@ -58,8 +69,6 @@
 * Range types and ordinal sets should be mutually convertible
 
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
-
-* Composite return values?
 
 * Optimize function calls: if "self" is not used, define all local vars as
   just locals, not "this" vars. Actually this means if a function doesn't

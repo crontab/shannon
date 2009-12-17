@@ -912,7 +912,6 @@ esyserr::~esyserr()  { }
 
 
 template class vector<variant>;
-template class set<variant>;
 template class dict<variant, variant>;
 template class podvec<variant>;
 
@@ -929,7 +928,6 @@ void variant::_fin_refcnt()
     case REAL:      break;
     case STR:       _str().~str(); break;
     case VEC:       _vec().~varvec(); break;
-    case SET:       _set().~varset(); break;
     case ORDSET:    _ordset().~ordset(); break;
     case DICT:      _dict().~vardict(); break;
     case RTOBJ:     _rtobj()->release(); break;
@@ -964,7 +962,6 @@ memint variant::compare(const variant& v) const
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
-        case SET:
         case ORDSET:
         case DICT:
         case RTOBJ: return memint(_rtobj()) - memint(v._rtobj());
@@ -985,7 +982,6 @@ bool variant::operator== (const variant& v) const
         case REAL:      return val._real == v.val._real;
         case STR:       return _str() == v._str();
         case VEC:       return _vec() == v._vec();
-        case SET:       return _set() == v._set();
         case ORDSET:    return _ordset() == v._ordset();
         case DICT:      return _dict() == v._dict();
         case RTOBJ:     return _rtobj() == v._rtobj();
@@ -1004,7 +1000,6 @@ bool variant:: empty() const
     case REAL:      return val._real == 0;
     case STR:       return _str().empty();
     case VEC:       return _vec().empty();
-    case SET:       return _set().empty();
     case ORDSET:    return _ordset().empty();
     case DICT:      return _dict().empty();
     case RTOBJ:     return _rtobj()->empty();
@@ -1292,6 +1287,7 @@ memfifo::~memfifo()                     { clear(); }
 inline const char* memfifo::get_tail()  { return tail->data + tail_offs; }
 inline bool memfifo::empty() const      { return tail == NULL; }
 inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(_varsize); }
+str memfifo::get_name() const           { return "<memfifo>"; }
 
 
 void memfifo::clear()
@@ -1513,8 +1509,14 @@ memint buffifo::enq_chars(const char* p, memint count)
 // --- strfifo ------------------------------------------------------------- //
 
 
-strfifo::strfifo(Type* rt): buffifo(rt, true), string() {}
-strfifo::~strfifo() { }
+strfifo::strfifo(Type* rt)
+    : buffifo(rt, true), string()  {}
+
+strfifo::~strfifo()
+    { }
+
+str strfifo::get_name() const
+    { return "<strfifo>"; }
 
 
 strfifo::strfifo(Type* rt, const str& s)
@@ -1567,10 +1569,15 @@ str strfifo::all() const
 
 intext::intext(Type* rt, const str& fn)
     : buffifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
+
 intext::~intext()
     { if (_fd > 2) ::close(_fd); }
+
 void intext::error(int code)
     { _eof = true; throw esyserr(code, file_name); }
+
+str intext::get_name() const
+    { return file_name; }
 
 
 void intext::doopen()
@@ -1631,6 +1638,9 @@ outtext::~outtext()
 
 void outtext::error(int code)
     { _err = true; throw esyserr(code, file_name); }
+
+str outtext::get_name() const
+    { return file_name; }
 
 
 void outtext::flush()

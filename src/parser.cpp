@@ -85,9 +85,8 @@ EParser::EParser(const str& fn, int l, const str& m)
     : emessage(parserErrorStr(fn, l, m))  { }
 
 
-Parser::Parser(const str& fn, fifo* inp)
-    : fileName(fn), input(inp),
-      linenum(1), prevIdent(), saveToken(tokUndefined),
+Parser::Parser(fifo* inp)
+    : input(inp), linenum(1), prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 
 
@@ -96,7 +95,7 @@ Parser::~Parser()
 
 
 void Parser::error(const str& msg)
-    { throw EParser(fileName, linenum, msg); }
+    { throw EParser(getFileName(), linenum, msg); }
 
 void Parser::errorWithLoc(const str& msg)
     { error(msg + errorLocation()); }
@@ -129,6 +128,9 @@ const charset digits = "0-9";
 const charset printableChars = "~20-~7E~81-~FE";
 const charset commentChars = printableChars + wsChars;
 
+inline bool is_eol_char(char c)
+    { return c == '\n' || c == '\r'; }
+
 
 inline void Parser::skipWs()
     { input->skip(wsChars); }
@@ -153,7 +155,7 @@ void Parser::parseStringLiteral()
         if (input->eof())
             error("Unexpected end of file in string literal");
         char c = input->get();
-        if (input->is_eol_char(c))
+        if (is_eol_char(c))
             error("Unexpected end of line in string literal");
         if (c == '\'')
             return;
@@ -246,14 +248,18 @@ restart:
     }
 
     // --- EOL ---
-    else if (input->is_eol_char(c))
+    else if (is_eol_char(c))
     {
-        skipEol();
-        if (input->eol()) // another new line? just skip, do nothing
-            goto restart;
-        skipWs();
+        do
+        {
+            skipEol();
+            skipWs();
+        }
+        while (input->eol());
         if (input->preview() == '{')
             goto restart; // will return tokBlockBegin, even though it's on a new line
+        if (token == tokBlockBegin || token == tokBlockEnd || token == tokSingleBlock)
+            goto restart;
         strValue = "<EOL>";
         return token = tokSep;
     }
@@ -305,7 +311,7 @@ restart:
         case '.': return token = (input->get_if('.') ? tokRange : tokPeriod);
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': return token = tokSep;
-        case ':': return token = tokColon;
+        case ':': return token = tokSingleBlock;
         case '+': return token = tokPlus;
         case '-': return token = tokMinus;
         case '/': 

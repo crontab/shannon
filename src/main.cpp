@@ -34,18 +34,25 @@ protected:
     Type* stkTop()
         { return simStack.back(); }
     static void error(const char*);
-
+    void discardCode(memint from);
+    void revertLastLoad();
+    OpCode lastOp();
     void canAssign(Type* from, Type* to, const char* errmsg = NULL);
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
 
 public:
-    CodeGen(State*);
     CodeGen(CodeSeg*);  // for const expressions
     ~CodeGen();
     
+    memint getLocals()      { return locals; }
+    State* getState()       { return codeOwner; }
+    void deinitLocalVar(Variable*);
+    void discard();
+
      // NOTE: compound consts shoudl be held by a smart pointer somewhere else
     void loadConst(Type*, const variant&);
+    void loadEmptyCont(Container* type);
     void initRet()
         { addOp(opInitRet); stkPop(); }
     void end();
@@ -53,21 +60,31 @@ public:
 };
 
 
+class BlockScope: public Scope
+{
+protected:
+    objvec<Variable> localVars;      // owned
+    memint startId;
+    CodeGen* gen;
+public:
+    BlockScope(Scope* outer, CodeGen*);
+    ~BlockScope();
+    Variable* addLocalVar(const str&, Type*);
+    void deinitLocals();
+};
+
+
 // ------------------------------------------------------------------------- //
 
 
-void CodeGen::error(const char* msg)
-    { throw ecmessage(msg); }
-
-
-CodeGen::CodeGen(State* o)
-    : codeOwner(o), codeseg(o->code), locals(0), maxStack(0), lastOpOffs(-1)  { }
-
 CodeGen::CodeGen(CodeSeg* c)
-    : codeOwner(NULL), codeseg(c), locals(0), maxStack(0), lastOpOffs(-1)  { }
+    : codeOwner(c ? c->getType() : NULL), codeseg(c), locals(0), maxStack(0), lastOpOffs(-1)  { }
 
 CodeGen::~CodeGen()
     { }
+
+void CodeGen::error(const char* msg)
+    { throw ecmessage(msg); }
 
 
 memint CodeGen::addOp(OpCode op)
@@ -83,6 +100,32 @@ memint CodeGen::addOp(OpCode op, object* o)
     memint r = addOp(op);
     add(o);
     return r;
+}
+
+
+void CodeGen::discardCode(memint from)
+{
+    codeseg->resize(from);
+    if (lastOpOffs >= from)
+        lastOpOffs = memint(-1);
+}
+
+
+void CodeGen::revertLastLoad()
+{
+    if (isUndoableLoadOp(lastOp()))
+        discardCode(lastOpOffs);
+    else
+        // discard();
+        notimpl();
+}
+
+
+OpCode CodeGen::lastOp()
+{
+    if (lastOpOffs == memint(-1))
+        return opInv;
+    return OpCode(codeseg->at<uchar>(lastOpOffs));
 }
 
 
@@ -120,13 +163,35 @@ bool CodeGen::tryImplicitCast(Type* to)
     if (from == to || from->identicalTo(to))
         return true;
 
-    if (to->isVec() && from->canAssignTo(PContainer(to)->elem))
+    if (from->canAssignTo(to) || to->isVariant())
     {
-        addOp(from->isSmallOrd() ? opChrToStr : opElmToVec);
         stkReplaceTop(to);
         return true;
     }
-    
+
+    if (to->isVec() && from->canAssignTo(PContainer(to)->elem))
+    {
+        addOp(PContainer(to)->hasSmallElem() ? opChrToStr : opVarToVec);
+        stkReplaceTop(to);
+        return true;
+    }
+
+    if (from->isNullCont() && to->isAnyCont())
+    {
+        stkPop();
+        revertLastLoad();
+        loadEmptyCont(PContainer(to));
+        return true;
+    }
+
+    if (from->isReference())
+    {
+        Type* actual = PReference(from)->to;
+        addOp(opDeref);
+        stkReplaceTop(actual);
+        return tryImplicitCast(actual);
+    }
+
     return false;
 }
 
@@ -135,6 +200,25 @@ void CodeGen::implicitCast(Type* to, const char* errmsg)
 {
     if (!tryImplicitCast(to))
         error(errmsg == NULL ? "Type mismatch" : errmsg);
+}
+
+
+void CodeGen::deinitLocalVar(Variable* var)
+{
+    // This is called from BlockScope.
+    // TODO: don't generate POPs if at the end of a function
+    assert(var->isLocalVar());
+    assert(locals == simStack.size());
+    assert(var->id == locals - 1);
+    locals--;
+    discard();
+}
+
+
+void CodeGen::discard()
+{
+    stkPop();
+    addOp(opPop);
 }
 
 
@@ -166,6 +250,9 @@ void CodeGen::loadConst(Type* type, const variant& value)
         }
         break;
     case Type::NULLCONT: addOp(opLoadNull); break;
+
+    // All dynamic objects in the system are derived from "object" so copying
+    // involves only incrementing the ref counter.
     case Type::VEC:
     case Type::SET:
     case Type::DICT:
@@ -180,6 +267,26 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     }
     stkPush(type);
+}
+
+
+void CodeGen::loadEmptyCont(Container* contType)
+{
+    variant v;
+    switch (contType->typeId)
+    {
+    case Type::NULLCONT:
+        error("Container type undefined");
+    case Type::VEC:
+        if (contType->hasSmallElem()) v = str(); else v = varvec(); break;
+    case Type::SET: break;
+        if (contType->hasSmallIndex()) v = ordset(); else v = varset(); break;
+    case Type::DICT: break;
+        if (contType->hasSmallIndex()) v = varvec(); else v = vardict(); break;
+    default:
+        notimpl();
+    }
+    loadConst(contType, v);
 }
 
 
@@ -203,90 +310,86 @@ void CodeGen::runConstExpr(Type* expectType, variant& result)
 }
 
 
-// --- VIRTUAL MACHINE ----------------------------------------------------- //
+// --- BlockScope ---------------------------------------------------------- //
+
+// In principle this belongs to typesys.cpp but defined here because it uses
+// the codegen object for managing local vars.
 
 
-struct podvar { char data[sizeof(variant)]; };
-
-static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
-static void doExit()                { throw eexit(); }
-
-template<class T>
-    inline void PUSH(variant*& stk, const T& v)
-        { ::new(++stk) variant(v);  }
-
-inline void PUSH(variant*& stk, variant::Type type, object* obj)
-        { ::new(++stk) variant(type, obj);  }
-
-inline void POP(variant*& stk)
-        { (*stk--).~variant(); }
-
-inline void POPPOD(variant*& stk)
-        { assert(!stk->is_refcnt()); stk--; }
-
-inline void POPTO(variant*& stk, variant* dest)     // ... to uninitialized area
-        { *(podvar*)dest = *(podvar*)stk; stk--; }
-
-inline void STORETO(variant*& stk, variant* dest)   // pop and copy properly
-        { dest->~variant(); POPTO(stk, dest); }
-//        { *dest = *stk; POP(stk); }
-
-#define SETPOD(dest,v) (::new(dest) variant(v))
-
-#define BINARY_INT(op) { (stk - 1)->_intw() op stk->_int(); POPORD(stk); }
-#define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
+BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
+    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
-void CodeSeg::run(varpool& stack, rtobject* self, variant* result)
+BlockScope::~BlockScope()  { }
+
+
+void BlockScope::deinitLocals()
 {
-    // Make sure there's NULL char (opEnd) at the end
-    register const uchar* ip = (const uchar*)code.c_str();
-
-    // stk always points at an exisitng top element
-    variant* stkbase = stack.reserve(stackSize);
-    register variant* stk = stkbase - 1;
-
-    try
-    {
-loop:
-        switch(*ip++)
-        {
-        case opEnd:         goto exit;
-        case opNop:         break;
-        case opExit:        doExit(); break;
-
-        case opLoadTypeRef: PUSH(stk, ADV<Type*>(ip)); break;
-        case opLoadNull:    PUSH(stk, variant::null); break;
-        case opLoad0:       PUSH(stk, integer(0)); break;
-        case opLoad1:       PUSH(stk, integer(1)); break;
-        case opLoadOrd8:    PUSH(stk, integer(ADV<uchar>(ip))); break;
-        case opLoadOrd:     PUSH(stk, ADV<integer>(ip)); break;
-        case opLoadConstObj:
-            { uchar t = ADV<uchar>(ip); PUSH(stk, variant::Type(t), ADV<object*>(ip)); } break;
-
-        case opInitRet:     POPTO(stk, result); break;
-        case opChrToStr:    notimpl();
-        case opElmToVec:    notimpl();
-
-        default:            invOpcode(); break;
-        }
-        goto loop;
-exit:
-        if (stk != stkbase - 1)
-            fatal(0x5001, "Internal: stack unbalanced (corrupt code?)");
-        stack.free(stackSize);
-    }
-    catch(exception&)
-    {
-        while (stk >= stkbase)
-            POP(stk);
-        stack.free(stackSize);
-        throw;
-    }
+    for (memint i = localVars.size(); i--; )
+        gen->deinitLocalVar(localVars[i]);
 }
 
 
+Variable* BlockScope::addLocalVar(const str& name, Type* type)
+{
+    memint id = startId + localVars.size();
+    if (id >= 255)
+        throw ecmessage("Maximum number of local variables within this scope is reached");
+    objptr<Variable> v = new Variable(name, Symbol::LOCALVAR, type, id, gen->getState());
+    addUnique(v);   // may throw
+    localVars.push_back(v);
+    return v;
+}
+
+
+
 // --- HIS MAJESTY THE COMPILER -------------------------------------------- //
+
+
+struct CompilerOptions
+{
+    bool enableDump;
+    bool enableAssert;
+    bool linenumInfo;
+    bool vmListing;
+
+    CompilerOptions()
+      : enableDump(true), enableAssert(true), linenumInfo(true),
+        vmListing(true)  { }
+};
+
+
+class Compiler: protected Parser
+{
+    CompilerOptions options;
+
+    objptr<Module> module;
+    objptr<CodeSeg> codeseg;
+
+    CodeGen* codegen;
+    Scope* scope;           // for storing definitions
+    BlockScope* blockScope; // for local vars in nested blocks, can be NULL
+    State* state;           // for this-vars and type objects
+
+public:
+    Compiler(fifo*);
+    ~Compiler();
+    Module* compile();
+};
+
+
+Compiler::Compiler(fifo* f)
+    : Parser(f) { }
+
+Compiler::~Compiler()
+    { }
+
+
+Module* Compiler::compile()
+{
+
+    return module;
+}
 
 
 // --- tests --------------------------------------------------------------- //
@@ -308,15 +411,34 @@ void ut_fail(unsigned line, const char* e)
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
 
 
+void _test_vm_load(Type* type, const variant& v)
+{
+    CodeSeg code(NULL);
+    CodeGen gen(&code);
+    gen.loadConst(type, v);
+    variant result;
+    gen.runConstExpr(type, result);
+    check(result == v);
+}
+
+
 void test_vm1()
 {
+    _test_vm_load(queenBee->defInt, 21);
+    _test_vm_load(queenBee->defStr, "ABC");
+    _test_vm_load(defTypeRef, queenBee->defInt);
     {
-        CodeSeg code;
+        varvec v;
+        v.push_back(10);
+        _test_vm_load(queenBee->defInt->deriveVec(), v);
+    }
+    {
+        CodeSeg code(NULL);
         CodeGen gen(&code);
-        gen.loadConst(queenBee->defInt, 21);
+        gen.loadConst(queenBee->defNullCont, variant::null);
         variant result;
-        gen.runConstExpr(queenBee->defInt, result);
-        check(result == 21);
+        gen.runConstExpr(queenBee->defStr, result);
+        check(result == "");
     }
 }
 
