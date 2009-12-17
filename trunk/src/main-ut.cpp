@@ -377,16 +377,16 @@ void test_vector()
 
 void test_set()
 {
-    set<str> s1;
-    check(s1.insert("GHI"));
-    check(s1.insert("ABC"));
-    check(s1.insert("DEF"));
-    check(!s1.insert("ABC"));
+    vector<str> s1;
+    check(s1.find_insert("GHI"));
+    check(s1.find_insert("ABC"));
+    check(s1.find_insert("DEF"));
+    check(!s1.find_insert("ABC"));
     check(s1.size() == 3);
     check(s1[0] == "ABC");
     check(s1[1] == "DEF");
     check(s1[2] == "GHI");
-    s1.erase("DEF");
+    s1.find_erase("DEF");
     check(s1.size() == 2);
     check(s1[0] == "ABC");
     check(s1[1] == "GHI");
@@ -396,15 +396,15 @@ void test_set()
 void test_dict()
 {
     dict<str, int> d1;
-    d1.replace("three", 3);
-    d1.replace("one", 1);
-    d1.replace("two", 2);
+    d1.find_replace("three", 3);
+    d1.find_replace("one", 1);
+    d1.find_replace("two", 2);
     check(d1.size() == 3);
     check(d1[0].key == "one");
     check(d1[1].key == "three");
     check(d1[2].key == "two");
     dict<str, int> d2 = d1;
-    d1.erase("three");
+    d1.find_erase("three");
     check(d1.size() == 2);
     check(d1[0].key == "one");
     check(d1[1].key == "two");
@@ -479,9 +479,6 @@ void test_variant()
         v1 = v2;
     }
     {
-        variant v1 = varset(); check(v1.is(variant::SET));
-    }
-    {
         variant v1 = ordset(); check(v1.is(variant::ORDSET));
     }
     {
@@ -544,7 +541,7 @@ void test_fifos()
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is(variant::SET));
+    check(vr.is(variant::VEC));
 
     memfifo fc(NULL, true);
     test_bidir_char_fifo(fc);
@@ -572,22 +569,22 @@ void test_typesys()
 
     check(queenBee->defBool->definition("") == "enum(false, true)");
     check(defTypeRef->isTypeRef());
-    check(defTypeRef->type == defTypeRef);
+    check(defTypeRef->getType() == defTypeRef);
     check(defNone->isNone());
-    check(defNone->type == defTypeRef);
+    check(defNone->getType() == defTypeRef);
     check(queenBee->defInt->isInt());
-    check(queenBee->defInt->type == defTypeRef);
+    check(queenBee->defInt->getType() == defTypeRef);
     check(queenBee->defInt->isAnyOrd());
     check(queenBee->defBool->isBool());
-    check(queenBee->defBool->type == defTypeRef);
+    check(queenBee->defBool->getType() == defTypeRef);
     check(queenBee->defBool->isEnum());
     check(queenBee->defBool->isAnyOrd());
     check(queenBee->defBool->left == 0 && queenBee->defBool->right == 1);
     check(queenBee->defChar->isChar());
-    check(queenBee->defChar->type == defTypeRef);
+    check(queenBee->defChar->getType() == defTypeRef);
     check(queenBee->defChar->isAnyOrd());
-    check(queenBee->defStr->isString());
-    check(queenBee->defStr->type == defTypeRef);
+    check(queenBee->defStr->hasSmallElem());
+    check(queenBee->defStr->getType() == defTypeRef);
     check(queenBee->defStr->isVec());
     check(queenBee->defChar->deriveVec() == queenBee->defStr);
     check_throw(defNone->deriveSet());
@@ -598,8 +595,8 @@ void test_typesys()
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
     
-    Container* cont1 = defTypeRef->deriveDict(queenBee->defChar);
-    Container* cont2 = defTypeRef->deriveDict(queenBee->defChar);
+    Container* cont1 = defTypeRef->deriveContainer(queenBee->defChar);
+    Container* cont2 = defTypeRef->deriveContainer(queenBee->defChar);
     check(cont1 == cont2);
 }
 
@@ -607,7 +604,7 @@ void test_typesys()
 void test_parser()
 {
     {
-        Parser p("mem", new strfifo(NULL,
+        Parser p(new strfifo(NULL,
             INTEGER_MAX_STR"\n  "INTEGER_MAX_STR_PLUS"\n  if\n aaa"
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);

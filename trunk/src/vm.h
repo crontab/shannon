@@ -25,11 +25,14 @@ enum OpCode
     opLoadConstObj,     // [variant::Type:8, object*]
 
     opInitRet,          // -var
+    opDeref,            // -ref +var
+    opPop,              // -var
 
     opChrToStr,         // -ord +str
-    opElmToVec,         // -var +vec
-    
-    opMaxCode,
+    opVarToVec,         // -var +vec
+
+    opInv,
+    opMaxCode = opInv,
 };
 
 
@@ -37,17 +40,15 @@ inline bool isUndoableLoadOp(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadConstObj); }
 
 
-class CodeSeg: public object
+class CodeSeg: public rtobject
 {
-    str code;           // Hide even from "friends"
-
-protected:
     friend class CodeGen;
     friend class State;
 
+    str code;           // Hide even from "friends"
+
+protected:
     memint stackSize;   // Max stack size used without calls; to prealloc at runtime
-    memint fileName;    // consts index, set at run time by opLineNum
-    memint lineNum;     // Set by opLineNum; both to be used by opAssert
     
     // Code gen helpers
     void append(uchar u)            { code.push_back(u); }
@@ -68,10 +69,12 @@ protected:
     void failAssertion();
 
 public:
-    CodeSeg();
+    CodeSeg(State*);
     ~CodeSeg();
 
+    State* getType() const          { return cast<State*>(_type); }
     memint size() const             { return code.size(); }
+    bool empty() const;
 };
 
 

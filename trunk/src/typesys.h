@@ -69,7 +69,7 @@ class Variable: public Symbol
 public:
     memint const id;
     State* const state;
-    Variable(SymbolId, Type*, const str&, memint, State*);
+    Variable(const str&, SymbolId, Type*, memint, State*);
     ~Variable();
 };
 
@@ -161,7 +161,6 @@ public:
     bool isSet() const          { return typeId == SET; }
     bool isDict() const         { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
-    bool isString() const;
 
     bool isFifo() const         { return typeId == FIFO; }
     bool isCharFifo() const;
@@ -178,7 +177,7 @@ public:
 
     Container* deriveVec();
     Container* deriveSet();
-    Container* deriveDict(Type* elemType);
+    Container* deriveContainer(Type* elemType);
 };
 
 
@@ -287,6 +286,10 @@ public:
     ~Container();
     str definition(const str& ident) const;
     bool identicalTo(Type*) const;
+    bool hasSmallIndex() const
+        { return index->isSmallOrd(); }
+    bool hasSmallElem() const
+        { return elem->isSmallOrd(); }
 };
 
 
@@ -301,7 +304,7 @@ protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
-    objptr<CodeSeg> code;
+    CodeSeg* initCode;
     Type* _registerType(Type*);
 public:
     State(TypeId, State* parent);
@@ -313,6 +316,7 @@ public:
         T* registerType(objptr<T> t)    { return (T*)_registerType(t); }
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
+    void setInitCode(CodeSeg*);
 };
 
 
@@ -322,7 +326,7 @@ public:
 class Module: public State
 {
 protected:
-    set<str> constStrings; // TODO: find duplicates?
+    vector<str> constStrings;
 public:
     Module(const str& _name);
     ~Module();
@@ -346,6 +350,8 @@ public:
     Enumeration* const defBool;
     Container* const defStr;
     Container* const defNullCont;
+    // Because QueenBee can be shared between instances of the compiler,
+    // all entities here are read-only.
 };
 
 

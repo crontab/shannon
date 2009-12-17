@@ -15,7 +15,7 @@ struct EParser: public emessage
 enum Token
 {
     tokUndefined = -1,
-    tokBlockBegin, tokBlockEnd, tokColon, tokSep,
+    tokBlockBegin, tokBlockEnd, tokSingleBlock, tokSep,
     tokEof,
     tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
@@ -56,7 +56,6 @@ enum Token
 class Parser: noncopyable
 {
 protected:
-    str fileName;
     objptr<fifo> input;
     int linenum;
 
@@ -75,7 +74,7 @@ public:
     str strValue;
     uinteger intValue;
 
-    Parser(const str&, fifo*);
+    Parser(fifo*);
     ~Parser();
 
     Token next();
@@ -93,7 +92,7 @@ public:
             { if (token == tok) { next(); return true; } return false; }
     str getIdentifier();
 
-    str getFileName() const { return fileName; }
+    str getFileName() const { return input->get_name(); }
     int getLineNum() const { return linenum; }
 };
 
