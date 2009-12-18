@@ -1,7 +1,7 @@
 
 
 #include "runtime.h"
-#include "typesys.h"
+#include "typesys.h"  // for State used in stateobj
 
 
 // --- object & objptr ----------------------------------------------------- //
@@ -49,7 +49,7 @@ void object::operator delete(void* p)
 }
 
 
-object::~object()  { }
+object::~object() throw()  { }
 
 
 void object::release()
@@ -75,7 +75,7 @@ void object::_assignto(object*& p)
 }
 
 
-rtobject::~rtobject()
+rtobject::~rtobject() throw()
     { }
 
 
@@ -121,8 +121,8 @@ memint range::compare(const range& r) const
 
 // --- ordset -------------------------------------------------------------- //
 
-ordset::cont::cont() { }
-ordset::cont::~cont() { }
+ordset::cont::cont() throw() { }
+ordset::cont::~cont() throw() { }
 
 ordset::cont ordset::null;
 
@@ -144,7 +144,7 @@ void ordset::operator= (const ordset& s)
 // --- container & contptr ------------------------------------------------- //
 
 
-container::~container()
+container::~container() throw()
     { }
 
 void container::overflow()
@@ -202,12 +202,6 @@ container* container::realloc(memint newsize)
     return (container*)_realloc(this, sizeof(*this), _capacity);
 }
 
-/*
-bool container::bsearch(void* key, memint& index, memint count) const
-{
-    return ::bsearch(*this, count - 1, key, index);
-}
-*/
 
 char* contptr::_init(container* factory, memint len)
 {
@@ -481,7 +475,8 @@ void contptr::resize(memint newsize, char fill)
 // --- string -------------------------------------------------------------- //
 
 
-str::cont::~cont()  { }
+str::cont::~cont() throw()  { }
+
 
 str::cont str::null;
 
@@ -489,11 +484,14 @@ str::cont str::null;
 container* str::cont::new_(memint cap, memint siz)
     { return new(cap) cont(cap, siz); }
 
+
 container* str::cont::null_obj()
     { return &str::null; }
 
+
 void str::cont::finalize(void*, memint)
     { }
+
 
 void str::cont::copy(void* dest, const void* src, memint len)
     { ::memcpy(dest, src, len); }
@@ -873,10 +871,12 @@ void objvec_impl::release_all()
 }
 
 
-symbol::~symbol()  { }
+symbol::~symbol() throw()  { }
+
 
 memint symtbl::compare(memint i, const str& key) const
     { comparator<str> comp; return comp(operator[](i)->name, key); }
+
 
 bool symtbl::bsearch(const str& key, memint& index) const
     { return ::bsearch(*this, parent::size() - 1, key, index); }
@@ -885,14 +885,14 @@ bool symtbl::bsearch(const str& key, memint& index) const
 // --- Exceptions ---------------------------------------------------------- //
 
 
-ecmessage::ecmessage(const char* _msg): msg(_msg)  { }
-ecmessage::~ecmessage()  { }
-const char* ecmessage::what() const  { return msg; }
+ecmessage::ecmessage(const char* _msg) throw(): msg(_msg)  { }
+ecmessage::~ecmessage() throw()  { }
+const char* ecmessage::what() const throw()  { return msg; }
 
-emessage::emessage(const str& _msg): msg(_msg)  { }
-emessage::emessage(const char* _msg): msg(_msg)  { }
-emessage::~emessage()  { }
-const char* emessage::what() const  { return msg.c_str(); }
+emessage::emessage(const str& _msg) throw(): msg(_msg)  { }
+emessage::emessage(const char* _msg) throw(): msg(_msg)  { }
+emessage::~emessage() throw()  { }
+const char* emessage::what() const throw()  { return msg.c_str(); }
 
 
 static str sysErrorStr(int code, const str& arg)
@@ -911,10 +911,11 @@ static str sysErrorStr(int code, const str& arg)
 }
 
 
-esyserr::esyserr(int code, const str& arg)
+esyserr::esyserr(int code, const str& arg) throw()
     : emessage(sysErrorStr(code, arg))  { }
 
-esyserr::~esyserr()  { }
+
+esyserr::~esyserr() throw()  { }
 
 
 // --- variant ------------------------------------------------------------- //
@@ -1029,31 +1030,22 @@ void stateobj::idxerr()
     { fatal(0x1005, "Internal: object access error"); }
 #endif
 
-stateobj::stateobj(State* t)
+
+stateobj::stateobj(State* t) throw()
     : rtobject(t)  { }
+
 
 bool stateobj::empty() const
     { return false; }
 
-stateobj::~stateobj()
+
+stateobj::~stateobj() throw()
 {
     if (type() != NULL)
     {
         for (memint count = type()->selfVarCount(); count--; )
             vars[count].~variant();
     }
-}
-
-stateobj* stateobj::new_(State* type)
-{
-    memint varcount = type->selfVarCount();
-    if (varcount == 0)
-        return NULL;
-    stateobj* obj = new(varcount * sizeof(variant)) stateobj(type);
-#ifdef DEBUG
-    obj->varcount = varcount;
-#endif
-    return obj;
 }
 
 
@@ -1065,10 +1057,10 @@ memint memfifo::CHUNK_SIZE = _varsize * 16;
 #endif
 
 
-fifo::fifo(Type* rt, bool is_char)
+fifo::fifo(Type* rt, bool is_char) throw()
     : rtobject(rt), _is_char_fifo(is_char)  { }
 
-fifo::~fifo()
+fifo::~fifo() throw()
     { }
 
 void fifo::_empty_err()                { throw emessage("FIFO empty"); }
@@ -1289,11 +1281,11 @@ void fifo::enq(large i)         { enq(to_string(i)); }
 // --- memfifo ------------------------------------------------------------- //
 
 
-memfifo::memfifo(Type* rt, bool ch)
+memfifo::memfifo(Type* rt, bool ch) throw()
     : fifo(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
-memfifo::~memfifo()                     { clear(); }
+memfifo::~memfifo() throw()             { try { clear(); } catch(exception&) { } }
 inline const char* memfifo::get_tail()  { return tail->data + tail_offs; }
 inline bool memfifo::empty() const      { return tail == NULL; }
 inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(_varsize); }
@@ -1426,10 +1418,10 @@ memint memfifo::enq_chars(const char* p, memint count)
 // --- buffifo ------------------------------------------------------------- //
 
 
-buffifo::buffifo(Type* rt, bool is_char)
+buffifo::buffifo(Type* rt, bool is_char) throw()
   : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
 
-buffifo::~buffifo()  { }
+buffifo::~buffifo() throw()  { }
 bool buffifo::empty() const { _wronly_err(); return true; }
 void buffifo::flush() { _rdonly_err(); }
 
@@ -1519,17 +1511,12 @@ memint buffifo::enq_chars(const char* p, memint count)
 // --- strfifo ------------------------------------------------------------- //
 
 
-strfifo::strfifo(Type* rt)
-    : buffifo(rt, true), string()  {}
-
-strfifo::~strfifo()
-    { }
-
-str strfifo::get_name() const
-    { return "<strfifo>"; }
+strfifo::strfifo(Type* rt) throw()  : buffifo(rt, true), string()  {}
+strfifo::~strfifo() throw()         { }
+str strfifo::get_name() const       { return "<strfifo>"; }
 
 
-strfifo::strfifo(Type* rt, const str& s)
+strfifo::strfifo(Type* rt, const str& s) throw()
     : buffifo(rt, true), string(s)
 {
     buffer = (char*)s.data();
@@ -1577,17 +1564,12 @@ str strfifo::all() const
 // --- intext -------------------------------------------------------------- //
 
 
-intext::intext(Type* rt, const str& fn)
+intext::intext(Type* rt, const str& fn) throw()
     : buffifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
 
-intext::~intext()
-    { if (_fd > 2) ::close(_fd); }
-
-void intext::error(int code)
-    { _eof = true; throw esyserr(code, file_name); }
-
-str intext::get_name() const
-    { return file_name; }
+intext::~intext() throw()       { if (_fd > 2) ::close(_fd); }
+void intext::error(int code)    { _eof = true; throw esyserr(code, file_name); }
+str intext::get_name() const    { return file_name; }
 
 
 void intext::doopen()
@@ -1627,7 +1609,7 @@ bool intext::empty() const
 // --- outtext -------------------------------------------------------------- //
 
 
-outtext::outtext(Type* rt, const str& fn)
+outtext::outtext(Type* rt, const str& fn) throw()
     : buffifo(rt, true), file_name(fn), _fd(-1), _err(false)
 {
     filebuf.resize(outtext::BUF_SIZE);
@@ -1635,7 +1617,8 @@ outtext::outtext(Type* rt, const str& fn)
     bufsize = outtext::BUF_SIZE;
 }
 
-outtext::~outtext()
+
+outtext::~outtext() throw()
 {
     try
         { flush(); }
@@ -1648,6 +1631,7 @@ outtext::~outtext()
 
 void outtext::error(int code)
     { _err = true; throw esyserr(code, file_name); }
+
 
 str outtext::get_name() const
     { return file_name; }
@@ -1676,7 +1660,7 @@ void outtext::flush()
 // --- stdfile ------------------------------------------------------------- //
 
 
-stdfile::stdfile(int infd, int outfd)
+stdfile::stdfile(int infd, int outfd) throw()
     : intext(NULL, "<std>"), _ofd(outfd)
 {
     _fd = infd;
@@ -1691,8 +1675,9 @@ stdfile::stdfile(int infd, int outfd)
 }
 
 
-stdfile::~stdfile()
+stdfile::~stdfile() throw()
     { pdecrement(&refcount); }
+
 
 memint stdfile::enq_chars(const char* p, memint count)
     { return ::write(_ofd, p, count); }

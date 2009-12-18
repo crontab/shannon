@@ -105,3 +105,6 @@
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.
 
+* Polymorphic modules: modules are states so it is possible to have inheritance
+  and dynamic loading. What about used modules in dynamically loaded modules?
+

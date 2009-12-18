@@ -586,7 +586,7 @@ void test_typesys()
     check(queenBee->defStr->hasSmallElem());
     check(queenBee->defStr->getType() == defTypeRef);
     check(queenBee->defStr->isVec());
-    queenBee->registerContainer(defNone, defNone);
+//    queenBee->registerType(queenBee->defInt->deriveVec());
 
     Symbol* b = queenBee->findDeep("true");
     check(b != NULL && b->isDefinition());
@@ -619,6 +619,38 @@ void test_parser()
     }
 }
 
+/*
+static void _codegen_load(Type* type, const variant& v)
+{
+    CodeSeg code(NULL);
+    CodeGen gen(&code);
+    gen.loadConst(type, v);
+    variant result;
+    gen.runConstExpr(type, result);
+    check(result == v);
+}
+
+
+void test_codegen()
+{
+    _codegen_load(queenBee->defInt, 21);
+    _codegen_load(queenBee->defStr, "ABC");
+    _codegen_load(defTypeRef, queenBee->defInt);
+    {
+        varvec v;
+        v.push_back(10);
+        _codegen_load(queenBee->registerContainer(queenBee->defInt, defNone), v);
+    }
+    {
+        CodeSeg code(NULL);
+        CodeGen gen(&code);
+        gen.loadConst(queenBee->defNullCont, variant::null);
+        variant result;
+        gen.runConstExpr(queenBee->defStr, result);
+        check(result == "");
+    }
+}
+*/
 
 int main()
 {
@@ -665,6 +697,7 @@ int main()
         test_fifos();
         test_typesys();
         test_parser();
+//        test_codegen();
     }
     catch (exception& e)
     {

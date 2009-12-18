@@ -22,8 +22,8 @@ protected:
     object* _refnz()            { pincrement(&refcount); return this; }
 
 public:
-    object()                    : refcount(0) { }
-    virtual ~object();
+    object() throw()            : refcount(0) { }
+    virtual ~object() throw();
 
     static int allocated; // used only in DEBUG mode
 
@@ -68,11 +68,12 @@ class State;   // same
 
 class rtobject: public object
 {
+    friend void initTypeSys();
 protected:
     Type* _type;
 public:
-    rtobject(Type* t): _type(t)  { }
-    ~rtobject();
+    rtobject(Type* t) throw(): _type(t)  { }
+    ~rtobject() throw();
     Type* getType() const  { return _type; }
     virtual bool empty() const = 0;
 };
@@ -128,8 +129,8 @@ protected:
     {
     public:
         charset cset;
-        cont();
-        ~cont();
+        cont() throw();
+        ~cont() throw();
         bool empty() const  { return this == &ordset::null || cset.empty(); }
     };
     cont* obj;
@@ -201,10 +202,10 @@ public:
     virtual void finalize(void*, memint) = 0;
     virtual void copy(void* dest, const void* src, memint) = 0;
 
-    container(): _capacity(0), _size(0)  { } // for the _null object
-    container(memint cap, memint siz)
+    container() throw(): _capacity(0), _size(0)  { } // for the _null object
+    container(memint cap, memint siz) throw()
         : _capacity(cap), _size(siz)  { assert(siz > 0 && cap >= siz); }
-    ~container();
+    ~container() throw();
 };
 
 
@@ -311,9 +312,9 @@ public:
         void finalize(void*, memint);
         void copy(void* dest, const void* src, memint size);
     public:
-        cont(): container()  { }
-        cont(memint cap, memint siz): container(cap, siz)  { }
-        ~cont();
+        cont() throw(): container()  { }
+        cont(memint cap, memint siz) throw(): container(cap, siz)  { }
+        ~cont() throw();
     };
 
     str()                                   { _init(); }
@@ -517,9 +518,9 @@ protected:
                 new(dest) T(*Tptr(src));
         }
     public:
-        cont(): container()  { }
-        cont(memint cap, memint siz): container(cap, siz)  { }
-        ~cont()
+        cont() throw(): container()  { }
+        cont(memint cap, memint siz) throw(): container(cap, siz)  { }
+        ~cont() throw()
         {
             if (_size)
                 { finalize(data(), _size); _size = 0; }
@@ -546,9 +547,9 @@ class dictitem: public object
 public:
     const Tkey key;
     Tval val;
-    dictitem(const Tkey& _key, const Tval& _val)
+    dictitem(const Tkey& _key, const Tval& _val) throw()
         : key(_key), val(_val) { }
-    ~dictitem()  { }
+    ~dictitem() throw()  { }
 };
 
 
@@ -639,9 +640,9 @@ class symbol: public object
 {
 public:
     str const name;
-    symbol(const str& s): name(s)  { }
-    symbol(const char* s): name(s)  { }
-    ~symbol();
+    symbol(const str& s) throw(): name(s)  { }
+    symbol(const char* s) throw(): name(s)  { }
+    ~symbol() throw();
 };
 
 
@@ -667,10 +668,10 @@ class ecmessage: public exception
 {
 public:
     const char* msg;
-    ecmessage(const ecmessage&); // not defined
-    ecmessage(const char* _msg);
-    ~ecmessage();
-    const char* what() const;
+    ecmessage(const ecmessage&) throw(); // not defined
+    ecmessage(const char* _msg) throw();
+    ~ecmessage() throw();
+    const char* what() const throw();
 };
 
 
@@ -679,11 +680,11 @@ class emessage: public exception
 {
 public:
     str msg;
-    emessage(const emessage&); // not defined
-    emessage(const str& _msg);
-    emessage(const char* _msg);
-    ~emessage();
-    const char* what() const;
+    emessage(const emessage&) throw(); // not defined
+    emessage(const str& _msg) throw();
+    emessage(const char* _msg) throw();
+    ~emessage() throw();
+    const char* what() const throw();
 };
 
 
@@ -691,8 +692,8 @@ public:
 class esyserr: public emessage
 {
 public:
-    esyserr(int icode, const str& iArg = "");
-    ~esyserr();
+    esyserr(int icode, const str& iArg = "") throw();
+    ~esyserr() throw();
 };
 
 
@@ -846,22 +847,27 @@ extern template class podvec<variant>;
 
 class stateobj: public rtobject
 {
+    friend class State;
 protected:
 #ifdef DEBUG
     memint varcount;
     static void idxerr();
 #endif
     variant vars[0];
-    stateobj(State* t);
-    
+    stateobj(State* t) throw();
+
     // Get zeroed memory so that the destructor works correctly even if the
     // constructor failed in the middle. A zeroed variant is a null variant.
     void* operator new(size_t s, memint extra)
-        { return pmemcalloc(s + extra); }
+    {
+#ifdef DEBUG
+        pincrement(&object::allocated);
+#endif
+        return pmemcalloc(s + extra);
+    }
 
 public:
-    static stateobj* new_(State* state);
-    ~stateobj();
+    ~stateobj() throw();
     bool empty() const; // override
     State* type()  { return (State*)_type; }
     variant& var(memint index)
@@ -927,8 +933,8 @@ protected:
     void _token(const charset& chars, str* result);
 
 public:
-    fifo(Type*, bool is_char);
-    ~fifo();
+    fifo(Type*, bool is_char) throw();
+    ~fifo() throw();
 
     enum { CHAR_ALL = MEMINT_MAX - 2, CHAR_SOME = MEMINT_MAX - 1 };
 
@@ -1028,8 +1034,8 @@ protected:
     memint enq_avail();
 
 public:
-    memfifo(Type*, bool is_char);
-    ~memfifo();
+    memfifo(Type*, bool is_char) throw();
+    ~memfifo() throw();
 
     void clear();
     bool empty() const;     // override
@@ -1061,8 +1067,8 @@ protected:
     memint enq_avail();
 
 public:
-    buffifo(Type*, bool is_char);
-    ~buffifo();
+    buffifo(Type*, bool is_char) throw();
+    ~buffifo() throw();
 
     bool empty() const; // throws efifowronly
     void flush(); // throws efifordonly
@@ -1075,9 +1081,9 @@ protected:
     str string;
     void clear();
 public:
-    strfifo(Type*);
-    strfifo(Type*, const str&);
-    ~strfifo();
+    strfifo(Type*) throw();
+    strfifo(Type*, const str&) throw();
+    ~strfifo() throw();
     bool empty() const;     // override
     void flush();           // override
     str get_name() const;   // override
@@ -1100,8 +1106,8 @@ protected:
     void doread();
 
 public:
-    intext(Type*, const str& fn);
-    ~intext();
+    intext(Type*, const str& fn) throw();
+    ~intext() throw();
     
     bool empty() const;     //override
     str get_name() const;   // override
@@ -1122,8 +1128,8 @@ protected:
     void error(int code); // throws esyserr
 
 public:
-    outtext(Type*, const str& fn);
-    ~outtext();
+    outtext(Type*, const str& fn) throw();
+    ~outtext() throw();
 
     void flush();           // override
     str get_name() const;   // override
@@ -1139,8 +1145,8 @@ protected:
     int _ofd;
     virtual memint enq_chars(const char*, memint);
 public:
-    stdfile(int infd, int outfd);
-    ~stdfile();
+    stdfile(int infd, int outfd) throw();
+    ~stdfile() throw();
 };
 
 

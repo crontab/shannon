@@ -32,8 +32,8 @@ void notimpl()
 }
 
 
-exception::exception()  { }
-exception::~exception()  { }
+exception::exception() throw()  { }
+exception::~exception() throw()  { }
 
 void outofmemory()
 {

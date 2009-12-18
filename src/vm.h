@@ -24,8 +24,10 @@ enum OpCode
     opLoadNullCont,     // +null
     opLoadConstObj,     // [variant::Type:8, object*]
 
+    opStore,            // -var - ptr
+
     opInitRet,          // -var
-    opDeref,            // -ref +var
+    opDeref,            // -ptr +var
     opPop,              // -var
 
     opChrToStr,         // -ord +str
@@ -49,7 +51,7 @@ class CodeSeg: public rtobject
 
 protected:
     memint stackSize;   // Max stack size used without calls; to prealloc at runtime
-    
+
     // Code gen helpers
     void append(uchar u)            { code.push_back(u); }
     template <class T>
@@ -67,25 +69,12 @@ protected:
     void run(rtstack& stack, variant self[], variant result[]); // <-- this is the VM itself
 
 public:
-    CodeSeg(State*);
-    ~CodeSeg();
+    CodeSeg(State*) throw();
+    ~CodeSeg() throw();
 
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
     bool empty() const;
-};
-
-
-class MainCodeSeg: public CodeSeg
-{
-    typedef CodeSeg parent;
-protected:
-    void run(rtstack& stack, variant self[])
-        { parent::run(stack, self, NULL); }
-public:
-    MainCodeSeg(Module* m);
-    ~MainCodeSeg();
-    Module* getType() const         { return cast<Module*>(parent::getType()); }
 };
 
 
@@ -95,6 +84,58 @@ template<class T>
 
 
 DEF_EXCEPTION(eexit, "exit called");
+
+
+// --- Code Generator ------------------------------------------------------ //
+
+
+class CodeGen: noncopyable
+{
+protected:
+    State* codeOwner;
+    CodeSeg& codeseg;
+
+    objvec<Type> simStack;      // exec simulation stack
+    memint locals;              // number of local vars currently on the stack
+    memint maxStack;            // total stack slots needed without function calls
+    memint lastOpOffs;
+
+    template <class T>
+        void add(const T& t)    { codeseg.append<T>(t); }
+    memint addOp(OpCode op);
+    memint addOp(OpCode op, object* o);
+    void stkPush(Type*);
+    Type* stkPop();
+    void stkReplaceTop(Type* t);
+    Type* stkTop()
+        { return simStack.back(); }
+    static void error(const char*);
+    void discardCode(memint from);
+    void revertLastLoad();
+    OpCode lastOp();
+    void canAssign(Type* from, Type* to, const char* errmsg = NULL);
+    bool tryImplicitCast(Type*);
+    void implicitCast(Type*, const char* errmsg = NULL);
+
+public:
+    CodeGen(CodeSeg&);
+    ~CodeGen();
+    
+    memint getLocals()      { return locals; }
+    State* getState()       { return codeOwner; }
+    void deinitLocalVar(Variable*);
+    void discard();
+
+     // NOTE: compound consts shoudl be held by a smart pointer somewhere else
+    void loadConst(Type*, const variant&);
+
+    void loadEmptyCont(Container* type);
+    void store();
+    void initRet()
+        { addOp(opInitRet); stkPop(); }
+    void end();
+    void runConstExpr(Type* expectType, variant& result);
+};
 
 
 #endif // __VM_H
