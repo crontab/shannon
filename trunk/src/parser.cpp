@@ -387,3 +387,15 @@ void Parser::expect(Token tok, const char* errName)
     next();
 }
 
+
+bool isValidIdent(const str& s)
+{
+    if (s.empty())
+        return false;
+    if (!identFirst[s[0]])
+        return false;
+    for (memint i = 1; i < s.size(); i++)
+        if (!identRest[s[i]])
+            return false;
+    return true;
+}

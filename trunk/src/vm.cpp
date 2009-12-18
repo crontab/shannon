@@ -2,10 +2,10 @@
 #include "vm.h"
 
 
-CodeSeg::CodeSeg(State* stateType)
+CodeSeg::CodeSeg(State* stateType) throw()
     : rtobject(stateType), stackSize(0)  { }
 
-CodeSeg::~CodeSeg()
+CodeSeg::~CodeSeg() throw()
     { }
 
 bool CodeSeg::empty() const
@@ -71,6 +71,9 @@ loop:
         case opLoadOrd:     PUSH(stk, ADV<integer>(ip)); break;
         case opLoadConstObj:
             { int t = ADV<uchar>(ip); PUSH(stk, t, ADV<object*>(ip)); } break;
+
+        case opStore:
+            { variant* v = (stk - 1)->_ptr(); STORETO(stk, v); POPPOD(stk); } break;
 
         case opInitRet:     POPTO(stk, &result[0]); break;
         case opDeref:       { *stk = *(stk->_ptr()); } break;

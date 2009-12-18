@@ -1,9 +1,12 @@
 # DO NOT DELETE
 
-release/common.o: common.h
+release/common.o: common.h version.h
 release/charset.o: charset.h
-release/runtime.o: runtime.h charset.h common.h typesys.h
-release/parser.o: parser.h common.h charset.h runtime.h
-release/typesys.o: typesys.h runtime.h charset.h common.h vm.h
-release/main.o: common.h runtime.h charset.h parser.h typesys.h vm.h
-release/main-ut.o: common.h runtime.h charset.h parser.h typesys.h
+release/runtime.o: runtime.h charset.h common.h version.h typesys.h
+release/parser.o: parser.h common.h version.h charset.h runtime.h
+release/typesys.o: typesys.h runtime.h charset.h common.h version.h vm.h
+release/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h
+release/vmcodegen.o: vm.h common.h version.h runtime.h charset.h typesys.h
+release/main.o: common.h version.h runtime.h charset.h parser.h typesys.h
+release/main.o: vm.h
+release/main-ut.o: common.h version.h runtime.h charset.h parser.h typesys.h

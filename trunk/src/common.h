@@ -15,6 +15,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include "version.h"
+
 
 #if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
 #  define SINGLE_THREADED
@@ -144,9 +146,9 @@ public:
 
 struct exception // : public noncopyable -- doesn't work
 {
-    exception();
-    virtual ~exception();
-    virtual const char* what() const = 0;
+    exception() throw();
+    virtual ~exception() throw();
+    virtual const char* what() const throw() = 0;
 };
 
 
@@ -189,6 +191,8 @@ void  operator delete[](void*) throw();
 
 // --- ATOMIC OPERATIONS -------------------------------------------------- //
 
+
+// TODO: the atomic functions below should be 64-bit on a 64-bit platform
 
 #ifdef SINGLE_THREADED
 

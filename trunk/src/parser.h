@@ -97,4 +97,6 @@ public:
 };
 
 
+bool isValidIdent(const str&);
+
 #endif // __PARSER_H

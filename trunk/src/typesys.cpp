@@ -6,22 +6,30 @@
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
-Symbol::Symbol(const str& _name, SymbolId _id, Type* _type)
+Symbol::Symbol(const str& _name, SymbolId _id, Type* _type) throw()
     : symbol(_name), symbolId(_id), type(_type)  { }
 
-Symbol::~Symbol()
+
+Symbol::~Symbol() throw()
     { }
 
+
 bool Symbol::isTypeAlias() const
-    { return isDefinition() && PDefinition(this)->aliasedType() != NULL; }
+    { return isDefinition() && PDefinition(this)->getAliasedType() != NULL; }
 
 
-Definition::Definition(const str& _name, Type* _type, const variant& _value)
+// --- //
+
+
+Definition::Definition(const str& _name, Type* _type, const variant& _value) throw()
     : Symbol(_name, DEFINITION, _type), value(_value) { }
 
-Definition::~Definition()  { }
 
-Type* Definition::aliasedType() const
+Definition::~Definition() throw()
+    { }
+
+
+Type* Definition::getAliasedType() const
 {
     if (value.is(variant::RTOBJ) && value._rtobj()->getType()->isTypeRef())
         return cast<Type*>(value._rtobj());
@@ -30,20 +38,30 @@ Type* Definition::aliasedType() const
 }
 
 
-Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state)
+// --- //
+
+
+Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state) throw()
     : Symbol(_name, _sid, _type), id(_id), state(_state)  { }
 
-Variable::~Variable()
+
+Variable::~Variable() throw()
     { }
 
 
-EDuplicate::EDuplicate(const str& _ident): ident(_ident)  { }
-EDuplicate::~EDuplicate()  { }
-const char* EDuplicate::what() const  { return "Duplicate identifier"; }
+// --- //
 
-EUnknownIdent::EUnknownIdent(const str& _ident): ident(_ident)  { }
-EUnknownIdent::~EUnknownIdent()  { }
-const char* EUnknownIdent::what() const  { return "Unknown identifier"; }
+
+EDuplicate::EDuplicate(const str& _ident) throw(): ident(_ident)  { }
+EDuplicate::~EDuplicate() throw()  { }
+const char* EDuplicate::what() const throw()  { return "Duplicate identifier"; }
+
+EUnknownIdent::EUnknownIdent(const str& _ident) throw(): ident(_ident)  { }
+EUnknownIdent::~EUnknownIdent() throw()  { }
+const char* EUnknownIdent::what() const throw()  { return "Unknown identifier"; }
+
+
+// --- //
 
 
 Scope::Scope(Scope* _outer)
@@ -88,15 +106,39 @@ Symbol* Scope::findDeep(const str& ident) const
     Symbol* s = find(ident);
     if (s != NULL)
         return s;
-    for (memint i = uses.size(); i--; )
-    {
-        s = uses[i]->find(ident);
-        if (s != NULL)
-            return s;
-    }
     if (outer != NULL)
         return outer->findDeep(ident);
     throw EUnknownIdent(ident);
+}
+
+
+// --- //
+
+
+BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
+    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
+
+
+BlockScope::~BlockScope()
+    { localVars.release_all(); }
+
+
+void BlockScope::deinitLocals()
+{
+    for (memint i = localVars.size(); i--; )
+        gen->deinitLocalVar(localVars[i]);
+}
+
+
+Variable* BlockScope::addLocalVar(const str& name, Type* type)
+{
+    memint id = startId + localVars.size();
+    if (id >= 127)
+        throw ecmessage("Maximum number of local variables reached");
+    objptr<Variable> v = new Variable(name, Symbol::LOCALVAR, type, id, gen->getState());
+    addUnique(v);   // may throw
+    localVars.push_back(v);
+    return v;
 }
 
 
@@ -104,30 +146,33 @@ Symbol* Scope::findDeep(const str& ident) const
 
 
 void typeMismatch()
-        { throw ecmessage("Type mismatch"); }
+    { throw ecmessage("Type mismatch"); }
 
 
-Type::Type(TypeId id)
+Type::Type(TypeId id) throw()
     : rtobject(id == TYPEREF ? this : defTypeRef.get()), refType(NULL), typeId(id)
-{
-    if (id != REF)
-        refType = new Reference(this);
-}
+        { if (id != REF) refType = new Reference(this); }
 
-Type::~Type()
+
+Type::~Type() throw()
     { }
+
 
 bool Type::empty() const
     { return false; }
 
+
 bool Type::isSmallOrd() const
     { return isAnyOrd() && POrdinal(this)->isSmallOrd(); }
+
 
 bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
 
+
 bool Type::identicalTo(Type* t) const
     { return t == this; }
+
 
 bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
@@ -143,47 +188,82 @@ str Type::definition(const str& ident) const
 }
 
 
-#define new_Vector(x) (new Container(defNone, x))
-#define new_Set(x) (new Container(x, defNone))
+Container* Type::deriveVec()
+{
+    if (isNone())
+        return queenBee->defNullCont;
+    else if (isChar())
+        return queenBee->defStr;
+    else
+        return new Container(defNone, this);
+}
+
+
+Container* Type::deriveSet()
+{
+    if (isNone())
+        return queenBee->defNullCont;
+    else if (isChar())
+        return queenBee->defCharSet;
+    else
+        return new Container(this, defNone);
+}
+
+
+Container* Type::deriveDict(Type* elem)
+{
+    if (isNone())
+        return elem->deriveVec();
+    else if (elem->isNone())
+        return deriveSet();
+    else
+        return new Container(this, elem);
+}
 
 
 // --- General Types ------------------------------------------------------- //
 
 
-TypeReference::TypeReference(): Type(TYPEREF)  { }
-TypeReference::~TypeReference()  { }
+TypeReference::TypeReference() throw(): Type(TYPEREF)  { }
+TypeReference::~TypeReference() throw()  { }
 
 
-None::None(): Type(NONE)  { }
-None::~None()  { }
+None::None() throw(): Type(NONE)  { }
+None::~None() throw()  { }
 
 
-Variant::Variant(): Type(VARIANT)  { }
-Variant::~Variant()  { }
+Variant::Variant() throw(): Type(VARIANT)  { }
+Variant::~Variant() throw()  { }
 
 
-Reference::Reference(Type* _to)
+Reference::Reference(Type* _to) throw()
     : Type(REF), to(_to)  { }
 
-Reference::~Reference()
+
+Reference::~Reference() throw()
     { }
+
 
 str Reference::definition(const str& ident) const
     { return to->definition(ident) + '^'; }
 
+
 bool Reference::identicalTo(Type* t) const
-    { return t->isReference() && to->identicalTo(PReference(t)->to); }
+    { return this == t || (t->isReference()
+        && to->identicalTo(PReference(t)->to)); }
 
 
 // --- Ordinals ------------------------------------------------------------ //
 
 
-Ordinal::Ordinal(TypeId id, integer l, integer r)
+Ordinal::Ordinal(TypeId id, integer l, integer r) throw()
     : Type(id), left(l), right(r)
         { assert(isAnyOrd()); }
 
-Ordinal::~Ordinal()
+
+Ordinal::~Ordinal() throw()
     { }
+
 
 Ordinal* Ordinal::_createSubrange(integer l, integer r)
     { return new Ordinal(typeId, l, r); }
@@ -214,8 +294,8 @@ str Ordinal::definition(const str& ident) const
 
 
 bool Ordinal::identicalTo(Type* t) const
-    { return t->typeId == typeId
-        && left == POrdinal(t)->left && right == POrdinal(t)->right; }
+    { return this == t || (t->typeId == typeId
+        && left == POrdinal(t)->left && right == POrdinal(t)->right); }
 
 
 bool Ordinal::canAssignTo(Type* t) const
@@ -225,17 +305,21 @@ bool Ordinal::canAssignTo(Type* t) const
 // --- //
 
 
-Enumeration::Enumeration(TypeId id)
+Enumeration::Enumeration(TypeId id) throw()
     : Ordinal(id, 0, -1)  { }
 
-Enumeration::Enumeration(const EnumValues& v, integer l, integer r)
+
+Enumeration::Enumeration(const EnumValues& v, integer l, integer r) throw()
     : Ordinal(ENUM, l, r), values(v)  { }
 
-Enumeration::Enumeration()
+
+Enumeration::Enumeration() throw()
     : Ordinal(ENUM, 0, -1)  { }
 
-Enumeration::~Enumeration()
+
+Enumeration::~Enumeration() throw()
     { }
+
 
 Ordinal* Enumeration::_createSubrange(integer l, integer r)
     { return new Enumeration(values, l, r); }
@@ -293,11 +377,13 @@ Type::TypeId Type::contType(Type* i, Type* e)
 }
 
 
-Container::Container(Type* i, Type* e)
+Container::Container(Type* i, Type* e) throw()
     : Type(contType(i, e)), index(i), elem(e)  { }
 
-Container::~Container()
+
+Container::~Container() throw()
     { }
+
 
 str Container::definition(const str& ident) const
 {
@@ -308,21 +394,38 @@ str Container::definition(const str& ident) const
     return result;
 }
 
+
 bool Container::identicalTo(Type* t) const
 {
-    return t->isAnyCont() && elem->identicalTo(PContainer(t)->elem)
-        && index->identicalTo(PContainer(t)->index);
+    return this == t || (t->isAnyCont()
+        && elem->identicalTo(PContainer(t)->elem)
+        && index->identicalTo(PContainer(t)->index));
 }
+
+
+// --- Fifo ---------------------------------------------------------------- //
+
+
+Fifo::Fifo(Type* e) throw()
+    : Type(FIFO), elem(e)  { }
+
+
+Fifo::~Fifo() throw()
+    { }
+
+
+bool Fifo::identicalTo(Type* t) const
+    { return this == t || (t->isFifo() && elem->identicalTo(PFifo(t)->elem)); }
 
 
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId _id, State* parent)
+State::State(TypeId _id, State* parent) throw()
     : Type(_id), Scope(parent)  { }
 
 
-State::~State()
+State::~State() throw()
 {
     selfVars.release_all();
     defs.release_all();
@@ -334,12 +437,10 @@ Type* State::_registerType(Type* t)
     { types.push_back(t->ref<Type>()); return t; }
 
 
-Container* State::registerContainer(Type* e, Type* i)
-    { return registerType(new Container(e, i)); }
-
-
 Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 {
+    if (n.empty())
+        fatal(0x3001, "Internal: empty identifier");
     objptr<Definition> d = new Definition(n, t, v);
     addUnique(d); // may throw
     defs.push_back(d->ref<Definition>());
@@ -349,34 +450,84 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 Definition* State::addTypeAlias(const str& n, Type* t)
 {
-    if (n.empty())
-        fatal(0x3001, "Internal: empty identifier");
     if (t->getAlias().empty())
         t->setAlias(n);
     return addDefinition(n, defTypeRef, t);
 }
 
 
-// --- Module -------------------------------------------------------------- //
-
-
-Module::Module(const str& _name)
-    : State(MODULE, NULL)
+Variable* State::addSelfVar(const str& n, Type* t)
 {
-    setAlias(_name);
-    if (queenBee != NULL)
-        addUses(queenBee);
+    if (n.empty())
+        fatal(0x3002, "Internal: empty identifier");
+    memint id = selfVarCount();
+    if (id >= 127)
+        throw ecmessage("Too many variables");
+    objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
+    selfVars.push_back(v->ref<Variable>());
+    return v;
 }
 
-Module::~Module()
+
+stateobj* State::newInstance()
+{
+    memint varcount = selfVarCount();
+    if (varcount == 0)
+        return NULL;
+    stateobj* obj = new(varcount * sizeof(variant)) stateobj(this);
+#ifdef DEBUG
+    obj->varcount = varcount;
+#endif
+    return obj;
+}
+
+
+// --- //
+
+
+StateDef::StateDef(State* s, CodeSeg* c) throw()
+    : Definition(s->getAlias(), s, cast<rtobject*>(c))  { }
+
+
+StateDef::~StateDef() throw()
     { }
 
 
-void Module::addUses(Module* module)
+CodeSeg* StateDef::getCodeSeg() const
+    { return cast<CodeSeg*>(value._rtobj()); }
+
+
+// --- Module -------------------------------------------------------------- //
+
+
+Module::Module(const str& _name) throw()
+    : State(MODULE, NULL) { setAlias(_name); }
+
+
+Module::~Module() throw()
+    { }
+
+
+Symbol* Module::findDeep(const str& ident) const
+{
+    Symbol* s = find(ident);
+    if (s != NULL)
+        return s;
+    for (memint i = uses.size(); i--; )
+    {
+        s = uses[i]->find(ident);
+        if (s != NULL)
+            return s;
+    }
+    throw EUnknownIdent(ident);
+}
+
+
+void Module::addUses(Module* module, CodeSeg* codeseg)
 {
     if (uses.size() >= 255)
         throw ecmessage("Too many used modules");
-    addTypeAlias(module->getAlias(), module);
+    addDefinition(module->getAlias(), module, cast<rtobject*>(codeseg));
     uses.push_back(module);
 }
 
@@ -391,18 +542,37 @@ void Module::registerString(str& s)
 }
 
 
+// --- //
+
+
+ModuleDef::ModuleDef(Module* m, CodeSeg* s) throw()
+    : StateDef(m, s), module(m), instance(m->newInstance())  { }
+
+
+ModuleDef::ModuleDef(const str& n) throw()
+    : StateDef(new Module(n), new CodeSeg(getStateType())),
+      module(cast<Module*>(getStateType())), instance(module->newInstance())  { }
+
+
+ModuleDef::~ModuleDef() throw()
+    { }
+
+
 // --- QueenBee ------------------------------------------------------------ //
 
 
-QueenBee::QueenBee()
+QueenBee::QueenBee() throw()
     : Module("system"),
       defVariant(new Variant()),
       defInt(new Ordinal(INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(CHAR, 0, 255)),
       defBool(new Enumeration(BOOL)),
-      defStr(new_Vector(defChar)),
-      defNullCont(new Container(defNone, defNone))
+      defNullCont(new Container(defNone, defNone)),
+      defStr(new Container(defNone, defChar)),
+      defCharSet(new Container(defChar, defNone)),
+      defCharFifo(new Fifo(defChar))
 {
+    // Fundamentals
     addTypeAlias("typeref", registerType(defTypeRef));
     addTypeAlias("none", registerType(defNone));
     addDefinition("null", defNone, variant::null);
@@ -412,12 +582,22 @@ QueenBee::QueenBee()
     addTypeAlias("bool", registerType(defBool));
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
-    addTypeAlias("str", registerType(defStr));
     registerType(defNullCont);
+    addTypeAlias("str", registerType(defStr));
+    addTypeAlias("charset", registerType(defCharSet));
+    addTypeAlias("charfifo", registerType(defCharFifo));
+
+    // Constants
+    addDefinition("__version_major", defInt, SHANNON_VERSION_MAJOR);
+    addDefinition("__version_minor", defInt, SHANNON_VERSION_MINOR);
+    addDefinition("__version_fix", defInt, SHANNON_VERSION_FIX);
+
+    // Variables
+    addSelfVar("__program_result", defVariant);
 }
 
 
-QueenBee::~QueenBee()
+QueenBee::~QueenBee() throw()
     { }
 
 
@@ -427,6 +607,7 @@ QueenBee::~QueenBee()
 objptr<TypeReference> defTypeRef;
 objptr<None> defNone;
 objptr<QueenBee> queenBee;
+objptr<ModuleDef> queenBeeDef;
 
 
 void initTypeSys()
@@ -435,20 +616,25 @@ void initTypeSys()
     // runtime type of "type reference". The initial typeref object refers to
     // itself and should be created before anything else in the type system.
     defTypeRef = new TypeReference();
-    
+
     // None is used in deriving vectors and sets, so we need it before some of
     // the default types are created in QueenBee
     defNone = new None();
 
     // The "system" module that defines default types; some of them have
-    // recursion and other kinds of weirdness, and therefore should be defined
-    // in C code rather than in Shannon code
+    // recursive definitions and other kinds of weirdness, and therefore should
+    // be defined in C code rather than in Shannon code
     queenBee = new QueenBee();
+    queenBeeDef = new ModuleDef(queenBee, new CodeSeg(queenBee));
+
+    sio._type = queenBee->defCharFifo;
+    serr._type = queenBee->defCharFifo;
 }
 
 
 void doneTypeSys()
 {
+    queenBeeDef.clear();
     queenBee.clear();
     defNone.clear();
     defTypeRef.clear();

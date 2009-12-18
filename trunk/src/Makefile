@@ -1,19 +1,20 @@
 
 # ARCH = -arch i386
-ARCH = -arch x86_64
+# ARCH = -arch x86_64
 SHBITS = -DSH64
-CXXDOPTS = $(ARCH) $(SHBITS) -Wall -Werror -DDEBUG -g -O
-CXXROPTS = $(ARCH) $(SHBITS) -Wall -Werror -DNDEBUG -O2
+MTHR = -DMTHR
+CXXDOPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DDEBUG -g -O
+CXXROPTS = $(ARCH) $(SHBITS) $(MTHT) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/parser.o \
-    debug/typesys.o debug/vm.o
+    debug/typesys.o debug/vm.o debug/vmcodegen.o
 
 ROBJS = release/common.o release/charset.o release/runtime.o release/parser.o \
-    release/typesys.o release/vm.o
+    release/typesys.o release/vm.o release/vmcodegen.o
 
-SRCS = common.cpp charset.cpp runtime.cpp parser.cpp typesys.cpp \
-    main.cpp main-ut.cpp
+SRCS = common.cpp charset.cpp runtime.cpp parser.cpp typesys.cpp vm.cpp \
+    vmcodegen.cpp main.cpp main-ut.cpp
 
 HDRS = version.h common.h charset.h runtime.h typesys.h parser.h
 

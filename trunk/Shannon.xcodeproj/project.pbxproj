@@ -21,6 +21,8 @@
 		36A419ED10D5630D0069568A /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A419EA10D5630D0069568A /* vm.cpp */; };
 		36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
 		36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C3887910C9A6E100CD1B37 /* typesys.cpp */; };
+		36F6C5EE10DC410D00E00706 /* vmcodegen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */; };
+		36F6C5EF10DC410D00E00706 /* vmcodegen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -63,6 +65,7 @@
 		36C3887810C9A6E100CD1B37 /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
 		36C3887910C9A6E100CD1B37 /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
+		36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vmcodegen.cpp; path = src/vmcodegen.cpp; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -97,6 +100,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */,
 				363C70ED0EF70F4400866D2C /* main.cpp */,
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				36A419EB10D5630D0069568A /* vm.h */,
@@ -203,6 +207,7 @@
 				36C3887A10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 				36A416BF10D3CD850069568A /* parser.cpp in Sources */,
 				36A419EC10D5630D0069568A /* vm.cpp in Sources */,
+				36F6C5EE10DC410D00E00706 /* vmcodegen.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -217,6 +222,7 @@
 				36C3887B10C9A6E100CD1B37 /* typesys.cpp in Sources */,
 				36A416C010D3CD850069568A /* parser.cpp in Sources */,
 				36A419ED10D5630D0069568A /* vm.cpp in Sources */,
+				36F6C5EF10DC410D00E00706 /* vmcodegen.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
