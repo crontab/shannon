@@ -108,8 +108,11 @@ void typeMismatch()
 
 
 Type::Type(TypeId id)
-    : rtobject(id == TYPEREF ? this : defTypeRef.get()),
-      host(NULL), derivedVec(NULL), derivedSet(NULL), typeId(id)  { }
+    : rtobject(id == TYPEREF ? this : defTypeRef.get()), refType(NULL), typeId(id)
+{
+    if (id != REF)
+        refType = new Reference(this);
+}
 
 Type::~Type()
     { }
@@ -144,44 +147,6 @@ str Type::definition(const str& ident) const
 #define new_Set(x) (new Container(x, defNone))
 
 
-Container* Type::deriveVec()
-{
-    if (isNone())
-        throw ecmessage("Invalid vector element type");
-    if (derivedVec == NULL)
-        derivedVec = host->registerType(new_Vector(this));
-    return derivedVec;
-}
-
-
-Container* Type::deriveSet()
-{
-    if (isNone())
-        throw ecmessage("Invalid set element type");
-    if (derivedSet == NULL)
-        derivedSet = host->registerType(new_Set(this));
-    return derivedSet;
-}
-
-
-Container* Type::deriveContainer(Type* elemType)
-{
-    if (this->isNone())
-        return elemType->deriveVec();
-    if (elemType->isNone())
-        return deriveSet();
-    memint i;
-    if (derivedDicts.bsearch(elemType, i))
-        return derivedDicts[i].val;
-    else
-    {
-        Container* cont = host->registerType(new Container(this, elemType));
-        derivedDicts.insert(i, new dictitem<Type*, Container*>(elemType, cont));
-        return cont;
-    }
-}
-
-
 // --- General Types ------------------------------------------------------- //
 
 
@@ -208,9 +173,6 @@ str Reference::definition(const str& ident) const
 
 bool Reference::identicalTo(Type* t) const
     { return t->isReference() && to->identicalTo(PReference(t)->to); }
-
-bool Reference::canAssignTo(Type* t) const
-    { return t->isReference() && to->canAssignTo(PReference(t)->to); }
 
 
 // --- Ordinals ------------------------------------------------------------ //
@@ -249,6 +211,11 @@ str Ordinal::definition(const str& ident) const
     default: return "?"; break;
     }
 }
+
+
+bool Ordinal::identicalTo(Type* t) const
+    { return t->typeId == typeId
+        && left == POrdinal(t)->left && right == POrdinal(t)->right; }
 
 
 bool Ordinal::canAssignTo(Type* t) const
@@ -301,6 +268,10 @@ str Enumeration::definition(const str& ident) const
 }
 
 
+bool Enumeration::identicalTo(Type* t) const
+    { return this == t; }
+
+
 bool Enumeration::canAssignTo(Type* t) const
     { return t->typeId == typeId && values == PEnumeration(t)->values; }
 
@@ -350,6 +321,7 @@ bool Container::identicalTo(Type* t) const
 State::State(TypeId _id, State* parent)
     : Type(_id), Scope(parent)  { }
 
+
 State::~State()
 {
     selfVars.release_all();
@@ -357,8 +329,13 @@ State::~State()
     types.release_all();
 }
 
+
 Type* State::_registerType(Type* t)
-    { t->setHost(this); types.push_back(t->ref<Type>()); return t; }
+    { types.push_back(t->ref<Type>()); return t; }
+
+
+Container* State::registerContainer(Type* e, Type* i)
+    { return registerType(new Container(e, i)); }
 
 
 Definition* State::addDefinition(const str& n, Type* t, const variant& v)
@@ -372,16 +349,11 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 Definition* State::addTypeAlias(const str& n, Type* t)
 {
-    if (getType()->host == this)
-        getType()->setAlias(n);
+    if (n.empty())
+        fatal(0x3001, "Internal: empty identifier");
+    if (t->getAlias().empty())
+        t->setAlias(n);
     return addDefinition(n, defTypeRef, t);
-}
-
-
-void State::setInitCode(CodeSeg* code)
-{
-    assert(code->getType() == this);
-    addDefinition("__init", this, code);
 }
 
 
@@ -389,10 +361,25 @@ void State::setInitCode(CodeSeg* code)
 
 
 Module::Module(const str& _name)
-    : State(MODULE, NULL)  { setAlias(_name); }
+    : State(MODULE, NULL)
+{
+    setAlias(_name);
+    if (queenBee != NULL)
+        addUses(queenBee);
+}
 
 Module::~Module()
     { }
+
+
+void Module::addUses(Module* module)
+{
+    if (uses.size() >= 255)
+        throw ecmessage("Too many used modules");
+    addTypeAlias(module->getAlias(), module);
+    uses.push_back(module);
+}
+
 
 void Module::registerString(str& s)
 {
@@ -402,6 +389,7 @@ void Module::registerString(str& s)
     else
         constStrings.insert(i, s);
 }
+
 
 // --- QueenBee ------------------------------------------------------------ //
 
@@ -424,7 +412,7 @@ QueenBee::QueenBee()
     addTypeAlias("bool", registerType(defBool));
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
-    addTypeAlias("str", defChar->derivedVec = registerType(defStr));
+    addTypeAlias("str", registerType(defStr));
     registerType(defNullCont);
 }
 

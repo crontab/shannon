@@ -2,7 +2,7 @@
 # ARCH = -arch i386
 ARCH = -arch x86_64
 SHBITS = -DSH64
-CXXDOPTS = $(ARCH) $(SHBITS) -Wall -Werror -DDEBUG -g
+CXXDOPTS = $(ARCH) $(SHBITS) -Wall -Werror -DDEBUG -g -O
 CXXROPTS = $(ARCH) $(SHBITS) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
