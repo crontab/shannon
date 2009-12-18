@@ -18,10 +18,6 @@ object* object::_realloc(object* p, size_t self, memint extra)
 }
 
 
-void object::_assignto(object*& p)
-    { if (p != this) { p->release(); p = this->ref(); } }
-
-
 void* object::operator new(size_t self)
 {
     void* p = ::pmemalloc(self);
@@ -63,6 +59,19 @@ void object::release()
     assert(refcount > 0);
     if (pdecrement(&refcount) == 0)
         delete this;
+}
+
+
+void object::_assignto(object*& p)
+{
+    if (p != this)
+    {
+        if (p)
+            p->release();
+        p = this;
+        if (this)
+            this->ref();
+    }
 }
 
 
@@ -873,7 +882,7 @@ bool symtbl::bsearch(const str& key, memint& index) const
     { return ::bsearch(*this, parent::size() - 1, key, index); }
 
 
-// --- ecmessag/emessage --------------------------------------------------- //
+// --- Exceptions ---------------------------------------------------------- //
 
 
 ecmessage::ecmessage(const char* _msg): msg(_msg)  { }
@@ -919,13 +928,14 @@ template class podvec<variant>;
 variant::_None variant::null;
 
 
-void variant::_fin_refcnt()
+void variant::_fin_anyobj()
 {
     switch(type)
     {
     case NONE:
     case ORD:
-    case REAL:      break;
+    case REAL:
+    case PTR:       break;
     case STR:       _str().~str(); break;
     case VEC:       _vec().~varvec(); break;
     case ORDSET:    _ordset().~ordset(); break;
@@ -943,7 +953,7 @@ void variant::_init(const variant& v)
 {
     type = v.type;
     val = v.val;
-    if (is_refcnt())
+    if (is_anyobj())
         val._obj->ref();
 }
 
@@ -959,6 +969,7 @@ memint variant::compare(const variant& v) const
             integer d = val._ord - v.val._ord;
             return d < 0 ? -1 : d > 0 ? 1 : 0;
         case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+        case PTR: return memint(val._ptr) - memint(v.val._ptr);
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
@@ -980,6 +991,7 @@ bool variant::operator== (const variant& v) const
         case NONE:      return true;
         case ORD:       return val._ord == v.val._ord;
         case REAL:      return val._real == v.val._real;
+        case PTR:       return val._ptr == v.val._ptr;
         case STR:       return _str() == v._str();
         case VEC:       return _vec() == v._vec();
         case ORDSET:    return _ordset() == v._ordset();
@@ -998,6 +1010,7 @@ bool variant:: empty() const
     case NONE:      return true;
     case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0;
+    case PTR:       return val._ptr == NULL;
     case STR:       return _str().empty();
     case VEC:       return _vec().empty();
     case ORDSET:    return _ordset().empty();
@@ -1009,11 +1022,6 @@ bool variant:: empty() const
 
 
 // --- runtime objects ----------------------------------------------------- //
-
-
-reference::~reference() { }
-
-bool reference::empty() const  { return var.empty(); }
 
 
 #ifdef DEBUG
@@ -1039,6 +1047,8 @@ stateobj::~stateobj()
 stateobj* stateobj::new_(State* type)
 {
     memint varcount = type->selfVarCount();
+    if (varcount == 0)
+        return NULL;
     stateobj* obj = new(varcount * sizeof(variant)) stateobj(type);
 #ifdef DEBUG
     obj->varcount = varcount;

@@ -586,18 +586,12 @@ void test_typesys()
     check(queenBee->defStr->hasSmallElem());
     check(queenBee->defStr->getType() == defTypeRef);
     check(queenBee->defStr->isVec());
-    check(queenBee->defChar->deriveVec() == queenBee->defStr);
-    check_throw(defNone->deriveSet());
-    check_throw(defNone->deriveVec());
+    queenBee->registerContainer(defNone, defNone);
 
     Symbol* b = queenBee->findDeep("true");
     check(b != NULL && b->isDefinition());
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
-    
-    Container* cont1 = defTypeRef->deriveContainer(queenBee->defChar);
-    Container* cont2 = defTypeRef->deriveContainer(queenBee->defChar);
-    check(cont1 == cont2);
 }
 
 

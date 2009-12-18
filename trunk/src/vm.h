@@ -42,8 +42,8 @@ inline bool isUndoableLoadOp(OpCode op)
 
 class CodeSeg: public rtobject
 {
+    typedef rtobject parent;
     friend class CodeGen;
-    friend class State;
 
     str code;           // Hide even from "friends"
 
@@ -64,17 +64,28 @@ protected:
         T& atw(memint i)            { return *code.atw<T>(i); }
     void close(memint s)            { assert(stackSize == 0); stackSize = s; }
 
-    // Execution
-    void run(varpool& stack, rtobject* self, variant* result); // <-- this is the VM itself
-    void failAssertion();
+    void run(rtstack& stack, variant self[], variant result[]); // <-- this is the VM itself
 
 public:
     CodeSeg(State*);
     ~CodeSeg();
 
-    State* getType() const          { return cast<State*>(_type); }
+    State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
     bool empty() const;
+};
+
+
+class MainCodeSeg: public CodeSeg
+{
+    typedef CodeSeg parent;
+protected:
+    void run(rtstack& stack, variant self[])
+        { parent::run(stack, self, NULL); }
+public:
+    MainCodeSeg(Module* m);
+    ~MainCodeSeg();
+    Module* getType() const         { return cast<Module*>(parent::getType()); }
 };
 
 

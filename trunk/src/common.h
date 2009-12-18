@@ -166,6 +166,9 @@ inline void* pmemcheck(void* p)
 inline void* pmemalloc(memint s)
     { return pmemcheck(::malloc(s)); }
 
+inline void* pmemcalloc(memint s)
+    { return pmemcheck(::calloc(1, s)); }
+
 inline void* pmemrealloc(void* p, memint s)
     { return pmemcheck(::realloc(p, s)); }
 

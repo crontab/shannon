@@ -17,7 +17,10 @@
   Not the same as try ... finally construct.
 
 * A code block in an expression is an anonymous function; the exact type is
-  determined by the target.
+  determined by the target. Build the execution context for an anon function
+  (copy all external values into a temp object?)
+
+* "def self ..." is not nice, maybe "class ..." is better, or "state"
 
 * Tuples are almost like vectors, except element types are specified
   individually. Can be used for returning multiple values from functions.

@@ -48,8 +48,8 @@ protected:
     T* obj;
 public:
     objptr()                            : obj(NULL) { }
-    objptr(const objptr& p)             { obj = (T*)p.obj->ref(); }
-    objptr(T* o)                        { obj = (T*)o->ref(); }
+    objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->ref(); }
+    objptr(T* o)                        : obj(o) { if (obj) obj->ref(); }
     ~objptr()                           { obj->release(); }
     void clear()                        { obj->release(); obj = NULL; }
     bool empty() const                  { return obj == NULL; }
@@ -582,7 +582,7 @@ public:
         memint index;
         if (!bsearch(key, index))
             parent::insert(index, new Titem(key, val));
-        else if (parent::unique())
+        else if (parent::unique() && (parent::operator[] (index))->unique())
             (parent::operator[] (index))->val = val;
         else
             parent::replace(index, new Titem(key, val));
@@ -659,7 +659,7 @@ public:
 };
 
 
-// --- ecmessag/emessage/esyserr ------------------------------------------- //
+// --- Exceptions ---------------------------------------------------------- //
 
 
 // This is for static C-style string constants
@@ -703,7 +703,7 @@ class variant;
 typedef vector<variant> varvec;
 typedef varvec varset;
 typedef dict<variant, variant> vardict;
-typedef podvec<variant> varpool;
+typedef podvec<variant> rtstack;
 
 
 class variant
@@ -713,8 +713,8 @@ class variant
 public:
 
     enum Type
-        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
-            REFCNT = STR };
+        { NONE, ORD, REAL, PTR, STR, VEC, ORDSET, DICT, RTOBJ,
+            ANYOBJ = STR };
 
     struct _None { int dummy; }; 
     static _None null;
@@ -725,6 +725,7 @@ protected:
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
+        variant*    _ptr;       // for ref arguments, unmanaged and totally unsafe
         object*     _obj;       // str, vector, set, map and their variantons
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
@@ -732,10 +733,13 @@ protected:
     static void _type_err();
     static void _range_err();
     void _req(Type t) const             { if (type != t) _type_err(); }
+    void _req_anyobj() const            { if (!is_anyobj()) _type_err(); }
 #ifdef DEBUG
-    void _dbg(Type t) const             { if (type != t) _type_err(); }
+    void _dbg(Type t) const             { _req(t); }
+    void _dbg_anyobj() const            { _req_anyobj(); }
 #else
     void _dbg(Type t) const             { }
+    void _dbg_anyobj() const            { }
 #endif
 
     void _init()                        { type = NONE; }
@@ -748,6 +752,7 @@ protected:
     void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
+    void _init(variant* v)              { type = PTR; val._ptr = v; }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
@@ -756,8 +761,8 @@ protected:
     void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
     void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->ref<rtobject>(); }
     void _init(const variant& v);
-    void _fin_refcnt();
-    void _fin()                         { if (is_refcnt()) _fin_refcnt(); }
+    void _fin_anyobj();
+    void _fin()                         { if (is_anyobj()) _fin_anyobj(); }
 
 public:
     variant()                           { _init(); }
@@ -780,20 +785,23 @@ public:
     Type getType() const                { return type; }
     bool is(Type t) const               { return type == t; }
     bool is_none() const                { return type == NONE; }
-    bool is_refcnt() const              { return type >= REFCNT; }
+    bool is_anyobj() const              { return type >= ANYOBJ; }
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
     integer     _ord()            const { _dbg(ORD); return val._ord; }
+    variant*    _ptr()            const { _dbg(PTR); return val._ptr; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { return _vec(); }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
+    object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _ord()                  { _dbg(ORD); return val._ord; }
+    variant*&   _ptr()                  { _dbg(PTR); return val._ptr; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
     varset&     _set()                  { return _vec(); }
@@ -806,14 +814,16 @@ public:
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
+    variant*    as_ptr()          const { _req(PTR); return _ptr(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { return as_vec(); }
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
     const vardict& as_dict()      const { _req(DICT); return _dict(); }
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
-    object*     as_anyobj()       const { if (!is_refcnt()) _type_err(); return val._obj; }
+    object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
     integer&    as_ord()                { _req(ORD); return _ord(); }
+    variant*&   as_ptr()                { _req(PTR); return _ptr(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
     varset&     as_set()                { return as_vec(); }
@@ -834,18 +844,6 @@ extern template class podvec<variant>;
 // --- runtime objects ----------------------------------------------------- //
 
 
-class reference: public rtobject
-{
-public:
-    variant var;
-    reference(Type* t, const variant& v): rtobject(t), var(v)  { }
-    template <class T>
-        reference(const T& v): var(v)  { }
-    ~reference();
-    bool empty() const; // override
-};
-
-
 class stateobj: public rtobject
 {
 protected:
@@ -855,18 +853,24 @@ protected:
 #endif
     variant vars[0];
     stateobj(State* t);
+    
+    // Get zeroed memory so that the destructor works correctly even if the
+    // constructor failed in the middle. A zeroed variant is a null variant.
+    void* operator new(size_t s, memint extra)
+        { return pmemcalloc(s + extra); }
+
 public:
     static stateobj* new_(State* state);
     ~stateobj();
     bool empty() const; // override
     State* type()  { return (State*)_type; }
-    variant* var(memint index)
+    variant& var(memint index)
     {
 #ifdef DEBUG
         if (umemint(index) >= umemint(varcount))
             idxerr();
 #endif
-        return vars + index;
+        return vars[index];
     }    
 };
 

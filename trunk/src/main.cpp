@@ -186,6 +186,7 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     if (from->isReference())
     {
+        // TODO: replace the original loader with its deref version (in a separate function)
         Type* actual = PReference(from)->to;
         addOp(opDeref);
         stkReplaceTop(actual);
@@ -303,7 +304,7 @@ void CodeGen::runConstExpr(Type* expectType, variant& result)
         implicitCast(expectType, "Constant expression type mismatch");
     initRet();
     end();
-    varpool stack;
+    rtstack stack;
     result.clear();
     codeseg->run(stack, NULL, &result);
     assert(stack.size() == 0);
@@ -367,28 +368,68 @@ class Compiler: protected Parser
     objptr<CodeSeg> codeseg;
 
     CodeGen* codegen;
-    Scope* scope;           // for storing definitions
+    Scope* scope;           // for looking up symbols
     BlockScope* blockScope; // for local vars in nested blocks, can be NULL
     State* state;           // for this-vars and type objects
 
+    void statementList();
+
 public:
-    Compiler(fifo*);
+    Compiler(const str&, fifo*);
     ~Compiler();
-    Module* compile();
+
+    void compile();
+    Module* getModule() const;
+    CodeSeg* getCodeSeg() const;
 };
 
 
-Compiler::Compiler(fifo* f)
-    : Parser(f) { }
+str moduleNameFromFileName(const str& n)
+    { return remove_filename_path(remove_filename_ext(n)); }
+
+
+Compiler::Compiler(const str& modName, fifo* f)
+    : Parser(f), module(new Module(modName)), codeseg(new CodeSeg(module))
+       { }
 
 Compiler::~Compiler()
     { }
 
 
-Module* Compiler::compile()
+void Compiler::statementList()
 {
+}
 
-    return module;
+
+void Compiler::compile()
+{
+    CodeGen mainCodeGen(codeseg);
+    codegen = &mainCodeGen;
+    scope = module;
+    blockScope = NULL;
+    state = module;
+    try
+    {
+        next();
+        statementList();
+        expect(tokEof, "End of file");
+    }
+    catch (EDuplicate& e)
+        { error("'" + e.ident + "' is already defined within this scope"); }
+    catch (EUnknownIdent& e)
+        { error("'" + e.ident + "' is unknown in this context"); }
+    catch (exception& e)
+        { error(e.what()); }
+
+    mainCodeGen.end();
+
+/*
+    if (options.vmListing)
+    {
+        outtext f(NULL, remove_filename_ext(getFileName()) + ".lst");
+        mainModule.listing(f);
+    }
+*/
 }
 
 
@@ -411,7 +452,7 @@ void ut_fail(unsigned line, const char* e)
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
 
 
-void _test_vm_load(Type* type, const variant& v)
+static void _codegen_load(Type* type, const variant& v)
 {
     CodeSeg code(NULL);
     CodeGen gen(&code);
@@ -422,15 +463,15 @@ void _test_vm_load(Type* type, const variant& v)
 }
 
 
-void test_vm1()
+void test_codegen()
 {
-    _test_vm_load(queenBee->defInt, 21);
-    _test_vm_load(queenBee->defStr, "ABC");
-    _test_vm_load(defTypeRef, queenBee->defInt);
+    _codegen_load(queenBee->defInt, 21);
+    _codegen_load(queenBee->defStr, "ABC");
+    _codegen_load(defTypeRef, queenBee->defInt);
     {
         varvec v;
         v.push_back(10);
-        _test_vm_load(queenBee->defInt->deriveVec(), v);
+        _codegen_load(queenBee->registerContainer(queenBee->defInt, defNone), v);
     }
     {
         CodeSeg code(NULL);
@@ -448,9 +489,9 @@ int main()
     printf("%lu %lu\n", sizeof(object), sizeof(container));
 
     initTypeSys();
-    
-    test_vm1();
-    
+
+    test_codegen();
+
     doneTypeSys();
 
     if (object::allocated != 0)

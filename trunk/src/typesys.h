@@ -97,7 +97,7 @@ class Scope
     friend void test_typesys();
 protected:
     symtbl symbols;         // symbol table for search
-    objvec<Module> uses;
+    objvec<Module> uses;    // added only at the module level; not owned
     Symbol* find(const str&) const;
     void addUnique(Symbol* s);
 public:
@@ -111,12 +111,14 @@ public:
 
 // --- Type ---------------------------------------------------------------- //
 
+// Note: type objects (all descendants of Type) should not be modified once
+// created. This will allow to reuse loaded modules in a multi-threaded server
+// environment for serving concurrent requests without actually re-compiling
+// or reloading used modules.
+
 
 class Type: public rtobject
 {
-    friend class Module;
-    friend class State;
-
 public:
     enum TypeId {
         TYPEREF, NONE, VARIANT, REF,
@@ -125,23 +127,20 @@ public:
         FIFO, FUNC, PROC, OBJECT, MODULE };
 
 protected:
+    objptr<Reference> refType;
     str alias;      // for more readable diagnostics output, but not really needed
-    State* host;    // derivators are inserted into the hosts's repository
-
-    Container* derivedVec;
-    Container* derivedSet;
-    dict<Type*, Container*> derivedDicts;
 
     Type(TypeId);
     bool empty() const;
-    void setAlias(const str& s) { if (alias.empty()) alias = s; }
-    void setHost(State* o)     { assert(host == NULL); host = o; }
     static TypeId contType(Type* i, Type* e);
 
 public:
     TypeId const typeId;
 
     ~Type();
+    void setAlias(const str& s) { if (alias.empty()) alias = s; }
+    str getAlias() const        { return alias; }
+    Reference* getRefType()     { return refType; }
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
     bool isNone() const         { return typeId == NONE; }
@@ -174,10 +173,6 @@ public:
     virtual str definition(const str& ident) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
-
-    Container* deriveVec();
-    Container* deriveSet();
-    Container* deriveContainer(Type* elemType);
 };
 
 
@@ -218,13 +213,14 @@ protected:
 
 class Reference: public Type
 {
+    friend class Type;
+protected:
+    Reference(Type* _to);
 public:
     Type* const to;
-    Reference(Type* _to);
     ~Reference();
     str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
-    bool canAssignTo(Type* t) const;
 };
 
 
@@ -244,6 +240,7 @@ public:
     integer const left;
     integer const right;
     str definition(const str& ident) const;
+    bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     bool isSmallOrd() const
         { return left >= 0 && right <= 255; }
@@ -266,6 +263,7 @@ public:
     Enumeration();                                  // user-defined enums
     ~Enumeration();
     str definition(const str& ident) const;
+    bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
 };
@@ -276,13 +274,10 @@ public:
 
 class Container: public Type
 {
-    friend class Type;
-    friend class QueenBee;
-protected:
-    Container(Type* i, Type* e);
 public:
     Type* const index;
     Type* const elem;
+    Container(Type* i, Type* e);
     ~Container();
     str definition(const str& ident) const;
     bool identicalTo(Type*) const;
@@ -299,12 +294,10 @@ public:
 class State: public Type, public Scope
 {
     friend class CodeSeg;
-    friend class CodeGen;
 protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
-    CodeSeg* initCode;
     Type* _registerType(Type*);
 public:
     State(TypeId, State* parent);
@@ -314,9 +307,9 @@ public:
         T* registerType(T* t)           { return (T*)_registerType(t); }
     template <class T>
         T* registerType(objptr<T> t)    { return (T*)_registerType(t); }
+    Container* registerContainer(Type* e, Type* i);
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
-    void setInitCode(CodeSeg*);
 };
 
 
@@ -330,12 +323,16 @@ protected:
 public:
     Module(const str& _name);
     ~Module();
-    void registerString(str&); // may return a previously registered string if found
+    void addUses(Module*);
+    void registerString(str&); // returns a previously registered string if found
 };
 
 
 // --- QueenBee ------------------------------------------------------------ //
 
+
+// Because QueenBee can be shared between instances of the compiler,
+// all entities here should be read-only.
 
 class QueenBee: public Module
 {
@@ -350,8 +347,6 @@ public:
     Enumeration* const defBool;
     Container* const defStr;
     Container* const defNullCont;
-    // Because QueenBee can be shared between instances of the compiler,
-    // all entities here are read-only.
 };
 
 

@@ -31,7 +31,7 @@ inline void POP(variant*& stk)
         { (*stk--).~variant(); }
 
 inline void POPPOD(variant*& stk)
-        { assert(!stk->is_refcnt()); stk--; }
+        { assert(!stk->is_anyobj()); stk--; }
 
 inline void POPTO(variant*& stk, variant* dest)     // ... to uninitialized area
         { *(podvar*)dest = *(podvar*)stk; stk--; }
@@ -45,7 +45,7 @@ inline void STORETO(variant*& stk, variant* dest)   // pop and copy properly
 #define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
 
 
-void CodeSeg::run(varpool& stack, rtobject* self, variant* result)
+void CodeSeg::run(rtstack& stack, variant self[], variant result[])
 {
     // Make sure there's NULL char (opEnd) at the end
     register const uchar* ip = (const uchar*)code.c_str();
@@ -72,8 +72,8 @@ loop:
         case opLoadConstObj:
             { int t = ADV<uchar>(ip); PUSH(stk, t, ADV<object*>(ip)); } break;
 
-        case opInitRet:     POPTO(stk, result); break;
-        case opDeref:       { *stk = cast<reference*>(stk->as_rtobj())->var; } break;
+        case opInitRet:     POPTO(stk, &result[0]); break;
+        case opDeref:       { *stk = *(stk->_ptr()); } break;
         case opPop:         POP(stk); break;
         case opChrToStr:    { *stk = str(stk->_uchar()); } break;
         case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
