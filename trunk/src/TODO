@@ -38,7 +38,7 @@
   casts, function calls, state construction, and also function defs where the
   return value is a state. Besides, int[1, 2, 3] is a form of a compound
   constructor that specifies the element type. So with the asterisk notation
-  all ambiguity is resolved.
+  all ambiguity is resolved. (How about dict constructors then?)
 
 * Range (e.g. A..B) is possible only: (1) in const type expressions where it
   denotes a range type, (2) in ordinal set constructors, (3) in operator 'for',
@@ -69,24 +69,15 @@
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
 
-* Range types and ordinal sets should be mutually convertible
-
 * Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
-* Optimize function calls: if "self" is not used, define all local vars as
-  just locals, not "this" vars. Actually this means if a function doesn't
-  return "self", it can't use the self reference in any way. This is probably
-  okay.
-
-* HTML embedded mode
+* HTML/XML embedded mode, also arbitrary text embedded mode
 
 * Compiler directives: DEBUG ON|OFF  RANGE_CHECK ON|OFF  ASSERT ON|OFF
   ECHO ON|OFF  MARKUP ON|OFF (syntax?)
 
 * Two versions of the binary: debug and release. Debug helps to debug both the
   program (assertions, dumps and range checking are on) and the compiler itself
-
-* := assignment as a function?
 
 * Abstract module and module inheritance paradigm. Modules can be loaded at run
   time, but they should be inherited from some known module type. Database
@@ -104,7 +95,4 @@
 
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.
-
-* Polymorphic modules: modules are states so it is possible to have inheritance
-  and dynamic loading. What about used modules in dynamically loaded modules?
 

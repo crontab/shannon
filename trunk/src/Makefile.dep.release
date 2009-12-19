@@ -10,3 +10,4 @@ release/vmcodegen.o: vm.h common.h version.h runtime.h charset.h typesys.h
 release/main.o: common.h version.h runtime.h charset.h parser.h typesys.h
 release/main.o: vm.h
 release/main-ut.o: common.h version.h runtime.h charset.h parser.h typesys.h
+release/main-ut.o: vm.h

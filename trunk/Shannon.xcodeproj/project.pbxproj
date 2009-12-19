@@ -100,11 +100,11 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */,
 				363C70ED0EF70F4400866D2C /* main.cpp */,
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				36A419EB10D5630D0069568A /* vm.h */,
 				36A419EA10D5630D0069568A /* vm.cpp */,
+				36F6C5ED10DC410D00E00706 /* vmcodegen.cpp */,
 				36C3887810C9A6E100CD1B37 /* typesys.h */,
 				36C3887910C9A6E100CD1B37 /* typesys.cpp */,
 				36A416BD10D3CD850069568A /* parser.h */,

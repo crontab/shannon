@@ -9,3 +9,4 @@ debug/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h
 debug/vmcodegen.o: vm.h common.h version.h runtime.h charset.h typesys.h
 debug/main.o: common.h version.h runtime.h charset.h parser.h typesys.h vm.h
 debug/main-ut.o: common.h version.h runtime.h charset.h parser.h typesys.h
+debug/main-ut.o: vm.h

@@ -26,14 +26,6 @@ memint CodeGen::addOp(OpCode op)
 }
 
 
-memint CodeGen::addOp(OpCode op, object* o)
-{
-    memint r = addOp(op);
-    add(o);
-    return r;
-}
-
-
 void CodeGen::discardCode(memint from)
 {
     codeseg.resize(from);
@@ -222,9 +214,33 @@ void CodeGen::loadEmptyCont(Container* contType)
 }
 
 
+void CodeGen::loadVariable(Variable* var)
+{
+    assert(var->state != NULL);
+    assert(var->id >= 0 && var->id <= 127);
+    if (codeOwner == NULL)
+        error("Variables not allowed in constant expressions");
+
+    // If var is a reference, load the value, otherwise load the var's address
+    bool deref = var->type->isReference();
+    stkPush(deref ? var->type : var->type->getRefType());
+    if (var->isSelfVar() && var->state == codeOwner->selfPtr)
+        addOp<char>(deref ? opLoadSelfVar : opLoadSelfVarA, var->id);
+    else
+        notimpl();
+}
+
+
 void CodeGen::store()
 {
-    notimpl();
+    Type* l = stkTop(2);
+    if (!l->isReference())
+        error("Invalid L-value");
+    l = PReference(l)->to;
+    implicitCast(l, "Type mismatch in assignment");
+    addOp(opStore);
+    stkPop();
+    stkPop();
 }
 
 

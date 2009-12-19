@@ -1,10 +1,11 @@
 
-# ARCH = -arch i386
+ARCH = -arch i386
 # ARCH = -arch x86_64
 SHBITS = -DSH64
-MTHR = -DMTHR
+# MTHR = -DMTHR
+
 CXXDOPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DDEBUG -g -O
-CXXROPTS = $(ARCH) $(SHBITS) $(MTHT) -Wall -Werror -DNDEBUG -O2
+CXXROPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/parser.o \

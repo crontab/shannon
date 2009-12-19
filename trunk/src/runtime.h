@@ -285,6 +285,8 @@ public:
     template <class T>
         const T* back() const           { return (T*)back(sizeof(T)); }
     template <class T>
+        const T* back(memint i) const   { return (T*)back(sizeof(T) * i); }
+    template <class T>
         void push_back(const T& t)      { new(_appendnz(sizeof(T))) T(t); }
 };
 
@@ -426,6 +428,7 @@ public:
     const T& operator[] (memint i) const    { return *parent::data<T>(i); }
     const T& at(memint i) const             { return *parent::at<T>(i); }
     const T& back() const                   { return *parent::back<T>(); }
+    const T& back(memint i) const           { return *parent::back<T>(i); }
     void clear()                            { parent::clear(); }
     void operator= (const podvec& v)        { parent::operator= (v); }
     void push_back(const T& t)              { new(_appendnz(Tsize)) T(t); }
@@ -631,6 +634,7 @@ public:
     T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
     T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
     T* back() const                         { return cast<T*>(parent::back()); }
+    T* back(memint i) const                 { return cast<T*>(parent::back(i)); }
     void push_back(T* t)                    { parent::push_back(t); }
     void insert(memint pos, T* t)           { parent::insert(pos, t); }
 };
@@ -878,6 +882,8 @@ public:
 #endif
         return vars[index];
     }    
+    variant* varStart()
+        { return vars; }
 };
 
 

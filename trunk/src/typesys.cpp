@@ -421,8 +421,8 @@ bool Fifo::identicalTo(Type* t) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId _id, State* parent) throw()
-    : Type(_id), Scope(parent)  { }
+State::State(TypeId _id, State* parent, State* self) throw()
+    : Type(_id), Scope(parent), selfPtr(self)  { }
 
 
 State::~State() throw()
@@ -437,6 +437,10 @@ Type* State::_registerType(Type* t)
     { types.push_back(t->ref<Type>()); return t; }
 
 
+Type* State::_registerType(const str& n, Type* t)
+    { t->setAlias(n); return _registerType(t); }
+
+
 Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 {
     if (n.empty())
@@ -449,11 +453,7 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 
 Definition* State::addTypeAlias(const str& n, Type* t)
-{
-    if (t->getAlias().empty())
-        t->setAlias(n);
-    return addDefinition(n, defTypeRef, t);
-}
+    { return addDefinition(n, defTypeRef, t); }
 
 
 Variable* State::addSelfVar(const str& n, Type* t)
@@ -464,6 +464,7 @@ Variable* State::addSelfVar(const str& n, Type* t)
     if (id >= 127)
         throw ecmessage("Too many variables");
     objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
+    addUnique(v);
     selfVars.push_back(v->ref<Variable>());
     return v;
 }
@@ -501,7 +502,12 @@ CodeSeg* StateDef::getCodeSeg() const
 
 
 Module::Module(const str& _name) throw()
-    : State(MODULE, NULL) { setAlias(_name); }
+    : State(MODULE, NULL, this)
+{
+    setAlias(_name);
+    if (queenBee != NULL)
+        addUses(queenBee);
+}
 
 
 Module::~Module() throw()
@@ -523,11 +529,11 @@ Symbol* Module::findDeep(const str& ident) const
 }
 
 
-void Module::addUses(Module* module, CodeSeg* codeseg)
+void Module::addUses(Module* module)
 {
     if (uses.size() >= 255)
         throw ecmessage("Too many used modules");
-    addDefinition(module->getAlias(), module, cast<rtobject*>(codeseg));
+    addTypeAlias(module->getAlias(), module);
     uses.push_back(module);
 }
 
@@ -573,27 +579,29 @@ QueenBee::QueenBee() throw()
       defCharFifo(new Fifo(defChar))
 {
     // Fundamentals
-    addTypeAlias("typeref", registerType(defTypeRef));
-    addTypeAlias("none", registerType(defNone));
+    addTypeAlias("typeref", registerType<Type>("typeref", defTypeRef));
+    addTypeAlias("none", registerType<Type>("none", defNone));
     addDefinition("null", defNone, variant::null);
-    addTypeAlias("any", registerType(defVariant));
-    addTypeAlias("int", registerType(defInt));
-    addTypeAlias("char", registerType(defChar));
-    addTypeAlias("bool", registerType(defBool));
+    addTypeAlias("any", registerType("any", defVariant));
+    addTypeAlias("int", registerType("int", defInt));
+    addTypeAlias("char", registerType("char", defChar));
+    addTypeAlias("bool", registerType("bool", defBool));
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
-    registerType(defNullCont);
-    addTypeAlias("str", registerType(defStr));
-    addTypeAlias("charset", registerType(defCharSet));
-    addTypeAlias("charfifo", registerType(defCharFifo));
+    registerType("", defNullCont);
+    addTypeAlias("str", registerType("str", defStr));
+    addTypeAlias("charset", registerType("charset", defCharSet));
+    addTypeAlias("charfifo", registerType("charfifo", defCharFifo));
 
     // Constants
-    addDefinition("__version_major", defInt, SHANNON_VERSION_MAJOR);
-    addDefinition("__version_minor", defInt, SHANNON_VERSION_MINOR);
-    addDefinition("__version_fix", defInt, SHANNON_VERSION_FIX);
+    addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR);
+    addDefinition("__VER_MINOR", defInt, SHANNON_VERSION_MINOR);
+    addDefinition("__VER_FIX", defInt, SHANNON_VERSION_FIX);
 
     // Variables
     addSelfVar("__program_result", defVariant);
+    addSelfVar("sio", defCharFifo);
+    addSelfVar("serr", defCharFifo);
 }
 
 
@@ -629,6 +637,18 @@ void initTypeSys()
 
     sio._type = queenBee->defCharFifo;
     serr._type = queenBee->defCharFifo;
+    
+    // Generate code for initializing static vars in queenBee
+    {
+        CodeGen gen(*queenBeeDef->getCodeSeg());
+        gen.loadVariable(cast<Variable*>(queenBee->findShallow("sio")));
+        gen.loadConst(sio.getType(), &sio);
+        gen.store();
+        gen.loadVariable(cast<Variable*>(queenBee->findShallow("serr")));
+        gen.loadConst(serr.getType(), &serr);
+        gen.store();
+        gen.end();
+    }
 }
 
 
