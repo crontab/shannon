@@ -340,18 +340,20 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
     Type* _registerType(Type*);
+    Type* _registerType(const str&, Type*);
 public:
-    State(TypeId, State* parent) throw();
+    State* const selfPtr;
+    State(TypeId, State* parent, State* self) throw();
     ~State() throw();
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
-    template <class T>
-        T* registerType(T* t)           { return (T*)_registerType(t); }
-    template <class T>
-        T* registerType(objptr<T> t)    { return (T*)_registerType(t); }
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
     stateobj* newInstance();
+//    template <class T>
+//        T* registerType(T* t)               { return (T*)_registerType(t); }
+    template <class T>
+        T* registerType(const str& n, T* t) { return (T*)_registerType(n, t); }
 };
 
 
@@ -377,28 +379,26 @@ public:
     Module(const str& _name) throw();
     ~Module() throw();
     Symbol* findDeep(const str&) const; // override
-    void addUses(Module*, CodeSeg*);
+    void addUses(Module*);
     void registerString(str&); // returns a previously registered string if found
 };
 
 
 class ModuleDef: public StateDef
 {
-protected:
+public:
     // The module type is owned by its definition, because unlike other types
     // it's not registered anywhere else (all other types are registered and 
     // owned by their enclosing states).
-    objptr<Module> module;
+    objptr<Module> const module;
 
     // Besides, because module is a static object, its instance is also held 
     // here. So ModuleDef is a definition and a variable at the same time.
-    objptr<stateobj> instance;
+    objptr<stateobj> const instance;
 
-public:
     ModuleDef(const str&) throw();          // creates default Module and CodeSeg objects
     ModuleDef(Module*, CodeSeg*) throw();   // for custom Module and CodeSeg objects
     ~ModuleDef() throw();
-    Module* getModuleType() const { return module; }
 };
 
 

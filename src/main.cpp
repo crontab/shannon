@@ -9,7 +9,7 @@
 
 // --- HIS MAJESTY THE COMPILER -------------------------------------------- //
 
-/*
+
 struct CompilerOptions
 {
     bool enableDump;
@@ -23,12 +23,14 @@ struct CompilerOptions
 };
 
 
+
+
+
 class Compiler: protected Parser
 {
+protected:
     CompilerOptions options;
-
-    objptr<Module> module;
-    objptr<CodeSeg> codeseg;
+    objptr<ModuleDef> moduleDef;
 
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols
@@ -37,19 +39,18 @@ class Compiler: protected Parser
 
     void statementList();
 
-public:
     Compiler(const str&, fifo*);
     ~Compiler();
 
-    void compile();
-    Module* getModule() const;
-    CodeSeg* getCodeSeg() const;
+    void module();
+
+public:
+    static objptr<ModuleDef> compile(const str&);
 };
 
 
 Compiler::Compiler(const str& modName, fifo* f)
-    : Parser(f), module(new Module(modName)), codeseg(new MainCodeSeg(module))
-       { }
+    : Parser(f), moduleDef(new ModuleDef(modName))  { }
 
 Compiler::~Compiler()
     { }
@@ -60,13 +61,12 @@ void Compiler::statementList()
 }
 
 
-void Compiler::compile()
+void Compiler::module()
 {
-    CodeGen mainCodeGen(codeseg);
+    CodeGen mainCodeGen(*moduleDef->getCodeSeg());
     codegen = &mainCodeGen;
-    scope = module;
     blockScope = NULL;
-    state = module;
+    scope = state = moduleDef->module;
     try
     {
         next();
@@ -90,32 +90,31 @@ void Compiler::compile()
 }
 
 
-// --- Execute program ----------------------------------------------------- //
-
-
 static str moduleNameFromFileName(const str& n)
     { return remove_filename_path(remove_filename_ext(n)); }
 
 
-int executeFile(const str& fn)
+objptr<ModuleDef> Compiler::compile(const str& fn)
 {
-    objptr<Module> module;
-    objptr<CodeSeg> codeseg;
+    str mn = moduleNameFromFileName(fn);
+    if (!isValidIdent(mn))
+        throw emessage("Invalid module name: '" + mn + "'");
+    Compiler compiler(mn, new intext(queenBee->defCharFifo, fn));
+    compiler.module();
+    return compiler.moduleDef;
+}
 
-    {
-        str mn = moduleNameFromFileName(fn);
-        if (!isValidIdent(mn))
-            throw emessage("Invalid module name: '" + mn + "'");
-        Compiler compiler(mn, new intext(queenBee->defCharFifo, fn));
-        compiler.compile();
-        module = compiler.getModule();
-        codeseg = compiler.getCodeSeg();
-    }
 
+// --- Execute program ----------------------------------------------------- //
+
+
+int runRabbitRun(const str& fn)
+{
+    objptr<ModuleDef> main = Compiler::compile(fn);
     return 0; 
 }
 
-*/
+
 // --- tests --------------------------------------------------------------- //
 
 
@@ -147,7 +146,7 @@ int main()
     initTypeSys();
     try
     {
-//        exitcode = executeFile(fileName);
+        exitcode = runRabbitRun(fileName);
     }
     catch (exception& e)
     {

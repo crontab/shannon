@@ -5,6 +5,7 @@
 #include "runtime.h"
 #include "parser.h"
 #include "typesys.h"
+#include "vm.h"
 
 
 static void ut_fail(unsigned line, const char* e)
@@ -554,7 +555,7 @@ void test_fifos()
 void test_typesys()
 {
     {
-        State state(Type::MODULE, NULL);
+        State state(Type::MODULE, NULL, NULL);
         objptr<Definition> d1 = new Definition("abc", NULL, 0);
         check(d1->name == "abc");
         state.addDefinition("def", NULL, 1);
@@ -592,6 +593,15 @@ void test_typesys()
     check(b != NULL && b->isDefinition());
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
+
+    {
+        CodeSeg* codeseg = queenBeeDef->getCodeSeg();
+        stateobj* instance = queenBeeDef->instance;
+        rtstack stack;
+        codeseg->run(stack, instance->varStart(), NULL);
+        memint id = cast<Variable*>(queenBee->find("sio"))->id;
+        check(instance->var(id) == &sio);
+    }
 }
 
 

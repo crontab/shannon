@@ -72,6 +72,10 @@ loop:
         case opLoadConstObj:
             { int t = ADV<uchar>(ip); PUSH(stk, t, ADV<object*>(ip)); } break;
 
+        case opLoadSelfVarA:    PUSH(stk, self + ADV<char>(ip)); break;
+
+        case opLoadSelfVar:     PUSH(stk, *(self + ADV<char>(ip))); break;
+
         case opStore:
             { variant* v = (stk - 1)->_ptr(); STORETO(stk, v); POPPOD(stk); } break;
 

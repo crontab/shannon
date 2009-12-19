@@ -24,6 +24,12 @@ enum OpCode
     opLoadNullCont,     // +null
     opLoadConstObj,     // [variant::Type:8, object*]
 
+    // Ref loaders
+    opLoadSelfVarA,     // [self-idx8] +ptr
+    
+    // Value loaders
+    opLoadSelfVar,      // [self-idx8] +var
+
     opStore,            // -var - ptr
 
     opInitRet,          // -var
@@ -39,7 +45,10 @@ enum OpCode
 
 
 inline bool isUndoableLoadOp(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadConstObj); }
+    { return op >= opLoadTypeRef && op <= opLoadConstObj; }
+
+inline bool isRefLoader(OpCode op)
+    { return op >= opLoadSelfVarA && op <= opLoadSelfVarA; }
 
 
 class CodeSeg: public rtobject
@@ -66,8 +75,6 @@ protected:
         T& atw(memint i)            { return *code.atw<T>(i); }
     void close(memint s)            { assert(stackSize == 0); stackSize = s; }
 
-    void run(rtstack& stack, variant self[], variant result[]); // <-- this is the VM itself
-
 public:
     CodeSeg(State*) throw();
     ~CodeSeg() throw();
@@ -75,6 +82,8 @@ public:
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
     bool empty() const;
+
+    void run(rtstack& stack, variant self[], variant result[]); // <-- this is the VM itself
 };
 
 
@@ -103,12 +112,15 @@ protected:
     template <class T>
         void add(const T& t)    { codeseg.append<T>(t); }
     memint addOp(OpCode op);
-    memint addOp(OpCode op, object* o);
+    template <class T>
+        void addOp(OpCode op, const T& t)  { addOp(op); add<T>(t); }
     void stkPush(Type*);
     Type* stkPop();
     void stkReplaceTop(Type* t);
     Type* stkTop()
         { return simStack.back(); }
+    Type* stkTop(memint i)
+        { return simStack.back(i); }
     static void error(const char*);
     void discardCode(memint from);
     void revertLastLoad();
@@ -130,6 +142,7 @@ public:
     void loadConst(Type*, const variant&);
 
     void loadEmptyCont(Container* type);
+    void loadVariable(Variable*);
     void store();
     void initRet()
         { addOp(opInitRet); stkPop(); }
