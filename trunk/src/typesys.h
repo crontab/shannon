@@ -40,9 +40,7 @@ class CodeGen; // defined in vm.h
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { RESULTVAR, LOCALVAR, SELFVAR, ARGVAR, // in sync with loaders and storers
-                    DEFINITION,
-                    FIRSTVAR = RESULTVAR };
+    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION };
 
     SymbolId const symbolId;
     Type* const type;
@@ -50,13 +48,11 @@ public:
     Symbol(const str&, SymbolId, Type*) throw();
     ~Symbol() throw();
 
-    bool isVariable() const     { return symbolId <= ARGVAR; }
     bool isDefinition() const   { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
     bool isSelfVar() const      { return symbolId == SELFVAR; }
-    bool isResultVar() const    { return symbolId == RESULTVAR; }
     bool isLocalVar() const     { return symbolId == LOCALVAR; }
-    bool isArgVar() const       { return symbolId == ARGVAR; }
+    bool isVariable() const     { return symbolId <= SELFVAR; }
 };
 
 
@@ -339,6 +335,7 @@ protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
+    objvec<Variable> args;          // owned
     Type* _registerType(Type*);
     Type* _registerType(const str&, Type*);
 public:
@@ -346,24 +343,27 @@ public:
     State(TypeId, State* parent, State* self) throw();
     ~State() throw();
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
+    memint argCount()                   { return args.size(); }
+    memint retVarId()                   { return - argCount() - 1; }
+    // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
     stateobj* newInstance();
-//    template <class T>
-//        T* registerType(T* t)               { return (T*)_registerType(t); }
     template <class T>
         T* registerType(const str& n, T* t) { return (T*)_registerType(n, t); }
+    template <class T>
+        T* registerType(T* t) { return (T*)_registerType(t); }
 };
 
 
 class StateDef: public Definition
 {
 public:
-    StateDef(State*, CodeSeg*) throw();
+    CodeSeg* const codeseg; // actually owned by the value field in Definition
+    StateDef(State*) throw();
     ~StateDef() throw();
     State* getStateType() const { return cast<State*>(type); }
-    CodeSeg* getCodeSeg() const;
 };
 
 
@@ -386,19 +386,18 @@ public:
 
 class ModuleDef: public StateDef
 {
+    objptr<stateobj> instance;
 public:
     // The module type is owned by its definition, because unlike other types
     // it's not registered anywhere else (all other types are registered and 
     // owned by their enclosing states).
     objptr<Module> const module;
 
-    // Besides, because module is a static object, its instance is also held 
-    // here. So ModuleDef is a definition and a variable at the same time.
-    objptr<stateobj> const instance;
-
     ModuleDef(const str&) throw();          // creates default Module and CodeSeg objects
-    ModuleDef(Module*, CodeSeg*) throw();   // for custom Module and CodeSeg objects
+    ModuleDef(Module*) throw();             // for custom Module objects
     ~ModuleDef() throw();
+    stateobj* getInstance();
+    void run(rtstack& stack);
 };
 
 

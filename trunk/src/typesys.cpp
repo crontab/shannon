@@ -427,6 +427,7 @@ State::State(TypeId _id, State* parent, State* self) throw()
 
 State::~State() throw()
 {
+    args.release_all();
     selfVars.release_all();
     defs.release_all();
     types.release_all();
@@ -486,16 +487,13 @@ stateobj* State::newInstance()
 // --- //
 
 
-StateDef::StateDef(State* s, CodeSeg* c) throw()
-    : Definition(s->getAlias(), s, cast<rtobject*>(c))  { }
+StateDef::StateDef(State* s) throw()
+    : Definition(s->getAlias(), s, new CodeSeg(s)),
+      codeseg(cast<CodeSeg*>(value._rtobj()))  { }
 
 
 StateDef::~StateDef() throw()
     { }
-
-
-CodeSeg* StateDef::getCodeSeg() const
-    { return cast<CodeSeg*>(value._rtobj()); }
 
 
 // --- Module -------------------------------------------------------------- //
@@ -551,17 +549,29 @@ void Module::registerString(str& s)
 // --- //
 
 
-ModuleDef::ModuleDef(Module* m, CodeSeg* s) throw()
-    : StateDef(m, s), module(m), instance(m->newInstance())  { }
+ModuleDef::ModuleDef(Module* m) throw()
+    : StateDef(m), instance(), module(m)  { }
 
 
 ModuleDef::ModuleDef(const str& n) throw()
-    : StateDef(new Module(n), new CodeSeg(getStateType())),
-      module(cast<Module*>(getStateType())), instance(module->newInstance())  { }
+    : StateDef(new Module(n)), instance(),
+      module(cast<Module*>(getStateType()))  { }
 
 
 ModuleDef::~ModuleDef() throw()
     { }
+
+
+stateobj* ModuleDef::getInstance()
+{
+    if (instance.empty())
+        instance = getStateType()->newInstance();
+    return instance;
+}
+
+
+void ModuleDef::run(rtstack& stack)
+    { runRabbitRun(stack, codeseg->getCode(), getInstance()->varStart()); }
 
 
 // --- QueenBee ------------------------------------------------------------ //
@@ -588,7 +598,7 @@ QueenBee::QueenBee() throw()
     addTypeAlias("bool", registerType("bool", defBool));
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
-    registerType("", defNullCont);
+    registerType(defNullCont);
     addTypeAlias("str", registerType("str", defStr));
     addTypeAlias("charset", registerType("charset", defCharSet));
     addTypeAlias("charfifo", registerType("charfifo", defCharFifo));
@@ -633,11 +643,12 @@ void initTypeSys()
     // recursive definitions and other kinds of weirdness, and therefore should
     // be defined in C code rather than in Shannon code
     queenBee = new QueenBee();
-    queenBeeDef = new ModuleDef(queenBee, new CodeSeg(queenBee));
+    queenBeeDef = new ModuleDef(queenBee);
 
     sio._type = queenBee->defCharFifo;
     serr._type = queenBee->defCharFifo;
     
+/*
     // Generate code for initializing static vars in queenBee
     {
         CodeGen gen(*queenBeeDef->getCodeSeg());
@@ -649,6 +660,7 @@ void initTypeSys()
         gen.store();
         gen.end();
     }
+*/
 }
 
 

@@ -595,12 +595,12 @@ void test_typesys()
     check(PDefinition(b)->type->isBool());
 
     {
-        CodeSeg* codeseg = queenBeeDef->getCodeSeg();
-        stateobj* instance = queenBeeDef->instance;
-        rtstack stack;
-        codeseg->run(stack, instance->varStart(), NULL);
-        memint id = cast<Variable*>(queenBee->find("sio"))->id;
-        check(instance->var(id) == &sio);
+//        CodeSeg* codeseg = queenBeeDef->getCodeSeg();
+//        stateobj* instance = queenBeeDef->instance;
+//        rtstack stack(codeseg->stackSize);
+//        runRabbitRun(codeseg->getCode(), stack.base(), instance->varStart(), NULL);
+//        memint id = cast<Variable*>(queenBee->find("sio"))->id;
+//        check(instance->var(id) == &sio);
     }
 }
 
@@ -629,11 +629,11 @@ void test_parser()
     }
 }
 
-/*
+
 static void _codegen_load(Type* type, const variant& v)
 {
     CodeSeg code(NULL);
-    CodeGen gen(&code);
+    CodeGen gen(code);
     gen.loadConst(type, v);
     variant result;
     gen.runConstExpr(type, result);
@@ -649,18 +649,31 @@ void test_codegen()
     {
         varvec v;
         v.push_back(10);
-        _codegen_load(queenBee->registerContainer(queenBee->defInt, defNone), v);
+        _codegen_load(queenBee->registerType("", queenBee->defInt->deriveVec()), v);
     }
     {
         CodeSeg code(NULL);
-        CodeGen gen(&code);
+        CodeGen gen(code);
         gen.loadConst(queenBee->defNullCont, variant::null);
         variant result;
         gen.runConstExpr(queenBee->defStr, result);
         check(result == "");
     }
+    {
+        ModuleDef mod("test");
+        CodeGen gen(*mod.codeseg);
+        Variable* v = mod.module->addSelfVar("v", queenBee->defInt);
+        gen.loadVariable(v);
+        str s;
+        Type* type = gen.undoDesignatorLoad(s);
+        gen.loadConst(queenBee->defInt, 12);
+        gen.storeDesignator(s, type);
+        rtstack stack(1);
+        mod.run(stack);
+        check(mod.getInstance()->var(v->id).as_int() == 12);
+    }
 }
-*/
+
 
 int main()
 {
@@ -707,7 +720,7 @@ int main()
         test_fifos();
         test_typesys();
         test_parser();
-//        test_codegen();
+        test_codegen();
     }
     catch (exception& e)
     {

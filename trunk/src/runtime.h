@@ -270,7 +270,6 @@ public:
     void append(const char* buf, memint len);
     void append(const contptr& s);
     void erase(memint pos, memint len)  { if (len) _erasenz(pos, len); }
-//    void push_back(char c)              { *_appendnz(1) = c; }
     void pop_back(memint len)           { if (len) _popnz(len); }
 
     char* resize(memint);
@@ -437,11 +436,6 @@ public:
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
     void replace_back(const T& t)           { *parent::atw<T>(size() - 1) = t; }
     void erase(memint pos)                  { parent::_erasenz(pos * Tsize, Tsize); }
-
-    T* reserve(memint cnt)
-        { if (cnt) return (T*)_appendnz(cnt * Tsize); else return NULL; }
-    void free(memint cnt)
-        { if (cnt) _popnz(cnt * Tsize); }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are
@@ -708,7 +702,6 @@ class variant;
 typedef vector<variant> varvec;
 typedef varvec varset;
 typedef dict<variant, variant> vardict;
-typedef podvec<variant> rtstack;
 
 
 class variant
@@ -718,7 +711,7 @@ class variant
 public:
 
     enum Type
-        { NONE, ORD, REAL, PTR, STR, VEC, ORDSET, DICT, RTOBJ,
+        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
             ANYOBJ = STR };
 
     struct _None { int dummy; }; 
@@ -730,7 +723,6 @@ protected:
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
-        variant*    _ptr;       // for ref arguments, unmanaged and totally unsafe
         object*     _obj;       // str, vector, set, map and their variantons
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
@@ -757,7 +749,6 @@ protected:
     void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
-    void _init(variant* v)              { type = PTR; val._ptr = v; }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
@@ -797,7 +788,6 @@ public:
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
     integer     _ord()            const { _dbg(ORD); return val._ord; }
-    variant*    _ptr()            const { _dbg(PTR); return val._ptr; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { return _vec(); }
@@ -806,7 +796,6 @@ public:
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _ord()                  { _dbg(ORD); return val._ord; }
-    variant*&   _ptr()                  { _dbg(PTR); return val._ptr; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
     varset&     _set()                  { return _vec(); }
@@ -819,7 +808,6 @@ public:
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
-    variant*    as_ptr()          const { _req(PTR); return _ptr(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { return as_vec(); }
@@ -828,7 +816,6 @@ public:
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
     object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
     integer&    as_ord()                { _req(ORD); return _ord(); }
-    variant*&   as_ptr()                { _req(PTR); return _ptr(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
     varset&     as_set()                { return as_vec(); }
@@ -873,7 +860,7 @@ protected:
 public:
     ~stateobj() throw();
     bool empty() const; // override
-    State* type()  { return (State*)_type; }
+    State* type() const  { return (State*)_type; }
     variant& var(memint index)
     {
 #ifdef DEBUG
@@ -881,9 +868,31 @@ public:
             idxerr();
 #endif
         return vars[index];
-    }    
+    }
     variant* varStart()
         { return vars; }
+};
+
+
+struct podvar { char data[sizeof(variant)]; };
+
+
+class rtstack: protected podvec<variant>
+{
+    typedef podvec<variant> parent;
+public:
+    variant* bp;
+    rtstack(memint maxSize);
+    variant* base() const   { return (variant*)parent::data(); }
+    template <class T>
+        void push(const T& t)
+            { new(bp) variant(t); bp++; }
+    variant& top()
+        { return *(bp - 1); }
+    void pop()
+        { bp--; bp->~variant(); }
+    void popto(variant& v)
+        { bp--; v.~variant(); (podvar&)v = *(podvar*)bp; }
 };
 
 

@@ -9,7 +9,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& c)
-    : codeOwner(c.getType()), codeseg(c), locals(0), maxStack(0), lastOpOffs(-1)  { }
+    : codeOwner(c.getType()), codeseg(c), locals(0), maxStack(0)  { }
 
 CodeGen::~CodeGen()
     { }
@@ -18,58 +18,44 @@ void CodeGen::error(const char* msg)
     { throw ecmessage(msg); }
 
 
-memint CodeGen::addOp(OpCode op)
+void CodeGen::addOp(Type* type, OpCode op)
 {
-    lastOpOffs = codeseg.size();
+    memint offs = codeseg.size();
+    simStack.push_back(SimStackItem(type, offs));
+    if (simStack.size() > maxStack)
+        maxStack = simStack.size();
     add<uchar>(op);
-    return lastOpOffs;
 }
 
 
-void CodeGen::discardCode(memint from)
+void CodeGen::undoLastLoad()
 {
-    codeseg.resize(from);
-    if (lastOpOffs >= from)
-        lastOpOffs = memint(-1);
-}
-
-
-void CodeGen::revertLastLoad()
-{
-    if (isUndoableLoadOp(lastOp()))
-        discardCode(lastOpOffs);
+    memint offs = stkTopOffs();
+    assert(offs >= 0 && offs < codeseg.size());
+    if (isUndoableLoadOp(codeseg[offs]))
+    {
+        stkPop();
+        codeseg.resize(offs);
+    }
     else
         // discard();
         notimpl();
 }
 
 
-OpCode CodeGen::lastOp()
-{
-    if (lastOpOffs == memint(-1))
-        return opInv;
-    return OpCode(codeseg.at<uchar>(lastOpOffs));
-}
-
-
-void CodeGen::stkPush(Type* type)
-{
-    simStack.push_back(type);
-    if (simStack.size() > maxStack)
-        maxStack = simStack.size();
-}
-
-
 Type* CodeGen::stkPop()
 {
-    Type* result = simStack.back();
+    Type* result = simStack.back().type;
     simStack.pop_back();
     return result;
 }
 
 
 void CodeGen::stkReplaceTop(Type* t)
-    { simStack.replace_back(t); }
+{
+    memint offs = simStack.back().offs;
+    simStack.replace_back(SimStackItem(t, offs));
+}
 
 
 void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
@@ -94,28 +80,19 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     if (to->isVec() && from->canAssignTo(PContainer(to)->elem))
     {
-        addOp(PContainer(to)->hasSmallElem() ? opChrToStr : opVarToVec);
-        stkReplaceTop(to);
+        stkPop();
+        addOp(to, PContainer(to)->hasSmallElem() ? opChrToStr : opVarToVec);
         return true;
     }
 
     if (from->isNullCont() && to->isAnyCont())
     {
-        stkPop();
-        revertLastLoad();
+        undoLastLoad();
         loadEmptyCont(PContainer(to));
         return true;
     }
 
-    if (from->isReference())
-    {
-        // TODO: replace the original loader with its deref version (in a separate function)
-        Type* actual = PReference(from)->to;
-        addOp(opDeref);
-        stkReplaceTop(actual);
-        return tryImplicitCast(actual);
-    }
-
+    // TODO: automatic dereference
     return false;
 }
 
@@ -153,8 +130,8 @@ void CodeGen::loadConst(Type* type, const variant& value)
     //       NULLCONT, VEC, SET, DICT, FIFO, FUNC, PROC, OBJECT, MODULE
     switch (type->typeId)
     {
-    case Type::TYPEREF:     addOp(opLoadTypeRef, value._rtobj()); break;
-    case Type::NONE:        addOp(opLoadNull); break;
+    case Type::TYPEREF:     addOp(type, opLoadTypeRef, value._rtobj()); break;
+    case Type::NONE:        addOp(type, opLoadNull); break;
     case Type::VARIANT:     error("Variant constants are not supported"); break;
     case Type::REF:         error("Reference constants are not supported"); break;
     case Type::BOOL:
@@ -164,16 +141,16 @@ void CodeGen::loadConst(Type* type, const variant& value)
         {
             integer i = value._ord();
             if (i == 0)
-                addOp(opLoad0);
+                addOp(type, opLoad0);
             else if (i == 1)
-                addOp(opLoad1);
+                addOp(type, opLoad1);
             else if (uinteger(i) <= 255)
-                { addOp(opLoadOrd8); add<uchar>(i); }
+                addOp<uchar>(type, opLoadOrd8, i);
             else
-                { addOp(opLoadOrd); add<integer>(i); }
+                addOp<integer>(type, opLoadOrd, i);
         }
         break;
-    case Type::NULLCONT: addOp(opLoadNull); break;
+    case Type::NULLCONT: addOp(type, opLoadNull); break;
 
     // All dynamic objects in the system are derived from "object" so copying
     // involves only incrementing the ref counter.
@@ -185,12 +162,10 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case Type::PROC:
     case Type::CLASS:
     case Type::MODULE:
-        addOp(opLoadConstObj);
-        add<uchar>(value.getType());
+        addOp<uchar>(type, opLoadConstObj, value.getType());
         add<object*>(value.as_anyobj());
         break;
     }
-    stkPush(type);
 }
 
 
@@ -221,25 +196,41 @@ void CodeGen::loadVariable(Variable* var)
     if (codeOwner == NULL)
         error("Variables not allowed in constant expressions");
 
-    // If var is a reference, load the value, otherwise load the var's address
-    bool deref = var->type->isReference();
-    stkPush(deref ? var->type : var->type->getRefType());
     if (var->isSelfVar() && var->state == codeOwner->selfPtr)
-        addOp<char>(deref ? opLoadSelfVar : opLoadSelfVarA, var->id);
+        addOp<char>(var->type, opLoadSelfVar, var->id);
+    else if (var->isLocalVar() && var->state == codeOwner)
+        addOp<char>(var->type, opLoadStkVar, var->id);
     else
         notimpl();
 }
 
 
-void CodeGen::store()
+Type* CodeGen::undoDesignatorLoad(str& loader)
 {
-    Type* l = stkTop(2);
-    if (!l->isReference())
-        error("Invalid L-value");
-    l = PReference(l)->to;
-    implicitCast(l, "Type mismatch in assignment");
-    addOp(opStore);
+    // Returns a code chunk to be used with store() below.
+    memint offs = stkTopOffs();
+    if (!isDesignatorLoadOp(codeseg[offs]))
+        error("Not a designator (L-value)");
+    loader = codeseg.cutTail(offs);
+    return stkPop();
+}
+
+
+void CodeGen::storeDesignator(str loaderCode, Type* type)
+{
+    OpCode op = OpCode(loaderCode[0]);
+    assert(isDesignatorLoadOp(op));
+    implicitCast(type, "Assignment type mismatch");
+    loaderCode.replace(0, char(designatorLoadToStore(op)));
+    codeseg.append(loaderCode);
     stkPop();
+}
+
+
+void CodeGen::storeRet(Type* type)
+{
+    implicitCast(type);
+    addOp<char>(opStoreStkVar, codeOwner ? codeOwner->retVarId() : -1);
     stkPop();
 }
 
@@ -248,19 +239,6 @@ void CodeGen::end()
 {
     codeseg.close(maxStack);
     assert(simStack.size() - locals == 0);
-}
-
-
-void CodeGen::runConstExpr(Type* expectType, variant& result)
-{
-    if (expectType != NULL)
-        implicitCast(expectType, "Constant expression type mismatch");
-    initRet();
-    end();
-    rtstack stack;
-    result.clear();
-    codeseg.run(stack, NULL, &result);
-    assert(stack.size() == 0);
 }
 
 

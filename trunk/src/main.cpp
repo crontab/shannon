@@ -63,7 +63,7 @@ void Compiler::statementList()
 
 void Compiler::module()
 {
-    CodeGen mainCodeGen(*moduleDef->getCodeSeg());
+    CodeGen mainCodeGen(*moduleDef->codeseg);
     codegen = &mainCodeGen;
     blockScope = NULL;
     scope = state = moduleDef->module;
@@ -108,7 +108,7 @@ objptr<ModuleDef> Compiler::compile(const str& fn)
 // --- Execute program ----------------------------------------------------- //
 
 
-int runRabbitRun(const str& fn)
+int execute(const str& fn)
 {
     objptr<ModuleDef> main = Compiler::compile(fn);
     return 0; 
@@ -146,7 +146,7 @@ int main()
     initTypeSys();
     try
     {
-        exitcode = runRabbitRun(fileName);
+        exitcode = execute(fileName);
     }
     catch (exception& e)
     {
