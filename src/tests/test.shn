@@ -1,4 +1,4 @@
-# EXPRESSION
+// EXPRESSION
 assert 1 > 0
 assert system.true
 assert 1 + 2 * 2 == 5
@@ -13,7 +13,7 @@ assert not (false or false)
 assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
-# DEFINITIONS, NULL COMPOUND
+// DEFINITIONS, NULL COMPOUND
 def s0 = 'abc'
 def sign = -1..1
 def charset = char*[..]
@@ -31,7 +31,7 @@ var int v3[] = []
 var char f1<> = []
 def any var1 = 'I\'m a variant'
 
-# CONTAINERS
+// CONTAINERS
 def sign s1[..] = [-1..0]
 def sign ss1[..] = [-1, 1]
 def sign ss2[..] = [0, 1]
@@ -66,7 +66,7 @@ var str a1[sign] = []
 var str a2[sign] = ['negative', 'zero', 'positive']
 assert a2[-1] == 'negative' and a2[1] == 'positive'
 
-# TYPECASTS
+// TYPECASTS
 assert int('A') == 65
 assert char(65) == 'A'
 assert str(65) == '65'
@@ -78,7 +78,7 @@ assert v2 == 32
 var s3 = 'abc'
 assert str('a') <> s3 and s3 <> 'a'
 
-# ENUMS
+// ENUMS
 assert (v2 == 32)
 def sign1 = (negative, zero, positive)
 assert int(negative) == 0 and int(zero) == 1 and int(positive) == 2
@@ -89,7 +89,7 @@ var char t1[..][] = [[], ['a'..'z']]
 assert not 'a' in t1[0]
 assert 'a' in t1[1]
 
-# ASSIGNMENTS, MISC
+// ASSIGNMENTS, MISC
 var a3 = 0
 a3 = 1
 assert a3 == 1
@@ -121,6 +121,6 @@ assert a6[2] == 7
 var int a7[str] = []
 a7['k2'] = 1
 assert a7['k2'] == 1
-# var char a8[..] = []
-# a8['a'] = null
-# def a9 = a7['k2']
+// var char a8[..] = []
+// a8['a'] = null
+// def a9 = a7['k2']

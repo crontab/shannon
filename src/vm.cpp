@@ -15,10 +15,12 @@ bool CodeSeg::empty() const
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-struct podvar { char data[sizeof(variant)]; };
-
 static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
+
+template<class T>
+    inline T ADV(const char*& ip)
+        { T t = *(T*)ip; ip += sizeof(T); return t; }
 
 template<class T>
     inline void PUSH(variant*& stk, const T& v)
@@ -36,7 +38,7 @@ inline void POPPOD(variant*& stk)
 inline void POPTO(variant*& stk, variant* dest)     // ... to uninitialized area
         { *(podvar*)dest = *(podvar*)stk; stk--; }
 
-inline void STORETO(variant*& stk, variant* dest)   // pop and copy properly
+inline void STORETO(variant*& stk, variant* dest)
         { dest->~variant(); POPTO(stk, dest); }
 
 #define SETPOD(dest,v) (::new(dest) variant(v))
@@ -45,15 +47,10 @@ inline void STORETO(variant*& stk, variant* dest)   // pop and copy properly
 #define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
 
 
-void CodeSeg::run(rtstack& stack, variant self[], variant result[])
+void runRabbitRun(rtstack& stack, const char* ip, variant* self)
 {
-    // Make sure there's NULL char (opEnd) at the end
-    register const uchar* ip = (const uchar*)code.c_str();
-
-    // stk always points at an exisitng top element
-    variant* stkbase = stack.reserve(stackSize);
-    register variant* stk = stkbase - 1;
-
+    // TODO: check for stack overflow
+    register variant* stk = stack.bp - 1;
     try
     {
 loop:
@@ -72,15 +69,13 @@ loop:
         case opLoadConstObj:
             { int t = ADV<uchar>(ip); PUSH(stk, t, ADV<object*>(ip)); } break;
 
-        case opLoadSelfVarA:    PUSH(stk, self + ADV<char>(ip)); break;
-
         case opLoadSelfVar:     PUSH(stk, *(self + ADV<char>(ip))); break;
+        case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
 
-        case opStore:
-            { variant* v = (stk - 1)->_ptr(); STORETO(stk, v); POPPOD(stk); } break;
+        case opStoreSelfVar:    STORETO(stk, self + ADV<char>(ip)); break;
+        case opStoreStkVar:     STORETO(stk, stack.bp + ADV<char>(ip)); break;
 
-        case opInitRet:     POPTO(stk, &result[0]); break;
-        case opDeref:       { *stk = *(stk->_ptr()); } break;
+//        case opDeref:       { *stk = *(stk->_ptr()); } break;
         case opPop:         POP(stk); break;
         case opChrToStr:    { *stk = str(stk->_uchar()); } break;
         case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
@@ -89,16 +84,24 @@ loop:
         }
         goto loop;
 exit:
-        if (stk != stkbase - 1)
-            fatal(0x5001, "Internal: stack unbalanced (corrupt code?)");
-        stack.free(stackSize);
+        assert(stk == stack.bp - 1);
     }
     catch(exception&)
     {
-        while (stk >= stkbase)
+        while (stk >= stack.bp)
             POP(stk);
-        stack.free(stackSize);
         throw;
     }
 }
 
+
+
+void CodeGen::runConstExpr(Type* expectType, variant& result)
+{
+    storeRet(expectType);
+    end();
+    rtstack stack(codeseg.stackSize + 1);
+    stack.push(variant::null);
+    runRabbitRun(stack, codeseg.getCode(), NULL);
+    stack.popto(result);
+}
