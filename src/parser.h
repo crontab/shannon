@@ -74,8 +74,8 @@ public:
     str strValue;
     uinteger intValue;
 
-    Parser(fifo*);
-    ~Parser();
+    Parser(fifo*) throw();
+    ~Parser() throw();
 
     Token next();
     void undoIdent(const str& ident);

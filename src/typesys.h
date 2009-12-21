@@ -14,8 +14,11 @@ class Ordinal;
 class Enumeration;
 class Container;
 class Fifo;
+class State;
 class Module;
 class QueenBee;
+class StateDef;
+class ModuleDef;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
@@ -73,6 +76,7 @@ public:
     State* const state;
     Variable(const str&, SymbolId, Type*, memint, State*) throw();
     ~Variable() throw();
+    memint getArgId() const;
 };
 
 
@@ -81,7 +85,7 @@ struct EDuplicate: public exception
     str const ident;
     EDuplicate(const str& _ident) throw();
     ~EDuplicate() throw();
-    const char* what() const throw(); // shouldn't be called
+    const char* what() throw(); // shouldn't be called
 };
 
 
@@ -90,7 +94,7 @@ struct EUnknownIdent: public exception
     str const ident;
     EUnknownIdent(const str& _ident) throw();
     ~EUnknownIdent() throw();
-    const char* what() const throw(); // shouldn't be called
+    const char* what() throw(); // shouldn't be called
 };
 
 
@@ -357,6 +361,10 @@ public:
 };
 
 
+inline memint Variable::getArgId() const
+    { return - state->argCount() + id; }
+
+
 class StateDef: public Definition
 {
 public:
@@ -373,29 +381,37 @@ public:
 class Module: public State
 {
 protected:
-    objvec<Module> uses;    // not owned
+    objvec<ModuleDef> uses;
     vector<str> constStrings;
+    bool complete;
 public:
-    Module(const str& _name) throw();
+    memint const id;
+    Module(const str& _name, memint _id) throw();
     ~Module() throw();
+    bool isComplete() const     { return complete; }
+    void setComplete()          { complete = true; }
     Symbol* findDeep(const str&) const; // override
-    void addUses(Module*);
+    void addUses(ModuleDef*);
     void registerString(str&); // returns a previously registered string if found
 };
 
 
 class ModuleDef: public StateDef
 {
-    objptr<stateobj> instance;
-public:
+    friend class Module;
+protected:
     // The module type is owned by its definition, because unlike other types
     // it's not registered anywhere else (all other types are registered and 
     // owned by their enclosing states).
     objptr<Module> const module;
-
-    ModuleDef(const str&) throw();          // creates default Module and CodeSeg objects
+    objptr<stateobj> instance;
+public:
+    ModuleDef(const str&, memint) throw();  // creates default Module and CodeSeg objects
     ModuleDef(Module*) throw();             // for custom Module objects
     ~ModuleDef() throw();
+    bool isComplete() const { return module->isComplete(); }
+    void setComplete()      { module->setComplete(); }
+    memint getId()          { return module->id; }
     stateobj* getInstance();
     void run(rtstack& stack);
 };

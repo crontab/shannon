@@ -3,6 +3,7 @@
 debug/common.o: common.h version.h
 debug/charset.o: charset.h
 debug/runtime.o: runtime.h charset.h common.h version.h typesys.h
+debug/rtio.o: runtime.h charset.h common.h version.h
 debug/parser.o: parser.h common.h version.h charset.h runtime.h
 debug/typesys.o: typesys.h runtime.h charset.h common.h version.h vm.h
 debug/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h

@@ -68,9 +68,9 @@ protected:
     memint stackSize;
 
     // Code gen helpers
-    void append(uchar u)            { code.push_back(u); }
     template <class T>
         void append(const T& t)     { code.push_back<T>(t); }
+    void append(OpCode op)          { code.push_back(char(op)); }
     void append(const str& s)       { code.append(s); }
     void resize(memint s)           { code.resize(s); }
     str  cutTail(memint start)
@@ -80,7 +80,7 @@ protected:
     template<class T>
         T& atw(memint i)            { return *code.atw<T>(i); }
     OpCode operator[] (memint i) const { return OpCode(code[i]); }
-    void close(memint s)            { assert(stackSize == 0); stackSize = s; }
+    void close(memint s);
 
 public:
     CodeSeg(State*) throw();
@@ -88,11 +88,12 @@ public:
 
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
+    memint getStackSize() const     { return stackSize; }
     bool empty() const;
 
     // Return a NULL-terminated string ready to be run: NULL char is an opcode
     // to exit the function
-    const char* getCode() const     { return code.c_str(); }
+    const char* getCode() const     { return code.data(); }
 };
 
 
@@ -102,7 +103,7 @@ public:
 // the arguments passed belong to one thread (except the code seggment which
 // is read-only anyway).
 
-void runRabbitRun(rtstack& stack, register const char* ip, variant* self);
+void runRabbitRun(rtstack& stack, register const char* ip, stateobj* self);
 
 
 DEF_EXCEPTION(eexit, "exit called");
@@ -131,7 +132,7 @@ protected:
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
-    void addOp(OpCode op)                           { add<uchar>(op); }
+    void addOp(OpCode op)                           { codeseg.append(op); }
     void addOp(Type*, OpCode op);
     template <class T>
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
@@ -165,9 +166,10 @@ public:
 
     void loadEmptyCont(Container* type);
     void loadVariable(Variable*);
+    void storeVariable(Variable*);
+    void storeRet(Type*);
     Type* undoDesignatorLoad(str& loader);
     void storeDesignator(str loaderCode, Type* type);
-    void storeRet(Type*);
     void end();
     void runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };

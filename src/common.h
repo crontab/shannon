@@ -6,6 +6,7 @@
 #endif
 
 // All standard library headers should go only here
+#include <sys/stat.h>
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
@@ -37,6 +38,9 @@
 
 // SH64 can be enabled both on 64 and 32-bit systems
 // #define SH64
+
+
+#define SOURCE_EXT ".shn"
 
 
 // --- BASIC DATA TYPES --------------------------------------------------- //
@@ -148,13 +152,13 @@ struct exception // : public noncopyable -- doesn't work
 {
     exception() throw();
     virtual ~exception() throw();
-    virtual const char* what() const throw() = 0;
+    virtual const char* what() throw() = 0;
 };
 
 
 #define DEF_EXCEPTION(name,msg) \
     struct name: public exception \
-        { virtual const char* what() const throw() { return msg; } };
+        { virtual const char* what() throw() { return msg; } };
 
 
 inline memint pstrlen(const char* s)
