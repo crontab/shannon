@@ -54,11 +54,11 @@ Variable::~Variable() throw()
 
 EDuplicate::EDuplicate(const str& _ident) throw(): ident(_ident)  { }
 EDuplicate::~EDuplicate() throw()  { }
-const char* EDuplicate::what() const throw()  { return "Duplicate identifier"; }
+const char* EDuplicate::what() throw()  { return "Duplicate identifier"; }
 
 EUnknownIdent::EUnknownIdent(const str& _ident) throw(): ident(_ident)  { }
 EUnknownIdent::~EUnknownIdent() throw()  { }
-const char* EUnknownIdent::what() const throw()  { return "Unknown identifier"; }
+const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 
 
 // --- //
@@ -499,12 +499,12 @@ StateDef::~StateDef() throw()
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& _name) throw()
-    : State(MODULE, NULL, this)
+Module::Module(const str& _name, memint _id) throw()
+    : State(MODULE, NULL, this), complete(false), id(_id)
 {
     setAlias(_name);
     if (queenBee != NULL)
-        addUses(queenBee);
+        addUses(queenBeeDef);
 }
 
 
@@ -519,7 +519,7 @@ Symbol* Module::findDeep(const str& ident) const
         return s;
     for (memint i = uses.size(); i--; )
     {
-        s = uses[i]->find(ident);
+        s = uses[i]->module->find(ident);
         if (s != NULL)
             return s;
     }
@@ -527,12 +527,12 @@ Symbol* Module::findDeep(const str& ident) const
 }
 
 
-void Module::addUses(Module* module)
+void Module::addUses(ModuleDef* m)
 {
     if (uses.size() >= 255)
         throw ecmessage("Too many used modules");
-    addTypeAlias(module->getAlias(), module);
-    uses.push_back(module);
+    addTypeAlias(m->name, m->module);
+    uses.push_back(m);
 }
 
 
@@ -550,12 +550,12 @@ void Module::registerString(str& s)
 
 
 ModuleDef::ModuleDef(Module* m) throw()
-    : StateDef(m), instance(), module(m)  { }
+    : StateDef(m), module(m), instance()  { }
 
 
-ModuleDef::ModuleDef(const str& n) throw()
-    : StateDef(new Module(n)), instance(),
-      module(cast<Module*>(getStateType()))  { }
+ModuleDef::ModuleDef(const str& n, memint id) throw()
+    : StateDef(new Module(n, id)),
+      module(cast<Module*>(getStateType())), instance()  { }
 
 
 ModuleDef::~ModuleDef() throw()
@@ -571,14 +571,14 @@ stateobj* ModuleDef::getInstance()
 
 
 void ModuleDef::run(rtstack& stack)
-    { runRabbitRun(stack, codeseg->getCode(), getInstance()->varStart()); }
+    { runRabbitRun(stack, codeseg->getCode(), getInstance()); }
 
 
 // --- QueenBee ------------------------------------------------------------ //
 
 
 QueenBee::QueenBee() throw()
-    : Module("system"),
+    : Module("system", 0),
       defVariant(new Variant()),
       defInt(new Ordinal(INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(CHAR, 0, 255)),
@@ -647,20 +647,17 @@ void initTypeSys()
 
     sio._type = queenBee->defCharFifo;
     serr._type = queenBee->defCharFifo;
-    
-/*
+
     // Generate code for initializing static vars in queenBee
     {
-        CodeGen gen(*queenBeeDef->getCodeSeg());
-        gen.loadVariable(cast<Variable*>(queenBee->findShallow("sio")));
+        CodeGen gen(*queenBeeDef->codeseg);
         gen.loadConst(sio.getType(), &sio);
-        gen.store();
-        gen.loadVariable(cast<Variable*>(queenBee->findShallow("serr")));
+        gen.storeVariable(cast<Variable*>(queenBee->findShallow("sio")));
         gen.loadConst(serr.getType(), &serr);
-        gen.store();
+        gen.storeVariable(cast<Variable*>(queenBee->findShallow("serr")));
         gen.end();
     }
-*/
+    queenBeeDef->setComplete();
 }
 
 

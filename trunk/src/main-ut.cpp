@@ -595,12 +595,12 @@ void test_typesys()
     check(PDefinition(b)->type->isBool());
 
     {
-//        CodeSeg* codeseg = queenBeeDef->getCodeSeg();
-//        stateobj* instance = queenBeeDef->instance;
-//        rtstack stack(codeseg->stackSize);
-//        runRabbitRun(codeseg->getCode(), stack.base(), instance->varStart(), NULL);
-//        memint id = cast<Variable*>(queenBee->find("sio"))->id;
-//        check(instance->var(id) == &sio);
+        CodeSeg* codeseg = queenBeeDef->codeseg;
+        stateobj* instance = queenBeeDef->getInstance();
+        rtstack stack(codeseg->getStackSize());
+        runRabbitRun(stack, codeseg->getCode(), instance);
+        memint id = cast<Variable*>(queenBee->find("sio"))->id;
+        check(instance->var(id) == &sio);
     }
 }
 
@@ -660,15 +660,16 @@ void test_codegen()
         check(result == "");
     }
     {
-        ModuleDef mod("test");
+        ModuleDef mod("test", 1);
         CodeGen gen(*mod.codeseg);
-        Variable* v = mod.module->addSelfVar("v", queenBee->defInt);
+        Variable* v = mod.getStateType()->addSelfVar("v", queenBee->defInt);
         gen.loadVariable(v);
         str s;
         Type* type = gen.undoDesignatorLoad(s);
         gen.loadConst(queenBee->defInt, 12);
         gen.storeDesignator(s, type);
-        rtstack stack(1);
+        gen.end();
+        rtstack stack(mod.codeseg->getStackSize());
         mod.run(stack);
         check(mod.getInstance()->var(v->id).as_int() == 12);
     }

@@ -3,6 +3,7 @@
 release/common.o: common.h version.h
 release/charset.o: charset.h
 release/runtime.o: runtime.h charset.h common.h version.h typesys.h
+release/rtio.o: runtime.h charset.h common.h version.h
 release/parser.o: parser.h common.h version.h charset.h runtime.h
 release/typesys.o: typesys.h runtime.h charset.h common.h version.h vm.h
 release/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h

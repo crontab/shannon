@@ -11,8 +11,10 @@
 CodeGen::CodeGen(CodeSeg& c)
     : codeOwner(c.getType()), codeseg(c), locals(0), maxStack(0)  { }
 
+
 CodeGen::~CodeGen()
     { }
+
 
 void CodeGen::error(const char* msg)
     { throw ecmessage(msg); }
@@ -195,13 +197,37 @@ void CodeGen::loadVariable(Variable* var)
     assert(var->id >= 0 && var->id <= 127);
     if (codeOwner == NULL)
         error("Variables not allowed in constant expressions");
-
     if (var->isSelfVar() && var->state == codeOwner->selfPtr)
         addOp<char>(var->type, opLoadSelfVar, var->id);
     else if (var->isLocalVar() && var->state == codeOwner)
-        addOp<char>(var->type, opLoadStkVar, var->id);
+        addOp<char>(var->type, opLoadStkVar, var->getArgId());
     else
         notimpl();
+}
+
+
+void CodeGen::storeVariable(Variable* var)
+{
+    assert(var->state != NULL);
+    assert(var->id >= 0 && var->id <= 127);
+    if (codeOwner == NULL)
+        error("Variables not allowed in constant expressions");
+    implicitCast(var->type);
+    if (var->isSelfVar() && var->state == codeOwner->selfPtr)
+        addOp<char>(opStoreSelfVar, var->id);
+    else if (var->isLocalVar() && var->state == codeOwner)
+        addOp<char>(opStoreStkVar, var->getArgId());
+    else
+        notimpl();
+    stkPop();
+}
+
+
+void CodeGen::storeRet(Type* type)
+{
+    implicitCast(type);
+    addOp<char>(opStoreStkVar, codeOwner ? codeOwner->retVarId() : -1);
+    stkPop();
 }
 
 
@@ -223,14 +249,6 @@ void CodeGen::storeDesignator(str loaderCode, Type* type)
     implicitCast(type, "Assignment type mismatch");
     loaderCode.replace(0, char(designatorLoadToStore(op)));
     codeseg.append(loaderCode);
-    stkPop();
-}
-
-
-void CodeGen::storeRet(Type* type)
-{
-    implicitCast(type);
-    addOp<char>(opStoreStkVar, codeOwner ? codeOwner->retVarId() : -1);
     stkPop();
 }
 

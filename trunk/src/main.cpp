@@ -16,21 +16,35 @@ struct CompilerOptions
     bool enableAssert;
     bool linenumInfo;
     bool vmListing;
+    memint stackSize;
+    vector<str> modulePath;
 
-    CompilerOptions()
-      : enableDump(true), enableAssert(true), linenumInfo(true),
-        vmListing(true)  { }
+    CompilerOptions();
 };
 
 
-
+class Context: public Scope
+{
+protected:
+    CompilerOptions options;
+    objvec<ModuleDef> modules;
+    ModuleDef* addModuleDef(ModuleDef*);
+    ModuleDef* loadModule(const str& fileName);
+    str lookupSource(const str& modName);
+public:
+    Context();
+    ~Context();
+    ModuleDef* getModule(const str&); // for use by the compiler, "uses" clause
+    void execute(const str& fileName);
+};
 
 
 class Compiler: protected Parser
 {
+    friend class Context;
 protected:
-    CompilerOptions options;
-    objptr<ModuleDef> moduleDef;
+    Context& context;
+    ModuleDef& moduleDef;
 
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols
@@ -39,20 +53,85 @@ protected:
 
     void statementList();
 
-    Compiler(const str&, fifo*);
-    ~Compiler();
-
     void module();
 
-public:
-    static objptr<ModuleDef> compile(const str&);
+    Compiler(Context&, ModuleDef&, fifo*) throw();
+    ~Compiler() throw();
 };
 
 
-Compiler::Compiler(const str& modName, fifo* f)
-    : Parser(f), moduleDef(new ModuleDef(modName))  { }
+// --- Execution Context --------------------------------------------------- //
 
-Compiler::~Compiler()
+
+CompilerOptions::CompilerOptions()
+  : enableDump(true), enableAssert(true), linenumInfo(true),
+    vmListing(true), stackSize(8192)
+        { modulePath.push_back("./"); }
+
+
+static str moduleNameFromFileName(const str& n)
+    { return remove_filename_path(remove_filename_ext(n)); }
+
+
+Context::Context()
+    : Scope(NULL), options(), modules()
+        { addModuleDef(queenBeeDef); }
+
+
+Context::~Context()
+    { modules.release_all(); }
+
+
+ModuleDef* Context::addModuleDef(ModuleDef* m)
+{
+    assert(m->getId() == modules.size());
+    addUnique(m);
+    modules.push_back(m->ref<ModuleDef>());
+    return m;
+}
+
+
+ModuleDef* Context::loadModule(const str& fileName)
+{
+    str modName = moduleNameFromFileName(fileName);
+    if (!isValidIdent(modName))
+        throw emessage("Invalid module name: '" + modName + "'");
+    ModuleDef* mod = addModuleDef(new ModuleDef(modName, modules.size()));
+    Compiler compiler(*this, *mod, new intext(NULL, fileName));
+    compiler.module();
+    return mod;
+}
+
+
+str Context::lookupSource(const str& modName)
+{
+    for (memint i = 0; i < options.modulePath.size(); i++)
+    {
+        str t = options.modulePath[i] + "/" + modName + SOURCE_EXT;
+        if (isFile(t.c_str()))
+            return t;
+    }
+    throw emessage("Module not found: " + modName);
+}
+
+
+ModuleDef* Context::getModule(const str& modName)
+{
+    ModuleDef* m = cast<ModuleDef*>(Scope::find(modName));
+    if (m == NULL)
+        m = loadModule(lookupSource(modName));
+    return m;
+}
+
+
+// --- Compiler ------------------------------------------------------------ //
+
+
+Compiler::Compiler(Context& c, ModuleDef& mod, fifo* f) throw()
+    : Parser(f), context(c), moduleDef(mod)  { }
+
+
+Compiler::~Compiler() throw()
     { }
 
 
@@ -63,10 +142,10 @@ void Compiler::statementList()
 
 void Compiler::module()
 {
-    CodeGen mainCodeGen(*moduleDef->codeseg);
+    CodeGen mainCodeGen(*moduleDef.codeseg);
     codegen = &mainCodeGen;
     blockScope = NULL;
-    scope = state = moduleDef->module;
+    scope = state = moduleDef.getStateType();
     try
     {
         next();
@@ -87,31 +166,6 @@ void Compiler::module()
 //        outtext f(NULL, remove_filename_ext(getFileName()) + ".lst");
 //        mainModule.listing(f);
 //    }
-}
-
-
-static str moduleNameFromFileName(const str& n)
-    { return remove_filename_path(remove_filename_ext(n)); }
-
-
-objptr<ModuleDef> Compiler::compile(const str& fn)
-{
-    str mn = moduleNameFromFileName(fn);
-    if (!isValidIdent(mn))
-        throw emessage("Invalid module name: '" + mn + "'");
-    Compiler compiler(mn, new intext(queenBee->defCharFifo, fn));
-    compiler.module();
-    return compiler.moduleDef;
-}
-
-
-// --- Execute program ----------------------------------------------------- //
-
-
-int execute(const str& fn)
-{
-    objptr<ModuleDef> main = Compiler::compile(fn);
-    return 0; 
 }
 
 
@@ -146,7 +200,7 @@ int main()
     initTypeSys();
     try
     {
-        exitcode = execute(fileName);
+//        exitcode = execute(fileName);
     }
     catch (exception& e)
     {

@@ -3,13 +3,25 @@
 
 
 CodeSeg::CodeSeg(State* stateType) throw()
-    : rtobject(stateType), stackSize(0)  { }
+    : rtobject(stateType), stackSize(-1)  { }
+
 
 CodeSeg::~CodeSeg() throw()
     { }
 
+
 bool CodeSeg::empty() const
     { return code.empty(); }
+
+
+void CodeSeg::close(memint s)
+{
+    if (stackSize == -1)
+    {
+        stackSize = s;
+        append(opEnd);
+    }
+}
 
 
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
@@ -47,7 +59,7 @@ inline void STORETO(variant*& stk, variant* dest)
 #define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
 
 
-void runRabbitRun(rtstack& stack, const char* ip, variant* self)
+void runRabbitRun(rtstack& stack, const char* ip, stateobj* self)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
@@ -69,10 +81,10 @@ loop:
         case opLoadConstObj:
             { int t = ADV<uchar>(ip); PUSH(stk, t, ADV<object*>(ip)); } break;
 
-        case opLoadSelfVar:     PUSH(stk, *(self + ADV<char>(ip))); break;
+        case opLoadSelfVar:     PUSH(stk, self->var(ADV<char>(ip))); break;
         case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
 
-        case opStoreSelfVar:    STORETO(stk, self + ADV<char>(ip)); break;
+        case opStoreSelfVar:    STORETO(stk, &self->var(ADV<char>(ip))); break;
         case opStoreStkVar:     STORETO(stk, stack.bp + ADV<char>(ip)); break;
 
 //        case opDeref:       { *stk = *(stk->_ptr()); } break;

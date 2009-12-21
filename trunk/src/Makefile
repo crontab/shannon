@@ -4,20 +4,21 @@ ARCH = -arch i386
 SHBITS = -DSH64
 # MTHR = -DMTHR
 
-CXXDOPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DDEBUG -g -O
+CXXDOPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DDEBUG -g
 CXXROPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
-DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/parser.o \
-    debug/typesys.o debug/vm.o debug/vmcodegen.o
+DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/rtio.o \
+    debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o
 
-ROBJS = release/common.o release/charset.o release/runtime.o release/parser.o \
-    release/typesys.o release/vm.o release/vmcodegen.o
+ROBJS = release/common.o release/charset.o release/runtime.o release/rtio.o \
+    release/parser.o release/typesys.o release/vm.o release/vmcodegen.o
 
-SRCS = common.cpp charset.cpp runtime.cpp parser.cpp typesys.cpp vm.cpp \
-    vmcodegen.cpp main.cpp main-ut.cpp
+SRCS = common.cpp charset.cpp runtime.cpp rtio.cpp \
+    parser.cpp typesys.cpp vm.cpp vmcodegen.cpp \
+    main.cpp main-ut.cpp
 
-HDRS = version.h common.h charset.h runtime.h typesys.h parser.h
+HDRS = version.h common.h charset.h runtime.h typesys.h parser.h vm.h
 
 
 all: dirs shannon shannon-ut

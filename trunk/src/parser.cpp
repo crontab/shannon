@@ -85,12 +85,12 @@ EParser::EParser(const str& fn, int l, const str& m)
     : emessage(parserErrorStr(fn, l, m))  { }
 
 
-Parser::Parser(fifo* inp)
+Parser::Parser(fifo* inp) throw()
     : input(inp), linenum(1), prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 
 
-Parser::~Parser()
+Parser::~Parser() throw()
     { }
 
 

@@ -324,7 +324,7 @@ public:
     str(char c)                             { _init(&c, 1); }
     str(const str& s): contptr(s)           { }
 
-    const char* c_str() const; // can actually modify the object
+    const char* c_str(); // can actually modify the object
     char operator[] (memint i) const        { return *obj->data(i); }
     char at(memint i) const                 { return *contptr::at(i); }
     char back() const                       { return *contptr::back(1); }
@@ -669,7 +669,7 @@ public:
     ecmessage(const ecmessage&) throw(); // not defined
     ecmessage(const char* _msg) throw();
     ~ecmessage() throw();
-    const char* what() const throw();
+    const char* what() throw();
 };
 
 
@@ -682,7 +682,7 @@ public:
     emessage(const str& _msg) throw();
     emessage(const char* _msg) throw();
     ~emessage() throw();
-    const char* what() const throw();
+    const char* what() throw();
 };
 
 
@@ -712,18 +712,19 @@ public:
 
     enum Type
         { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
+//            REFSTART,
             ANYOBJ = STR };
 
     struct _None { int dummy; }; 
     static _None null;
 
 protected:
-    Type type;
+    memint type;
     union
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
-        object*     _obj;       // str, vector, set, map and their variantons
+        object*     _obj;       // str, vector, set, map and their variants
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
 
@@ -778,10 +779,11 @@ public:
     bool operator== (const variant&) const;
     bool operator!= (const variant& v) const { return !(operator==(v)); }
 
-    Type getType() const                { return type; }
+    Type getType() const                { return Type(type); }
     bool is(Type t) const               { return type == t; }
     bool is_none() const                { return type == NONE; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
+//    bool is_ref() const                 { return type >= REFSTART; }
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
@@ -869,30 +871,25 @@ public:
 #endif
         return vars[index];
     }
-    variant* varStart()
-        { return vars; }
 };
 
 
 struct podvar { char data[sizeof(variant)]; };
 
-
+// TODO: Runtime stack is a fixed, uninitialized and unmanaged array of
+//       variants, should be implemented more efficiently than this.
 class rtstack: protected podvec<variant>
 {
     typedef podvec<variant> parent;
 public:
-    variant* bp;
+    variant* bp;    // base pointer, directly manipulated by the VM
     rtstack(memint maxSize);
-    variant* base() const   { return (variant*)parent::data(); }
+    variant* base() const       { return (variant*)parent::data(); }
     template <class T>
-        void push(const T& t)
-            { new(bp) variant(t); bp++; }
-    variant& top()
-        { return *(bp - 1); }
-    void pop()
-        { bp--; bp->~variant(); }
-    void popto(variant& v)
-        { bp--; v.~variant(); (podvar&)v = *(podvar*)bp; }
+        void push(const T& t)   { new(bp) variant(t); bp++; }
+    variant& top()              { return *(bp - 1); }
+    void pop()                  { bp--; bp->~variant(); }
+    void popto(variant& v)      { bp--; v.~variant(); (podvar&)v = *(podvar*)bp; }
 };
 
 
@@ -1111,7 +1108,7 @@ class intext: public buffifo
 protected:
     enum { BUF_SIZE = 2048 * sizeof(integer) };
 
-    const str file_name;
+    str file_name;
     str  filebuf;
     int  _fd;
     bool _eof;
@@ -1135,7 +1132,7 @@ class outtext: public buffifo
 protected:
     enum { BUF_SIZE = 2048 * sizeof(integer) };
 
-    const str file_name;
+    str file_name;
     str  filebuf;
     int  _fd;
     bool _err;
@@ -1167,6 +1164,12 @@ public:
 
 extern stdfile sio;
 extern stdfile serr;
+
+
+// --- System utilities ---------------------------------------------------- //
+
+
+bool isFile(const char*);
 
 
 #endif // __RUNTIME_H
