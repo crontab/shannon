@@ -1,24 +1,27 @@
 
 ARCH = -arch i386
 # ARCH = -arch x86_64
-SHBITS = -DSH64
-# MTHR = -DMTHR
+SHBITS = -DSHN_64
+# SHTHR = -DSHN_THR
 
-CXXDOPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DDEBUG -g
-CXXROPTS = $(ARCH) $(SHBITS) $(MTHR) -Wall -Werror -DNDEBUG -O2
+CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DDEBUG -g
+CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/rtio.o \
-    debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o
+    debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o \
+    debug/compiler.o
 
 ROBJS = release/common.o release/charset.o release/runtime.o release/rtio.o \
-    release/parser.o release/typesys.o release/vm.o release/vmcodegen.o
+    release/parser.o release/typesys.o release/vm.o release/vmcodegen.o \
+    release/compiler.o
 
 SRCS = common.cpp charset.cpp runtime.cpp rtio.cpp \
     parser.cpp typesys.cpp vm.cpp vmcodegen.cpp \
+    compiler.cpp \
     main.cpp main-ut.cpp
 
-HDRS = version.h common.h charset.h runtime.h typesys.h parser.h vm.h
+HDRS = version.h common.h charset.h runtime.h typesys.h parser.h vm.h compiler.h
 
 
 all: dirs shannon shannon-ut
@@ -65,12 +68,12 @@ debug/%.o: %.cpp Makefile
 
 shn: $(ROBJS) release/main.o
 	$(CXX) $(CXXROPTS) $(LDLIBS) $^ -o $@
-	@strip $@
+#	@strip $@
 
 release/%.o: %.cpp Makefile
 	$(CXX) $(CXXROPTS) -c $< -o $@
 
-%.s: %.cpp
+%.s: %.cpp Makefile
 	$(CXX) $(CXXROPTS) -S -fverbose-asm $< -o $@
 
 clean:

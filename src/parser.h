@@ -8,7 +8,8 @@
 
 struct EParser: public emessage
 {
-    EParser(const str& ifilename, int ilinenum, const str& msg);
+    EParser(const str& ifilename, int ilinenum, const str& msg) throw();
+    ~EParser() throw();
 };
 
 

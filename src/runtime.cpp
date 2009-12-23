@@ -935,7 +935,8 @@ void variant::_fin_anyobj()
     {
     case NONE:
     case ORD:
-    case REAL:       break;
+    case REAL:
+    case PTR:       break;
     case STR:       _str().~str(); break;
     case VEC:       _vec().~varvec(); break;
     case ORDSET:    _ordset().~ordset(); break;
@@ -958,6 +959,24 @@ void variant::_init(const variant& v)
 }
 
 
+void variant::_init(Type t)
+{
+    type = t;
+    switch(type)
+    {
+    case NONE:      break;
+    case ORD:       val._ord = 0; break;
+    case REAL:      val._real = 0; break;
+    case PTR:       val._ptr = NULL; break;
+    case STR:       ::new(&val._obj) str(); break;
+    case VEC:       ::new(&val._obj) varvec(); break;
+    case ORDSET:    ::new(&val._obj) ordset(); break;
+    case DICT:      ::new(&val._obj) vardict(); break;
+    case RTOBJ:     val._rtobj = NULL; break;
+    }
+}
+
+
 memint variant::compare(const variant& v) const
 {
     if (type == v.type)
@@ -969,6 +988,7 @@ memint variant::compare(const variant& v) const
             integer d = val._ord - v.val._ord;
             return d < 0 ? -1 : d > 0 ? 1 : 0;
         case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+        case PTR: return memint(val._ptr) - memint(v.val._ptr);
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
@@ -990,6 +1010,7 @@ bool variant::operator== (const variant& v) const
         case NONE:      return true;
         case ORD:       return val._ord == v.val._ord;
         case REAL:      return val._real == v.val._real;
+        case PTR:       return val._ptr == v.val._ptr;
         case STR:       return _str() == v._str();
         case VEC:       return _vec() == v._vec();
         case ORDSET:    return _ordset() == v._ordset();
@@ -1008,6 +1029,7 @@ bool variant:: empty() const
     case NONE:      return true;
     case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0;
+    case PTR:       return val._ptr == NULL;
     case STR:       return _str().empty();
     case VEC:       return _vec().empty();
     case ORDSET:    return _ordset().empty();
@@ -1037,10 +1059,21 @@ bool stateobj::empty() const
 
 stateobj::~stateobj() throw()
 {
-    if (type() != NULL)
+    collapse();
+}
+
+
+void stateobj::collapse()
+{
+    // TODO: this is not thread-safe. An atomic exchnage for pointers is needed.
+    if (getType() != NULL)
     {
-        for (memint count = type()->selfVarCount(); count--; )
-            vars[count].~variant();
+        for (memint count = getType()->selfVarCount(); count--; )
+            vars[count].clear();
+        clearType();
+#ifdef DEBUG
+        varcount = 0;
+#endif
     }
 }
 
@@ -1051,4 +1084,10 @@ rtstack::rtstack(memint maxSize)
     bp = base();
 }
 
+
+// NOTE: these objects depend on the str class, which has static initialization,
+// so the best thing is to leave these in the same module as str to ensure
+// proper order of initialization.
+stdfile sio(STDIN_FILENO, STDOUT_FILENO);
+stdfile serr(-1, STDERR_FILENO);
 

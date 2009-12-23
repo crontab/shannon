@@ -488,8 +488,7 @@ stateobj* State::newInstance()
 
 
 StateDef::StateDef(State* s) throw()
-    : Definition(s->getAlias(), s, new CodeSeg(s)),
-      codeseg(cast<CodeSeg*>(value._rtobj()))  { }
+    : Definition(s->getAlias(), s, new CodeSeg(s))  { }
 
 
 StateDef::~StateDef() throw()
@@ -499,19 +498,15 @@ StateDef::~StateDef() throw()
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& _name, memint _id) throw()
-    : State(MODULE, NULL, this), complete(false), id(_id)
-{
-    setAlias(_name);
-    if (queenBee != NULL)
-        addUses(queenBeeDef);
-}
+Module::Module(const str& n) throw()
+    : State(MODULE, NULL, this), complete(false)  { setAlias(n); }
 
 
 Module::~Module() throw()
     { }
 
 
+/*
 Symbol* Module::findDeep(const str& ident) const
 {
     Symbol* s = find(ident);
@@ -519,21 +514,17 @@ Symbol* Module::findDeep(const str& ident) const
         return s;
     for (memint i = uses.size(); i--; )
     {
-        s = uses[i]->module->find(ident);
+        s = cast<Module*>(uses[i]->type)->find(ident);
         if (s != NULL)
             return s;
     }
     throw EUnknownIdent(ident);
 }
+*/
 
 
-void Module::addUses(ModuleDef* m)
-{
-    if (uses.size() >= 255)
-        throw ecmessage("Too many used modules");
-    addTypeAlias(m->name, m->module);
-    uses.push_back(m);
-}
+void Module::addUses(Module* m)
+    { uses.push_back(addSelfVar(m->getAlias(), m)); }
 
 
 void Module::registerString(str& s)
@@ -553,8 +544,8 @@ ModuleDef::ModuleDef(Module* m) throw()
     : StateDef(m), module(m), instance()  { }
 
 
-ModuleDef::ModuleDef(const str& n, memint id) throw()
-    : StateDef(new Module(n, id)),
+ModuleDef::ModuleDef(const str& n) throw()
+    : StateDef(new Module(n)),
       module(cast<Module*>(getStateType())), instance()  { }
 
 
@@ -562,27 +553,35 @@ ModuleDef::~ModuleDef() throw()
     { }
 
 
-stateobj* ModuleDef::getInstance()
+void ModuleDef::initialize(Context* context)
 {
-    if (instance.empty())
-        instance = getStateType()->newInstance();
-    return instance;
+    if (!instance.empty())
+        fatal(0x3003, "Internal: module already initialized");
+    instance = module->newInstance();
+    // Assign module vars. This allows to generate code that accesses module
+    // static data by variable id, so that code is context-independant
+    for (memint i = 0; i < module->uses.size(); i++)
+    {
+        Variable* v = module->uses[i];
+        ModuleDef* def = context->findModuleDef(cast<Module*>(v->type));
+        instance->var(v->id) = def->instance.get();
+    }
 }
 
 
-void ModuleDef::run(rtstack& stack)
-    { runRabbitRun(stack, codeseg->getCode(), getInstance()); }
+void ModuleDef::finalize()
+    { if (!instance.empty()) { instance->collapse(); instance.clear(); } }
 
 
 // --- QueenBee ------------------------------------------------------------ //
 
 
 QueenBee::QueenBee() throw()
-    : Module("system", 0),
+    : Module("system"),
       defVariant(new Variant()),
-      defInt(new Ordinal(INT, INTEGER_MIN, INTEGER_MAX)),
-      defChar(new Ordinal(CHAR, 0, 255)),
-      defBool(new Enumeration(BOOL)),
+      defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
+      defChar(new Ordinal(Type::CHAR, 0, 255)),
+      defBool(new Enumeration(Type::BOOL)),
       defNullCont(new Container(defNone, defNone)),
       defStr(new Container(defNone, defChar)),
       defCharSet(new Container(defChar, defNone)),
@@ -609,14 +608,34 @@ QueenBee::QueenBee() throw()
     addDefinition("__VER_FIX", defInt, SHANNON_VERSION_FIX);
 
     // Variables
-    addSelfVar("__program_result", defVariant);
-    addSelfVar("sio", defCharFifo);
-    addSelfVar("serr", defCharFifo);
+    resultVar = addSelfVar("__program_result", defVariant);
+    sioVar = addSelfVar("sio", defCharFifo);
+    serrVar = addSelfVar("serr", defCharFifo);
 }
 
 
 QueenBee::~QueenBee() throw()
     { }
+
+
+QueenBeeDef::QueenBeeDef() throw()
+    : ModuleDef(queenBee)  { }
+
+
+QueenBeeDef::~QueenBeeDef() throw()
+    { }
+
+
+void QueenBeeDef::initialize(Context* context)
+{
+    parent::initialize(context);
+    sio.setType(queenBee->defCharFifo);
+    serr.setType(queenBee->defCharFifo);
+    instance->var(queenBee->sioVar->id) = &sio;
+    instance->var(queenBee->serrVar->id) = &serr;
+    getCodeSeg()->close(0);
+    setComplete();
+}
 
 
 // --- Globals ------------------------------------------------------------- //
@@ -625,7 +644,6 @@ QueenBee::~QueenBee() throw()
 objptr<TypeReference> defTypeRef;
 objptr<None> defNone;
 objptr<QueenBee> queenBee;
-objptr<ModuleDef> queenBeeDef;
 
 
 void initTypeSys()
@@ -643,29 +661,13 @@ void initTypeSys()
     // recursive definitions and other kinds of weirdness, and therefore should
     // be defined in C code rather than in Shannon code
     queenBee = new QueenBee();
-    queenBeeDef = new ModuleDef(queenBee);
-
-    sio._type = queenBee->defCharFifo;
-    serr._type = queenBee->defCharFifo;
-
-    // Generate code for initializing static vars in queenBee
-    {
-        CodeGen gen(*queenBeeDef->codeseg);
-        gen.loadConst(sio.getType(), &sio);
-        gen.storeVariable(cast<Variable*>(queenBee->findShallow("sio")));
-        gen.loadConst(serr.getType(), &serr);
-        gen.storeVariable(cast<Variable*>(queenBee->findShallow("serr")));
-        gen.end();
-    }
-    queenBeeDef->setComplete();
 }
 
 
 void doneTypeSys()
 {
-    queenBeeDef.clear();
-    queenBee.clear();
-    defNone.clear();
-    defTypeRef.clear();
+    queenBee = NULL;
+    defNone = NULL;
+    defTypeRef = NULL;
 }
 

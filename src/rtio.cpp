@@ -16,7 +16,7 @@ fifo::~fifo() throw()
 void fifo::_empty_err()                { throw emessage("FIFO empty"); }
 void fifo::_wronly_err()               { throw emessage("FIFO is write-only"); }
 void fifo::_rdonly_err()               { throw emessage("FIFO is read-only"); }
-void fifo::_fifo_type_err()            { fatal(0x1002, "FIFO type mismatch"); }
+void fifo::_fifo_type_err()            { fatal(0x2001, "FIFO type mismatch"); }
 const char* fifo::get_tail()           { _wronly_err(); return NULL; }
 const char* fifo::get_tail(memint*)    { _wronly_err(); return NULL; }
 void fifo::deq_bytes(memint)           { _wronly_err(); }
@@ -631,13 +631,6 @@ stdfile::~stdfile() throw()
 
 memint stdfile::enq_chars(const char* p, memint count)
     { return ::write(_ofd, p, count); }
-
-
-// NOTE: these objects depend on the str class, which has static initialization,
-// so the best thing is to leave these in the same module as str to ensure
-// proper order of initialization.
-stdfile sio(STDIN_FILENO, STDOUT_FILENO);
-stdfile serr(-1, STDERR_FILENO);
 
 
 

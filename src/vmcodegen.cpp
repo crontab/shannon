@@ -127,20 +127,15 @@ void CodeGen::discard()
 
 void CodeGen::loadConst(Type* type, const variant& value)
 {
-    // variant: NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ
-    // Type: TYPEREF, NONE, VARIANT, REF, BOOL, CHAR, INT, ENUM,
-    //       NULLCONT, VEC, SET, DICT, FIFO, FUNC, PROC, OBJECT, MODULE
-    switch (type->typeId)
+    // NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ
+    switch(value.getType())
     {
-    case Type::TYPEREF:     addOp(type, opLoadTypeRef, value._rtobj()); break;
-    case Type::NONE:        addOp(type, opLoadNull); break;
-    case Type::VARIANT:     error("Variant constants are not supported"); break;
-    case Type::REF:         error("Reference constants are not supported"); break;
-    case Type::BOOL:
-    case Type::CHAR:
-    case Type::INT:
-    case Type::ENUM:
+    case variant::NONE:
+        addOp(type, opLoadNull);
+        break;
+    case variant::ORD:
         {
+            assert(type->isAnyOrd());
             integer i = value._ord();
             if (i == 0)
                 addOp(type, opLoad0);
@@ -152,42 +147,47 @@ void CodeGen::loadConst(Type* type, const variant& value)
                 addOp<integer>(type, opLoadOrd, i);
         }
         break;
-    case Type::NULLCONT: addOp(type, opLoadNull); break;
-
-    // All dynamic objects in the system are derived from "object" so copying
-    // involves only incrementing the ref counter.
-    case Type::VEC:
-    case Type::SET:
-    case Type::DICT:
-    case Type::FIFO:
-    case Type::FUNC:
-    case Type::PROC:
-    case Type::CLASS:
-    case Type::MODULE:
-        addOp<uchar>(type, opLoadConstObj, value.getType());
-        add<object*>(value.as_anyobj());
+    case variant::REAL: notimpl(); break;
+    case variant::PTR: notimpl(); break;
+    case variant::STR:
+        assert(type->isVec() && PContainer(type)->hasSmallElem());
+        addOp<object*>(type, opLoadStr, value._anyobj());
+        break;
+    case variant::VEC:
+    case variant::ORDSET:
+    case variant::DICT:
+    case variant::RTOBJ:
+        fatal(0x6001, "Internal: unknown constant literal");
         break;
     }
 }
 
 
+void CodeGen::loadConst(Definition* def)
+    { addOp<Definition*>(def->type, opLoadConst, def); }
+
+
 void CodeGen::loadEmptyCont(Container* contType)
 {
-    variant v;
+    variant::Type vartype = variant::NONE;
     switch (contType->typeId)
     {
     case Type::NULLCONT:
         error("Container type undefined");
+        break;
     case Type::VEC:
-        if (contType->hasSmallElem()) v = str(); else v = varvec(); break;
-    case Type::SET: break;
-        if (contType->hasSmallIndex()) v = ordset(); else v = varset(); break;
-    case Type::DICT: break;
-        if (contType->hasSmallIndex()) v = varvec(); else v = vardict(); break;
+        vartype = contType->hasSmallElem() ? variant::STR : variant::VEC;
+        break;
+    case Type::SET:
+        vartype = contType->hasSmallIndex() ? variant::ORDSET : variant::VEC;
+        break;
+    case Type::DICT:
+        vartype = contType->hasSmallIndex() ? variant::VEC : variant::DICT;
+        break;
     default:
         notimpl();
     }
-    loadConst(contType, v);
+    addOp<char>(contType, opLoadEmptyVar, vartype);
 }
 
 
@@ -231,6 +231,7 @@ void CodeGen::storeRet(Type* type)
 }
 
 
+/*
 Type* CodeGen::undoDesignatorLoad(str& loader)
 {
     // Returns a code chunk to be used with store() below.
@@ -251,7 +252,7 @@ void CodeGen::storeDesignator(str loaderCode, Type* type)
     codeseg.append(loaderCode);
     stkPop();
 }
-
+*/
 
 void CodeGen::end()
 {
