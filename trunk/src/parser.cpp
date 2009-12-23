@@ -17,7 +17,7 @@ public:
 #ifdef DEBUG
             if (count > 0)
                 if (strcmp(k->kw, (k - 1)->kw) <= 0)
-                    fatal(0x2040, "Keyword verification failed");
+                    fatal(0x4001, "Keyword verification failed");
 #endif
             count++;
         }
@@ -81,8 +81,12 @@ static str parserErrorStr(const str& filename, int linenum, const str& msg)
 }
 
 
-EParser::EParser(const str& fn, int l, const str& m)
+EParser::EParser(const str& fn, int l, const str& m) throw()
     : emessage(parserErrorStr(fn, l, m))  { }
+
+
+EParser::~EParser() throw()
+    { }
 
 
 Parser::Parser(fifo* inp) throw()
@@ -242,8 +246,8 @@ restart:
     if (c == -1)
     {
         strValue = "<EOF>";
-        if (token != tokSep)   // return tokSep at EOF, but only once
-            return token = tokSep;
+        if (token != tokBlockEnd)   // return tokBlockEnd at EOF, but only once
+            return token = tokBlockEnd;
         return token = tokEof;
     }
 

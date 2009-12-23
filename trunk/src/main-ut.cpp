@@ -24,7 +24,7 @@ static void ut_fail(unsigned line, const char* e)
 #define XSTR(s) _STR(s)
 #define _STR(s) #s
 
-#ifdef SH64
+#ifdef SHN_64
 #  define INTEGER_MAX_STR "9223372036854775807"
 #  define INTEGER_MAX_STR_PLUS "9223372036854775808"
 #  define INTEGER_MIN_STR "-9223372036854775808"
@@ -593,15 +593,6 @@ void test_typesys()
     check(b != NULL && b->isDefinition());
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
-
-    {
-        CodeSeg* codeseg = queenBeeDef->codeseg;
-        stateobj* instance = queenBeeDef->getInstance();
-        rtstack stack(codeseg->getStackSize());
-        runRabbitRun(stack, codeseg->getCode(), instance);
-        memint id = cast<Variable*>(queenBee->find("sio"))->id;
-        check(instance->var(id) == &sio);
-    }
 }
 
 
@@ -645,33 +636,13 @@ void test_codegen()
 {
     _codegen_load(queenBee->defInt, 21);
     _codegen_load(queenBee->defStr, "ABC");
-    _codegen_load(defTypeRef, queenBee->defInt);
-    {
-        varvec v;
-        v.push_back(10);
-        _codegen_load(queenBee->registerType("", queenBee->defInt->deriveVec()), v);
-    }
     {
         CodeSeg code(NULL);
         CodeGen gen(code);
-        gen.loadConst(queenBee->defNullCont, variant::null);
+        gen.loadConst(queenBee->defNullCont, variant());
         variant result;
         gen.runConstExpr(queenBee->defStr, result);
-        check(result == "");
-    }
-    {
-        ModuleDef mod("test", 1);
-        CodeGen gen(*mod.codeseg);
-        Variable* v = mod.getStateType()->addSelfVar("v", queenBee->defInt);
-        gen.loadVariable(v);
-        str s;
-        Type* type = gen.undoDesignatorLoad(s);
-        gen.loadConst(queenBee->defInt, 12);
-        gen.storeDesignator(s, type);
-        gen.end();
-        rtstack stack(mod.codeseg->getStackSize());
-        mod.run(stack);
-        check(mod.getInstance()->var(v->id).as_int() == 12);
+        check(result.is_str() && result == "");
     }
 }
 
@@ -690,7 +661,7 @@ int main()
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(memint) == sizeof(size_t));
 
-#ifdef SH64
+#ifdef SHN_64
     check(sizeof(integer) == 8);
 #  ifdef PTR64
     check(sizeof(variant) == 16);

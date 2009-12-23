@@ -19,25 +19,13 @@
 #include "version.h"
 
 
-#if !defined(SINGLE_THREADED) && !defined(MULTI_THREADED)
-#  define SINGLE_THREADED
-#endif
-
 #if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
 #  define RANGE_CHECKING
 #endif
 
 
-#if defined(__x86_64__)
-#  define PTR64
-#elif defined(__i386__)
-#  define PTR32
-#else
-#  error Unsupported architecure.
-#endif
-
-// SH64 can be enabled both on 64 and 32-bit systems
-// #define SH64
+// SHN_64 can be enabled both on 64 and 32-bit systems
+// #define SHN_64
 
 
 #define SOURCE_EXT ".shn"
@@ -48,7 +36,7 @@
 
 // Default fundamental types
 
-#ifdef SH64
+#ifdef SHN_64
     typedef long long integer;
     typedef unsigned long long uinteger;
     typedef double real;
@@ -108,13 +96,6 @@ template <class T, class X>
         { return (T)x; }
 #endif
 
-/*
-#ifdef DEBUG
-#  define CAST(T, x) (dynamic_cast<T>(x))
-#else
-#  define CAST(T, x) ((T)(x))
-#endif
-*/
 
 template <class Container, class Key, class Tint>
 inline bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
@@ -156,11 +137,6 @@ struct exception // : public noncopyable -- doesn't work
 };
 
 
-#define DEF_EXCEPTION(name,msg) \
-    struct name: public exception \
-        { virtual const char* what() throw() { return msg; } };
-
-
 inline memint pstrlen(const char* s)
     { return s == NULL ? 0 : ::strlen(s); }
 
@@ -198,16 +174,12 @@ void  operator delete[](void*) throw();
 
 // TODO: the atomic functions below should be 64-bit on a 64-bit platform
 
-#ifdef SINGLE_THREADED
-
-inline int pincrement(int* target)  { return ++(*target); }
-inline int pdecrement(int* target)  { return --(*target); }
-
+#ifndef SHN_THR
+    inline int pincrement(int* target)  { return ++(*target); }
+    inline int pdecrement(int* target)  { return --(*target); }
 #else
-
-int pincrement(int* target);
-int pdecrement(int* target);
-
+    int pincrement(int* target);
+    int pdecrement(int* target);
 #endif
 
 

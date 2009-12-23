@@ -7,8 +7,11 @@ release/rtio.o: runtime.h charset.h common.h version.h
 release/parser.o: parser.h common.h version.h charset.h runtime.h
 release/typesys.o: typesys.h runtime.h charset.h common.h version.h vm.h
 release/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h
+release/vm.o: compiler.h parser.h
 release/vmcodegen.o: vm.h common.h version.h runtime.h charset.h typesys.h
+release/compiler.o: vm.h common.h version.h runtime.h charset.h typesys.h
+release/compiler.o: compiler.h parser.h
 release/main.o: common.h version.h runtime.h charset.h parser.h typesys.h
-release/main.o: vm.h
+release/main.o: vm.h compiler.h
 release/main-ut.o: common.h version.h runtime.h charset.h parser.h typesys.h
 release/main-ut.o: vm.h

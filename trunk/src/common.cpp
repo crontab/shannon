@@ -37,7 +37,7 @@ exception::~exception() throw()  { }
 
 void outofmemory()
 {
-    fatal(0x1001, "Out of memory");
+    fatal(0x0001, "Out of memory");
 }
 
 static void newdel()
@@ -51,7 +51,7 @@ void  operator delete  (void*) throw()   { newdel(); }
 void  operator delete[](void*) throw()   { newdel(); }
 
 
-#ifndef SINGLE_THREADED
+#ifdef SHN_THR
 
 #if defined(__GNUC__) && (defined(__i386__) || defined(__I386__)|| defined(__x86_64__))
 // multi-threaded version with GCC on i386

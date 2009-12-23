@@ -21,16 +21,17 @@ enum OpCode
     opLoad1,            // +ord
     opLoadOrd8,         // [int8] +ord
     opLoadOrd,          // [int] +ord
-    opLoadNullCont,     // +null
-    opLoadConstObj,     // [variant::Type:8, object*]
+    opLoadStr,          // [object*] +str
+    opLoadEmptyVar,     // [variant::Type:8] + var
+    opLoadConst,        // [Definition*] +var
 
     // Loaders
-    opLoadSelfVar,      // [self-idx8] +var
-    opLoadStkVar,       // [stk-idx8] +var
+    opLoadSelfVar,      // [self-idx:8] +var
+    opLoadStkVar,       // [stk-idx:8] +var
 
     // Storers
-    opStoreSelfVar,     // [self-idx8] -var
-    opStoreStkVar,      // [stk-idx8] -var
+    opStoreSelfVar,     // [self-idx:8] -var
+    opStoreStkVar,      // [stk-idx:8] -var
 
     opDeref,            // -ptr +var
     opPop,              // -var
@@ -44,7 +45,7 @@ enum OpCode
 
 
 inline bool isUndoableLoadOp(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadConstObj)
+    { return (op >= opLoadTypeRef && op <= opLoadConst)
         || (op >= opLoadSelfVar && op <= opLoadStkVar); }
 
 inline bool isDesignatorLoadOp(OpCode op)
@@ -80,7 +81,6 @@ protected:
     template<class T>
         T& atw(memint i)            { return *code.atw<T>(i); }
     OpCode operator[] (memint i) const { return OpCode(code[i]); }
-    void close(memint s);
 
 public:
     CodeSeg(State*) throw();
@@ -90,23 +90,12 @@ public:
     memint size() const             { return code.size(); }
     memint getStackSize() const     { return stackSize; }
     bool empty() const;
+    void close(memint s);
 
     // Return a NULL-terminated string ready to be run: NULL char is an opcode
     // to exit the function
-    const char* getCode() const     { return code.data(); }
+    const char* getCode() const     { assert(stackSize >= 0); return code.data(); }
 };
-
-
-// The Virtual Machine. This routine is used for both evaluating const
-// expressions at compile time and, obviously, running runtime code. It is
-// thread-safe and can be launched concurrently in one process so long as
-// the arguments passed belong to one thread (except the code seggment which
-// is read-only anyway).
-
-void runRabbitRun(rtstack& stack, register const char* ip, stateobj* self);
-
-
-DEF_EXCEPTION(eexit, "exit called");
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -162,17 +151,67 @@ public:
     void discard();
 
      // NOTE: compound consts should be held by a smart pointer somewhere else
-    void loadConst(Type*, const variant&);
+    void loadConst(Type* type, const variant&);
+    void loadConst(Definition*);
 
     void loadEmptyCont(Container* type);
     void loadVariable(Variable*);
     void storeVariable(Variable*);
     void storeRet(Type*);
-    Type* undoDesignatorLoad(str& loader);
-    void storeDesignator(str loaderCode, Type* type);
+//    Type* undoDesignatorLoad(str& loader);
+//    void storeDesignator(str loaderCode, Type* type);
     void end();
     void runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };
+
+
+// --- Execution context --------------------------------------------------- //
+
+
+struct CompilerOptions
+{
+    bool enableDump;
+    bool enableAssert;
+    bool linenumInfo;
+    bool vmListing;
+    memint stackSize;
+    vector<str> modulePath;
+
+    CompilerOptions();
+};
+
+
+class Context: public Scope
+{
+    friend class Compiler;
+protected:
+    CompilerOptions options;
+    objvec<ModuleDef> modules;
+    QueenBeeDef* queenBeeDef;
+
+    ModuleDef* addModuleDef(ModuleDef*);
+    ModuleDef* loadModule(const str& filePath);
+    str lookupSource(const str& modName);
+    ModuleDef* getModule(const str&); // for use by the compiler, "uses" clause
+public:
+    Context();
+    ~Context();
+    ModuleDef* findModuleDef(Module*);
+    variant execute(const str& filePath);
+};
+
+
+// The Virtual Machine. This routine is used for both evaluating const
+// expressions at compile time and, obviously, running runtime code. It is
+// reenterant and can be launched concurrently in one process so long as
+// the arguments passed belong to one thread (except the code seggment which
+// is read-only anyway).
+
+void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* code);
+
+
+struct eexit: public ecmessage
+    { eexit() throw(); ~eexit() throw(); };
 
 
 #endif // __VM_H

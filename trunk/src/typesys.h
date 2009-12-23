@@ -16,7 +16,6 @@ class Container;
 class Fifo;
 class State;
 class Module;
-class QueenBee;
 class StateDef;
 class ModuleDef;
 
@@ -35,6 +34,7 @@ typedef Module* PModule;
 
 class CodeSeg; // defined in vm.h
 class CodeGen; // defined in vm.h
+class Context; // defined in vm.h
 
 
 // --- Symbols & Scope ----------------------------------------------------- //
@@ -103,14 +103,14 @@ class Scope
     friend void test_typesys();
 protected:
     symtbl symbols;         // symbol table for search
-    Symbol* find(const str&) const;
     void addUnique(Symbol* s);
 public:
     Scope* const outer;
     Scope(Scope* _outer);
     virtual ~Scope();
-    Symbol* findShallow(const str& _name) const;
-    virtual Symbol* findDeep(const str&) const;
+    Symbol* find(const str&) const;                 // returns NULL or Symbol
+    Symbol* findShallow(const str& _name) const;    // throws EUnknown
+    Symbol* findDeep(const str&) const;             // throws EUnknown
 };
 
 
@@ -134,7 +134,6 @@ public:
 // created. This will allow to reuse loaded modules in a multi-threaded server
 // environment for serving concurrent requests without actually re-compiling
 // or reloading used modules.
-
 
 class Type: public rtobject
 {
@@ -368,9 +367,9 @@ inline memint Variable::getArgId() const
 class StateDef: public Definition
 {
 public:
-    CodeSeg* const codeseg; // actually owned by the value field in Definition
     StateDef(State*) throw();
     ~StateDef() throw();
+    CodeSeg* getCodeSeg() const { return (CodeSeg*)(value._rtobj()); }
     State* getStateType() const { return cast<State*>(type); }
 };
 
@@ -380,44 +379,41 @@ public:
 
 class Module: public State
 {
+    friend class ModuleDef;
 protected:
-    objvec<ModuleDef> uses;
     vector<str> constStrings;
     bool complete;
 public:
-    memint const id;
-    Module(const str& _name, memint _id) throw();
+    objvec<Variable> uses; // used module instances are stored in static vars
+    Module(const str& _name) throw();
     ~Module() throw();
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
-    Symbol* findDeep(const str&) const; // override
-    void addUses(ModuleDef*);
+    void addUses(Module*);
     void registerString(str&); // returns a previously registered string if found
 };
 
 
 class ModuleDef: public StateDef
 {
-    friend class Module;
 protected:
     // The module type is owned by its definition, because unlike other types
     // it's not registered anywhere else (all other types are registered and 
     // owned by their enclosing states).
+    ModuleDef(Module*) throw();         // for the system module
+public:
     objptr<Module> const module;
     objptr<stateobj> instance;
-public:
-    ModuleDef(const str&, memint) throw();  // creates default Module and CodeSeg objects
-    ModuleDef(Module*) throw();             // for custom Module objects
+    ModuleDef(const str&) throw();      // creates default Module and CodeSeg objects
     ~ModuleDef() throw();
-    bool isComplete() const { return module->isComplete(); }
-    void setComplete()      { module->setComplete(); }
-    memint getId()          { return module->id; }
-    stateobj* getInstance();
-    void run(rtstack& stack);
+    bool isComplete() const     { return module->isComplete(); }
+    void setComplete()          { module->setComplete(); }
+    virtual void initialize(Context*);
+    virtual void finalize();
 };
 
 
-// --- QueenBee ------------------------------------------------------------ //
+// --- QueenBee (system module) -------------------------------------------- //
 
 
 class QueenBee: public Module
@@ -435,6 +431,19 @@ public:
     Container* const defStr;
     Container* const defCharSet;
     Fifo* const defCharFifo;
+    Variable* sioVar;
+    Variable* serrVar;
+    Variable* resultVar;
+};
+
+
+class QueenBeeDef: public ModuleDef
+{
+    typedef ModuleDef parent;
+public:
+    QueenBeeDef() throw();
+    ~QueenBeeDef() throw();
+    void initialize(Context*); // override
 };
 
 
@@ -447,6 +456,5 @@ void doneTypeSys();
 extern objptr<TypeReference> defTypeRef;
 extern objptr<None> defNone;
 extern objptr<QueenBee> queenBee;
-extern objptr<ModuleDef> queenBeeDef;
 
 #endif // __TYPESYS_H
