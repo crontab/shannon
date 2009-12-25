@@ -28,9 +28,9 @@ enum OpCode
     // Loaders
     opLoadSelfVar,      // [self-idx:8] +var
     opLoadStkVar,       // [stk-idx:8] +var
+    opLoadMember,       // [self-idx:8] -stateobj +var
 
     // Storers
-    opStoreSelfVar,     // [self-idx:8] -var
     opStoreStkVar,      // [stk-idx:8] -var
 
     opDeref,            // -ptr +var
@@ -39,20 +39,42 @@ enum OpCode
     opChrToStr,         // -ord +str
     opVarToVec,         // -var +vec
 
+    // Arithmetic binary: -ord, -ord, +ord
+    opAdd,              // -int, +int, +int
+    opSub,              // -int, +int, +int
+    opMul,              // -int, +int, +int
+    opDiv,              // -int, +int, +int
+    opMod,              // -int, +int, +int
+    opBitAnd,           // -int, +int, +int
+    opBitOr,            // -int, +int, +int
+    opBitXor,           // -int, +int, +int
+    opBitShl,           // -int, +int, +int
+    opBitShr,           // -int, +int, +int
+
+    // Boolean operations are performed with short evaluation using jumps,
+    // except NOT and XOR
+    opBoolXor,          // -bool, -bool, +bool
+
+    // Arithmetic unary: -ord, +ord
+    opNeg,              // -int, +int
+    opBitNot,           // -int, +int
+    opNot,              // -bool, +bool
+
     opInv,
     opMaxCode = opInv,
 };
 
 
 inline bool isUndoableLoadOp(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadConst)
-        || (op >= opLoadSelfVar && op <= opLoadStkVar); }
+    { return (op >= opLoadTypeRef && op <= opLoadConst); }
 
+/*
 inline bool isDesignatorLoadOp(OpCode op)
     { return op >= opLoadSelfVar && op <= opLoadStkVar; }
 
 inline OpCode designatorLoadToStore(OpCode op)
     { return OpCode(op + opStoreSelfVar - opLoadSelfVar); }
+*/
 
 
 #define DEFAULT_STACK_SIZE 8192
@@ -139,7 +161,7 @@ protected:
     void undoLastLoad();
     void canAssign(Type* from, Type* to, const char* errmsg = NULL);
     bool tryImplicitCast(Type*);
-    void implicitCast(Type*, const char* errmsg = NULL);
+    void loadStoreVar(Variable*, bool);
 
 public:
     CodeGen(CodeSeg&);
@@ -147,21 +169,26 @@ public:
     
     memint getLocals()      { return locals; }
     State* getState()       { return codeOwner; }
+    Type* getTopType()      { return stkTop(); }
     void deinitLocalVar(Variable*);
     void discard();
+    void implicitCast(Type*, const char* errmsg = NULL);
 
-     // NOTE: compound consts should be held by a smart pointer somewhere else
+    void loadSymbol(ModuleVar*, Symbol*);
     void loadConst(Type* type, const variant&);
-    void loadConst(Definition*);
-
+    void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
     void loadVariable(Variable*);
-    void storeVariable(Variable*);
+    void loadMember(Variable*);
     void storeRet(Type*);
 //    Type* undoDesignatorLoad(str& loader);
 //    void storeDesignator(str loaderCode, Type* type);
+    void arithmBinary(OpCode op);
+    void arithmUnary(OpCode op);
+    void _not();
+    void boolXor();
     void end();
-    void runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
+    Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };
 
 

@@ -761,7 +761,14 @@ protected:
     void _init(const vardict& v)        { _init(DICT, v.obj); }
     void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
     void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->ref<rtobject>(); }
-    void _init(const variant& v);
+    void _init(const variant& v)
+        {
+            type = v.type;
+            val = v.val;
+            if (is_anyobj())
+                val._obj->ref();
+        }
+
     void _fin_anyobj();
     void _fin()                         { if (is_anyobj()) _fin_anyobj(); }
 
@@ -776,7 +783,7 @@ public:
 
     template <class T>
         void operator= (const T& v)     { _fin(); _init(v); }
-    void operator= (const variant& v)   { assert(this != &v); _fin(); _init(v); }
+    void operator= (const variant& v);  // { assert(this != &v); _fin(); _init(v); }
     void clear()                        { _fin(); _init(); }
     bool empty() const;
 
