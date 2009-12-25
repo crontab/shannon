@@ -950,6 +950,7 @@ void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
 void variant::_range_err() { throw ecmessage("Variant range error"); }
 
 
+/*
 void variant::_init(const variant& v)
 {
     type = v.type;
@@ -957,6 +958,11 @@ void variant::_init(const variant& v)
     if (is_anyobj())
         val._obj->ref();
 }
+*/
+
+
+void variant::operator= (const variant& v)
+    { assert(this != &v); _fin(); _init(v); }
 
 
 void variant::_init(Type t)

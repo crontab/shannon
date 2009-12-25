@@ -125,8 +125,28 @@ void CodeGen::discard()
 }
 
 
+void CodeGen::loadSymbol(ModuleVar* moduleVar, Symbol* sym)
+{
+    if (sym->isDefinition())
+        loadDefinition(PDefinition(sym));
+    else if (sym->isVariable())
+    {
+        if (moduleVar != NULL)
+        {
+            loadVariable(moduleVar);
+            loadMember(PVariable(sym));
+        }
+        else
+            loadVariable(PVariable(sym));
+    }
+    else
+        notimpl();
+}
+
+
 void CodeGen::loadConst(Type* type, const variant& value)
 {
+    // NOTE: compound consts should be held by a smart pointer somewhere else
     // NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ
     switch(value.getType())
     {
@@ -163,7 +183,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
 }
 
 
-void CodeGen::loadConst(Definition* def)
+void CodeGen::loadDefinition(Definition* def)
     { addOp<Definition*>(def->type, opLoadConst, def); }
 
 
@@ -197,29 +217,24 @@ void CodeGen::loadVariable(Variable* var)
     assert(var->id >= 0 && var->id <= 127);
     if (codeOwner == NULL)
         error("Variables not allowed in constant expressions");
+    // TODO: check parent states too
     if (var->isSelfVar() && var->state == codeOwner->selfPtr)
         addOp<char>(var->type, opLoadSelfVar, var->id);
     else if (var->isLocalVar() && var->state == codeOwner)
-        addOp<char>(var->type, opLoadStkVar, var->getArgId());
+        addOp<char>(var->type, opLoadStkVar, var->id);
     else
         notimpl();
 }
 
 
-void CodeGen::storeVariable(Variable* var)
+void CodeGen::loadMember(Variable* var)
 {
-    assert(var->state != NULL);
-    assert(var->id >= 0 && var->id <= 127);
-    if (codeOwner == NULL)
-        error("Variables not allowed in constant expressions");
-    implicitCast(var->type);
-    if (var->isSelfVar() && var->state == codeOwner->selfPtr)
-        addOp<char>(opStoreSelfVar, var->id);
-    else if (var->isLocalVar() && var->state == codeOwner)
-        addOp<char>(opStoreStkVar, var->getArgId());
-    else
-        notimpl();
-    stkPop();
+    Type* stateType = stkPop();
+    // TODO: check parent states too
+    if (!stateType->isAnyState() || var->state != stateType
+            || !var->isSelfVar())
+        error("Invalid member selection");
+    addOp<char>(var->type, opLoadMember, var->id);
 }
 
 
@@ -253,6 +268,47 @@ void CodeGen::storeDesignator(str loaderCode, Type* type)
     stkPop();
 }
 */
+
+void CodeGen::arithmBinary(OpCode op)
+{
+    assert(op >= opAdd && op <= opBitShr);
+    Type* type = stkPop();
+    if (!type->isInt() || !stkTop()->isInt())
+        error("Operand types do not match binary operator");
+    addOp(op);
+}
+
+
+void CodeGen::arithmUnary(OpCode op)
+{
+    assert(op >= opNeg && op <= opNot);
+    if (!stkTop()->isInt())
+        error("Operand type doesn't match unary operator");
+    addOp(op);
+}
+
+
+void CodeGen::_not()
+{
+    Type* type = stkTop();
+    if (type->isInt())
+        addOp(opBitNot);
+    else
+    {
+        implicitCast(queenBee->defBool, "Boolean or integer operand expected");
+        addOp(opNot);
+    }
+}
+
+
+void CodeGen::boolXor()
+{
+    Type* type = stkPop();
+    if (!type->isBool() || !stkTop()->isBool())
+        error("Operand types do not match binary operator");
+    addOp(opBoolXor);
+}
+
 
 void CodeGen::end()
 {

@@ -13,11 +13,32 @@
 #   block-begin and block-end: <BEGIN> and <END> (either curly brackets or
 #   or a colon followed by a single statement).
 #
-#   Comments in Shannon are like in C++ /* */ and //
+#   Comments are like in C++ /* */ and //
 #
 
 
-# Basic elements
+# ---------- Statements
+
+statement-list ::= { ( definition | statement ) <SEP> }
+
+definition ::= 'def' [ type-expr ] ident { type-derivator } [ '=' expr ]
+
+type-derivator ::= 
+
+type-expr ::= expr | range-spec | enum-spec
+
+range-spec ::= expr '..' expr
+
+enum-spec ::= '[' ident { ',' ident } [ ',' ] ']'
+
+
+
+atom ::= ident | number | string-literal | sub-expr
+
+sub-expr ::= '(' expr { ',' expr } ')'
+
+
+# ---------- Basic elements
 
 ident ::= ( letter | "_" ) ## { letter | digit | "_" }
 

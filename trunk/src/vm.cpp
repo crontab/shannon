@@ -54,8 +54,8 @@ inline void STORETO(variant*& stk, variant* dest)
 
 #define SETPOD(dest,v) (::new(dest) variant(v))
 
-#define BINARY_INT(op) { (stk - 1)->_intw() op stk->_int(); POPORD(stk); }
-#define UNARY_INT(op)  { stk->_intw() = op stk->_int(); }
+#define BINARY_INT(op) { (stk - 1)->_ord() op stk->_ord(); POPPOD(stk); }
+#define UNARY_INT(op)  { stk->_ord() = op stk->_ord(); }
 
 
 void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* ip)
@@ -67,7 +67,7 @@ void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* 
 loop:
         switch(*ip++)
         {
-        case opEnd:             goto exit;
+        case opEnd:             while (stk >= stack.bp) POP(stk); goto exit;
         case opNop:             break;
         case opExit:            doExit(); break;
 
@@ -83,14 +83,31 @@ loop:
 
         case opLoadSelfVar:     PUSH(stk, self->var(ADV<char>(ip))); break;
         case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
+        case opLoadMember:      *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
 
-        case opStoreSelfVar:    STORETO(stk, &self->var(ADV<char>(ip))); break;
         case opStoreStkVar:     STORETO(stk, stack.bp + ADV<char>(ip)); break;
 
-        case opDeref:           { *stk = *(stk->_ptr()); } break;
+        case opDeref:           *stk = *(stk->_ptr()); break;
         case opPop:             POP(stk); break;
-        case opChrToStr:        { *stk = str(stk->_uchar()); } break;
+        case opChrToStr:        *stk = str(stk->_uchar()); break;
         case opVarToVec:        { varvec v; v.push_back(*stk); *stk = v; } break;
+
+        // Arithmetic
+        // TODO: range checking in debug mode
+        case opAdd:         BINARY_INT(+=); break;
+        case opSub:         BINARY_INT(-=); break;
+        case opMul:         BINARY_INT(*=); break;
+        case opDiv:         BINARY_INT(/=); break;
+        case opMod:         BINARY_INT(%=); break;
+        case opBitAnd:      BINARY_INT(&=); break;
+        case opBitOr:       BINARY_INT(|=); break;
+        case opBitXor:      BINARY_INT(^=); break;
+        case opBitShl:      BINARY_INT(<<=); break;
+        case opBitShr:      BINARY_INT(>>=); break;
+        case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPPOD(stk); break;
+        case opNeg:         UNARY_INT(-); break;
+        case opBitNot:      UNARY_INT(~); break;
+        case opNot:         SETPOD(stk, ! stk->_ord()); break;
 
         default:                invOpcode(); break;
         }
@@ -111,14 +128,17 @@ eexit::eexit() throw(): ecmessage("Exit called")  {}
 eexit::~eexit() throw()  { }
 
 
-void CodeGen::runConstExpr(Type* expectType, variant& result)
+Type* CodeGen::runConstExpr(Type* resultType, variant& result)
 {
-    storeRet(expectType);
+    if (resultType == NULL)
+        resultType = stkTop();
+    storeRet(resultType);
     end();
     rtstack stack(codeseg.stackSize + 1);
     stack.push(variant::null);
     runRabbitRun(NULL, NULL, stack, codeseg.getCode());
     stack.popto(result);
+    return resultType;
 }
 
 

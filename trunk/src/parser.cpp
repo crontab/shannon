@@ -254,12 +254,10 @@ restart:
     // --- EOL ---
     else if (is_eol_char(c))
     {
-        do
-        {
-            skipEol();
-            skipWs();
-        }
-        while (input->eol());
+        skipEol();
+        skipWs();
+        if (input->eol())
+            goto restart;
         if (input->preview() == '{')
             goto restart; // will return tokBlockBegin, even though it's on a new line
         if (token == tokBlockBegin || token == tokBlockEnd || token == tokSingleBlock)
@@ -392,6 +390,16 @@ void Parser::expect(Token tok, const char* errName)
 }
 
 
+void Parser::skipSep()
+{
+    if (token == tokBlockEnd || token == tokEof)
+        return;
+    if (token != tokSep)
+        errorWithLoc("End of statement expected");
+    next();
+}
+
+
 bool isValidIdent(const str& s)
 {
     if (s.empty())
@@ -403,3 +411,4 @@ bool isValidIdent(const str& s)
             return false;
     return true;
 }
+

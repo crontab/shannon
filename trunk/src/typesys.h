@@ -18,6 +18,7 @@ class State;
 class Module;
 class StateDef;
 class ModuleDef;
+class ModuleVar;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
@@ -76,7 +77,6 @@ public:
     State* const state;
     Variable(const str&, SymbolId, Type*, memint, State*) throw();
     ~Variable() throw();
-    memint getArgId() const;
 };
 
 
@@ -110,7 +110,7 @@ public:
     virtual ~Scope();
     Symbol* find(const str&) const;                 // returns NULL or Symbol
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
-    Symbol* findDeep(const str&) const;             // throws EUnknown
+//    Symbol* findDeep(const str&) const;             // throws EUnknown
 };
 
 
@@ -264,6 +264,8 @@ public:
     str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
+    bool isInRange(integer v)
+        { return v >= left && v <= right; }
     bool isSmallOrd() const
         { return left >= 0 && right <= 255; }
     bool isBitOrd() const
@@ -360,10 +362,6 @@ public:
 };
 
 
-inline memint Variable::getArgId() const
-    { return - state->argCount() + id; }
-
-
 class StateDef: public Definition
 {
 public:
@@ -384,13 +382,23 @@ protected:
     vector<str> constStrings;
     bool complete;
 public:
-    objvec<Variable> uses; // used module instances are stored in static vars
+    objvec<ModuleVar> uses; // used module instances are stored in static vars
     Module(const str& _name) throw();
     ~Module() throw();
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(Module*);
     void registerString(str&); // returns a previously registered string if found
+};
+
+
+class ModuleVar: public Variable
+{
+    typedef Variable parent;
+public:
+    ModuleVar(const str& n, Module* m, memint _id, State* s) throw();
+    ~ModuleVar() throw();
+    Module* getModuleType()     { return cast<Module*>(parent::type); }
 };
 
 

@@ -100,7 +100,7 @@ Symbol* Scope::findShallow(const str& ident) const
     return s;
 }
 
-
+/*
 Symbol* Scope::findDeep(const str& ident) const
 {
     Symbol* s = find(ident);
@@ -110,7 +110,7 @@ Symbol* Scope::findDeep(const str& ident) const
         return outer->findDeep(ident);
     throw EUnknownIdent(ident);
 }
-
+*/
 
 // --- //
 
@@ -464,7 +464,11 @@ Variable* State::addSelfVar(const str& n, Type* t)
     memint id = selfVarCount();
     if (id >= 127)
         throw ecmessage("Too many variables");
-    objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
+    objptr<Variable> v;
+    if (t->isModule())
+        v = new ModuleVar(n, PModule(t), id, this);
+    else
+        v = new Variable(n, Symbol::SELFVAR, t, id, this);
     addUnique(v);
     selfVars.push_back(v->ref<Variable>());
     return v;
@@ -506,25 +510,10 @@ Module::~Module() throw()
     { }
 
 
-/*
-Symbol* Module::findDeep(const str& ident) const
-{
-    Symbol* s = find(ident);
-    if (s != NULL)
-        return s;
-    for (memint i = uses.size(); i--; )
-    {
-        s = cast<Module*>(uses[i]->type)->find(ident);
-        if (s != NULL)
-            return s;
-    }
-    throw EUnknownIdent(ident);
-}
-*/
-
-
 void Module::addUses(Module* m)
-    { uses.push_back(addSelfVar(m->getAlias(), m)); }
+{
+    uses.push_back(cast<ModuleVar*>(addSelfVar(m->getAlias(), m)));
+}
 
 
 void Module::registerString(str& s)
@@ -535,6 +524,14 @@ void Module::registerString(str& s)
     else
         constStrings.insert(i, s);
 }
+
+
+// --- //
+
+
+ModuleVar::ModuleVar(const str& n, Module* m, memint _id, State* s) throw()
+    : Variable(n, SELFVAR, m, _id, s)  { }
+ModuleVar::~ModuleVar() throw()  { }
 
 
 // --- //
@@ -562,8 +559,8 @@ void ModuleDef::initialize(Context* context)
     // static data by variable id, so that code is context-independant
     for (memint i = 0; i < module->uses.size(); i++)
     {
-        Variable* v = module->uses[i];
-        ModuleDef* def = context->findModuleDef(cast<Module*>(v->type));
+        ModuleVar* v = module->uses[i];
+        ModuleDef* def = context->findModuleDef(v->getModuleType());
         instance->var(v->id) = def->instance.get();
     }
 }
