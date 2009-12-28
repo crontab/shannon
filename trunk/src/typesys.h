@@ -14,10 +14,11 @@ class Ordinal;
 class Enumeration;
 class Container;
 class Fifo;
+class Prototype;
 class State;
 class Module;
 class StateDef;
-class ModuleDef;
+class ModuleInst;
 class ModuleVar;
 
 typedef Symbol* PSymbol;
@@ -30,6 +31,7 @@ typedef Ordinal* POrdinal;
 typedef Enumeration* PEnumeration;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
+typedef Prototype* PPrototype;
 typedef Module* PModule;
 
 
@@ -38,13 +40,64 @@ class CodeGen; // defined in vm.h
 class Context; // defined in vm.h
 
 
+// --- Code segment -------------------------------------------------------- //
+
+// Belongs to vm.h/vm.cpp but defined here because CodeSeg is part of State
+
+
+#define DEFAULT_STACK_SIZE 8192
+
+
+class CodeSeg: public rtobject
+{
+    friend class CodeGen;
+    typedef rtobject parent;
+
+    str code;
+
+#ifdef DEBUG
+    bool closed;
+#endif
+
+protected:
+    memint stackSize;
+
+    // Code gen helpers
+    template <class T>
+        void append(const T& t)     { code.push_back<T>(t); }
+    void append(const str& s)       { code.append(s); }
+    void resize(memint s)           { code.resize(s); }
+    str  cutTail(memint start)
+        { str t = code.substr(start); resize(start); return t; }
+    template<class T>
+        const T& at(memint i) const { return *(T*)code.data(i); }
+    template<class T>
+        T& atw(memint i)            { return *(T*)code.atw(i); }
+    char operator[] (memint i) const { return code[i]; }
+
+public:
+    CodeSeg(State*) throw();
+    ~CodeSeg() throw();
+
+    State* getType() const          { return cast<State*>(parent::getType()); }
+    memint size() const             { return code.size(); }
+    memint getStackSize() const     { return stackSize; }
+    bool empty() const;
+    void close();
+
+    // Return a NULL-terminated string ready to be run: NULL char is an opcode
+    // to exit the function
+    const char* getCode() const     { assert(closed); return code.data(); }
+};
+
+
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION };
+    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION, MODULEINST };
 
     SymbolId const symbolId;
     Type* const type;
@@ -137,18 +190,21 @@ public:
 
 class Type: public rtobject
 {
+    friend class State;
 public:
     enum TypeId {
         TYPEREF, NONE, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
         NULLCONT, VEC, SET, DICT,
-        FIFO, FUNC, PROC, CLASS, MODULE };
+        FIFO, PROTOTYPE, FUNC, CLASS, MODULE };
 
 protected:
     objptr<Reference> refType;
     str alias;      // for more readable diagnostics output, but not really needed
+    State* host;
 
-    Type(TypeId) throw();
+    Type(Type*, TypeId) throw();
+//    Type(TypeId) throw();
     bool empty() const;
     static TypeId contType(Type* i, Type* e);
 
@@ -156,9 +212,6 @@ public:
     TypeId const typeId;
 
     ~Type() throw();
-    void setAlias(const str& s) { if (alias.empty()) alias = s; }
-    str getAlias() const        { return alias; }
-    Reference* getRefType()     { return refType; }
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
     bool isNone() const         { return typeId == NONE; }
@@ -178,11 +231,12 @@ public:
     bool isSet() const          { return typeId == SET; }
     bool isDict() const         { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
+    bool isString() const;
 
     bool isFifo() const         { return typeId == FIFO; }
 
+    bool isPrototype() const    { return typeId == PROTOTYPE; }
     bool isFunction() const     { return typeId == FUNC; }
-    bool isProc() const         { return typeId == PROC; }
     bool isClass() const        { return typeId == CLASS; }
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
@@ -191,9 +245,10 @@ public:
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
 
+    Reference* deriveRefType()     { return refType; }
     Container* deriveVec();
     Container* deriveSet();
-    Container* deriveDict(Type* elem);
+    Container* deriveContainer(Type* idxType);
     Fifo* deriveFifo();
 };
 
@@ -331,6 +386,24 @@ public:
 };
 
 
+// --- Prototype ----------------------------------------------------------- //
+
+
+class Prototype: public Type
+{
+protected:
+    Type* returnType;
+    objvec<Variable> args;          // owned
+public:
+    Prototype(Type* retType) throw();
+    ~Prototype() throw();
+    memint argCount()                   { return args.size(); }
+    memint retVarId()                   { return - argCount() - 1; }
+    bool identicalTo(Type*) const; // override
+    bool identicalTo(Prototype* t) const;
+};
+
+
 // --- State --------------------------------------------------------------- //
 
 
@@ -340,35 +413,29 @@ protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
-    objvec<Variable> args;          // owned
+    // Local vars are stored in Scope::localVars; arguments are in prototype->args
+
     Type* _registerType(Type*);
     Type* _registerType(const str&, Type*);
+
 public:
     State* const selfPtr;
-    State(TypeId, State* parent, State* self) throw();
+    Prototype* const prototype;
+    objptr<CodeSeg> codeseg;
+
+    State(TypeId, Prototype* proto, State* parent, State* self) throw();
     ~State() throw();
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
-    memint argCount()                   { return args.size(); }
-    memint retVarId()                   { return - argCount() - 1; }
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
-    stateobj* newInstance();
+    ModuleVar* addModuleVar(const str&, Module*);
+    virtual stateobj* newInstance();
     template <class T>
         T* registerType(const str& n, T* t) { return (T*)_registerType(n, t); }
     template <class T>
         T* registerType(T* t) { return (T*)_registerType(t); }
-};
-
-
-class StateDef: public Definition
-{
-public:
-    StateDef(State*) throw();
-    ~StateDef() throw();
-    CodeSeg* getCodeSeg() const { return (CodeSeg*)(value._rtobj()); }
-    State* getStateType() const { return cast<State*>(type); }
 };
 
 
@@ -377,47 +444,43 @@ public:
 
 class Module: public State
 {
-    friend class ModuleDef;
+    friend class ModuleInst;
 protected:
     vector<str> constStrings;
     bool complete;
 public:
     objvec<ModuleVar> uses; // used module instances are stored in static vars
-    Module(const str& _name) throw();
+    Module() throw();
     ~Module() throw();
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
-    void addUses(Module*);
+    void addUses(const str&, Module*);
     void registerString(str&); // returns a previously registered string if found
 };
 
 
 class ModuleVar: public Variable
 {
-    typedef Variable parent;
 public:
     ModuleVar(const str& n, Module* m, memint _id, State* s) throw();
     ~ModuleVar() throw();
-    Module* getModuleType()     { return cast<Module*>(parent::type); }
+    Module* getModuleType()     { return cast<Module*>(type); }
 };
 
 
-class ModuleDef: public StateDef
+class ModuleInst: public Symbol
 {
-protected:
-    // The module type is owned by its definition, because unlike other types
-    // it's not registered anywhere else (all other types are registered and 
-    // owned by their enclosing states).
-    ModuleDef(Module*) throw();         // for the system module
 public:
-    objptr<Module> const module;
+    objptr<Module> module;
     objptr<stateobj> instance;
-    ModuleDef(const str&) throw();      // creates default Module and CodeSeg objects
-    ~ModuleDef() throw();
+
+    ModuleInst(const str&, Module*) throw();         // for the system module
+    ModuleInst(const str&) throw();
+    ~ModuleInst() throw();
     bool isComplete() const     { return module->isComplete(); }
     void setComplete()          { module->setComplete(); }
-    virtual void initialize(Context*);
-    virtual void finalize();
+    void initialize(Context*, rtstack&);
+    void finalize();
 };
 
 
@@ -426,10 +489,12 @@ public:
 
 class QueenBee: public Module
 {
+    typedef Module parent;
     friend void initTypeSys();
 protected:
     QueenBee() throw();
     ~QueenBee() throw();
+    stateobj* newInstance(); // override
 public:
     Variant* const defVariant;
     Ordinal* const defInt;
@@ -445,16 +510,6 @@ public:
 };
 
 
-class QueenBeeDef: public ModuleDef
-{
-    typedef ModuleDef parent;
-public:
-    QueenBeeDef() throw();
-    ~QueenBeeDef() throw();
-    void initialize(Context*); // override
-};
-
-
 // --- Globals ------------------------------------------------------------- //
 
 
@@ -463,6 +518,7 @@ void doneTypeSys();
 
 extern objptr<TypeReference> defTypeRef;
 extern objptr<None> defNone;
+extern objptr<Prototype> defPrototype;
 extern objptr<QueenBee> queenBee;
 
 #endif // __TYPESYS_H

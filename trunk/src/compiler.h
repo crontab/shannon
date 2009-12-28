@@ -10,12 +10,13 @@ class Compiler: protected Parser
     friend class Context;
 protected:
     Context& context;
-    ModuleDef& moduleDef;
+    ModuleInst& moduleInst;
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols
     BlockScope* blockScope; // for local vars in nested blocks, can be NULL
-    State* state;           // for this-vars, type objects abd definitions
+    State* state;           // for this-vars, type objects and definitions
 
+    void enumeration(const str& firstIdent);
     void identifier(const str&);
     void atom();
     void designator();
@@ -25,16 +26,16 @@ protected:
     void expression()
             { arithmExpr(); }
     void expression(Type* resultType, const char* errmsg = NULL);
-    void subexpression();
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result);
     Type* getTypeValue();
     Type* getTypeAndIdent(str& ident);
     void definition();
+    void assignment();
     void statementList();
     void module();
 
-    Compiler(Context&, ModuleDef&, fifo*) throw();
+    Compiler(Context&, ModuleInst&, fifo*) throw();
     ~Compiler() throw();
 };
 

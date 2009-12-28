@@ -31,7 +31,7 @@ Definition::~Definition() throw()
 
 Type* Definition::getAliasedType() const
 {
-    if (value.is(variant::RTOBJ) && value._rtobj()->getType()->isTypeRef())
+    if (type->isTypeRef())
         return cast<Type*>(value._rtobj());
     else
         return NULL;
@@ -149,8 +149,8 @@ void typeMismatch()
     { throw ecmessage("Type mismatch"); }
 
 
-Type::Type(TypeId id) throw()
-    : rtobject(id == TYPEREF ? this : defTypeRef.get()), refType(NULL), typeId(id)
+Type::Type(Type* t, TypeId id) throw()
+    : rtobject(t), refType(NULL), host(NULL), typeId(id)
         { if (id != REF) refType = new Reference(this); }
 
 
@@ -168,6 +168,10 @@ bool Type::isSmallOrd() const
 
 bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
+
+
+bool Type::isString() const
+    { return isVec() && PContainer(this)->hasSmallElem(); }
 
 
 bool Type::identicalTo(Type* t) const
@@ -210,34 +214,43 @@ Container* Type::deriveSet()
 }
 
 
-Container* Type::deriveDict(Type* elem)
+Container* Type::deriveContainer(Type* idx)
 {
     if (isNone())
-        return elem->deriveVec();
-    else if (elem->isNone())
-        return deriveSet();
+        return idx->deriveSet();
+    else if (idx->isNone())
+        return deriveVec();
     else
-        return new Container(this, elem);
+        return new Container(idx, this);
+}
+
+
+Fifo* Type::deriveFifo()
+{
+    if (isChar())
+        return queenBee->defCharFifo;
+    else
+        return new Fifo(this);
 }
 
 
 // --- General Types ------------------------------------------------------- //
 
 
-TypeReference::TypeReference() throw(): Type(TYPEREF)  { }
+TypeReference::TypeReference() throw(): Type(this, TYPEREF)  { }
 TypeReference::~TypeReference() throw()  { }
 
 
-None::None() throw(): Type(NONE)  { }
+None::None() throw(): Type(defTypeRef, NONE)  { }
 None::~None() throw()  { }
 
 
-Variant::Variant() throw(): Type(VARIANT)  { }
+Variant::Variant() throw(): Type(defTypeRef, VARIANT)  { }
 Variant::~Variant() throw()  { }
 
 
 Reference::Reference(Type* _to) throw()
-    : Type(REF), to(_to)  { }
+    : Type(defTypeRef, REF), to(_to)  { }
 
 
 Reference::~Reference() throw()
@@ -257,7 +270,7 @@ bool Reference::identicalTo(Type* t) const
 
 
 Ordinal::Ordinal(TypeId id, integer l, integer r) throw()
-    : Type(id), left(l), right(r)
+    : Type(defTypeRef, id), left(l), right(r)
         { assert(isAnyOrd()); }
 
 
@@ -343,7 +356,7 @@ str Enumeration::definition(const str& ident) const
         result = values[0]->name + ".." + values[memint(right)]->name;
     else
     {
-        result = "enum(";
+        result = '(';
         for (memint i = 0; i < values.size(); i++)
             result += (i ? ", " : "") + values[i]->name;
         result += ')';
@@ -378,7 +391,7 @@ Type::TypeId Type::contType(Type* i, Type* e)
 
 
 Container::Container(Type* i, Type* e) throw()
-    : Type(contType(i, e)), index(i), elem(e)  { }
+    : Type(defTypeRef, contType(i, e)), index(i), elem(e)  { }
 
 
 Container::~Container() throw()
@@ -407,7 +420,7 @@ bool Container::identicalTo(Type* t) const
 
 
 Fifo::Fifo(Type* e) throw()
-    : Type(FIFO), elem(e)  { }
+    : Type(defTypeRef, FIFO), elem(e)  { }
 
 
 Fifo::~Fifo() throw()
@@ -418,16 +431,54 @@ bool Fifo::identicalTo(Type* t) const
     { return this == t || (t->isFifo() && elem->identicalTo(PFifo(t)->elem)); }
 
 
+// TODO: definition()
+
+
+// --- Prototype ----------------------------------------------------------- //
+
+
+Prototype::Prototype(Type* r) throw()
+    : Type(defTypeRef, PROTOTYPE), returnType(r)  { }
+
+
+Prototype::~Prototype() throw()
+    { args.release_all(); }
+
+
+bool Prototype::identicalTo(Type* t) const
+    { return t->isPrototype() && identicalTo(PPrototype(t)); }
+
+
+bool Prototype::identicalTo(Prototype* t) const
+{
+    if (this == t)
+        return true;
+    if (!returnType->identicalTo(t->returnType)
+        || args.size() != t->args.size())
+            return false;
+    for (memint i = args.size(); i--; )
+        if (!args[i]->type->identicalTo(t->args[i]->type))
+            return false;
+    return true;
+}
+
+
+// TODO: definition()
+
+
 // --- State --------------------------------------------------------------- //
 
+// State is a type and at the same time is a prototype object. That's why the
+// runtime type of a State object is not TypeRef* like all other types, but
+// Prototype* (actually it's the State constructor's prototype)
 
-State::State(TypeId _id, State* parent, State* self) throw()
-    : Type(_id), Scope(parent), selfPtr(self)  { }
+State::State(TypeId _id, Prototype* proto, State* parent, State* self) throw()
+    : Type(proto, _id), Scope(parent), selfPtr(self),
+      prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
 State::~State() throw()
 {
-    args.release_all();
     selfVars.release_all();
     defs.release_all();
     types.release_all();
@@ -435,11 +486,19 @@ State::~State() throw()
 
 
 Type* State::_registerType(Type* t)
-    { types.push_back(t->ref<Type>()); return t; }
+    { return _registerType(str(), t); }
 
 
 Type* State::_registerType(const str& n, Type* t)
-    { t->setAlias(n); return _registerType(t); }
+{
+    if (t->host == NULL)
+    {
+        types.push_back(t->ref<Type>());
+        t->alias = n;
+        t->host = this;
+    }
+    return t;
+}
 
 
 Definition* State::addDefinition(const str& n, Type* t, const variant& v)
@@ -454,7 +513,7 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 
 Definition* State::addTypeAlias(const str& n, Type* t)
-    { return addDefinition(n, defTypeRef, t); }
+    { return addDefinition(n, t->getType(), t); }
 
 
 Variable* State::addSelfVar(const str& n, Type* t)
@@ -464,13 +523,20 @@ Variable* State::addSelfVar(const str& n, Type* t)
     memint id = selfVarCount();
     if (id >= 127)
         throw ecmessage("Too many variables");
-    objptr<Variable> v;
-    if (t->isModule())
-        v = new ModuleVar(n, PModule(t), id, this);
-    else
-        v = new Variable(n, Symbol::SELFVAR, t, id, this);
+    objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
     addUnique(v);
     selfVars.push_back(v->ref<Variable>());
+    return v;
+}
+
+
+ModuleVar* State::addModuleVar(const str& n, Module* t)
+{
+    memint id = selfVarCount();
+    if (id >= 127)
+        throw ecmessage("Too many variables");
+    objptr<ModuleVar> v = new ModuleVar(n, t, id, this);
+    selfVars.push_back(v->ref<ModuleVar>());
     return v;
 }
 
@@ -488,32 +554,22 @@ stateobj* State::newInstance()
 }
 
 
-// --- //
-
-
-StateDef::StateDef(State* s) throw()
-    : Definition(s->getAlias(), s, new CodeSeg(s))  { }
-
-
-StateDef::~StateDef() throw()
-    { }
+// TODO: definition()
 
 
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& n) throw()
-    : State(MODULE, NULL, this), complete(false)  { setAlias(n); }
+Module::Module() throw()
+    : State(MODULE, defPrototype, NULL, this), complete(false)  { }
 
 
 Module::~Module() throw()
     { }
 
 
-void Module::addUses(Module* m)
-{
-    uses.push_back(cast<ModuleVar*>(addSelfVar(m->getAlias(), m)));
-}
+void Module::addUses(const str& name, Module* m)
+    { uses.push_back(addModuleVar(name, m)); }
 
 
 void Module::registerString(str& s)
@@ -526,55 +582,67 @@ void Module::registerString(str& s)
 }
 
 
+// TODO: definition()
+
+
 // --- //
 
 
 ModuleVar::ModuleVar(const str& n, Module* m, memint _id, State* s) throw()
     : Variable(n, SELFVAR, m, _id, s)  { }
+
+
 ModuleVar::~ModuleVar() throw()  { }
 
 
 // --- //
 
 
-ModuleDef::ModuleDef(Module* m) throw()
-    : StateDef(m), module(m), instance()  { }
+ModuleInst::ModuleInst(const str& n, Module* m) throw()
+    : Symbol(n, MODULEINST, m), module(m), instance()  { }
 
 
-ModuleDef::ModuleDef(const str& n) throw()
-    : StateDef(new Module(n)),
-      module(cast<Module*>(getStateType())), instance()  { }
+ModuleInst::ModuleInst(const str& n) throw()
+    : Symbol(n, MODULEINST, new Module()),
+      module(cast<Module*>(type)), instance()  { }
 
 
-ModuleDef::~ModuleDef() throw()
+ModuleInst::~ModuleInst() throw()
     { }
 
 
-void ModuleDef::initialize(Context* context)
+void ModuleInst::initialize(Context* context, rtstack& stack)
 {
     if (!instance.empty())
         fatal(0x3003, "Internal: module already initialized");
     instance = module->newInstance();
+
     // Assign module vars. This allows to generate code that accesses module
     // static data by variable id, so that code is context-independant
     for (memint i = 0; i < module->uses.size(); i++)
     {
         ModuleVar* v = module->uses[i];
-        ModuleDef* def = context->findModuleDef(v->getModuleType());
+        ModuleInst* def = context->findModuleDef(v->getModuleType());
         instance->var(v->id) = def->instance.get();
     }
+
+    // Run module initialization code
+    runRabbitRun(context, instance, stack, module->codeseg->getCode());
 }
 
 
-void ModuleDef::finalize()
-    { if (!instance.empty()) { instance->collapse(); instance.clear(); } }
+void ModuleInst::finalize()
+{
+    if (!instance.empty())
+        { instance->collapse(); instance.clear(); }
+}
 
 
 // --- QueenBee ------------------------------------------------------------ //
 
 
 QueenBee::QueenBee() throw()
-    : Module("system"),
+    : Module(),
       defVariant(new Variant()),
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(Type::CHAR, 0, 255)),
@@ -585,8 +653,9 @@ QueenBee::QueenBee() throw()
       defCharFifo(new Fifo(defChar))
 {
     // Fundamentals
-    addTypeAlias("typeref", registerType<Type>("typeref", defTypeRef));
+    addTypeAlias("type", registerType<Type>("type", defTypeRef));
     addTypeAlias("none", registerType<Type>("none", defNone));
+    registerType<Type>(defPrototype);
     addDefinition("null", defNone, variant::null);
     addTypeAlias("any", registerType("any", defVariant));
     addTypeAlias("int", registerType("int", defInt));
@@ -615,23 +684,16 @@ QueenBee::~QueenBee() throw()
     { }
 
 
-QueenBeeDef::QueenBeeDef() throw()
-    : ModuleDef(queenBee)  { }
-
-
-QueenBeeDef::~QueenBeeDef() throw()
-    { }
-
-
-void QueenBeeDef::initialize(Context* context)
+stateobj* QueenBee::newInstance()
 {
-    parent::initialize(context);
-    sio.setType(queenBee->defCharFifo);
-    serr.setType(queenBee->defCharFifo);
-    instance->var(queenBee->sioVar->id) = &sio;
-    instance->var(queenBee->serrVar->id) = &serr;
-    getCodeSeg()->close(0);
+    stateobj* inst = parent::newInstance();
+    sio.setType(defCharFifo);
+    serr.setType(defCharFifo);
+    inst->var(sioVar->id) = &sio;
+    inst->var(serrVar->id) = &serr;
+    codeseg->close();
     setComplete();
+    return inst;
 }
 
 
@@ -640,6 +702,7 @@ void QueenBeeDef::initialize(Context* context)
 
 objptr<TypeReference> defTypeRef;
 objptr<None> defNone;
+objptr<Prototype> defPrototype;
 objptr<QueenBee> queenBee;
 
 
@@ -654,6 +717,10 @@ void initTypeSys()
     // the default types are created in QueenBee
     defNone = new None();
 
+    // This is a function prototype with no arguments and None return type,
+    // used as a prototype for module constructors
+    defPrototype = new Prototype(defNone);
+
     // The "system" module that defines default types; some of them have
     // recursive definitions and other kinds of weirdness, and therefore should
     // be defined in C code rather than in Shannon code
@@ -664,6 +731,7 @@ void initTypeSys()
 void doneTypeSys()
 {
     queenBee = NULL;
+    defPrototype = NULL;
     defNone = NULL;
     defTypeRef = NULL;
 }

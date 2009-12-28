@@ -21,21 +21,21 @@
 
 statement-list ::= { ( definition | statement ) <SEP> }
 
-definition ::= 'def' [ type-expr ] ident { type-derivator } [ '=' expr ]
+definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr
 
 type-derivator ::= 
 
-type-expr ::= expr | range-spec | enum-spec
+const-expr ::= expr | range-spec | enum-spec
 
 range-spec ::= expr '..' expr
 
-enum-spec ::= '[' ident { ',' ident } [ ',' ] ']'
+enum-spec ::= '(' ident ',' ident { ',' ident } [ ',' ] ')'
 
 
 
 atom ::= ident | number | string-literal | sub-expr
 
-sub-expr ::= '(' expr { ',' expr } ')'
+sub-expr ::= '(' expr ')'
 
 
 # ---------- Basic elements
