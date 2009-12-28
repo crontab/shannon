@@ -712,7 +712,7 @@ class variant
 public:
 
     enum Type
-        { NONE, ORD, REAL, PTR, STR, VEC, ORDSET, DICT, RTOBJ,
+        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
 //            REFSTART,
             ANYOBJ = STR };
 
@@ -725,7 +725,6 @@ protected:
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
-        variant*    _ptr;       // used internally by the VM for temp pointers
         object*     _obj;       // str, vector, set, map and their variants
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
@@ -753,7 +752,6 @@ protected:
     void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
-    void _init(variant* v)              { type = PTR; val._ptr = v; }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
@@ -797,14 +795,12 @@ public:
     bool is_ord() const                 { return type == ORD; }
     bool is_str() const                 { return type == STR; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
-//    bool is_ref() const                 { return type >= REFSTART; }
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
     integer     _ord()            const { _dbg(ORD); return val._ord; }
-    variant*    _ptr()            const { _dbg(PTR); return val._ptr; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { return _vec(); }
@@ -825,7 +821,6 @@ public:
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
-    variant*    as_ptr()          const { _req(PTR); return _ptr(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { return as_vec(); }

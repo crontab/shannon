@@ -45,7 +45,7 @@ enum Token
     // Special chars and sequences
     tokComma, tokPeriod, tokRange,
     tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
-    tokAssign, tokExclam,
+    tokAssign,
 
     // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,

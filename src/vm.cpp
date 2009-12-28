@@ -4,7 +4,12 @@
 
 
 CodeSeg::CodeSeg(State* stateType) throw()
-    : rtobject(stateType), stackSize(-1)  { }
+    : rtobject(stateType)
+#ifdef DEBUG
+    , closed(false)
+#endif
+    , stackSize(-1)
+    { }
 
 
 CodeSeg::~CodeSeg() throw()
@@ -15,10 +20,12 @@ bool CodeSeg::empty() const
     { return code.empty(); }
 
 
-void CodeSeg::close(memint s)
+void CodeSeg::close()
 {
-    assert(stackSize == -1);
-    stackSize = s;
+#ifdef DEBUG
+    assert(!closed);
+    closed = true;
+#endif
     append(opEnd);
 }
 
@@ -85,9 +92,8 @@ loop:
         case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
         case opLoadMember:      *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
 
-        case opStoreStkVar:     STORETO(stk, stack.bp + ADV<char>(ip)); break;
+        case opInitStkVar:      POPTO(stk, stack.bp + ADV<char>(ip)); break;
 
-        case opDeref:           *stk = *(stk->_ptr()); break;
         case opPop:             POP(stk); break;
         case opChrToStr:        *stk = str(stk->_uchar()); break;
         case opVarToVec:        { varvec v; v.push_back(*stk); *stk = v; } break;
@@ -156,26 +162,27 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(NULL), options(), modules(), queenBeeDef(new QueenBeeDef())
-        { addModuleDef(queenBeeDef); }
+    : Scope(NULL), options(), modules(),
+      queenBeeInst(new ModuleInst("system", queenBee))
+        { addModuleInst(queenBeeInst); }
 
 
 Context::~Context()
     { modules.release_all(); }
 
 
-ModuleDef* Context::addModuleDef(ModuleDef* m)
+ModuleInst* Context::addModuleInst(ModuleInst* m)
 {
     addUnique(m);
-    modules.push_back(m->ref<ModuleDef>());
+    modules.push_back(m->ref<ModuleInst>());
     return m;
 }
 
 
-ModuleDef* Context::loadModule(const str& filePath)
+ModuleInst* Context::loadModule(const str& filePath)
 {
     str modName = moduleNameFromFileName(filePath);
-    ModuleDef* mod = addModuleDef(new ModuleDef(modName));
+    ModuleInst* mod = addModuleInst(new ModuleInst(modName));
     Compiler compiler(*this, *mod, new intext(NULL, filePath));
     compiler.module();
     return mod;
@@ -194,16 +201,16 @@ str Context::lookupSource(const str& modName)
 }
 
 
-ModuleDef* Context::getModule(const str& modName)
+ModuleInst* Context::getModule(const str& modName)
 {
-    ModuleDef* m = cast<ModuleDef*>(Scope::find(modName));
+    ModuleInst* m = cast<ModuleInst*>(Scope::find(modName));
     if (m == NULL)
         m = loadModule(lookupSource(modName));
     return m;
 }
 
 
-ModuleDef* Context::findModuleDef(Module* m)
+ModuleInst* Context::findModuleDef(Module* m)
 {
     for (memint i = 0; i < modules.size(); i++)
         if (modules[i]->module == m)
@@ -220,11 +227,7 @@ variant Context::execute(const str& filePath)
     try
     {
         for (memint i = 0; i < modules.size(); i++)
-        {
-            ModuleDef* m = modules[i];
-            m->initialize(this);
-            runRabbitRun(this, m->instance, stack, m->getCodeSeg()->getCode());
-        }
+            modules[i]->initialize(this, stack);
     }
     catch (eexit&)
     {
@@ -236,7 +239,7 @@ variant Context::execute(const str& filePath)
             modules[i]->finalize();
         throw;
     }
-    variant result = queenBeeDef->instance->var(queenBee->resultVar->id);
+    variant result = queenBeeInst->instance->var(queenBee->resultVar->id);
     for (memint i = modules.size(); i--; )
         modules[i]->finalize();
     return result;

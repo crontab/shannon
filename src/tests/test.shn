@@ -1,1 +1,12 @@
+def byte = 0..255
 def s0 = 'abc'
+def i0 = 2 * 3 + 4
+def type nums = (one, two, three)
+def intvec = int[]
+def charset1 = char[..]
+def type charset2 = none[char]
+def CharIntMap = int[char]
+
+// var a = <1, 2, 3>
+// var b = [1, 2, 3]
+// var c = ['a' = 1, 'b' = 2]

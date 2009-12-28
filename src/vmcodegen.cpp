@@ -9,7 +9,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& c)
-    : codeOwner(c.getType()), codeseg(c), locals(0), maxStack(0)  { }
+    : codeOwner(c.getType()), codeseg(c), locals(0)  { }
 
 
 CodeGen::~CodeGen()
@@ -24,9 +24,9 @@ void CodeGen::addOp(Type* type, OpCode op)
 {
     memint offs = codeseg.size();
     simStack.push_back(SimStackItem(type, offs));
-    if (simStack.size() > maxStack)
-        maxStack = simStack.size();
-    add<uchar>(op);
+    if (simStack.size() > codeseg.stackSize)
+        codeseg.stackSize = simStack.size();
+    addOp(op);
 }
 
 
@@ -34,7 +34,7 @@ void CodeGen::undoLastLoad()
 {
     memint offs = stkTopOffs();
     assert(offs >= 0 && offs < codeseg.size());
-    if (isUndoableLoadOp(codeseg[offs]))
+    if (isUndoableLoadOp(OpCode(codeseg[offs])))
     {
         stkPop();
         codeseg.resize(offs);
@@ -80,6 +80,8 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
+    // Vector elements are automatically converted to vectors when necessary,
+    // e.g. char -> str
     if (to->isVec() && from->canAssignTo(PContainer(to)->elem))
     {
         stkPop();
@@ -87,6 +89,7 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
+    // Null container is automatically converted to a more concrete type
     if (from->isNullCont() && to->isAnyCont())
     {
         undoLastLoad();
@@ -125,22 +128,24 @@ void CodeGen::discard()
 }
 
 
-void CodeGen::loadSymbol(ModuleVar* moduleVar, Symbol* sym)
+Type* CodeGen::tryUndoTypeRef()
 {
-    if (sym->isDefinition())
-        loadDefinition(PDefinition(sym));
-    else if (sym->isVariable())
+    memint offs = stkTopOffs();
+    if (codeseg[offs] == opLoadTypeRef)
     {
-        if (moduleVar != NULL)
-        {
-            loadVariable(moduleVar);
-            loadMember(PVariable(sym));
-        }
-        else
-            loadVariable(PVariable(sym));
+        Type* type = codeseg.at<Type*>(offs + 1);
+        stkPop();
+        codeseg.resize(offs);
+        return type;
     }
     else
-        notimpl();
+        return NULL;
+}
+
+
+void CodeGen::loadTypeRef(Type* type)
+{
+    addOp<Type*>(defTypeRef, opLoadTypeRef, type);
 }
 
 
@@ -168,7 +173,6 @@ void CodeGen::loadConst(Type* type, const variant& value)
         }
         break;
     case variant::REAL: notimpl(); break;
-    case variant::PTR: notimpl(); break;
     case variant::STR:
         assert(type->isVec() && PContainer(type)->hasSmallElem());
         addOp<object*>(type, opLoadStr, value._anyobj());
@@ -177,14 +181,23 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::ORDSET:
     case variant::DICT:
     case variant::RTOBJ:
-        fatal(0x6001, "Internal: unknown constant literal");
+        if (value._rtobj()->getType()->isTypeRef())
+            loadTypeRef(cast<Type*>(value._rtobj()));
+        else
+            fatal(0x6001, "Internal: unknown constant literal");
         break;
     }
 }
 
 
 void CodeGen::loadDefinition(Definition* def)
-    { addOp<Definition*>(def->type, opLoadConst, def); }
+{
+    Type* type = def->type;
+    if (type->isTypeRef() || type->isNone() || def->type->isAnyOrd() || def->type->isString())
+        loadConst(def->type, def->value);
+    else
+        addOp<Definition*>(def->type, opLoadConst, def);
+}
 
 
 void CodeGen::loadEmptyCont(Container* contType)
@@ -238,10 +251,43 @@ void CodeGen::loadMember(Variable* var)
 }
 
 
+void CodeGen::loadMember(Symbol* sym)
+{
+    if (sym->isVariable())
+        loadMember(PVariable(sym));
+    else if (sym->isDefinition())
+    {
+        undoLastLoad();
+        loadDefinition(PDefinition(sym));
+    }
+    else
+        notimpl();
+}
+
+
+void CodeGen::loadSymbol(ModuleVar* moduleVar, Symbol* sym)
+{
+    if (sym->isDefinition())
+        loadDefinition(PDefinition(sym));
+    else if (sym->isVariable())
+    {
+        if (moduleVar != NULL)
+        {
+            loadVariable(moduleVar);
+            loadMember(PVariable(sym));
+        }
+        else
+            loadVariable(PVariable(sym));
+    }
+    else
+        notimpl();
+}
+
+
 void CodeGen::storeRet(Type* type)
 {
     implicitCast(type);
-    addOp<char>(opStoreStkVar, codeOwner ? codeOwner->retVarId() : -1);
+    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
     stkPop();
 }
 
@@ -312,7 +358,7 @@ void CodeGen::boolXor()
 
 void CodeGen::end()
 {
-    codeseg.close(maxStack);
+    codeseg.close();
     assert(simStack.size() - locals == 0);
 }
 

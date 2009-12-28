@@ -1,14 +1,17 @@
 
 * $ is for run-time symbols (keyword-like string literals) (?)
 
-* Vector constructor is a comma-separated list of expressions. Can be enclosed
-  in parentheses of course. A single element can be automatically converted to
-  a vector when necessary. Same for char/str, since char is not distinguishable
-  deom string syntactically anyway.
+* Vector constructor is enclosed in < > and is compatible with fifos. A single 
+  element can be automatically converted to a vector when necessary. Same for 
+  char/str, since char is not distinguishable from string syntactically anyway.
+  The angle brackets play well with the fifo derivator <>, since fifo literals
+  are vectors.
 
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the
   element type is "none". Operator "in" is applicable to both dicts and sets.
   Dict/set constructors are in square brackets.
+
+* Operator 'delete' for removing container elements. 
 
 * Fifos are defined as "elem-type name<>"
 
@@ -33,12 +36,6 @@
   ^ type derivator. Operation ^ (prefix) makes a value a reference. Dereference
   in expressions is automatic. A reference internally is represented as a 
   pointer to an object and an offset inside it.
-
-* Typerefs must contain asterisk, e.g. int*[] to resolve ambiguity between type
-  casts, function calls, state construction, and also function defs where the
-  return value is a state. Besides, int[1, 2, 3] is a form of a compound
-  constructor that specifies the element type. So with the asterisk notation
-  all ambiguity is resolved. (How about dict constructors then?)
 
 * Range (e.g. A..B) is possible only: (1) in const type expressions where it
   denotes a range type, (2) in ordinal set constructors, (3) in operator 'for',
@@ -68,8 +65,6 @@
 
 * Nullable types? Look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
-
-* Can vectors be converted or wrapped in fifos? Implicitly or explicitly?
 
 * HTML/XML embedded mode, also arbitrary text embedded mode
 

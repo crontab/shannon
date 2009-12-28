@@ -3,12 +3,60 @@
 #include "compiler.h"
 
 
-Compiler::Compiler(Context& c, ModuleDef& mod, fifo* f) throw()
-    : Parser(f), context(c), moduleDef(mod)  { }
+Compiler::Compiler(Context& c, ModuleInst& mod, fifo* f) throw()
+    : Parser(f), context(c), moduleInst(mod)  { }
 
 
 Compiler::~Compiler() throw()
     { }
+
+
+void Compiler::enumeration(const str& firstIdent)
+{
+    Enumeration* enumType = state->registerType(new Enumeration());
+    enumType->addValue(state, firstIdent);
+    while (skipIf(tokComma))
+    {
+        if (token == tokRParen) // allow trailing comma
+            break;
+        enumType->addValue(state, getIdentifier());
+        next();
+    }
+    expect(tokRParen, "')'");
+    codegen->loadTypeRef(enumType);
+}
+
+
+Type* Compiler::getTypeDerivators(Type* type)
+{
+    if (skipIf(tokLSquare))
+    {
+        if (token == tokRSquare)
+            type = type->deriveVec();
+        else if (skipIf(tokRange))
+            type = type->deriveSet();
+        else
+        {
+            Type* indexType = getTypeValue();
+            if (indexType->isNone())
+                type = type->deriveVec();
+            else
+                type = type->deriveContainer(indexType);
+        }
+        state->registerType(type);
+        expect(tokRSquare, "']'");
+    }
+
+    else if (skipIf(tokNotEq)) // <>
+        type = state->registerType(type->deriveFifo());
+
+    else
+        return type;
+
+    // TODO: function derivator
+
+    return getTypeDerivators(type);
+}
 
 
 void Compiler::identifier(const str& ident)
@@ -25,14 +73,21 @@ void Compiler::identifier(const str& ident)
     }
     while (sym == NULL && sc != NULL);
 
-    // If not found there, then look it up in used modules; search backwards
+    // If not found there, then look it up in used modules; look up module names
+    // themselves, too; search backwards
     if (sym == NULL)
     {
-        objvec<ModuleVar> uses = moduleDef.module->uses;
+        objvec<ModuleVar> uses = moduleInst.module->uses;
         for (memint i = uses.size(); i--, sym == NULL; )
         {
             moduleVar = uses[i];
-            sym = moduleVar->getModuleType()->find(ident);
+            if (ident == moduleVar->name)
+            {
+                sym = moduleVar;
+                moduleVar = NULL;
+            }
+            else
+                sym = moduleVar->getModuleType()->find(ident);
         }
     }
 
@@ -41,6 +96,23 @@ void Compiler::identifier(const str& ident)
 
     codegen->loadSymbol(moduleVar, sym);
 }
+
+
+// --- EXPRESSION ---------------------------------------------------------- //
+
+/*
+    1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>
+    2. <array-sel>  <member-sel>  <function-call>
+    3. unary-  <type-derivators>
+    4. as  is
+    5. *  /  mod
+    6. +  –
+    7. |
+    8. ==  <>  !=  <  >  <=  >=  in
+    9. not
+    10. and
+    11. or  xor
+*/
 
 
 void Compiler::atom()
@@ -64,7 +136,7 @@ void Compiler::atom()
             codegen->loadConst(queenBee->defChar, value[0]);
         else
         {
-            moduleDef.module->registerString(value);
+            moduleInst.module->registerString(value);
             codegen->loadConst(queenBee->defStr, value);
         }
         next();
@@ -78,8 +150,23 @@ void Compiler::atom()
 
     else if (skipIf(tokLParen))
     {
-        expression();
-        expect(tokRParen, "')'");
+        if (token == tokIdent)
+        {
+            str ident = strValue;
+            if (next() == tokComma)
+                enumeration(ident);
+            else
+            {
+                undoIdent(ident);
+                goto ICantBelieveIUsedAGotoStatementShameShame;
+            }
+        }
+        else
+        {
+ICantBelieveIUsedAGotoStatementShameShame:
+            expression();
+            expect(tokRParen, "')'");
+        }
     }
 /*
     // TODO:
@@ -99,6 +186,7 @@ void Compiler::atom()
 
 void Compiler::designator()
 {
+    // TODO: qualifiers, container element selectors, function calls
     atom();
 }
 
@@ -109,19 +197,12 @@ void Compiler::factor()
     designator();
     if (isNeg)
         codegen->arithmUnary(opNeg);
-/*
-    // TODO: 
-    else if (token == tokWildcard)
+    else if (token == tokLSquare || token == tokNotEq)
     {
-        // anonymous type spec
-        Type* type = codegen->getLastTypeRef();
+        Type* type = codegen->tryUndoTypeRef();
         if (type != NULL)
-        {
-            next();
             codegen->loadTypeRef(getTypeDerivators(type));
-        }
     }
-*/
 }
 
 
@@ -152,47 +233,34 @@ void Compiler::arithmExpr()
 }
 
 
-void Compiler::expression(Type* resultType, const char* errmsg)
-{
-    // TODO: ?
-    arithmExpr();
-    if (resultType != NULL)
-        codegen->implicitCast(resultType, errmsg ? errmsg : "Expression type mismatch");
-}
-
-
-void Compiler::subexpression()
-{
-    // TODO: vector constructor
-    expression();
-}
-
-
-Type* Compiler::getTypeDerivators(Type* type)
-{
-    // TODO:
-    return type;
-}
-
-
-Type* Compiler::getConstValue(Type* resultType, variant& result)
+Type* Compiler::getConstValue(Type* expectType, variant& result)
 {
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     expression();
-    resultType = constCodeGen.runConstExpr(resultType, result);
+    Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
+    if (resultType->isAnyOrd() && token == tokRange)
+    {
+        next();
+        variant right;
+        getConstValue(resultType, right);
+        result = state->registerType(
+            POrdinal(resultType)->createSubrange(result._ord(), right._ord()));
+        resultType = defTypeRef;
+        if (expectType != NULL && !expectType->isTypeRef())
+            error("Subrange type specifier is not expected here");
+    }
     return resultType;
 }
 
 
 Type* Compiler::getTypeValue()
 {
+    // TODO: make this faster?
     variant result;
     getConstValue(defTypeRef, result);
-    // TODO: range
-    // TODO: enum
     return cast<Type*>(result._rtobj());
 }
 
@@ -205,6 +273,8 @@ Type* Compiler::getTypeAndIdent(str& ident)
         ident = strValue;
         if (next() == tokAssign)
             goto ICantBelieveIUsedAGotoStatement;
+        // TODO: see if the type specifier is a single ident and parse it
+        // immediately here
         undoIdent(ident);
     }
     type = getTypeValue();
@@ -212,16 +282,17 @@ Type* Compiler::getTypeAndIdent(str& ident)
     next();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
-    expect(tokAssign, "'='");
     return type;
 }
 
 
 void Compiler::definition()
 {
-    // definition ::= 'def' [ type-expr ] ident { type-derivator } [ '=' expr ]
+    // definition ::= 'def' [ const-expr ] ident { type-derivator } [ '=' const-expr ]
     str ident;
+    // TODO: typedef-style definition ?
     Type* type = getTypeAndIdent(ident);
+    expect(tokAssign, "'='");
     variant value;
     Type* valueType = getConstValue(type, value);
     if (type == NULL)
@@ -230,6 +301,12 @@ void Compiler::definition()
         error("Constant out of range");
     state->addDefinition(ident, type, value);
     skipSep();
+}
+
+
+void Compiler::assignment()
+{
+    notimpl();
 }
 
 
@@ -255,9 +332,9 @@ void Compiler::statementList()
             skipBlockBegin();
             block();
         }
+*/
         else
             assignment();
-*/
     }
 }
 
@@ -265,12 +342,12 @@ void Compiler::statementList()
 void Compiler::module()
 {
     // The system module is always added implicitly
-    moduleDef.module->addUses(queenBee);
+    moduleInst.module->addUses(context.queenBeeInst->name, context.queenBeeInst->module);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*moduleDef.getCodeSeg());
+    CodeGen mainCodeGen(*moduleInst.module->codeseg);
     codegen = &mainCodeGen;
     blockScope = NULL;
-    scope = state = moduleDef.getStateType();
+    scope = state = moduleInst.module;
 
     try
     {
@@ -288,7 +365,7 @@ void Compiler::module()
         { error(e.what()); }
 
     mainCodeGen.end();
-    moduleDef.setComplete();
+    moduleInst.setComplete();
 
 //    if (options.vmListing)
 //    {

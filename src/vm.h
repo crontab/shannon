@@ -31,9 +31,8 @@ enum OpCode
     opLoadMember,       // [self-idx:8] -stateobj +var
 
     // Storers
-    opStoreStkVar,      // [stk-idx:8] -var
+    opInitStkVar,       // [stk-idx:8] -var
 
-    opDeref,            // -ptr +var
     opPop,              // -var
 
     opChrToStr,         // -ord +str
@@ -77,49 +76,6 @@ inline OpCode designatorLoadToStore(OpCode op)
 */
 
 
-#define DEFAULT_STACK_SIZE 8192
-
-
-class CodeSeg: public rtobject
-{
-    friend class CodeGen;
-    typedef rtobject parent;
-
-    str code;
-
-protected:
-    memint stackSize;
-
-    // Code gen helpers
-    template <class T>
-        void append(const T& t)     { code.push_back<T>(t); }
-    void append(OpCode op)          { code.push_back(char(op)); }
-    void append(const str& s)       { code.append(s); }
-    void resize(memint s)           { code.resize(s); }
-    str  cutTail(memint start)
-        { str t = code.substr(start); resize(start); return t; }
-    template<class T>
-        const T& at(memint i) const { return *code.data<T>(i); }
-    template<class T>
-        T& atw(memint i)            { return *code.atw<T>(i); }
-    OpCode operator[] (memint i) const { return OpCode(code[i]); }
-
-public:
-    CodeSeg(State*) throw();
-    ~CodeSeg() throw();
-
-    State* getType() const          { return cast<State*>(parent::getType()); }
-    memint size() const             { return code.size(); }
-    memint getStackSize() const     { return stackSize; }
-    bool empty() const;
-    void close(memint s);
-
-    // Return a NULL-terminated string ready to be run: NULL char is an opcode
-    // to exit the function
-    const char* getCode() const     { assert(stackSize >= 0); return code.data(); }
-};
-
-
 // --- Code Generator ------------------------------------------------------ //
 
 
@@ -139,11 +95,10 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
-    memint maxStack;                // total stack slots needed without function calls
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
-    void addOp(OpCode op)                           { codeseg.append(op); }
+    void addOp(OpCode op)                           { codeseg.append<uchar>(op); }
     void addOp(Type*, OpCode op);
     template <class T>
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
@@ -170,15 +125,18 @@ public:
     memint getLocals()      { return locals; }
     State* getState()       { return codeOwner; }
     Type* getTopType()      { return stkTop(); }
+    Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
     void discard();
     void implicitCast(Type*, const char* errmsg = NULL);
 
-    void loadSymbol(ModuleVar*, Symbol*);
+    void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
+    void loadSymbol(ModuleVar*, Symbol*);
     void loadVariable(Variable*);
+    void loadMember(Symbol*);
     void loadMember(Variable*);
     void storeRet(Type*);
 //    Type* undoDesignatorLoad(str& loader);
@@ -213,17 +171,17 @@ class Context: public Scope
     friend class Compiler;
 protected:
     CompilerOptions options;
-    objvec<ModuleDef> modules;
-    QueenBeeDef* queenBeeDef;
+    objvec<ModuleInst> modules;
+    ModuleInst* queenBeeInst;
 
-    ModuleDef* addModuleDef(ModuleDef*);
-    ModuleDef* loadModule(const str& filePath);
+    ModuleInst* addModuleInst(ModuleInst*);
+    ModuleInst* loadModule(const str& filePath);
     str lookupSource(const str& modName);
-    ModuleDef* getModule(const str&); // for use by the compiler, "uses" clause
+    ModuleInst* getModule(const str&); // for use by the compiler, "uses" clause
 public:
     Context();
     ~Context();
-    ModuleDef* findModuleDef(Module*);
+    ModuleInst* findModuleDef(Module*);
     variant execute(const str& filePath);
 };
 

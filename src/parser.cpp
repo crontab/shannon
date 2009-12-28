@@ -344,8 +344,11 @@ restart:
                 return tokLAngle;
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
-        case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);
         case '|': return token = tokCat; break;
+
+        // tokNotEq is '<>'; it is used in fifo declarations too, so if '!=' is
+        // finally added to the language then the token name should be different
+        //   case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);
         }
     }
 
