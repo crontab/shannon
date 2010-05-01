@@ -32,6 +32,7 @@ typedef Enumeration* PEnumeration;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
 typedef Prototype* PPrototype;
+typedef State* PState;
 typedef Module* PModule;
 
 
@@ -231,7 +232,7 @@ public:
     bool isSet() const          { return typeId == SET; }
     bool isDict() const         { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
-    bool isString() const;
+    bool isOrdVec() const;
 
     bool isFifo() const         { return typeId == FIFO; }
 

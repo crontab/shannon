@@ -96,7 +96,11 @@ loop:
 
         case opPop:             POP(stk); break;
         case opChrToStr:        *stk = str(stk->_uchar()); break;
+        case opChrCat:          (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
+        case opStrCat:          (stk - 1)->_str().append(stk->_str()); POP(stk); break;
         case opVarToVec:        { varvec v; v.push_back(*stk); *stk = v; } break;
+        case opVarCat:          (stk - 1)->_vec().push_back(*stk); POP(stk); break;
+        case opVecCat:          (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
 
         // Arithmetic
         // TODO: range checking in debug mode
@@ -115,7 +119,26 @@ loop:
         case opBitNot:      UNARY_INT(~); break;
         case opNot:         SETPOD(stk, ! stk->_ord()); break;
 
-        default:                invOpcode(); break;
+        // Comparators
+        case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPPOD(stk); break;
+        case opCmpStr:      *(stk - 1) = integer((stk - 1)->_str().compare(stk->_str())); POP(stk); break;
+        case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
+
+        case opEqual:       SETPOD(stk, stk->_ord() == 0); break;
+        case opNotEq:       SETPOD(stk, stk->_ord() != 0); break;
+        case opLessThan:    SETPOD(stk, stk->_ord() < 0); break;
+        case opLessEq:      SETPOD(stk, stk->_ord() <= 0); break;
+        case opGreaterThan: SETPOD(stk, stk->_ord() > 0); break;
+        case opGreaterEq:   SETPOD(stk, stk->_ord() >= 0); break;
+
+        // Jumps
+        case opJump:        { memint o = ADV<jumpoffs>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
+        case opJumpTrue:    { memint o = ADV<jumpoffs>(ip); if (stk->_ord())  ip += o; POP(stk); } break;
+        case opJumpFalse:   { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
+        case opJumpOr:      { memint o = ADV<jumpoffs>(ip); if (stk->_ord())  ip += o; else POP(stk); } break;
+        case opJumpAnd:     { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; else POP(stk); } break;
+
+        default:            invOpcode(); break;
         }
         goto loop;
 exit:
@@ -174,7 +197,7 @@ Context::~Context()
 ModuleInst* Context::addModuleInst(ModuleInst* m)
 {
     addUnique(m);
-    modules.push_back(m->ref<ModuleInst>());
+    modules.push_back(m->grab<ModuleInst>());
     return m;
 }
 

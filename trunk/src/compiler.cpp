@@ -101,9 +101,9 @@ void Compiler::identifier(const str& ident)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>
+    1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
     2. <array-sel>  <member-sel>  <function-call>
-    3. unary-  <type-derivators>
+    3. unary-
     4. as  is
     5. *  /  mod
     6. +  –
@@ -181,6 +181,13 @@ ICantBelieveIUsedAGotoStatementShameShame:
 */
     else
         errorWithLoc("Expression syntax");
+
+    if (token == tokLSquare || token == tokNotEq)
+    {
+        Type* type = codegen->tryUndoTypeRef();
+        if (type != NULL)
+            codegen->loadTypeRef(getTypeDerivators(type));
+    }
 }
 
 
@@ -188,6 +195,16 @@ void Compiler::designator()
 {
     // TODO: qualifiers, container element selectors, function calls
     atom();
+    while (1)
+    {
+        if (skipIf(tokPeriod))
+        {
+            codegen->loadMember(getIdentifier());
+            next();
+        }
+        else
+            break;
+    }
 }
 
 
@@ -197,12 +214,6 @@ void Compiler::factor()
     designator();
     if (isNeg)
         codegen->arithmUnary(opNeg);
-    else if (token == tokLSquare || token == tokNotEq)
-    {
-        Type* type = codegen->tryUndoTypeRef();
-        if (type != NULL)
-            codegen->loadTypeRef(getTypeDerivators(type));
-    }
 }
 
 
@@ -212,7 +223,7 @@ void Compiler::term()
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
         OpCode op = token == tokMul ? opMul
-                : token == tokDiv ? opDiv : opMod;
+            : token == tokDiv ? opDiv : opMod;
         next();
         factor();
         codegen->arithmBinary(op);
@@ -231,6 +242,112 @@ void Compiler::arithmExpr()
         codegen->arithmBinary(op);
     }
 }
+
+
+void Compiler::simpleExpr()
+{
+    arithmExpr();
+    if (skipIf(tokCat))
+    {
+        Type* type = codegen->getTopType();
+        if (!type->isVec())
+            state->registerType(codegen->elemToVec());
+        do
+        {
+            arithmExpr();
+            type = codegen->getTopType();
+            if (!type->isVec())
+                codegen->elemCat();
+            else
+                codegen->cat();
+        }
+        while (skipIf(tokCat));
+    }
+}
+
+
+void Compiler::relation()
+{
+    // TODO: operator 'in'
+    simpleExpr();
+    if (token >= tokEqual && token <= tokGreaterEq)
+    {
+        OpCode op = OpCode(opEqual + int(token - tokEqual));
+        next();
+        simpleExpr();
+        codegen->cmp(op);
+    }
+}
+
+
+void Compiler::notLevel()
+{
+    bool isNot = skipIf(tokNot);
+    relation();
+    if (isNot)
+        codegen->_not(); // 'not' is something reserved, probably only with Apple's GCC
+}
+
+
+void Compiler::andLevel()
+{
+    notLevel();
+    Type* type = codegen->getTopType();
+    if (type->isBool())
+    {
+        if (skipIf(tokAnd))
+        {
+            memint offs = codegen->boolJumpForward(opJumpAnd);
+            andLevel();
+            codegen->resolveJump(offs);
+        }
+    }
+    else if (type->isInt())
+    {
+        while (token == tokShl || token == tokShr || token == tokAnd)
+        {
+            OpCode op = token == tokShl ? opBitShl
+                    : token == tokShr ? opBitShr : opBitAnd;
+            next();
+            notLevel();
+            codegen->arithmBinary(op);
+        }
+    }
+}
+
+
+void Compiler::orLevel()
+{
+    andLevel();
+    Type* type = codegen->getTopType();
+    if (type->isBool())
+    {
+        if (skipIf(tokOr))
+        {
+            memint offs = codegen->boolJumpForward(opJumpOr);
+            orLevel();
+            codegen->resolveJump(offs);
+        }
+        else if (skipIf(tokXor))
+        {
+            orLevel();
+            codegen->boolXor();
+        }
+    }
+    else if (type->isInt())
+    {
+        while (token == tokOr || token == tokXor)
+        {
+            OpCode op = token == tokOr ? opBitOr : opBitXor;
+            next();
+            andLevel();
+            codegen->arithmBinary(op);
+        }
+    }
+}
+
+
+// ------------------------------------------------------------------------- //
 
 
 Type* Compiler::getConstValue(Type* expectType, variant& result)
@@ -274,7 +391,7 @@ Type* Compiler::getTypeAndIdent(str& ident)
         if (next() == tokAssign)
             goto ICantBelieveIUsedAGotoStatement;
         // TODO: see if the type specifier is a single ident and parse it
-        // immediately here
+        // immediately here (?)
         undoIdent(ident);
     }
     type = getTypeValue();
