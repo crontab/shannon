@@ -36,7 +36,11 @@ enum OpCode
     opPop,              // -var
 
     opChrToStr,         // -ord +str
+    opChrCat,           // -ord -str +str
+    opStrCat,           // -str -str +str
     opVarToVec,         // -var +vec
+    opVarCat,           // -var -vec +vec
+    opVecCat,           // -vec -vec +vec
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -59,6 +63,28 @@ enum OpCode
     opBitNot,           // -int, +int
     opNot,              // -bool, +bool
 
+    // Comparators
+    opCmpOrd,           // -ord, -ord, +{-1,0,1}
+    opCmpStr,           // -str, -str, +{-1,0,1}
+    opCmpVar,           // -var, -var, +{0,1}
+
+    // Compare the stack top with 0 and replace it with a bool value.
+    // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
+    opEqual,            // -int, +bool
+    opNotEq,            // -int, +bool
+    opLessThan,         // -int, +bool
+    opLessEq,           // -int, +bool
+    opGreaterThan,      // -int, +bool
+    opGreaterEq,        // -int, +bool
+
+    // Jumps; [dst] is a relative 16-bit offset.
+    opJump,             // [dst 16]
+    opJumpTrue,         // [dst 16] -bool
+    opJumpFalse,        // [dst 16] -bool
+    // Short bool evaluation: pop if jump, leave it otherwise
+    opJumpOr,           // [dst 16] (-)bool
+    opJumpAnd,          // [dst 16] (-)bool
+
     opInv,
     opMaxCode = opInv,
 };
@@ -67,6 +93,9 @@ enum OpCode
 inline bool isUndoableLoadOp(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadConst); }
 
+inline bool isCmpOp(OpCode op)
+    { return op >= opEqual && op <= opGreaterEq; }
+
 /*
 inline bool isDesignatorLoadOp(OpCode op)
     { return op >= opLoadSelfVar && op <= opLoadStkVar; }
@@ -74,6 +103,12 @@ inline bool isDesignatorLoadOp(OpCode op)
 inline OpCode designatorLoadToStore(OpCode op)
     { return OpCode(op + opStoreSelfVar - opLoadSelfVar); }
 */
+
+inline bool isJump(OpCode op)
+    { return op >= opJump && op <= opJumpAnd; }
+
+inline bool isBoolJump(OpCode op)
+    { return op >= opJumpTrue && op <= opJumpAnd; }
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -95,6 +130,7 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
+    bool isConstCode;
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
@@ -104,6 +140,7 @@ protected:
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
     template <class T>
         void addOp(Type* t, OpCode op, const T& a)  { addOp(t, op); add<T>(a); }
+    void addJumpOffs(jumpoffs o)                    { add<jumpoffs>(o); }
     Type* stkPop();
     void stkReplaceTop(Type* t);
     Type* stkTop()
@@ -136,15 +173,22 @@ public:
     void loadEmptyCont(Container* type);
     void loadSymbol(ModuleVar*, Symbol*);
     void loadVariable(Variable*);
-    void loadMember(Symbol*);
+    void loadMember(const str& ident);
     void loadMember(Variable*);
     void storeRet(Type*);
 //    Type* undoDesignatorLoad(str& loader);
 //    void storeDesignator(str loaderCode, Type* type);
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
-    void _not();
     void boolXor();
+    Container* elemToVec();
+    void elemCat();
+    void cat();
+    void cmp(OpCode);
+    void _not();
+    memint boolJumpForward(OpCode op);
+    memint jumpForward(OpCode op);
+    void resolveJump(memint jumpOffs);
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };

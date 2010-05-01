@@ -170,7 +170,7 @@ bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
 
 
-bool Type::isString() const
+bool Type::isOrdVec() const
     { return isVec() && PContainer(this)->hasSmallElem(); }
 
 
@@ -493,7 +493,7 @@ Type* State::_registerType(const str& n, Type* t)
 {
     if (t->host == NULL)
     {
-        types.push_back(t->ref<Type>());
+        types.push_back(t->grab<Type>());
         t->alias = n;
         t->host = this;
     }
@@ -507,7 +507,7 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
         fatal(0x3001, "Internal: empty identifier");
     objptr<Definition> d = new Definition(n, t, v);
     addUnique(d); // may throw
-    defs.push_back(d->ref<Definition>());
+    defs.push_back(d->grab<Definition>());
     return d;
 }
 
@@ -525,7 +525,7 @@ Variable* State::addSelfVar(const str& n, Type* t)
         throw ecmessage("Too many variables");
     objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
     addUnique(v);
-    selfVars.push_back(v->ref<Variable>());
+    selfVars.push_back(v->grab<Variable>());
     return v;
 }
 
@@ -536,7 +536,7 @@ ModuleVar* State::addModuleVar(const str& n, Module* t)
     if (id >= 127)
         throw ecmessage("Too many variables");
     objptr<ModuleVar> v = new ModuleVar(n, t, id, this);
-    selfVars.push_back(v->ref<ModuleVar>());
+    selfVars.push_back(v->grab<ModuleVar>());
     return v;
 }
 

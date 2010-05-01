@@ -1,7 +1,7 @@
 
 ARCH = -arch i386
 # ARCH = -arch x86_64
-SHBITS = -DSHN_64
+# SHBITS = -DSHN_64
 # SHTHR = -DSHN_THR
 
 CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DDEBUG -g

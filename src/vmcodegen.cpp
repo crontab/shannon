@@ -9,7 +9,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& c)
-    : codeOwner(c.getType()), codeseg(c), locals(0)  { }
+    : codeOwner(c.getType()), codeseg(c), locals(0), isConstCode(true)  { }
 
 
 CodeGen::~CodeGen()
@@ -82,10 +82,9 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
-    if (to->isVec() && from->canAssignTo(PContainer(to)->elem))
+    if (to->isVec() && from->identicalTo(PContainer(to)->elem))
     {
-        stkPop();
-        addOp(to, PContainer(to)->hasSmallElem() ? opChrToStr : opVarToVec);
+        elemToVec();
         return true;
     }
 
@@ -174,7 +173,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         break;
     case variant::REAL: notimpl(); break;
     case variant::STR:
-        assert(type->isVec() && PContainer(type)->hasSmallElem());
+        assert(type->isOrdVec());
         addOp<object*>(type, opLoadStr, value._anyobj());
         break;
     case variant::VEC:
@@ -193,7 +192,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
 void CodeGen::loadDefinition(Definition* def)
 {
     Type* type = def->type;
-    if (type->isTypeRef() || type->isNone() || def->type->isAnyOrd() || def->type->isString())
+    if (type->isTypeRef() || type->isNone() || def->type->isAnyOrd() || def->type->isOrdVec())
         loadConst(def->type, def->value);
     else
         addOp<Definition*>(def->type, opLoadConst, def);
@@ -230,6 +229,8 @@ void CodeGen::loadVariable(Variable* var)
     assert(var->id >= 0 && var->id <= 127);
     if (codeOwner == NULL)
         error("Variables not allowed in constant expressions");
+    else
+        isConstCode = false;
     // TODO: check parent states too
     if (var->isSelfVar() && var->state == codeOwner->selfPtr)
         addOp<char>(var->type, opLoadSelfVar, var->id);
@@ -242,6 +243,10 @@ void CodeGen::loadVariable(Variable* var)
 
 void CodeGen::loadMember(Variable* var)
 {
+    if (codeOwner == NULL)
+        error("Variables not allowed in constant expressions");
+    else
+        isConstCode = false;
     Type* stateType = stkPop();
     // TODO: check parent states too
     if (!stateType->isAnyState() || var->state != stateType
@@ -251,8 +256,12 @@ void CodeGen::loadMember(Variable* var)
 }
 
 
-void CodeGen::loadMember(Symbol* sym)
+void CodeGen::loadMember(const str& ident)
 {
+    Type* stateType = stkTop();
+    if (!stateType->isAnyState())
+        error("Invalid member selection");
+    Symbol* sym = PState(stateType)->findShallow(ident);
     if (sym->isVariable())
         loadMember(PVariable(sym));
     else if (sym->isDefinition())
@@ -318,19 +327,75 @@ void CodeGen::storeDesignator(str loaderCode, Type* type)
 void CodeGen::arithmBinary(OpCode op)
 {
     assert(op >= opAdd && op <= opBitShr);
-    Type* type = stkPop();
-    if (!type->isInt() || !stkTop()->isInt())
+    Type* right = stkPop();
+    Type* left = stkPop();
+    if (!right->isInt() || !left->isInt())
         error("Operand types do not match binary operator");
-    addOp(op);
+    addOp(left->identicalTo(right) ? left : queenBee->defInt, op);
 }
 
 
 void CodeGen::arithmUnary(OpCode op)
 {
     assert(op >= opNeg && op <= opNot);
-    if (!stkTop()->isInt())
+    Type* type = stkTop();
+    if (!type->isInt())
         error("Operand type doesn't match unary operator");
     addOp(op);
+}
+
+
+Container* CodeGen::elemToVec()
+{
+    Type* elemType = stkPop();
+    Container* contType = elemType->deriveVec();
+    addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
+    return contType;
+}
+
+
+void CodeGen::elemCat()
+{
+    Type* elemType = stkTop();
+    Type* vecType = stkTop(2);
+    if (!vecType->isVec())
+        error("Vector/string type expected");
+    implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
+    elemType = stkPop();
+    addOp(elemType->isSmallOrd() ? opChrCat: opVarCat);
+}
+
+
+void CodeGen::cat()
+{
+    Type* vecType = stkTop(2);
+    if (!vecType->isVec())
+        error("Left operand is not a vector");
+    implicitCast(vecType, "Vector/string types do not match");
+    stkPop();
+    addOp(vecType->isOrdVec() ? opStrCat : opVecCat);
+}
+
+
+void CodeGen::cmp(OpCode op)
+{
+    assert(isCmpOp(op));
+    Type* left = stkTop(2);
+    implicitCast(left, "Type mismatch in comparison");
+    Type* right = stkTop();
+    if (left->isAnyOrd() && right->isAnyOrd())
+        addOp(opCmpOrd);
+    else if (left->isOrdVec() && right->isOrdVec())
+        addOp(opCmpStr);
+    else
+    {
+        if (op != opEqual && op != opNotEq)
+            error("Only equality can be tested for this type");
+        addOp(opCmpVar);
+    }
+    stkPop();
+    stkPop();
+    addOp(queenBee->defBool, op);
 }
 
 
@@ -349,10 +414,39 @@ void CodeGen::_not()
 
 void CodeGen::boolXor()
 {
-    Type* type = stkPop();
-    if (!type->isBool() || !stkTop()->isBool())
+    if (!stkPop()->isBool() || !stkPop()->isBool())
         error("Operand types do not match binary operator");
-    addOp(opBoolXor);
+    addOp(queenBee->defBool, opBoolXor);
+}
+
+
+memint CodeGen::boolJumpForward(OpCode op)
+{
+    assert(isBoolJump(op));
+    implicitCast(queenBee->defBool, "Boolean expression expected");
+    stkPop();
+    return jumpForward(op);
+}
+
+
+memint CodeGen::jumpForward(OpCode op)
+{
+    assert(isJump(op));
+    memint pos = codeseg.size();
+    addOp(op);
+    addJumpOffs(0);
+    return pos;
+}
+
+
+void CodeGen::resolveJump(memint jumpOffs)
+{
+    assert(jumpOffs <= codeseg.size() - 1 - memint(sizeof(jumpoffs)));
+    assert(isJump(OpCode(codeseg.at<uchar>(jumpOffs))));
+    integer offs = integer(codeseg.size()) - integer(jumpOffs + 1 + sizeof(jumpoffs));
+    if (offs > 32767)
+        error("Jump target is too far away");
+    codeseg.atw<jumpoffs>(jumpOffs + 1) = offs;
 }
 
 

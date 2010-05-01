@@ -33,9 +33,9 @@ public:
 
     bool unique() const         { assert(refcount > 0); return refcount == 1; }
     void release();
-    object* ref()               { pincrement(&refcount); return this; }
+    object* grab()              { pincrement(&refcount); return this; }
     template <class T>
-        T* ref()                { object::ref(); return cast<T*>(this); }
+        T* grab()               { object::grab(); return cast<T*>(this); }
     template <class T>
         void assignto(T*& p)    { _assignto((object*&)p); }
 };
@@ -48,8 +48,8 @@ protected:
     T* obj;
 public:
     objptr()                            : obj(NULL) { }
-    objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->ref(); }
-    objptr(T* o)                        : obj(o) { if (obj) obj->ref(); }
+    objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->grab(); }
+    objptr(T* o)                        : obj(o) { if (obj) obj->grab(); }
     ~objptr()                           { obj->release(); }
     void clear()                        { obj->release(); obj = NULL; }
     bool empty() const                  { return obj == NULL; }
@@ -98,8 +98,8 @@ protected:
     };
     cont* obj;
     void _fin()                         { if (obj != &null) obj->release(); }
-    void _init(const range& r)          { obj = r.obj->ref<cont>(); }
-    void _init(integer l, integer r)    { obj = (new cont(l, r))->ref<cont>(); }
+    void _init(const range& r)          { obj = r.obj->grab<cont>(); }
+    void _init(integer l, integer r)    { obj = (new cont(l, r))->grab<cont>(); }
 public:
     range()                             : obj(&null) { }
     range(const range& r)               { _init(r); }
@@ -136,13 +136,13 @@ protected:
     };
     cont* obj;
     void _fin()                         { if (obj != &null) obj->release(); }
-    void _init(const ordset& r)         { obj = r.obj->ref<cont>(); }
+    void _init(const ordset& r)         { obj = r.obj->grab<cont>(); }
     bool unique()                       { return obj != &null && obj->unique(); }
     void _mkunique();
     charset& mkunique()                 { if (!unique()) _mkunique(); return obj->cset; }
 public:
     ordset()                            : obj(&null)  { }
-    ordset(const ordset& s)             : obj(s.obj->ref<cont>())  { }
+    ordset(const ordset& s)             : obj(s.obj->grab<cont>())  { }
     ~ordset()                           { _fin(); }
     bool empty() const                  { return obj == &null || obj->cset.empty(); }
     void operator= (const ordset&);
@@ -195,7 +195,7 @@ protected:
     void set_size(memint newsize)
         { assert(newsize > 0 && newsize <= _capacity); _size = newsize; }
     void dec_size()             { assert(_size > 0); _size--; }
-    container* ref()            { return (container*)_refnz(); }
+    container* grab()           { return (container*)_refnz(); }
     
 public:
     virtual container* new_(memint cap, memint siz) = 0;
@@ -219,7 +219,7 @@ public:
 // container). Contptr can't be used directly. Contptr and all its dscendants
 // always have a size of (void*) and never have virtual methods. All
 // functionality is implemented in the descendants of container, while contptr
-// family is just a facede, mostly inlined.
+// family is just a facade, mostly inlined.
 
 class contptr: noncopyable
 {
@@ -228,7 +228,7 @@ class contptr: noncopyable
 protected:
     container* obj;
 
-    void _init(const contptr& s)        { obj = s.obj->ref(); }
+    void _init(const contptr& s)        { obj = s.obj->grab(); }
     char* _init(container* factory, memint);
     void _init(container* factory, const char*, memint);
     void _fin()                         { if (!empty()) obj->release(); }
@@ -236,7 +236,7 @@ protected:
     char* mkunique();
     void chkidx(memint i) const         { if (umemint(i) >= umemint(obj->size())) container::idxerr(); }
     void chkidxa(memint i) const        { if (umemint(i) > umemint(obj->size())) container::idxerr(); }
-    void _assign(container* o)          { _fin(); obj = o->ref(); }
+    void _assign(container* o)          { _fin(); obj = o->grab(); }
     char* _insertnz(memint pos, memint len);
     char* _appendnz(memint len);
     void _erasenz(memint pos, memint len);
@@ -433,6 +433,7 @@ public:
     void operator= (const podvec& v)        { parent::operator= (v); }
     void push_back(const T& t)              { new(_appendnz(Tsize)) T(t); }
     void pop_back()                         { parent::pop_back(Tsize); }
+    void append(const podvec& v)            { parent::append(v); }
     void insert(memint pos, const T& t)     { new(_insertnz(pos * Tsize, Tsize)) T(t); }
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
     void replace_back(const T& t)           { *parent::atw<T>(size() - 1) = t; }
@@ -710,6 +711,7 @@ class variant
     friend void test_variant();
 
 public:
+    // TODO: tinyset
 
     enum Type
         { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
@@ -757,14 +759,14 @@ protected:
     void _init(const varvec& v)         { _init(VEC, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
     void _init(const vardict& v)        { _init(DICT, v.obj); }
-    void _init(Type t, object* o)       { type = t; val._obj = o->ref(); }
-    void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->ref<rtobject>(); }
+    void _init(Type t, object* o)       { type = t; val._obj = o->grab(); }
+    void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->grab<rtobject>(); }
     void _init(const variant& v)
         {
             type = v.type;
             val = v.val;
             if (is_anyobj())
-                val._obj->ref();
+                val._obj->grab();
         }
 
     void _fin_anyobj();
@@ -1117,6 +1119,9 @@ public:
     str get_name() const;   // override
     str all() const;
 };
+
+
+// TODO: varfifo, a variant vector wrapper based on buffifo
 
 
 class intext: public buffifo

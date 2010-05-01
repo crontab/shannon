@@ -24,8 +24,8 @@
 #endif
 
 
-// SHN_64 can be enabled both on 64 and 32-bit systems
-// #define SHN_64
+// SHN_64 can be enabled both on 64 and 32-bit systems.
+#define SHN_64
 
 
 #define SOURCE_EXT ".shn"
@@ -53,6 +53,7 @@
 // Equivalent of size_t, signed; used everywhere for container sizes/indexes
 typedef long memint;
 typedef unsigned long umemint;
+typedef int16_t jumpoffs;
 #define MEMINT_MAX LONG_MAX
 #define ALLOC_MAX (MEMINT_MAX-255)
 

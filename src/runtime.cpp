@@ -70,7 +70,7 @@ void object::_assignto(object*& p)
             p->release();
         p = this;
         if (this)
-            this->ref();
+            this->grab();
     }
 }
 
@@ -130,7 +130,7 @@ ordset::cont ordset::null;
 void ordset::_mkunique()
 {
     _fin();
-    obj = (new cont())->ref<cont>();
+    obj = (new cont())->grab<cont>();
 }
 
 
@@ -208,7 +208,7 @@ char* contptr::_init(container* factory, memint len)
     assert(len >= 0);
     if (len > 0)
     {
-        obj = factory->new_growing(len)->ref();
+        obj = factory->new_growing(len)->grab();
         return obj->data();
     }
     else
@@ -955,7 +955,7 @@ void variant::_init(const variant& v)
     type = v.type;
     val = v.val;
     if (is_anyobj())
-        val._obj->ref();
+        val._obj->grab();
 }
 */
 

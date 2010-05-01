@@ -23,9 +23,13 @@ protected:
     void factor();
     void term();
     void arithmExpr();
+    void simpleExpr();
+    void relation();
+    void notLevel();
+    void andLevel();
+    void orLevel();
     void expression()
-            { arithmExpr(); }
-    void expression(Type* resultType, const char* errmsg = NULL);
+            { orLevel(); }
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result);
     Type* getTypeValue();

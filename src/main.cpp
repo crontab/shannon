@@ -49,7 +49,7 @@ int main()
         if (result.is_none())
             exitcode = 0;
         else if (result.is_ord())
-            exitcode = result._ord();
+            exitcode = int(result._ord());
         else if (result.is_str())
         {
             serr << result._str() << endl;
