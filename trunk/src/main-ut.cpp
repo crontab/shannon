@@ -2,10 +2,10 @@
 #define __STDC_LIMIT_MACROS
 
 #include "common.h"
-#include "runtime.h"
-#include "parser.h"
-#include "typesys.h"
-#include "vm.h"
+// #include "runtime.h"
+// #include "parser.h"
+// #include "typesys.h"
+// #include "vm.h"
 
 
 static void ut_fail(unsigned line, const char* e)
@@ -42,7 +42,7 @@ void test_common()
     check(pdecrement(&i) == 1);
 }
 
-
+/*
 struct testobj: public object
 {
     testobj()  { }
@@ -70,21 +70,6 @@ void test_object()
 }
 
 
-/*
-void test_range()
-{
-    range r1;
-    range r2 = r1;
-    range r3(1, 3);
-    range r4 = r3;
-    r1 = r3;
-    check(r2.empty());
-    r1 = range(10, 20);
-    r2.assign(10, 20);
-    check(r1 == r2);
-}
-*/
-
 void test_ordset()
 {
     ordset s1;
@@ -103,49 +88,68 @@ void test_ordset()
     ordset s3;
     s3 = s1;
 }
+*/
 
-
-void test_contptr()
+void test_bytevec()
 {
     // TODO: check the number of reallocations
-    str c1;
+    bytevec c1;
+    check(c1.data() == NULL);
     check(c1.empty());
     check(c1.size() == 0);
     check(c1.capacity() == 0);
 
-    str c2("ABC", 3);
+    bytevec c2("ABC", 3);
     check(!c2.empty());
     check(c2.size() == 3);
-    check(c2.capacity() == 4);
+    check(c2.capacity() == 3);
 
-    str c2a("", 0);
-    check(c2a.obj == &str::null);
+    check(c1._unique());
+    check(c2._unique());
+    c1 = c2;
+    check(!c2._unique());
+    check(!c1._unique());
+    c2.clear();
+    check(c1._unique());
+    check(c2._unique());
+    check(c2.empty());
+    check(!c1.empty());
+    check(c1.size() == 3);
+    c1 = c1;
+
+    c2 = c1;
+    check(!c2._unique());
+    check(!c1._unique());
+    *c2.atw(0) = 'a';
+    check(c2._unique());
+    check(c1._unique());
+    check(c2.data()[0] == 'a');
+    check(c1.data()[0] == 'A');
+    *c2.atw(0) = 'A';
+    check(c2.data()[0] == 'A');
+
+    bytevec c2a("", 0);
+    check(c2a.data() == NULL);
     check(c2a.empty());
     check(c2a.size() == 0);
     check(c2a.capacity() == 0);
 
-    check(!c1.unique());
-    check(c2.unique());
-    c1 = c2;
-    check(!c2.unique());
-    check(!c1.unique());
-
-    str c3("DEFG", 4);
+    bytevec c3("DEFG", 4);
     c1.insert(3, c3);
-    check(c1.unique());
+    check(c1._unique());
     check(c1.size() == 7);
     check(c1.capacity() > 7);
     check(memcmp(c1.data(), "ABCDEFG", 7) == 0);
 
-    contptr c4 = c1;
-    check(!c1.unique());
+    bytevec c4 = c1;
+    check(!c1._unique());
     c1.insert(3, "ab", 2);
-    check(c1.unique());
+    check(c1._unique());
     check(c1.size() == 9);
-    check(c1.capacity() > 9);
+    check(c1.capacity() == 9);
     check(memcmp(c1.data(), "ABCabDEFG", 9) == 0);
     c1.insert(0, "@", 1);
-    check(c1.unique());
+    check(c1._unique());
     check(c1.size() == 10);
     check(memcmp(c1.data(), "@ABCabDEFG", 10) == 0);
     c1.insert(10, "0123456789", 10);
@@ -159,9 +163,9 @@ void test_contptr()
     check(c2.size() == 10);
     check(memcmp(c2.data(), "ABCABCabcd", 10) == 0);
     c4 = c2;
-    check(!c2.unique());
+    check(!c2._unique());
     c2.append(c3);
-    check(c2.unique());
+    check(c2._unique());
     check(c2.size() == 14);
     check(memcmp(c2.data(), "ABCABCabcdDEFG", 14) == 0);
 
@@ -169,14 +173,18 @@ void test_contptr()
     check(memcmp(c1.data(), "@ABCDEFG0123456789", 18) == 0);
     c4 = c1;
     c1.erase(8, 5);
+    check(c1.size() == 13);
     check(memcmp(c1.data(), "@ABCDEFG56789", 13) == 0);
     c1.erase(8, 5);
+    check(c1.size() == 8);
     check(memcmp(c1.data(), "@ABCDEFG", 8) == 0);
 
     c1.pop_back(2);
     check(c1.size() == 6);
     check(memcmp(c1.data(), "@ABCDE", 6) == 0);
-    c1.pop_back(6);
+    c1.pop_back(2);
+    check(c1.size() == 4);
+    c1.pop_back(4);
     check(c1.empty());
     
     c1.resize(3);
@@ -187,34 +195,34 @@ void test_contptr()
     check(memcmp(c1.data(), "@AB!!!", 3) == 0);
     c1.resize(0);
     check(c1.empty());
-    check(c1.obj == &str::null);
+    check(c1.data() == NULL);
 }
 
 
 void test_string()
 {
-    // TODO: insert
     str s1;
     check(s1.empty());
     check(s1.size() == 0);
     check(s1.c_str()[0] == 0);
-    check(s1.obj == &str::null);
+    check(s1.data() == NULL);
     str s2 = "Kuku";
     check(!s2.empty());
     check(s2.size() == 4);
-    check(s2.capacity() == 5);
+    check(s2.capacity() == 4);
     check(s2 == "Kuku");
     str s3 = s1;
     check(s3.empty());
     str s4 = s2;
     check(s4 == s2);
     check(s4 == "Kuku");
-    check(!s4.unique());
-    check(!s2.unique());
+    check(!s4._unique());
+    check(!s2._unique());
     str s5 = "!";
     check(s5.size() == 1);
     check(s5.c_str()[0] == '!');
     check(s5.c_str()[1] == 0);
+    check(s5.size() == 1);
     str s6 = "";
     check(s6.empty());
     check(s6.c_str()[0] == 0);
@@ -258,7 +266,18 @@ void test_string()
     check(s1.rfind('v') == str::npos);
 
     s1.clear();
-    check(s1.obj == &str::null);
+    check(s1.data() == NULL);
+
+    str s8;
+    s8 += "";
+    check(s8 == "");
+    check(s8.empty());
+    s8 += "ABC";
+    check(s8 == "ABC");
+    s8.clear();
+    s8.clear();
+    s8.insert(0, "DEF");
+    check(s8 == "DEF");
 }
 
 
@@ -324,7 +343,7 @@ void test_podvec()
     check(v1[2] == 30);
     check(v1[3] == 40);
     v2 = v1;
-    check(!v1.unique() && !v2.unique());
+    check(!v1._unique() && !v2._unique());
     check(v2.size() == 4);
     v1.erase(2);
     check(v1.size() == 3);
@@ -346,6 +365,7 @@ void test_podvec()
 }
 
 
+/*
 void test_vector()
 {
     vector<str> v1;
@@ -458,14 +478,14 @@ void test_variant()
         variant v4 = s; check(v4.as_str() == "def");
         v4 = 20; check(v4.as_int() == 20);
     }
-/*
+
     {
-        variant v1 = range(20, 50); check(v1.is(variant::RANGE)); check(v1.as_range().equals(20, 50));
-        variant v2 = v1; check(v2.is(variant::RANGE)); check(v2.as_range().equals(20, 50));
-        variant v3; v3 = v1; check(v3.is(variant::RANGE)); check(v3.as_range().equals(20, 50));
-        check(v2 == v3 && v1 == v3);
+//        variant v1 = range(20, 50); check(v1.is(variant::RANGE)); check(v1.as_range().equals(20, 50));
+//        variant v2 = v1; check(v2.is(variant::RANGE)); check(v2.as_range().equals(20, 50));
+//        variant v3; v3 = v1; check(v3.is(variant::RANGE)); check(v3.as_range().equals(20, 50));
+//        check(v2 == v3 && v1 == v3);
     }
-*/
+
     {
         variant v1 = varvec();
         check(v1.is(variant::VEC));
@@ -645,11 +665,11 @@ void test_codegen()
         check(result.is_str() && result == "");
     }
 }
-
+*/
 
 int main()
 {
-
+/*
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
          << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
          << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
@@ -674,31 +694,35 @@ int main()
 #endif
 
     initTypeSys();
+*/
+
     int exitcode = 0;
     try
     {
         test_common();
-        test_object();
-        test_ordset();
-        test_contptr();
+//        test_object();
+//        test_ordset();
+        test_bytevec();
         test_string();
         test_strutils();
         test_podvec();
-        test_vector();
-        test_set();
-        test_dict();
-        test_symvec();
-        test_variant();
-        test_fifos();
-        test_typesys();
-        test_parser();
-        test_codegen();
+//        test_vector();
+//        test_set();
+//        test_dict();
+//        test_symvec();
+//        test_variant();
+//        test_fifos();
+//        test_typesys();
+//        test_parser();
+//        test_codegen();
     }
     catch (exception& e)
     {
         fprintf(stderr, "Exception: %s\n", e.what());
         exitcode = 201;
     }
+
+/*
     doneTypeSys();
 
     if (object::allocated != 0)
@@ -706,7 +730,7 @@ int main()
         fprintf(stderr, "Error: object::allocated = %d\n", object::allocated);
         exitcode = 202;
     }
-
+*/
     return exitcode;
 }
 
