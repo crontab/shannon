@@ -8,20 +8,20 @@ CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DDEBUG -g
 CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DNDEBUG -O2
 LDLIBS = 
 
-DOBJS = debug/common.o debug/charset.o debug/runtime.o debug/rtio.o \
+DOBJS = debug/common.o debug/runtime.o debug/rtio.o \
     debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o \
     debug/compiler.o
 
-ROBJS = release/common.o release/charset.o release/runtime.o release/rtio.o \
+ROBJS = release/common.o release/runtime.o release/rtio.o \
     release/parser.o release/typesys.o release/vm.o release/vmcodegen.o \
     release/compiler.o
 
-SRCS = common.cpp charset.cpp runtime.cpp rtio.cpp \
+SRCS = common.cpp runtime.cpp rtio.cpp \
     parser.cpp typesys.cpp vm.cpp vmcodegen.cpp \
     compiler.cpp \
     main.cpp main-ut.cpp
 
-HDRS = version.h common.h charset.h runtime.h typesys.h parser.h vm.h compiler.h
+HDRS = version.h common.h runtime.h typesys.h parser.h vm.h compiler.h
 
 
 all: dirs shannon shannon-ut

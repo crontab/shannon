@@ -439,6 +439,7 @@ public:
     void replace_back(const T& t)           { *parent::atw<T>(size() - 1) = t; }
     void erase(memint pos)                  { parent::_erasenz(pos * Tsize, Tsize); }
 
+/*
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are
     // created and then copied into the vector. Though these are somewhat
@@ -449,7 +450,7 @@ public:
         void insert(memint pos, const U& u) { new(parent::_insertnz(pos * Tsize, Tsize)) T(u); }
     template <class U>
         void replace(memint pos, const U& u) { *parent::atw<T>(pos) = u; }
-
+*/
     // If you keep the vector sorted, the following will provide a set-like
     // functionality:
     bool has(const T& item) const
