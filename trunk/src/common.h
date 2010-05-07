@@ -300,8 +300,8 @@ public:
     objptr()                            : obj(NULL) { }
     objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->grab(); }
     objptr(T* o)                        : obj(o) { if (obj) obj->grab(); }
-    ~objptr()                           { obj->release(); }
-    void clear()                        { obj->release(); obj = NULL; }
+    ~objptr()                           { if (obj) obj->release(); }
+    void clear()                        { if (obj) { obj->release(); obj = NULL; } }
     bool empty() const                  { return obj == NULL; }
     void operator= (const objptr& p)    { p.obj->assignto(obj); }
     void operator= (T* o)               { o->assignto(obj); }
@@ -321,26 +321,26 @@ public:
 
 class container: public object
 {
-    friend class bytevec;
-
 protected:
     memint _capacity;
     memint _size;
     // char _data[0];
 
+public:
     // Note: allocate() creates an instance of 'container' while reallocate()
     // never does that and thus it can be used for descendant classes too.
-    static container* allocate(memint cap, memint siz);  // *
+    static container* allocate(memint cap, memint siz);  // (*)
     static container* reallocate(container* p, memint newsize);
+
     // Creates a duplicate of a given container without copying the data
     container* dup(memint cap, memint siz);
+
     // TODO: compact()
 
     static memint _calc_prealloc(memint);
     container(memint cap, memint siz)
         : object(), _capacity(cap), _size(siz)  { }
 
-public:
     static void overflow();
     static void idxerr();
 
@@ -377,6 +377,7 @@ protected:
 
     void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
     void chkidxa(memint i) const    { if (umemint(i) > umemint(size())) container::idxerr(); }
+    static void chknonneg(memint v) { if (v < 0) container::overflow(); } 
     void chknz() const              { if (empty()) container::idxerr(); }
     container* _cont() const        { return container::cont(_data); }
     bool _unique() const            { return !_data || _cont()->unique(); }
@@ -389,16 +390,11 @@ protected:
     void _fin()                         { if (_data) _cont()->release(); }
     void _assign(container* c)          { _fin(); _data = c->data(); c->grab(); }
 
-    // Note: _insertnz() and _appendnz() don't work on empty vectors; the
-    // operation should be implemented in descendant classes because the exact
-    // type of the container is not known here. The entire group below assumes
-    // len > 0.
-    char* _insertnz(memint pos, memint len);
-    char* _insert(memint pos, memint len);  // (*)
-    char* _appendnz(memint len);
-    char* _append(memint len);  // (*)
+    char* _insert(memint pos, memint len, alloc_func);
+    char* _append(memint len, alloc_func);
     void _erase(memint pos, memint len);
     void _pop(memint len);
+    char* _resize(memint newsize, alloc_func);
 
     bytevec(container* c)               { _init(c); }
 
@@ -431,7 +427,7 @@ public:
     void append(const bytevec& s);
     void erase(memint pos, memint len);
     void pop_back(memint len)           { if (len > 0) _pop(len); }
-    char* resize(memint);  // (*)
+    char* resize(memint newsize)        { return _resize(newsize, container::allocate); } // (*)
     void resize(memint, char);  // (*)
 
     // Mostly used internally
@@ -476,7 +472,7 @@ public:
     str(char c)                             { _init(c); }
 
     const char* c_str(); // can actually modify the object
-    void push_back(char c)                  { *_appendnz(1) = c; }
+    void push_back(char c)                  { *_append(1, container::allocate) = c; }
     char operator[] (memint i) const        { return *data(i); }
     char at(memint i) const                 { return *bytevec::at(i); }
     char back() const                       { return *bytevec::back(); }
@@ -585,12 +581,11 @@ public:
     const T* end() const                    { return parent::end<T>(); }
     void clear()                            { parent::clear(); }
     void operator= (const podvec& v)        { parent::operator= (v); }
-    void push_back(const T& t)              { new(_append(Tsize)) T(t); }  // (*)
+    void push_back(const T& t)              { new(_append(Tsize, container::allocate)) T(t); }  // (*)
     void pop_back()                         { parent::pop_back(Tsize); }
     void append(const podvec& v)            { parent::append(v); }
     void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize)) T(t); }  // (*)
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
-    void replace_back(const T& t)           { *parent::atw<T>(size() - 1) = t; }
     void erase(memint pos)                  { parent::_erase(pos * Tsize, Tsize); }
 
     // If you keep the vector sorted, the following will provide a set-like

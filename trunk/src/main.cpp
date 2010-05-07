@@ -22,7 +22,7 @@ protected:
     class cont: public container
     {
     protected:
-        // Virtual overrides
+
         void finalize(void* p, memint len)
         {
             (char*&)p += len - Tsize;
@@ -36,55 +36,44 @@ protected:
                 new(dest) T(*Tptr(src));
         }
 
-        cont(memint siz): container(siz, siz)  { }
+        cont(memint cap, memint siz): container(cap, siz)  { }
 
     public:
-        static cont* allocate(memint len)
-            { return new(len) cont(len); }
+        static container* allocate(memint cap, memint siz)
+            { return new(cap) cont(cap, siz); }
 
         ~cont()
             { if (_size) { finalize(data(), _size); _size = 0; } }
     };
-    
-    char* _init(memint len)
-    {
-        assert(len > 0);
-        cont* c = cont::allocate(len);
-        c->grab();
-        return parent::_data = c->data();
-    }
 
 public:
-    vector(): parent()      { }
-
-    bool empty() const      { return parent::empty(); }
+    vector(): parent()  { }
 
     // Override stuff that requires allocation of 'vector::cont'
-    void push_back(const T& t)
-        { new(empty() ? _init(Tsize) : bytevec::_appendnz(Tsize)) T(t); }
-
     void insert(memint pos, const T& t)
-        { new(empty() && !pos ? _init(Tsize) : bytevec::_insertnz(pos * Tsize, Tsize)) T(t); }
+            { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
+    void push_back(const T& t)
+            { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
+    void resize(memint newsize)
+            { notimpl(); /* bytevec::_resize(newsize, cont::allocate); */ }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are
     // created and then copied into the vector. Though these are somewhat
     // dangerous too.
     template <class U>
-        void push_back(const U& u)
-            { new(empty() ? _init(Tsize) : bytevec::_appendnz(Tsize)) T(u); }
-
-    template <class U>
         void insert(memint pos, const U& u)
-            { new(empty() && !pos ? _init(Tsize) : bytevec::_insertnz(pos * Tsize, Tsize)) T(u); }
-
+            { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(u); }
     template <class U>
-        void replace(memint pos, const U& u)
-            { parent::atw(pos) = u; }
+        void push_back(const U& u)
+            { new(bytevec::_append(Tsize, cont::allocate)) T(u); }
+    template <class U>
+        void replace(memint i, const U& u)
+            { parent::atw(i) = u; }
 
     bool find_insert(const T& item)
     {
-        if (empty())
+        if (parent::empty())
         {
             push_back(item);
             return true;
@@ -92,6 +81,90 @@ public:
         else
             return parent::find_insert(item);
     }
+};
+
+
+// --- dict ---------------------------------------------------------------- //
+
+
+template <class Tkey, class Tval>
+class dict
+{
+protected:
+
+    void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
+
+    class dictobj: public object
+    {
+    public:
+        vector<Tkey> keys;
+        vector<Tval> values;
+    };
+
+    dictobj* _obj;
+
+public:
+    dict()                      : _obj(NULL)  { }
+    dict(const dict& d)         : _obj(d._obj)  { if (_obj) _obj->grab(); }
+    ~dict()                     { if (_obj) _obj->release(); }
+
+    bool empty() const          { return _obj == NULL; }
+    memint size() const         { return _obj ? _obj->keys->size() : 0; }
+    bool operator== (const dict& d) const { return _obj == d._obj; }
+
+    void clear()                { if (_obj) { _obj->release(); _obj = NULL; } }
+    void operator= (const dict&);
+
+    const Tkey& key(memint i) const  { chkidx(i); return _obj->keys[i];  }
+    const Tval& value(memint i) const  { chkidx(i); return _obj->values[i];  }
+    void replace(memint i, const Tval& v)  { chkidx(i); _obj->values.replace(i, v); }
+    void erase(memint i)  { chkidx(i); _obj->keys.erase(i); _obj->values.erase(i); }
+
+    struct item_type { const Tkey& key; Tval& value; };
+    item_type operator[] (memint i) const
+    {
+        chkidx(i);
+        item_type r;
+        r.key = _obj->keys[i];
+        r.value = _obj->values[i];
+        return r;
+    }
+
+    const Tval* find(const Tkey& k) const
+    {
+        memint i;
+        if (bsearch(k, i))
+            return &_obj->values[i];
+        else
+            return NULL;
+    }
+
+    void find_replace(const Tkey& k, const Tval& v)
+    {
+        memint i;
+        if (!bsearch(k, i))
+        {
+            if (_obj == NULL)
+                (_obj = new dictobj())->grab();
+            _obj->keys.insert(i, k);
+            _obj->values.insert(i, v);
+        }
+        else
+            replace(i, v);
+    }
+
+    void find_erase(const Tkey& k)
+    {
+        memint i;
+        if (bsearch(k, i))
+            erase(i);
+    }
+
+    memint compare(memint i, const Tkey& k) const
+        { comparator<Tkey> comp; return comp(_obj->keys[i], k); }
+
+    bool bsearch(const Tkey& k, memint& i) const
+        { return ::bsearch(*this, size() - 1, k, i); }
 };
 
 
@@ -130,7 +203,8 @@ void test_vector()
     check(v1.size() == 4);
     check(v2.size() == 1);
     check(v3.size() == 4);
-    check(v1[0] == "ABC");
+    str s1 = "ABC";
+    check(v1[0] == s1);
     check(v1[1] == "DEF");
     check(v1[2] == "GHI");
     check(v1[3] == "JKL");
