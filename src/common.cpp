@@ -387,8 +387,7 @@ void bytevec::_init(const bytevec& v)
 
 char* bytevec::_init(memint len)
 {
-    if (len < 0)
-        container::overflow();
+    chknonneg(len);
     if (len == 0)
         _init();
     else
@@ -448,25 +447,22 @@ void bytevec::clear()
 }
 
 
-char* bytevec::_insertnz(memint pos, memint len)
+char* bytevec::_insert(memint pos, memint len, alloc_func alloc)
 {
-    assert(len > 0);
-    assert(!empty());
+    chknonneg(len);
     chkidxa(pos);
     memint oldsize = size();
     memint newsize = oldsize + len;
     memint remain = oldsize - pos;
-    if (!_unique())
+    if (empty() || !_unique())
     {
         // Note: first allocation sets capacity = size
-        container* c = _cont()->dup(newsize, newsize);
-        if (pos)  // copy the first chunk, before 'pos'
+        objptr<container> c = alloc(newsize, newsize);  // _cont()->dup(newsize, newsize);
+        if (pos > 0)  // copy the first chunk, before 'pos'
             c->copy(c->data(), _data, pos);
-        char* p = c->data() + pos;
         if (remain)  // copy the the remainder
-            c->copy(p + len, _data + pos, remain);
+            c->copy(c->data() + pos + len, _data + pos, remain);
         _assign(c);
-        return p;
     }
     else  // if unique
     {
@@ -474,39 +470,24 @@ char* bytevec::_insertnz(memint pos, memint len)
             _data = container::reallocate(_cont(), newsize)->data();
         else
             _cont()->set_size(newsize);
-        char* p = _data + pos;
         if (remain)
-            ::memmove(p + len, p, remain);
-        return p;
+            ::memmove(_data + pos + len, _data + pos, remain);
     }
+    return _data + pos;
 }
 
 
-char* bytevec::_insert(memint pos, memint len)
+char* bytevec::_append(memint len, alloc_func alloc)
 {
-    if (empty())
-    {
-        if (pos)
-            container::idxerr();
-        return _init(len);
-    }
-    else
-        return _insertnz(pos, len);
-}
-
-
-char* bytevec::_appendnz(memint len)
-{
-    // _insertnz(0, len) would do, but we want a faster function
+    // _insert(0, len) would do, but we want a faster function
     assert(len > 0);
-    assert(!empty());
     memint oldsize = size();
     memint newsize = oldsize + len;
-    if (!_unique())
+    if (empty() || !_unique())
     {
         // Note: first allocation sets capacity = size
-        container* c = _cont()->dup(newsize, newsize);
-        if (oldsize)
+        objptr<container> c = alloc(newsize, newsize); // _cont()->dup(newsize, newsize);
+        if (oldsize > 0)
             c->copy(c->data(), _data, oldsize);
         _assign(c);
     }
@@ -518,15 +499,6 @@ char* bytevec::_appendnz(memint len)
             _cont()->set_size(newsize);
     }
     return _data + oldsize;
-}
-
-
-char* bytevec::_append(memint len)
-{
-    if (empty())
-        return _init(len);
-    else
-        return _appendnz(len);
 }
 
 
@@ -586,7 +558,7 @@ void bytevec::insert(memint pos, const char* buf, memint len)
 {
     if (len > 0)
     {
-        char* p = _insert(pos, len);
+        char* p = _insert(pos, len, container::allocate);
         _cont()->copy(p, buf, len);
     }
 }
@@ -604,7 +576,7 @@ void bytevec::insert(memint pos, const bytevec& v)
     {
         memint len = v.size();
         // Note: should be done in two steps so that the case (v == *this) works
-        char* p = _insertnz(pos, len);
+        char* p = _insert(pos, len, container::allocate);
         _cont()->copy(p, v.data(), len);
     }
 }
@@ -614,7 +586,7 @@ void bytevec::append(const char* buf, memint len)
 {
     if (len > 0)
     {
-        char* p = _append(len);
+        char* p = _append(len, container::allocate);
         _cont()->copy(p, buf, len);
     }
 }
@@ -628,7 +600,7 @@ void bytevec::append(const bytevec& v)
     {
         memint len = v.size();
         // Note: should be done in two steps so that the case (v == *this) works
-        char* p = _appendnz(len);
+        char* p = _append(len, container::allocate);
         _cont()->copy(p, v.data(), len);
     }
 }
@@ -641,10 +613,9 @@ void bytevec::erase(memint pos, memint len)
 }
 
 
-char* bytevec::resize(memint newsize)
+char* bytevec::_resize(memint newsize, alloc_func alloc)
 {
-    if (newsize < 0)
-        container::overflow();
+    chknonneg(newsize);
     memint oldsize = size();
     if (newsize == oldsize)
         return NULL;
@@ -658,10 +629,8 @@ char* bytevec::resize(memint newsize)
         _erase(newsize, oldsize - newsize);
         return NULL;
     }
-    else if (empty())  // && newsize > oldsize
-        return _init(newsize);
     else
-        return _appendnz(newsize - oldsize);
+        return _append(newsize - oldsize, alloc);
 }
 
 
@@ -1023,7 +992,8 @@ str to_quoted(const str& s)
 void objvec_impl::release_all()
 {
     for (object* const* o = end(); o != begin(); o--)
-        (*o)->release();
+        if (*o)
+            (*o)->release();
     clear();
 }
 
