@@ -1,6 +1,6 @@
 
 #include "common.h"
-// #include "runtime.h"
+#include "runtime.h"
 // #include "parser.h"
 // #include "typesys.h"
 // #include "vm.h"
@@ -99,42 +99,66 @@ protected:
     public:
         vector<Tkey> keys;
         vector<Tval> values;
+        dictobj(): keys(), values()  { }
+        dictobj(const dictobj& d): keys(d.keys), values(d.values)  { }
     };
 
-    dictobj* _obj;
+    objptr<dictobj> obj;
+
+    void _mkunique()
+        { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
 
 public:
-    dict()                      : _obj(NULL)  { }
-    dict(const dict& d)         : _obj(d._obj)  { if (_obj) _obj->grab(); }
-    ~dict()                     { if (_obj) _obj->release(); }
+    dict()                                  : obj()  { }
+    dict(const dict& d)                     : obj(d.obj)  { }
+    ~dict()                                 { }
 
-    bool empty() const          { return _obj == NULL; }
-    memint size() const         { return _obj ? _obj->keys->size() : 0; }
-    bool operator== (const dict& d) const { return _obj == d._obj; }
+    bool empty() const                      { return obj.empty(); }
+    memint size() const                     { return !empty() ? obj->keys.size() : 0; }
+    bool operator== (const dict& d) const   { return obj == d.obj; }
 
-    void clear()                { if (_obj) { _obj->release(); _obj = NULL; } }
-    void operator= (const dict&);
+    void clear()                            { obj.clear(); }
+    void operator= (const dict& d)          { obj = d.obj; }
 
-    const Tkey& key(memint i) const  { chkidx(i); return _obj->keys[i];  }
-    const Tval& value(memint i) const  { chkidx(i); return _obj->values[i];  }
-    void replace(memint i, const Tval& v)  { chkidx(i); _obj->values.replace(i, v); }
-    void erase(memint i)  { chkidx(i); _obj->keys.erase(i); _obj->values.erase(i); }
+    const Tkey& key(memint i) const         { chkidx(i); return obj->keys[i];  }
+    const Tval& value(memint i) const       { chkidx(i); return obj->values[i];  }
 
-    struct item_type { const Tkey& key; Tval& value; };
+    void replace(memint i, const Tval& v)
+    {
+        chkidx(i);
+        _mkunique();
+        obj->values.replace(i, v);
+    }
+
+    void erase(memint i)
+    {
+        chkidx(i);
+        _mkunique();
+        obj->keys.erase(i);
+        obj->values.erase(i);
+        if (obj->keys.empty())
+            clear();
+    }
+
+    struct item_type
+    {
+        const Tkey& key;
+        Tval& value;
+        item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
+    };
+    
     item_type operator[] (memint i) const
     {
         chkidx(i);
-        item_type r;
-        r.key = _obj->keys[i];
-        r.value = _obj->values[i];
-        return r;
+        assert(obj->keys.size() == obj->values.size());
+        return item_type(obj->keys[i], obj->values.atw(i));
     }
 
     const Tval* find(const Tkey& k) const
     {
         memint i;
         if (bsearch(k, i))
-            return &_obj->values[i];
+            return &obj->values[i];
         else
             return NULL;
     }
@@ -144,10 +168,12 @@ public:
         memint i;
         if (!bsearch(k, i))
         {
-            if (_obj == NULL)
-                (_obj = new dictobj())->grab();
-            _obj->keys.insert(i, k);
-            _obj->values.insert(i, v);
+            if (empty())
+                obj = new dictobj();
+            else
+                _mkunique();
+            obj->keys.insert(i, k);
+            obj->values.insert(i, v);
         }
         else
             replace(i, v);
@@ -160,8 +186,9 @@ public:
             erase(i);
     }
 
+    // These are public 
     memint compare(memint i, const Tkey& k) const
-        { comparator<Tkey> comp; return comp(_obj->keys[i], k); }
+        { comparator<Tkey> comp; return comp(obj->keys[i], k); }
 
     bool bsearch(const Tkey& k, memint& i) const
         { return ::bsearch(*this, size() - 1, k, i); }
@@ -176,7 +203,7 @@ public:
 // #include "typesys.h"
 
 
-void ut_fail(unsigned line, const char* e)
+static void ut_fail(unsigned line, const char* e)
 {
     fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, line, e);
     exit(200);
@@ -189,7 +216,7 @@ void ut_fail(unsigned line, const char* e)
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
 
 
-void test_vector()
+static void test_vector()
 {
     vector<str> v1;
     v1.push_back("ABC");
@@ -220,6 +247,28 @@ void test_vector()
 }
 
 
+static void test_dict()
+{
+    dict<str, int> d1;
+    d1.find_replace("three", 3);
+    d1.find_replace("one", 1);
+    d1.find_replace("two", 2);
+    check(d1.size() == 3);
+    check(d1[0].key == "one");
+    check(d1[1].key == "three");
+    check(d1[2].key == "two");
+    dict<str, int> d2 = d1;
+    d1.find_erase("three");
+    check(d1.size() == 2);
+    check(d1[0].key == "one");
+    check(d1[1].key == "two");
+    check(*d1.find("one") == 1);
+    check(d1.find("three") == NULL);
+    check(d2.size() == 3);
+}
+
+
+
 #ifdef XCODE
     const char* filePath = "../../src/tests/test.shn";
 #else
@@ -235,6 +284,7 @@ int main()
 //        << " Copyright (c) 2008-2010 Hovik Melikyan" << endl << endl;
 
     test_vector();
+    test_dict();
 
     int exitcode = 0;
 /*
