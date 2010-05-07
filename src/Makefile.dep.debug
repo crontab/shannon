@@ -1,17 +1,13 @@
 # DO NOT DELETE
 
 debug/common.o: common.h version.h
-debug/charset.o: charset.h
-debug/runtime.o: runtime.h charset.h common.h version.h typesys.h
-debug/rtio.o: runtime.h charset.h common.h version.h
-debug/parser.o: parser.h common.h version.h charset.h runtime.h
-debug/typesys.o: typesys.h runtime.h charset.h common.h version.h vm.h
-debug/vm.o: vm.h common.h version.h runtime.h charset.h typesys.h compiler.h
-debug/vm.o: parser.h
-debug/vmcodegen.o: vm.h common.h version.h runtime.h charset.h typesys.h
-debug/compiler.o: vm.h common.h version.h runtime.h charset.h typesys.h
-debug/compiler.o: compiler.h parser.h
-debug/main.o: common.h version.h runtime.h charset.h parser.h typesys.h vm.h
-debug/main.o: compiler.h
-debug/main-ut.o: common.h version.h runtime.h charset.h parser.h typesys.h
-debug/main-ut.o: vm.h
+debug/runtime.o: runtime.h common.h version.h
+debug/rtio.o: runtime.h common.h version.h
+debug/parser.o: parser.h common.h version.h runtime.h
+debug/typesys.o: typesys.h runtime.h common.h version.h vm.h
+debug/vm.o: vm.h common.h version.h runtime.h typesys.h compiler.h parser.h
+debug/vmcodegen.o: vm.h common.h version.h runtime.h typesys.h
+debug/compiler.o: vm.h common.h version.h runtime.h typesys.h compiler.h
+debug/compiler.o: parser.h
+debug/main.o: common.h version.h runtime.h
+debug/main-ut.o: common.h version.h

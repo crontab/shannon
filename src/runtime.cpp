@@ -1,20 +1,174 @@
 
 
 #include "runtime.h"
-#include "typesys.h"  // for State used in stateobj
 
 
-// --- object & objptr ----------------------------------------------------- //
+// --- charset ------------------------------------------------------------- //
 
 
-int object::allocated = 0;
+static unsigned char lbitmask[8] = {0xff, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80};
+static unsigned char rbitmask[8] = {0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
+
+const char charsetesc = '~';
 
 
-object* object::_realloc(object* p, size_t self, memint extra)
+void charset::include(int min, int max)
 {
-    assert(p->unique());
-    assert(self > 0 && extra >= 0);
-    return (object*)::pmemrealloc(p, self + extra);
+    if (uchar(min) > uchar(max))
+        return;
+    int lidx = uchar(min) / 8;
+    int ridx = uchar(max) / 8;
+    uchar lbits = lbitmask[uchar(min) % 8];
+    uchar rbits = rbitmask[uchar(max) % 8];
+
+    if (lidx == ridx) 
+    {
+        data[lidx] |= lbits & rbits;
+    }
+    else 
+    {
+        data[lidx] |= lbits;
+        for (int i = lidx + 1; i < ridx; i++)
+            data[i] = uchar(-1);
+        data[ridx] |= rbits;
+    }
+}
+
+
+static unsigned hex4(unsigned c) 
+{
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    return 0;    
+}
+
+
+static unsigned parsechar(const char*& p) 
+{
+    unsigned ret = *p;
+    if (ret == unsigned(charsetesc))
+    {
+        p++;
+        ret = *p;
+        if ((ret >= '0' && ret <= '9') || (ret >= 'a' && ret <= 'f') || (ret >= 'A' && ret <= 'F'))
+        {
+            ret = hex4(ret);
+            p++;
+            if (*p != 0)
+                ret = (ret << 4) | hex4(*p);
+        }
+    }
+    return ret;
+}
+
+
+void charset::assign(const char* p) 
+{
+    if (*p == '*' && *(p + 1) == 0)
+        fill();
+    else 
+    {
+        clear();
+        for (; *p != 0; p++) {
+            uchar left = parsechar(p);
+            if (*(p + 1) == '-')
+            {
+                p += 2;
+                uchar right = parsechar(p);
+                include(left, right);
+            }
+            else
+                include(left);
+        }
+    }
+}
+
+
+void charset::assign(const charset& s)
+    { memcpy(data, s.data, BYTES); }
+
+
+bool charset::empty() const
+{
+    for(int i = 0; i < WORDS; i++) 
+        if (*((unsigned*)(data) + i) != 0)
+            return false;
+    return true;
+}
+
+
+void charset::unite(const charset& s) 
+{
+    for(int i = 0; i < WORDS; i++) 
+        *((unsigned*)(data) + i) |= *((unsigned*)(s.data) + i);
+}
+
+
+void charset::subtract(const charset& s) 
+{
+    for(int i = 0; i < WORDS; i++) 
+        *((unsigned*)(data) + i) &= ~(*((unsigned*)(s.data) + i));
+}
+
+
+void charset::intersect(const charset& s) 
+{
+    for(int i = 0; i < WORDS; i++) 
+        *((unsigned*)(data) + i) &= *((unsigned*)(s.data) + i);
+}
+
+
+void charset::invert() 
+{
+    for(int i = 0; i < WORDS; i++) 
+        *((unsigned*)(data) + i) = ~(*((unsigned*)(data) + i));
+}
+
+
+bool charset::le(const charset& s) const 
+{
+    for (int i = 0; i < WORDS; i++) 
+    {
+        int w1 = *((unsigned*)(data) + i);
+        int w2 = *((unsigned*)(s.data) + i);
+        if ((w2 | w1) != w2)
+            return false;
+    }
+    return true;
+}
+
+
+// --- object -------------------------------------------------------------- //
+
+
+atomicint object::allocated = 0;
+
+
+object::~object()  { }
+
+
+void object::release()
+{
+    assert(_refcount > 0);
+    if (pdecrement(&_refcount) == 0)
+        delete this;
+}
+
+
+void object::_assignto(object*& p)
+{
+    if (p != this)
+    {
+        if (p)
+            p->release();
+        p = this;
+        if (this)
+            this->grab();
+    }
 }
 
 
@@ -41,7 +195,7 @@ void* object::operator new(size_t self, memint extra)
 
 void object::operator delete(void* p)
 {
-    assert(((object*)p)->refcount == 0);
+    assert(((object*)p)->_refcount == 0);
 #ifdef DEBUG
     pdecrement(&object::allocated);
 #endif
@@ -49,103 +203,30 @@ void object::operator delete(void* p)
 }
 
 
-object::~object() throw()  { }
-
-
-void object::release()
+object* object::dup(size_t self, memint extra)
 {
-    if (this == NULL)
-        return;
-    assert(refcount > 0);
-    if (pdecrement(&refcount) == 0)
-        delete this;
+    assert(self + extra > 0);
+    assert(self >= sizeof(*this));
+    object* o = (object*)::pmemalloc(self + extra);
+#ifdef DEBUG
+    pincrement(&object::allocated);
+#endif    
+    memcpy(o, this, self);
+    o->_refcount = 0;
+    return o;
 }
 
 
-void object::_assignto(object*& p)
+object* object::reallocate(object* p, size_t self, memint extra)
 {
-    if (p != this)
-    {
-        if (p)
-            p->release();
-        p = this;
-        if (this)
-            this->grab();
-    }
+    assert(p->_refcount == 1);
+    assert(self > 0 && extra >= 0);
+    return (object*)::pmemrealloc(p, self + extra);
 }
 
 
-rtobject::~rtobject() throw()
-    { }
+// --- container ----------------------------------------------------------- //
 
-
-// --- range --------------------------------------------------------------- //
-
-/*
-range::cont::~cont()
-    { }
-
-range::cont range::null;
-
-
-void range::operator= (const range& r)
-{
-    if (!operator==(r))
-        { _fin(); _init(r); }
-}
-
-
-void range::assign(integer l, integer r)
-{
-    if (!equals(l, r))
-        { _fin(); _init(l, r); }
-}
-
-
-bool range::operator== (const range& other) const
-{
-    return this == &other ||
-        (obj->left == other.obj->left && obj->right == other.obj->right);
-}
-
-
-memint range::compare(const range& r) const
-{
-    memint result = memint(obj->left - r.obj->left);
-    if (result == 0)
-        result = memint(obj->right - r.obj->right);
-    return result;
-}
-*/
-
-
-// --- ordset -------------------------------------------------------------- //
-
-ordset::cont::cont() throw() { }
-ordset::cont::~cont() throw() { }
-
-ordset::cont ordset::null;
-
-
-void ordset::_mkunique()
-{
-    _fin();
-    obj = (new cont())->grab<cont>();
-}
-
-
-void ordset::operator= (const ordset& s)
-{
-    if (!operator==(s))
-        { _fin(); _init(s); }
-}
-
-
-// --- container & contptr ------------------------------------------------- //
-
-
-container::~container() throw()
-    { }
 
 void container::overflow()
     { fatal(0x1002, "Container overflow"); }
@@ -154,296 +235,308 @@ void container::idxerr()
     { fatal(0x1003, "Container index error"); }
 
 
-inline memint container::calc_prealloc(memint newsize)
+container::~container()
+    { }  // must call finalize() in descendant classes
+
+void container::finalize(void*, memint)
+    { }
+
+void container::copy(void* dest, const void* src, memint len)
+    { ::memcpy(dest, src, len); }
+
+
+container* container::allocate(memint cap, memint siz)
 {
-    if (newsize <= 32)
-        return 64;
+    assert(siz <= cap);
+    assert(siz >= 0);
+    if (cap == 0)
+        return NULL;
+    return new(cap) container(cap, siz);
+}
+
+
+inline memint container::_calc_prealloc(memint newsize)
+{
+    if (newsize <= memint(8 * sizeof(memint)))
+        return 12 * sizeof(memint);
     else
         return newsize + newsize / 2;
 }
 
 
-/*
-inline bool container::can_shrink(memint newsize)
+container* container::reallocate(container* p, memint newsize)
 {
-    return newsize > 64 && newsize < _capacity / 2;
-}
-*/
-
-container* container::new_growing(memint newsize)
-{
-    if (newsize <= 0)
+    if (newsize < 0)
         overflow();
-    memint newcap = _capacity > 0 ? calc_prealloc(newsize) : newsize;
-    if (newcap <= 0)
-        overflow();
-    return new_(newcap, newsize);
-}
-
-
-container* container::new_precise(memint newsize)
-{
-    if (newsize <= 0)
-        overflow();
-    return new_(newsize, newsize);
-}
-
-
-container* container::realloc(memint newsize)
-{
-    if (newsize <= 0)
-        overflow();
-    assert(unique());
-    assert(newsize > _capacity || newsize < _size);
-    _size = newsize;
-    _capacity = _size > _capacity ? calc_prealloc(_size) : _size;
-    if (_capacity <= 0)
-        overflow();
-    return (container*)_realloc(this, sizeof(*this), _capacity);
-}
-
-
-char* contptr::_init(container* factory, memint len)
-{
-    assert(len >= 0);
-    if (len > 0)
+    if (newsize == 0)
     {
-        obj = factory->new_growing(len)->grab();
-        return obj->data();
-    }
-    else
-    {
-        obj = factory->null_obj();
+        delete p;
         return NULL;
     }
+    assert(p);
+    assert(p->unique());
+    assert(newsize > p->_capacity || newsize < p->_size);
+    p->_capacity = newsize > p->_capacity ? _calc_prealloc(newsize) : newsize;
+    if (p->_capacity <= 0)
+        overflow();
+    p->_size = newsize;
+    return (container*)object::reallocate(p, sizeof(*p), p->_capacity);
 }
 
 
-void contptr::_init(container* factory, const char* buf, memint len)
+container* container::dup(memint cap, memint siz)
 {
-    char* p = _init(factory, len);
-    if (p)
-        factory->copy(p, buf, len);
+    assert(cap > 0);
+    assert(siz > 0 && siz <= cap);
+    container* c = (container*)object::dup(sizeof(container), cap);
+    c->_capacity = cap;
+    c->_size = siz;
+    return c;
 }
 
 
-// void contptr::_fin()
-//     { if (!empty()) obj->release(); }
+// --- bytevec ------------------------------------------------------------- //
 
 
-const char* contptr::back(memint i) const
+void bytevec::_init(const bytevec& v)
 {
-    if (i <= 0 || i > size())
-        container::idxerr();
-    return obj->end() - i;
+    _data = v._data;
+    if (_data)
+        _cont()->grab();
 }
 
 
-void contptr::operator= (const contptr& s)
+char* bytevec::_init(memint len)
 {
-    if (obj != s.obj)
-        _assign(s.obj);
+    chknonneg(len);
+    if (len == 0)
+        _init();
+    else
+        _data = container::allocate(len, len)->grab<container>()->data();
+    return _data;
 }
 
 
-void contptr::assign(const char* buf, memint len)
+void bytevec::_init(memint len, char fill)
 {
-    container* null = obj->null_obj();
-    _fin();
-    _init(null, buf, len);
+    if (_init(len))
+        ::memset(_data, fill, len);
 }
 
 
-void contptr::clear()
+void bytevec::_init(const char* buf, memint len)
+{
+    if (_init(len))
+        ::memcpy(_data, buf, len);
+}
+
+
+char* bytevec::_mkunique()
+{
+    if (!_unique())  // implies non-empty too
+    {
+        container* c = _cont()->dup(size(), size());
+        c->copy(c->data(), _data, size());
+        _assign(c);
+    }
+    return _data;
+}
+
+
+void bytevec::operator= (const bytevec& v)
+{
+    if (_data != v._data)
+        if (v.empty())
+            clear();
+        else
+            _assign(v._cont());
+}
+
+
+void bytevec::assign(const char* buf, memint len)
+    { _fin(); _init(buf, len); }
+
+
+void bytevec::clear()
 {
     if (!empty())
     {
-        // Preserve the original object type by getting the null obj from
-        // the factory.
-        container* null = obj->null_obj();
+        _cont()->finalize(_data, size());
         _fin();
-        obj = null;
+        _init();
     }
 }
 
 
-char* contptr::mkunique()
+char* bytevec::_insert(memint pos, memint len, alloc_func alloc)
 {
-    if (empty() || unique())
-        return obj->data();
-    else
-    {
-        container* o = obj->new_precise(obj->size());
-        obj->copy(o->data(), obj->data(), obj->size());
-        _assign(o);
-        return obj->data();
-    }
-}
-
-
-char* contptr::_insertnz(memint pos, memint len)
-{
-    assert(len > 0);
+    chknonneg(len);
     chkidxa(pos);
     memint oldsize = size();
     memint newsize = oldsize + len;
     memint remain = oldsize - pos;
-    if (unique())
+    if (empty() || !_unique())
     {
-        if (newsize > obj->capacity())
-            obj = obj->realloc(newsize);
+        // Note: first allocation sets capacity = size
+        objptr<container> c = alloc(newsize, newsize);  // _cont()->dup(newsize, newsize);
+        if (pos > 0)  // copy the first chunk, before 'pos'
+            c->copy(c->data(), _data, pos);
+        if (remain)  // copy the the remainder
+            c->copy(c->data() + pos + len, _data + pos, remain);
+        _assign(c);
+    }
+    else  // if unique
+    {
+        if (newsize > capacity())
+            _data = container::reallocate(_cont(), newsize)->data();
         else
-            obj->set_size(newsize);
-        char* p = obj->data(pos);
+            _cont()->set_size(newsize);
         if (remain)
-            ::memmove(p + len, p, remain);
-        return p;
+            ::memmove(_data + pos + len, _data + pos, remain);
     }
-    else
-    {
-        container* o = obj->new_growing(newsize);
-        if (pos)
-            obj->copy(o->data(), obj->data(), pos);
-        char* p = o->data(pos);
-        if (remain)
-            obj->copy(p + len, obj->data(pos), remain);
-        _assign(o);
-        return p;
-    }
+    return _data + pos;
 }
 
 
-char* contptr::_appendnz(memint len)
+char* bytevec::_append(memint len, alloc_func alloc)
 {
+    // _insert(0, len) would do, but we want a faster function
     assert(len > 0);
     memint oldsize = size();
     memint newsize = oldsize + len;
-    if (unique())
+    if (empty() || !_unique())
     {
-        if (newsize > obj->capacity())
-            obj = obj->realloc(newsize);
+        // Note: first allocation sets capacity = size
+        objptr<container> c = alloc(newsize, newsize); // _cont()->dup(newsize, newsize);
+        if (oldsize > 0)
+            c->copy(c->data(), _data, oldsize);
+        _assign(c);
+    }
+    else  // if unique
+    {
+        if (newsize > capacity())
+            _data = container::reallocate(_cont(), newsize)->data();
         else
-            obj->set_size(newsize);
-        return obj->data(oldsize);
+            _cont()->set_size(newsize);
     }
-    else
-    {
-        container* o = obj->new_growing(newsize);
-        if (oldsize)
-            obj->copy(o->data(), obj->data(), oldsize);
-        _assign(o);
-        return obj->data(oldsize);
-    }
+    return _data + oldsize;
 }
 
 
-void contptr::_erasenz(memint pos, memint len)
+void bytevec::_erase(memint pos, memint len)
 {
+    assert(len > 0);
     chkidx(pos);
     memint oldsize = size();
     memint epos = pos + len;
     chkidxa(epos);
     memint newsize = oldsize - len;
     memint remain = oldsize - epos;
-    if (newsize == 0)
+    if (newsize == 0)  // also if empty
         clear();
-    else if (unique())
+    else if (!_unique())
     {
-        char* p = obj->data(pos);
-        obj->finalize(p, len);
+        container* c = _cont()->dup(newsize, newsize);
+        if (pos)
+            _cont()->copy(c->data(), _data, pos);
+        if (remain)
+            _cont()->copy(c->data() + pos, _data + epos, remain);
+        _assign(c);
+    }
+    else // if unique
+    {
+        char* p = _data + pos;
+        _cont()->finalize(p, len);
         if (remain)
             ::memmove(p, p + len, remain);
-        obj->set_size(newsize);
-    }
-    else
-    {
-        container* o = obj->new_precise(newsize);
-        if (pos)
-            obj->copy(o->data(), obj->data(), pos);
-        if (remain)
-            obj->copy(o->data(pos), obj->data(epos), remain);
-        _assign(o);
+        _cont()->set_size(newsize);
     }
 }
 
 
-void contptr::_popnz(memint len)
+void bytevec::_pop(memint len)
 {
     memint oldsize = size();
     memint newsize = oldsize - len;
     chkidx(newsize);
     if (newsize == 0)
         clear();
-    else if (unique())
+    else if (!_unique())
     {
-        obj->finalize(obj->data(newsize), len);
-        obj->set_size(newsize);
+        container* c = _cont()->dup(newsize, newsize);
+        c->copy(c->data(), _data, newsize);
+        _assign(c);
     }
-    else
+    else // if unique
     {
-        container* o = obj->new_precise(newsize);
-        obj->copy(o->data(), obj->data(), newsize);
-        _assign(o);
+        _cont()->finalize(_data + newsize, len);
+        _cont()->set_size(newsize);
     }
 }
 
 
-void contptr::insert(memint pos, const char* buf, memint len)
+void bytevec::insert(memint pos, const char* buf, memint len)
 {
     if (len > 0)
-        obj->copy(_insertnz(pos, len), buf, len);
+    {
+        char* p = _insert(pos, len, container::allocate);
+        _cont()->copy(p, buf, len);
+    }
 }
 
 
-void contptr::insert(memint pos, const contptr& s)
+void bytevec::insert(memint pos, const bytevec& v)
 {
     if (empty())
     {
         if (pos)
             container::idxerr();
-        _init(s);
+        _init(v);
     }
-    else
+    else if (!v.empty())
     {
-        memint len = s.size();
-        if (len)
-        {
-            // Be careful as s maybe the same as (*this)
-            char* p = _insertnz(pos, len);
-            obj->copy(p, s.data(), len);
-        }
+        memint len = v.size();
+        // Note: should be done in two steps so that the case (v == *this) works
+        char* p = _insert(pos, len, container::allocate);
+        _cont()->copy(p, v.data(), len);
     }
 }
 
 
-void contptr::append(const char* buf, memint len)
+void bytevec::append(const char* buf, memint len)
 {
     if (len > 0)
-        obj->copy(_appendnz(len), buf, len);
-}
-
-
-void contptr::append(const contptr& s)
-{
-    if (empty())
-        _init(s);
-    else
     {
-        memint len = s.size();
-        if (len)
-        {
-            // Be careful as s maybe the same as (*this)
-            char* p = _appendnz(len);
-            obj->copy(p, s.data(), len);
-        }
+        char* p = _append(len, container::allocate);
+        _cont()->copy(p, buf, len);
     }
 }
 
 
-char* contptr::resize(memint newsize)
+void bytevec::append(const bytevec& v)
 {
-    if (newsize < 0)
-        container::overflow();
+    if (empty())
+        _init(v);
+    else if (!v.empty())
+    {
+        memint len = v.size();
+        // Note: should be done in two steps so that the case (v == *this) works
+        char* p = _append(len, container::allocate);
+        _cont()->copy(p, v.data(), len);
+    }
+}
+
+
+void bytevec::erase(memint pos, memint len)
+{
+    if (len > 0)
+        _erase(pos, len);
+}
+
+
+char* bytevec::_resize(memint newsize, alloc_func alloc)
+{
+    chknonneg(newsize);
     memint oldsize = size();
     if (newsize == oldsize)
         return NULL;
@@ -454,99 +547,51 @@ char* contptr::resize(memint newsize)
     }
     else if (newsize < oldsize)
     {
-        _erasenz(newsize, oldsize - newsize);
+        _erase(newsize, oldsize - newsize);
         return NULL;
     }
     else
-        return _appendnz(newsize - oldsize);
+        return _append(newsize - oldsize, alloc);
 }
 
 
-void contptr::resize(memint newsize, char fill)
+void bytevec::resize(memint newsize, char fill)
 {
     memint oldsize = size();
     char* p = resize(newsize);
     if (p)
-        memset(p, fill, newsize - oldsize);
+        ::memset(p, fill, newsize - oldsize);
 }
 
 
-
-// --- string -------------------------------------------------------------- //
-
-
-str::cont::~cont() throw()  { }
+// --- str ----------------------------------------------------------------- //
 
 
-str::cont str::null;
-
-
-container* str::cont::new_(memint cap, memint siz)
-    { return new(cap) cont(cap, siz); }
-
-
-container* str::cont::null_obj()
-    { return &str::null; }
-
-
-void str::cont::finalize(void*, memint)
-    { }
-
-
-void str::cont::copy(void* dest, const void* src, memint len)
-    { ::memcpy(dest, src, len); }
-
-
-void str::_init(const char* buf, memint len)
-{
-    if (len > 0)
-    {
-        // Reserve extra byte for the NULL char
-        contptr::_init(&null, buf, len + 1);
-        obj->dec_size();
-    }
-    else
-        _init();
-}
-
-
-void str::_init(const char* s)
-{
-    memint len = pstrlen(s);
-    if (len > 0)
-        _init(s, len);
-    else
-        _init();
-}
+void str::_init(const char* buf)
+    { bytevec::_init(buf, pstrlen(buf)); }
 
 
 const char* str::c_str()
 {
     if (empty())
         return "";
-    else if (obj->has_room())
-        *obj->end() = 0;
+    container* c = _cont();
+    if (c->unique() && c->size() < c->capacity())
+        *c->end() = 0;
     else
     {
         ((str*)this)->push_back(char(0));
-        obj->dec_size();
+        _cont()->dec_size();
     }
-    return obj->data();
+    return _data;
 }
 
 
 void str::operator= (const char* s)
-{
-    _fin();
-    _init(s);
-}
-
+    { _fin(); _init(s); }
 
 void str::operator= (char c)
-{
-    _fin();
-    _init(&c, 1);
-}
+    { _fin(); _init(c); }
 
 
 memint str::find(char c) const
@@ -566,7 +611,7 @@ memint str::rfind(char c) const
     if (empty())
         return npos;
     const char* b = data();
-    const char* p = b + size();
+    const char* p = b + size() - 1;
     do
     {
         if (*p == c)
@@ -592,15 +637,15 @@ memint str::compare(const char* s, memint blen) const
 }
 
 
+bool str::operator== (const char* s) const
+    { return compare(s, pstrlen(s)) == 0; }
+
+
 void str::operator+= (const char* s)
-{
-    memint len = pstrlen(s);
-    if (len > 0)
-    {
-        append(s, len + 1);
-        obj->dec_size();
-    }
-}
+    { append(s, pstrlen(s)); }
+
+void str::insert(memint pos, const char* s)
+    { bytevec::insert(pos, s, pstrlen(s)); }
 
 
 str str::substr(memint pos, memint len) const
@@ -724,6 +769,7 @@ str _to_string(large value, int base, int width, char padchar)
     str result;
     _itobase2(result, value, base, width, padchar, true);
     return result;
+    ;
 }
 
 
@@ -734,14 +780,14 @@ str _to_string(large value)
     return result;
 }
 
-
+/*
 str _to_string(memint value)
 {
     str result;
     _itobase2(result, value, 10, 0, ' ', false);
     return result;
 }
-
+*/
 
 ularge from_string(const char* p, bool* error, bool* overflow, int base)
 {
@@ -859,19 +905,22 @@ str to_quoted(const str& s)
     { return "'" + to_printable(s) + "'"; }
 
 
-// --- object collection --------------------------------------------------- //
+// --- object collections -------------------------------------------------- //
+
+
+// template class podvec<object*>;
 
 
 void objvec_impl::release_all()
 {
-    memint count = size();
-    while (count--)
-        operator[](count)->release();
+    for (object* const* o = end(); o != begin(); o--)
+        if (*o)
+            (*o)->release();
     clear();
 }
 
 
-symbol::~symbol() throw()  { }
+symbol::~symbol()  { }
 
 
 memint symtbl::compare(memint i, const str& key) const
@@ -899,7 +948,7 @@ static str sysErrorStr(int code, const str& arg)
 {
     // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
     // not the only strange thing about this computer and OS. Could be me, could be hardware
-    // or could be Linux. Or all.
+    // or could be libc. Or all.
     // Upd: so I updated both hardware and OS, still grabage on 64 bit, but OK on 32-bit.
     // What am I doing wrong?
 //    char buf[1024];
@@ -916,179 +965,4 @@ esyserr::esyserr(int code, const str& arg) throw()
 
 
 esyserr::~esyserr() throw()  { }
-
-
-// --- variant ------------------------------------------------------------- //
-
-
-template class vector<variant>;
-template class dict<variant, variant>;
-template class podvec<variant>;
-
-
-variant::_None variant::null;
-
-
-void variant::_fin_anyobj()
-{
-    switch(type)
-    {
-    case NONE:
-    case ORD:
-    case REAL:      break;
-    case STR:       _str().~str(); break;
-    case VEC:       _vec().~varvec(); break;
-    case ORDSET:    _ordset().~ordset(); break;
-    case DICT:      _dict().~vardict(); break;
-    case RTOBJ:     _rtobj()->release(); break;
-    }
-}
-
-
-void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
-void variant::_range_err() { throw ecmessage("Variant range error"); }
-
-
-/*
-void variant::_init(const variant& v)
-{
-    type = v.type;
-    val = v.val;
-    if (is_anyobj())
-        val._obj->grab();
-}
-*/
-
-
-void variant::operator= (const variant& v)
-    { assert(this != &v); _fin(); _init(v); }
-
-
-void variant::_init(Type t)
-{
-    type = t;
-    switch(type)
-    {
-    case NONE:      break;
-    case ORD:       val._ord = 0; break;
-    case REAL:      val._real = 0; break;
-    case STR:       ::new(&val._obj) str(); break;
-    case VEC:       ::new(&val._obj) varvec(); break;
-    case ORDSET:    ::new(&val._obj) ordset(); break;
-    case DICT:      ::new(&val._obj) vardict(); break;
-    case RTOBJ:     val._rtobj = NULL; break;
-    }
-}
-
-
-memint variant::compare(const variant& v) const
-{
-    if (type == v.type)
-    {
-        switch(type)
-        {
-        case NONE:  return 0;
-        case ORD:
-            integer d = val._ord - v.val._ord;
-            return d < 0 ? -1 : d > 0 ? 1 : 0;
-        case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
-        case STR:   return _str().compare(v._str());
-        // TODO: define "deep" comparison? but is it really needed for hashing?
-        case VEC:
-        case ORDSET:
-        case DICT:
-        case RTOBJ: return memint(_rtobj()) - memint(v._rtobj());
-        }
-    }
-    return int(type - v.type);
-}
-
-
-bool variant::operator== (const variant& v) const
-{
-    if (type == v.type)
-    {
-        switch(type)
-        {
-        case NONE:      return true;
-        case ORD:       return val._ord == v.val._ord;
-        case REAL:      return val._real == v.val._real;
-        case STR:       return _str() == v._str();
-        case VEC:       return _vec() == v._vec();
-        case ORDSET:    return _ordset() == v._ordset();
-        case DICT:      return _dict() == v._dict();
-        case RTOBJ:     return _rtobj() == v._rtobj();
-        }
-    }
-    return false;
-}
-
-
-bool variant:: empty() const
-{
-    switch(type)
-    {
-    case NONE:      return true;
-    case ORD:       return val._ord == 0;
-    case REAL:      return val._real == 0;
-    case STR:       return _str().empty();
-    case VEC:       return _vec().empty();
-    case ORDSET:    return _ordset().empty();
-    case DICT:      return _dict().empty();
-    case RTOBJ:     return _rtobj()->empty();
-    }
-    return false;
-}
-
-
-// --- runtime objects ----------------------------------------------------- //
-
-
-#ifdef DEBUG
-void stateobj::idxerr()
-    { fatal(0x1005, "Internal: object access error"); }
-#endif
-
-
-stateobj::stateobj(State* t) throw()
-    : rtobject(t)  { }
-
-
-bool stateobj::empty() const
-    { return false; }
-
-
-stateobj::~stateobj() throw()
-{
-    collapse();
-}
-
-
-void stateobj::collapse()
-{
-    // TODO: this is not thread-safe. An atomic exchnage for pointers is needed.
-    if (getType() != NULL)
-    {
-        for (memint count = getType()->selfVarCount(); count--; )
-            vars[count].clear();
-        clearType();
-#ifdef DEBUG
-        varcount = 0;
-#endif
-    }
-}
-
-
-rtstack::rtstack(memint maxSize)
-{
-    if (maxSize) _appendnz(maxSize * Tsize);
-    bp = base();
-}
-
-
-// NOTE: these objects depend on the str class, which has static initialization,
-// so the best thing is to leave these in the same module as str to ensure
-// proper order of initialization.
-stdfile sio(STDIN_FILENO, STDOUT_FILENO);
-stdfile serr(-1, STDERR_FILENO);
 
