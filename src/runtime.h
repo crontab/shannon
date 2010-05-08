@@ -78,6 +78,16 @@ class object
 protected:
     atomicint _refcount;
 
+    void _mkstatic()
+    {
+        // Prevent this object from being free'd by release() and also from
+        // being counted against memory leaks.
+        pincrement(&_refcount);
+#ifdef DEBUG
+        object::allocated--;
+#endif
+    }
+
 public:
 
     void* operator new(size_t self);
@@ -117,7 +127,7 @@ protected:
 public:
     objptr()                            : obj(NULL) { }
     objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->grab(); }
-    objptr(T* o)                        : obj(o) { if (obj) obj->grab(); }
+    objptr(T* o)                        : obj(o) { if (o) o->grab(); }
     ~objptr()                           { if (obj) obj->release(); }
     void clear()                        { if (obj) { obj->release(); obj = NULL; } }
     bool empty() const                  { return obj == NULL; }
@@ -131,6 +141,12 @@ public:
     T* operator-> () const              { return obj; }
     operator T*() const                 { return obj; }
     T* get() const                      { return obj; }
+
+    // Internal
+    void _init()                        { obj = NULL; }
+    void _init(T* o)                    { obj = o; if (o) o->grab(); }
+    void _fin()                         { if (obj) obj->release(); }
+    void _reinit(T* o)                  { obj = o; }
 };
 
 
@@ -141,8 +157,8 @@ class rtobject: public object
     Type* _type;
 protected:
 public:
-    rtobject(Type* t) throw(): _type(t)  { }
-    ~rtobject() throw();
+    rtobject(Type* t)       : _type(t)  { }
+    ~rtobject();
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
     void clearType()        { _type = NULL; }
@@ -186,7 +202,8 @@ public:
     virtual void copy(void* dest, const void* src, memint);
 
     char* data() const              { return (char*)(this + 1); }
-    char* end() const               { return data() + _size; }
+    char* data(memint i) const      { return data() + i; }
+    char* end() const               { return data(_size); }
     static container* cont(char* d) { return ((container*)d) - 1; }
     memint size() const             { return _size; }
     void set_size(memint newsize)
@@ -204,28 +221,26 @@ public:
 
 class bytevec
 {
+    friend class variant;
+
     friend void test_bytevec();
     friend void test_podvec();
 
 protected:
-    char* _data;
+    objptr<container> obj;
 
     typedef container* (*alloc_func)(memint cap, memint siz);
 
-    void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
-    void chkidxa(memint i) const    { if (umemint(i) > umemint(size())) container::idxerr(); }
-    static void chknonneg(memint v) { if (v < 0) container::overflow(); } 
-    void chknz() const              { if (empty()) container::idxerr(); }
-    container* _cont() const        { return container::cont(_data); }
-    bool _unique() const            { return !_data || _cont()->unique(); }
+    void chkidx(memint i) const         { if (umemint(i) >= umemint(size())) container::idxerr(); }
+    void chkidxa(memint i) const        { if (umemint(i) > umemint(size())) container::idxerr(); }
+    static void chknonneg(memint v)     { if (v < 0) container::overflow(); } 
+    void chknz() const                  { if (empty()) container::idxerr(); }
+    bool _isunique() const              { return empty() || obj->unique(); }
     char* _mkunique();
-    void _init()                    { _data = NULL; }
     char* _init(memint len);
     void _init(memint len, char fill);
     void _init(const char*, memint);  // (*)
-    void _init(const bytevec& v);
-    void _fin()                         { if (_data) _cont()->release(); }
-    void _assign(container* c)          { _fin(); _data = c->data(); c->grab(); }
+    void _init(const bytevec& v)        { obj._init(v.obj); }
 
     char* _insert(memint pos, memint len, alloc_func);
     char* _append(memint len, alloc_func);
@@ -236,26 +251,27 @@ protected:
     bytevec(container* c)               { _init(c); }
 
 public:
-    bytevec()                           { _init(); }
+    bytevec(): obj()                    { }
     bytevec(const bytevec& v)           { _init(v); }
     bytevec(const char* buf, memint len)    { _init(buf, len); }  // (*)
     bytevec(memint len, char fill)      { _init(len, fill); }  // (*)
-    ~bytevec()                          { _fin(); }
+    ~bytevec()                          { }
 
-    void operator= (const bytevec& v);
-    bool operator== (const bytevec& v) const { return _data == v._data; }
+    void operator= (const bytevec& v)   { obj = v.obj; }
+    bool operator== (const bytevec& v) const { return obj == v.obj; }
     void assign(const char*, memint);
     void clear();
 
-    bool empty() const                  { return _data == NULL; }
-    memint size() const                 { return _data ? _cont()->size() : 0; }
-    memint capacity() const             { return _data ? _cont()->capacity() : 0; }
-    const char* data() const            { return _data; }
-    const char* data(memint i) const    { return _data + i; }
-    const char* at(memint i) const      { chkidx(i); return data(i); }
+    bool empty() const                  { return obj.empty(); }
+    memint size() const                 { return empty() ? 0 : obj->size(); }
+    memint capacity() const             { return empty() ? 0 : obj->capacity(); }
+    const char* data() const            { return obj->data(); }
+    const char* data(memint i) const    { return obj->data(i); }
+    const char* at(memint i) const      { chkidx(i); return obj->data(i); }
     char* atw(memint i)                 { chkidx(i); return _mkunique() + i; }
-    const char* end() const             { return _data + size(); }
-    const char* back(memint i) const    { chkidxa(i); return end() - i; }
+    const char* begin() const           { return empty() ? NULL : obj->data(); }
+    const char* end() const             { return empty() ? NULL : obj->end(); }
+    const char* back(memint i) const    { chkidxa(i); return obj->end() - i; }
     const char* back() const            { return back(1); }
 
     void insert(memint pos, const char* buf, memint len);  // (*)
@@ -275,7 +291,7 @@ public:
     template <class T>
         T* atw(memint i)                { return (T*)atw(i * sizeof(T)); }
     template <class T>
-        const T* begin() const          { return (T*)data(); }
+        const T* begin() const          { return (T*)begin(); }
     template <class T>
         const T* end() const            { return (T*)end(); }
     template <class T>
@@ -508,7 +524,7 @@ public:
         { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
     void push_back(const T& t)
         { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
-    void resize(memint newsize)
+    void resize(memint)
         { notimpl(); /* bytevec::_resize(newsize, cont::allocate); */ }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
@@ -541,6 +557,8 @@ public:
 template <class Tkey, class Tval>
 class dict
 {
+    friend class variant;
+
 protected:
 
     void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
@@ -645,6 +663,7 @@ public:
 
 class ordset
 {
+    friend class variant;
 protected:
     struct setobj: public object
     {
@@ -766,7 +785,489 @@ public:
 };
 
 
+// --- variant ------------------------------------------------------------- //
+
+class variant;
+
+typedef vector<variant> varvec;
+typedef varvec varset;
+typedef dict<variant, variant> vardict;
+
+
+class variant
+{
+    friend void test_variant();
+
+public:
+    // TODO: tinyset
+
+    enum Type
+        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
+            ANYOBJ = STR };
+
+    struct _None { int dummy; }; 
+    static _None null;
+
+protected:
+    Type type;
+    union
+    {
+        integer     _ord;       // int, char and bool
+        real        _real;      // not implemented in the VM yet
+        object*     _obj;       // str, vector, set, map and their variants
+        rtobject*   _rtobj;     // runtime objects with the "type" field
+    } val;
+
+    static void _type_err();
+    static void _range_err();
+    void _req(Type t) const             { if (type != t) _type_err(); }
+    void _req_anyobj() const            { if (!is_anyobj()) _type_err(); }
+#ifdef DEBUG
+    void _dbg(Type t) const             { _req(t); }
+    void _dbg_anyobj() const            { _req_anyobj(); }
+#else
+    void _dbg(Type t) const             { }
+    void _dbg_anyobj() const            { }
+#endif
+
+    void _init()                        { type = NONE; }
+    void _init(Type);
+    void _init(_None)                   { type = NONE; }
+    void _init(bool v)                  { type = ORD; val._ord = v; }
+    void _init(char v)                  { type = ORD; val._ord = uchar(v); }
+    void _init(uchar v)                 { type = ORD; val._ord = v; }
+    void _init(int v)                   { type = ORD; val._ord = v; }
+#ifdef SHN_64
+    void _init(large v)                 { type = ORD; val._ord = v; }
+#endif
+    void _init(real v)                  { type = REAL; val._real = v; }
+    void _init(Type t, object* o)       { type = t; val._obj = o; if (o) o->grab(); }
+    void _init(const str& v)            { _init(STR, v.obj); }
+    void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
+    void _init(const varvec& v)         { _init(VEC, v.obj); }
+    void _init(const ordset& v)         { _init(ORDSET, v.obj); }
+    void _init(const vardict& v)        { _init(DICT, v.obj); }
+    void _init(rtobject* o)             { _init(RTOBJ, o); }
+    void _init(const variant& v);
+
+    void _fin_anyobj();
+    void _fin()                         { if (is_alloc()) _fin_anyobj(); }
+
+public:
+    variant()                           { _init(); }
+    variant(Type t)                     { _init(t); }
+    variant(const variant& v)           { _init(v); }
+    template <class T>
+        variant(const T& v)             { _init(v); }
+    variant(Type t, object* o)          { _init(t, o); }
+    ~variant()                          { _fin(); }
+
+    template <class T>
+        void operator= (const T& v)     { _fin(); _init(v); }
+    void operator= (const variant& v);  // { assert(this != &v); _fin(); _init(v); }
+    void clear()                        { _fin(); _init(); }
+    bool empty() const;
+
+    memint compare(const variant&) const;
+    bool operator== (const variant&) const;
+    bool operator!= (const variant& v) const { return !(operator==(v)); }
+
+    Type getType() const                { return Type(type); }
+    bool is(Type t) const               { return type == t; }
+    bool is_none() const                { return type == NONE; }
+    bool is_ord() const                 { return type == ORD; }
+    bool is_str() const                 { return type == STR; }
+    bool is_anyobj() const              { return type >= ANYOBJ; }
+    bool is_alloc() const               { return is_anyobj() && val._obj; }
+
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool        _bool()           const { _dbg(ORD); return val._ord; }
+    uchar       _uchar()          const { _dbg(ORD); return val._ord; }
+    integer     _int()            const { _dbg(ORD); return val._ord; }
+    integer     _ord()            const { _dbg(ORD); return val._ord; }
+    const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
+    const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
+    const varset& _set()          const { return _vec(); }
+    const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
+    rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
+    object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
+    integer&    _ord()                  { _dbg(ORD); return val._ord; }
+    str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
+    varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
+    varset&     _set()                  { return _vec(); }
+    ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
+
+    // Safer access methods; may throw an exception
+    bool        as_bool()         const { _req(ORD); return _bool(); }
+    char        as_char()         const { _req(ORD); return _uchar(); }
+    uchar       as_uchar()        const { _req(ORD); return _uchar(); }
+    integer     as_int()          const { _req(ORD); return _int(); }
+    integer     as_ord()          const { _req(ORD); return _ord(); }
+    const str&  as_str()          const { _req(STR); return _str(); }
+    const varvec& as_vec()        const { _req(VEC); return _vec(); }
+    const varset& as_set()        const { return as_vec(); }
+    const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
+    const vardict& as_dict()      const { _req(DICT); return _dict(); }
+    rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
+    object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
+    integer&    as_ord()                { _req(ORD); return _ord(); }
+    str&        as_str()                { _req(STR); return _str(); }
+    varvec&     as_vec()                { _req(VEC); return _vec(); }
+    varset&     as_set()                { return as_vec(); }
+    ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
+    vardict&    as_dict()               { _req(DICT); return _dict(); }
+};
+
+template <>
+    struct comparator<variant>
+        { memint operator() (const variant& a, const variant& b) { return a.compare(b); } };
+
+
+// --- runtime objects ----------------------------------------------------- //
+
+
+class stateobj: public rtobject
+{
+    friend class State;
+    typedef rtobject parent;
+    
+protected:
+#ifdef DEBUG
+    memint varcount;
+    static void idxerr();
+#endif
+    variant vars[0];
+    stateobj(State* t);
+
+    // Get zeroed memory so that the destructor works correctly even if the
+    // constructor failed in the middle. A zeroed variant is a null variant.
+    void* operator new(size_t s, memint extra)
+    {
+#ifdef DEBUG
+        pincrement(&object::allocated);
+#endif
+        return pmemcalloc(s + extra);
+    }
+
+public:
+    ~stateobj();
+    bool empty() const; // override
+    State* getType() const  { return (State*)parent::getType(); }
+
+    variant& var(memint index)
+    {
+#ifdef DEBUG
+        if (umemint(index) >= umemint(varcount))
+            idxerr();
+#endif
+        return vars[index];
+    }
+
+    void collapse();
+};
+
+
+struct podvar { char data[sizeof(variant)]; };
+
+// TODO: Runtime stack is a fixed, uninitialized and unmanaged array of
+//       variants, should be implemented more efficiently than this.
+class rtstack: protected podvec<variant>
+{
+    typedef podvec<variant> parent;
+public:
+    variant* bp;    // base pointer, directly manipulated by the VM
+    rtstack(memint maxSize);
+    variant* base() const       { return (variant*)parent::data(); }
+    template <class T>
+        void push(const T& t)   { new(bp) variant(t); bp++; }
+    variant& top()              { return *(bp - 1); }
+    void pop()                  { bp--; bp->~variant(); }
+    void popto(variant& v)      { bp--; v.~variant(); (podvar&)v = *(podvar*)bp; }
+};
+
+
+// --- FIFO ---------------------------------------------------------------- //
+
+
+const memint _varsize = memint(sizeof(variant));
+
+
+// The abstract FIFO interface. There are 2 modes of operation: variant FIFO
+// and character FIFO. Destruction of variants is basically not handled by
+// this class to give more flexibility to implementations (e.g. there may be
+// buffers shared between 2 fifos or other container objects). If you implement,
+// say, only input methods, the default output methods will throw an exception
+// with a message "FIFO is read-only", and vice versa. Iterators may be
+// implemented in descendant classes but are not supported by default.
+// Powerful text parsing methods are provided that work on any derived FIFO
+// implementation (see "Characetr FIFO operations" below).
+class fifo: public rtobject
+{
+    fifo& operator<< (bool);   // compiler traps
+    fifo& operator<< (void*);
+    fifo& operator<< (object*);
+
+protected:
+    enum { TAB_SIZE = 8 };
+
+    bool _is_char_fifo;
+
+    static void _empty_err();
+    static void _wronly_err();
+    static void _rdonly_err();
+    static void _fifo_type_err();
+    void _req(bool req_char) const      { if (req_char != _is_char_fifo) _fifo_type_err(); }
+    void _req_non_empty() const;
+    void _req_non_empty(bool _char) const;
+
+    // Minimal set of methods required for both character and variant FIFO
+    // operations. Implementations should guarantee variants will never be
+    // fragmented, so that a buffer returned by get_tail() always contains at
+    // least sizeof(variant) bytes (8, 12 or 16 bytes depending on the config.
+    // and platform) in variant mode, or at least 1 byte in character mode.
+    virtual const char* get_tail();          // Get a pointer to tail data
+    virtual const char* get_tail(memint*);   // ... also return the length
+    virtual void deq_bytes(memint);          // Discard n consecutive bytes returned by get_tail()
+    virtual variant* enq_var();              // Reserve uninitialized space for a variant
+    virtual memint enq_chars(const char*, memint); // Push arbitrary number of bytes, return actual number, char fifo only
+
+    void _token(const charset& chars, str* result);
+
+public:
+    fifo(Type*, bool is_char);
+    ~fifo();
+
+    enum { CHAR_ALL = MEMINT_MAX - 2, CHAR_SOME = MEMINT_MAX - 1 };
+
+    virtual bool empty() const;     // throws efifowronly
+    virtual void flush();           // empty, overridden in file fifos
+    virtual str get_name() const = 0;
+
+    // Main FIFO operations, work on both char and variant fifos; for char
+    // fifos the variant is read as either a char or a string.
+    void var_enq(const variant&);
+    void var_preview(variant&);
+    void var_deq(variant&);
+    void var_eat();
+
+    // Character FIFO operations
+    bool is_char_fifo() const           { return _is_char_fifo; }
+    int preview(); // returns -1 on eof
+    uchar get();
+    bool get_if(char c);
+    str  deq(memint);  // CHAR_ALL, CHAR_SOME can be specified
+    str  deq(const charset& c)          { str s; _token(c, &s); return s; }
+    str  token(const charset& c)        { return deq(c); } // alias
+    void eat(const charset& c)          { _token(c, NULL); }
+    void skip(const charset& c)         { eat(c); } // alias
+    str  line();
+    bool eol();
+    void skip_eol();
+    bool eof() const                    { return empty(); }
+
+    memint enq(const char* p, memint count)  { return enq_chars(p, count); }
+    void enq(const char* s);
+    void enq(const str& s);
+    void enq(char c);
+    void enq(uchar c);
+    void enq(large i);
+
+    fifo& operator<< (const char* s)   { enq(s); return *this; }
+    fifo& operator<< (const str& s)    { enq(s); return *this; }
+    fifo& operator<< (char c)          { enq(c); return *this; }
+    fifo& operator<< (uchar c)         { enq(c); return *this; }
+    fifo& operator<< (large i)         { enq(large(i)); return *this; }
+    fifo& operator<< (int i)           { enq(large(i)); return *this; }
+    fifo& operator<< (long i)          { enq(large(i)); return *this; }
+    fifo& operator<< (size_t i)        { enq(large(i)); return *this; }
+};
+
+const char endl = '\n';
+
+
+// The memfifo class implements a linked list of "chunks" in memory, where
+// each chunk is the size of 32 * sizeof(variant). Both enqueue and deqeue
+// operations are O(1), and memory usage is better than that of a plain linked 
+// list of elements, as "next" pointers are kept for bigger chunks of elements
+// rather than for each element. Can be used both for variants and chars. This
+// class "owns" variants, i.e. proper construction and desrtuction is done.
+class memfifo: public fifo
+{
+public:
+#ifdef DEBUG
+    static memint CHUNK_SIZE; // settable from unit tests
+#else
+    enum { CHUNK_SIZE = 32 * _varsize };
+#endif
+
+protected:
+    struct chunk: noncopyable
+    {
+        chunk* next;
+        char data[0];
+        
+#ifdef DEBUG
+        chunk(): next(NULL)         { pincrement(&object::allocated); }
+        ~chunk()                    { pdecrement(&object::allocated); }
+#else
+        chunk(): next(NULL) { }
+#endif
+        void* operator new(size_t)  { return ::pmemalloc(sizeof(chunk) + CHUNK_SIZE); }
+        void operator delete(void* p)  { ::pmemfree(p); }
+    };
+
+    chunk* head;    // in
+    chunk* tail;    // out
+    int head_offs;
+    int tail_offs;
+
+    void enq_chunk();
+    void deq_chunk();
+
+    // Overrides
+    const char* get_tail();
+    const char* get_tail(memint*);
+    void deq_bytes(memint);
+    variant* enq_var();
+    memint enq_chars(const char*, memint);
+
+    char* enq_space(memint);
+    memint enq_avail();
+
+public:
+    memfifo(Type*, bool is_char);
+    ~memfifo();
+
+    void clear();
+    bool empty() const;     // override
+    str get_name() const;   // override
+};
+
+
+// This is an abstract buffered fifo class. Implementations should validate the
+// buffer in the overridden empty() and flush() methods, for input and output
+// fifos respectively. To simplify things, buffifo objects are not supposed to
+// be reusable, i.e. once the end of file is reached, the implementation is not
+// required to reset its state. Variant fifo implementations should guarantee
+// at least sizeof(variant) bytes in calls to get_tail() and enq_var().
+class buffifo: public fifo
+{
+protected:
+    char* buffer;
+    memint   bufsize;
+    memint   bufhead;
+    memint   buftail;
+
+    const char* get_tail();
+    const char* get_tail(memint*);
+    void deq_bytes(memint);
+    variant* enq_var();
+    memint enq_chars(const char*, memint);
+
+    char* enq_space(memint);
+    memint enq_avail();
+
+public:
+    buffifo(Type*, bool is_char);
+    ~buffifo();
+
+    bool empty() const; // throws efifowronly
+    void flush(); // throws efifordonly
+};
+
+
+// Analog of std::strstream; a buffifo-based implementation that uses
+// a 'str' object for storing data.
+class strfifo: public buffifo
+{
+protected:
+    str string;
+    void clear();
+public:
+    strfifo(Type*);
+    strfifo(Type*, const str&);
+    ~strfifo();
+    bool empty() const;     // override
+    void flush();           // override
+    str get_name() const;   // override
+    str all() const;
+};
+
+
+// TODO: varfifo, a variant vector wrapper based on buffifo
+
+class intext: public buffifo
+{
+protected:
+    enum { BUF_SIZE = 2048 * sizeof(integer) };
+
+    str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _eof;
+
+    void error(int code); // throws esyserr
+    void doopen();
+    void doread();
+
+public:
+    intext(Type*, const str& fn);
+    ~intext();
+
+    bool empty() const;     // override
+    str get_name() const;   // override
+    void open()             { empty(); /* attempt to open */ }
+};
+
+
+class outtext: public buffifo
+{
+protected:
+    enum { BUF_SIZE = 2048 * sizeof(integer) };
+
+    str file_name;
+    str  filebuf;
+    int  _fd;
+    bool _err;
+
+    void error(int code); // throws esyserr
+
+public:
+    outtext(Type*, const str& fn);
+    ~outtext();
+
+    void flush();           // override
+    str get_name() const;   // override
+    void open()             { flush(); /* attempt to open */ }
+};
+
+
+// Standard input/output object, a two-way fifo. In case of stderr it is write-only.
+class stdfile: public intext
+{
+protected:
+    int _ofd;
+    virtual memint enq_chars(const char*, memint);
+public:
+    stdfile(int infd, int outfd);
+    ~stdfile();
+};
+
+
+extern stdfile sio;
+extern stdfile serr;
+
+
+// System utilities
+
+
+bool isFile(const char*);
+
+
 // ------------------------------------------------------------------------- //
+
 
 void initRuntime();
 void doneRuntime();

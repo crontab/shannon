@@ -225,6 +225,10 @@ object* object::reallocate(object* p, size_t self, memint extra)
 }
 
 
+rtobject::~rtobject()
+    { }
+
+
 // --- container ----------------------------------------------------------- //
 
 
@@ -298,103 +302,93 @@ container* container::dup(memint cap, memint siz)
 // --- bytevec ------------------------------------------------------------- //
 
 
-void bytevec::_init(const bytevec& v)
-{
-    _data = v._data;
-    if (_data)
-        _cont()->grab();
-}
-
-
 char* bytevec::_init(memint len)
 {
     chknonneg(len);
     if (len == 0)
-        _init();
+    {
+        obj._init();
+        return NULL;
+    }
     else
-        _data = container::allocate(len, len)->grab<container>()->data();
-    return _data;
+    {
+        obj._init(container::allocate(len, len));
+        return obj->data();
+    }
 }
 
 
 void bytevec::_init(memint len, char fill)
 {
-    if (_init(len))
-        ::memset(_data, fill, len);
+    if (len)
+        ::memset(_init(len), fill, len);
 }
 
 
 void bytevec::_init(const char* buf, memint len)
 {
-    if (_init(len))
-        ::memcpy(_data, buf, len);
+    if (len)
+        ::memcpy(_init(len), buf, len);
 }
 
 
 char* bytevec::_mkunique()
 {
-    if (!_unique())  // implies non-empty too
+    // Called only on non-empty objects
+    if (!_isunique())
     {
-        container* c = _cont()->dup(size(), size());
-        c->copy(c->data(), _data, size());
-        _assign(c);
+        memint siz = obj->size();
+        container* c = obj->dup(siz, siz);
+        c->copy(c->data(), obj->data(), siz);
+        obj = c;
     }
-    return _data;
-}
-
-
-void bytevec::operator= (const bytevec& v)
-{
-    if (_data != v._data)
-        if (v.empty())
-            clear();
-        else
-            _assign(v._cont());
+    return obj->data();
 }
 
 
 void bytevec::assign(const char* buf, memint len)
-    { _fin(); _init(buf, len); }
+    { obj._fin(); _init(buf, len); }
 
 
 void bytevec::clear()
 {
     if (!empty())
     {
-        _cont()->finalize(_data, size());
-        _fin();
-        _init();
+        // finalize() is not needed for POD data, but we put it here so that clear() works
+        // for descendant non-POD containers. Same applies to insert()/append().
+        obj->finalize(obj->data(), obj->size());
+        obj.clear();
     }
 }
 
 
 char* bytevec::_insert(memint pos, memint len, alloc_func alloc)
 {
-    chknonneg(len);
+    assert(len > 0);
     chkidxa(pos);
     memint oldsize = size();
     memint newsize = oldsize + len;
     memint remain = oldsize - pos;
-    if (empty() || !_unique())
+    if (empty() || !_isunique())
     {
         // Note: first allocation sets capacity = size
-        objptr<container> c = alloc(newsize, newsize);  // _cont()->dup(newsize, newsize);
+        container* c = alloc(newsize, newsize);  // _cont()->dup(newsize, newsize);
         if (pos > 0)  // copy the first chunk, before 'pos'
-            c->copy(c->data(), _data, pos);
+            c->copy(c->data(), obj->data(), pos);
         if (remain)  // copy the the remainder
-            c->copy(c->data() + pos + len, _data + pos, remain);
-        _assign(c);
+            c->copy(c->data(pos + len), obj->data(pos), remain);
+        obj = c;
     }
     else  // if unique
     {
         if (newsize > capacity())
-            _data = container::reallocate(_cont(), newsize)->data();
+            obj._reinit(container::reallocate(obj, newsize));
         else
-            _cont()->set_size(newsize);
+            obj->set_size(newsize);
         if (remain)
-            ::memmove(_data + pos + len, _data + pos, remain);
+            ::memmove(obj->data(pos + len), obj->data(pos), remain);
     }
-    return _data + pos;
+    return obj->data(pos);
 }
 
 
@@ -404,22 +398,22 @@ char* bytevec::_append(memint len, alloc_func alloc)
     assert(len > 0);
     memint oldsize = size();
     memint newsize = oldsize + len;
-    if (empty() || !_unique())
+    if (empty() || !_isunique())
     {
         // Note: first allocation sets capacity = size
-        objptr<container> c = alloc(newsize, newsize); // _cont()->dup(newsize, newsize);
+        container* c = alloc(newsize, newsize); // _cont()->dup(newsize, newsize);
         if (oldsize > 0)
-            c->copy(c->data(), _data, oldsize);
-        _assign(c);
+            c->copy(c->data(), obj->data(), oldsize);
+        obj = c;
     }
     else  // if unique
     {
         if (newsize > capacity())
-            _data = container::reallocate(_cont(), newsize)->data();
+            obj._reinit(container::reallocate(obj, newsize));
         else
-            _cont()->set_size(newsize);
+            obj->set_size(newsize);
     }
-    return _data + oldsize;
+    return obj->data(oldsize);
 }
 
 
@@ -432,45 +426,46 @@ void bytevec::_erase(memint pos, memint len)
     chkidxa(epos);
     memint newsize = oldsize - len;
     memint remain = oldsize - epos;
-    if (newsize == 0)  // also if empty
+    if (newsize == 0)  // also if empty, because newsize < oldsize
         clear();
-    else if (!_unique())
+    else if (!_isunique())
     {
-        container* c = _cont()->dup(newsize, newsize);
+        container* c = obj->dup(newsize, newsize);
         if (pos)
-            _cont()->copy(c->data(), _data, pos);
+            obj->copy(c->data(), obj->data(), pos);
         if (remain)
-            _cont()->copy(c->data() + pos, _data + epos, remain);
-        _assign(c);
+            obj->copy(c->data(pos), obj->data(epos), remain);
+        obj = c;
     }
     else // if unique
     {
-        char* p = _data + pos;
-        _cont()->finalize(p, len);
+        char* p = obj->data(pos);
+        obj->finalize(p, len);
         if (remain)
             ::memmove(p, p + len, remain);
-        _cont()->set_size(newsize);
+        obj->set_size(newsize);
     }
 }
 
 
 void bytevec::_pop(memint len)
 {
+    assert(len > 0);
     memint oldsize = size();
     memint newsize = oldsize - len;
     chkidx(newsize);
     if (newsize == 0)
         clear();
-    else if (!_unique())
+    else if (!_isunique())
     {
-        container* c = _cont()->dup(newsize, newsize);
-        c->copy(c->data(), _data, newsize);
-        _assign(c);
+        container* c = obj->dup(newsize, newsize);
+        c->copy(c->data(), obj->data(), newsize);
+        obj = c;
     }
     else // if unique
     {
-        _cont()->finalize(_data + newsize, len);
-        _cont()->set_size(newsize);
+        obj->finalize(obj->data(newsize), len);
+        obj->set_size(newsize);
     }
 }
 
@@ -480,7 +475,7 @@ void bytevec::insert(memint pos, const char* buf, memint len)
     if (len > 0)
     {
         char* p = _insert(pos, len, container::allocate);
-        _cont()->copy(p, buf, len);
+        obj->copy(p, buf, len);
     }
 }
 
@@ -498,7 +493,7 @@ void bytevec::insert(memint pos, const bytevec& v)
         memint len = v.size();
         // Note: should be done in two steps so that the case (v == *this) works
         char* p = _insert(pos, len, container::allocate);
-        _cont()->copy(p, v.data(), len);
+        obj->copy(p, v.data(), len);
     }
 }
 
@@ -508,7 +503,7 @@ void bytevec::append(const char* buf, memint len)
     if (len > 0)
     {
         char* p = _append(len, container::allocate);
-        _cont()->copy(p, buf, len);
+        obj->copy(p, buf, len);
     }
 }
 
@@ -522,7 +517,7 @@ void bytevec::append(const bytevec& v)
         memint len = v.size();
         // Note: should be done in two steps so that the case (v == *this) works
         char* p = _append(len, container::allocate);
-        _cont()->copy(p, v.data(), len);
+        obj->copy(p, v.data(), len);
     }
 }
 
@@ -547,7 +542,7 @@ char* bytevec::_resize(memint newsize, alloc_func alloc)
     }
     else if (newsize < oldsize)
     {
-        _erase(newsize, oldsize - newsize);
+        _pop(oldsize - newsize);
         return NULL;
     }
     else
@@ -575,23 +570,22 @@ const char* str::c_str()
 {
     if (empty())
         return "";
-    container* c = _cont();
-    if (c->unique() && c->size() < c->capacity())
-        *c->end() = 0;
+    if (obj->unique() && obj->size() < obj->capacity())
+        *obj->end() = 0;
     else
     {
         ((str*)this)->push_back(char(0));
-        _cont()->dec_size();
+        obj->dec_size();
     }
-    return _data;
+    return data();
 }
 
 
 void str::operator= (const char* s)
-    { _fin(); _init(s); }
+    { obj._fin(); _init(s); }
 
 void str::operator= (char c)
-    { _fin(); _init(c); }
+    { obj._fin(); _init(c); }
 
 
 memint str::find(char c) const
@@ -994,6 +988,173 @@ esyserr::esyserr(int code, const str& arg) throw()
 
 
 esyserr::~esyserr() throw()  { }
+
+
+// --- variant ------------------------------------------------------------- //
+
+
+template class vector<variant>;
+template class dict<variant, variant>;
+template class podvec<variant>;
+
+
+variant::_None variant::null;
+
+
+void variant::_fin_anyobj()
+{
+    switch(type)
+    {
+    case NONE:
+    case ORD:
+    case REAL:      break;
+    case STR:       // _str().~str(); break;
+    case VEC:       // _vec().~varvec(); break;
+    case ORDSET:    // _ordset().~ordset(); break;
+    case DICT:      // _dict().~vardict(); break;
+    case RTOBJ:     _anyobj()->release(); break;
+    }
+}
+
+
+void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
+void variant::_range_err() { throw ecmessage("Variant range error"); }
+
+
+void variant::_init(const variant& v)
+{
+    type = v.type;
+    val = v.val;
+    if (is_alloc())
+        val._obj->grab();
+}
+
+
+void variant::operator= (const variant& v)
+    { assert(this != &v); _fin(); _init(v); }
+
+/*
+void variant::_init(Type t)
+{
+    type = t;
+    switch(type)
+    {
+    case NONE:      break;
+    case ORD:       val._ord = 0; break;
+    case REAL:      val._real = 0; break;
+    case STR:       ::new(&val._obj) str(); break;
+    case VEC:       ::new(&val._obj) varvec(); break;
+    case ORDSET:    ::new(&val._obj) ordset(); break;
+    case DICT:      ::new(&val._obj) vardict(); break;
+    case RTOBJ:     val._rtobj = NULL; break;
+    }
+}
+*/
+
+memint variant::compare(const variant& v) const
+{
+    if (type == v.type)
+    {
+        switch(type)
+        {
+        case NONE:  return 0;
+        case ORD:
+            integer d = val._ord - v.val._ord;
+            return d < 0 ? -1 : d > 0 ? 1 : 0;
+        case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+        case STR:   return _str().compare(v._str());
+        // TODO: define "deep" comparison? but is it really needed for hashing?
+        case VEC:
+        case ORDSET:
+        case DICT:
+        case RTOBJ: return memint(_anyobj()) - memint(v._anyobj());
+        }
+    }
+    return int(type - v.type);
+}
+
+
+bool variant::operator== (const variant& v) const
+{
+    if (type == v.type)
+    {
+        switch(type)
+        {
+        case NONE:      return true;
+        case ORD:       return val._ord == v.val._ord;
+        case REAL:      return val._real == v.val._real;
+        case STR:       return _str() == v._str();
+        case VEC:       return _vec() == v._vec();
+        case ORDSET:    return _ordset() == v._ordset();
+        case DICT:      return _dict() == v._dict();
+        case RTOBJ:     return _rtobj() == v._rtobj();
+        }
+    }
+    return false;
+}
+
+/*
+bool variant:: empty() const
+{
+    switch(type)
+    {
+    case NONE:      return true;
+    case ORD:       return val._ord == 0;
+    case REAL:      return val._real == 0;
+    case STR:       return _str().empty();
+    case VEC:       return _vec().empty();
+    case ORDSET:    return _ordset().empty();
+    case DICT:      return _dict().empty();
+    case RTOBJ:     return _rtobj()->empty();
+    }
+    return false;
+}
+*/
+
+// --- runtime objects ----------------------------------------------------- //
+
+/*
+#ifdef DEBUG
+void stateobj::idxerr()
+    { fatal(0x1005, "Internal: object access error"); }
+#endif
+
+
+stateobj::stateobj(State* t)
+    : rtobject(t)  { }
+
+
+bool stateobj::empty() const
+    { return false; }
+
+
+stateobj::~stateobj()
+{
+    collapse();
+}
+
+
+void stateobj::collapse()
+{
+    // TODO: this is not thread-safe. An atomic exchnage for pointers is needed.
+    if (getType() != NULL)
+    {
+        for (memint count = getType()->selfVarCount(); count--; )
+            vars[count].clear();
+        clearType();
+#ifdef DEBUG
+        varcount = 0;
+#endif
+    }
+}
+*/
+
+rtstack::rtstack(memint maxSize)
+{
+    if (maxSize)
+        _append(maxSize * Tsize, container::allocate);
+    bp = base();
+}
 
 
 // ------------------------------------------------------------------------- //

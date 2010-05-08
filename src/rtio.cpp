@@ -7,10 +7,10 @@ memint memfifo::CHUNK_SIZE = _varsize * 16;
 #endif
 
 
-fifo::fifo(Type* rt, bool is_char) throw()
+fifo::fifo(Type* rt, bool is_char)
     : rtobject(rt), _is_char_fifo(is_char)  { }
 
-fifo::~fifo() throw()
+fifo::~fifo()
     { }
 
 void fifo::_empty_err()                { throw emessage("FIFO empty"); }
@@ -231,11 +231,11 @@ void fifo::enq(large i)         { enq(to_string(i)); }
 // --- memfifo ------------------------------------------------------------- //
 
 
-memfifo::memfifo(Type* rt, bool ch) throw()
+memfifo::memfifo(Type* rt, bool ch)
     : fifo(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
-memfifo::~memfifo() throw()             { try { clear(); } catch(exception&) { } }
+memfifo::~memfifo()                     { try { clear(); } catch(exception&) { } }
 inline const char* memfifo::get_tail()  { return tail->data + tail_offs; }
 inline bool memfifo::empty() const      { return tail == NULL; }
 inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(_varsize); }
@@ -368,10 +368,10 @@ memint memfifo::enq_chars(const char* p, memint count)
 // --- buffifo ------------------------------------------------------------- //
 
 
-buffifo::buffifo(Type* rt, bool is_char) throw()
+buffifo::buffifo(Type* rt, bool is_char)
   : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
 
-buffifo::~buffifo() throw()  { }
+buffifo::~buffifo()  { }
 bool buffifo::empty() const { _wronly_err(); return true; }
 void buffifo::flush() { _rdonly_err(); }
 
@@ -461,12 +461,12 @@ memint buffifo::enq_chars(const char* p, memint count)
 // --- strfifo ------------------------------------------------------------- //
 
 
-strfifo::strfifo(Type* rt) throw()  : buffifo(rt, true), string()  {}
-strfifo::~strfifo() throw()         { }
+strfifo::strfifo(Type* rt)          : buffifo(rt, true), string()  {}
+strfifo::~strfifo()                 { }
 str strfifo::get_name() const       { return "<strfifo>"; }
 
 
-strfifo::strfifo(Type* rt, const str& s) throw()
+strfifo::strfifo(Type* rt, const str& s)
     : buffifo(rt, true), string(s)
 {
     buffer = (char*)s.data();
@@ -514,10 +514,16 @@ str strfifo::all() const
 // --- intext -------------------------------------------------------------- //
 
 
-intext::intext(Type* rt, const str& fn) throw()
+// *BSD/Darwin hack
+#ifndef O_LARGEFILE
+#  define O_LARGEFILE 0
+#endif
+
+
+intext::intext(Type* rt, const str& fn)
     : buffifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
 
-intext::~intext() throw()       { if (_fd > 2) ::close(_fd); }
+intext::~intext()               { if (_fd > 2) ::close(_fd); }
 void intext::error(int code)    { _eof = true; throw esyserr(code, file_name); }
 str intext::get_name() const    { return file_name; }
 
@@ -559,7 +565,7 @@ bool intext::empty() const
 // --- outtext -------------------------------------------------------------- //
 
 
-outtext::outtext(Type* rt, const str& fn) throw()
+outtext::outtext(Type* rt, const str& fn)
     : buffifo(rt, true), file_name(fn), _fd(-1), _err(false)
 {
     filebuf.resize(outtext::BUF_SIZE);
@@ -568,7 +574,7 @@ outtext::outtext(Type* rt, const str& fn) throw()
 }
 
 
-outtext::~outtext() throw()
+outtext::~outtext()
 {
     try
         { flush(); }
@@ -610,28 +616,27 @@ void outtext::flush()
 // --- stdfile ------------------------------------------------------------- //
 
 
-stdfile::stdfile(int infd, int outfd) throw()
+stdfile::stdfile(int infd, int outfd)
     : intext(NULL, "<std>"), _ofd(outfd)
 {
     _fd = infd;
     if (infd == -1)
         _eof = true;
-
-    pincrement(&refcount);  // prevent auto pointers from freeing this object,
-                            // as it is supposed to be static
-#ifdef DEBUG
-    object::allocated--;    // compensate static objects
-#endif
+    _mkstatic();
 }
 
 
-stdfile::~stdfile() throw()
-    { pdecrement(&refcount); }
+stdfile::~stdfile()
+    { }
 
 
 memint stdfile::enq_chars(const char* p, memint count)
     { return ::write(_ofd, p, count); }
 
+
+
+stdfile sio(STDIN_FILENO, STDOUT_FILENO);
+stdfile serr(-1, STDERR_FILENO);
 
 
 // --- System utilities ---------------------------------------------------- //

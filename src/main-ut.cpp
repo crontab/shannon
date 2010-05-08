@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "runtime.h"
-// #include "parser.h"
+#include "parser.h"
 // #include "typesys.h"
 // #include "vm.h"
 
@@ -94,8 +94,9 @@ void test_bytevec()
 {
     // TODO: check the number of reallocations
     bytevec c1;
-    check(c1.data() == NULL);
+    check(c1.begin() == NULL);
     check(c1.empty());
+    check(c1._isunique());
     check(c1.size() == 0);
     check(c1.capacity() == 0);
 
@@ -104,52 +105,52 @@ void test_bytevec()
     check(c2.size() == 3);
     check(c2.capacity() == 3);
 
-    check(c1._unique());
-    check(c2._unique());
+    check(c1._isunique());
+    check(c2._isunique());
     c1 = c2;
-    check(!c2._unique());
-    check(!c1._unique());
+    check(!c2._isunique());
+    check(!c1._isunique());
     c2.clear();
-    check(c1._unique());
-    check(c2._unique());
+    check(c1._isunique());
+    check(c2._isunique());
     check(c2.empty());
     check(!c1.empty());
     check(c1.size() == 3);
     c1 = c1;
 
     c2 = c1;
-    check(!c2._unique());
-    check(!c1._unique());
+    check(!c2._isunique());
+    check(!c1._isunique());
     *c2.atw(0) = 'a';
-    check(c2._unique());
-    check(c1._unique());
+    check(c2._isunique());
+    check(c1._isunique());
     check(c2.data()[0] == 'a');
     check(c1.data()[0] == 'A');
     *c2.atw(0) = 'A';
     check(c2.data()[0] == 'A');
 
     bytevec c2a("", 0);
-    check(c2a.data() == NULL);
+    check(c2a.begin() == NULL);
     check(c2a.empty());
     check(c2a.size() == 0);
     check(c2a.capacity() == 0);
 
     bytevec c3("DEFG", 4);
     c1.insert(3, c3);
-    check(c1._unique());
+    check(c1._isunique());
     check(c1.size() == 7);
     check(c1.capacity() > 7);
     check(memcmp(c1.data(), "ABCDEFG", 7) == 0);
 
     bytevec c4 = c1;
-    check(!c1._unique());
+    check(!c1._isunique());
     c1.insert(3, "ab", 2);
-    check(c1._unique());
+    check(c1._isunique());
     check(c1.size() == 9);
     check(c1.capacity() == 9);
     check(memcmp(c1.data(), "ABCabDEFG", 9) == 0);
     c1.insert(0, "@", 1);
-    check(c1._unique());
+    check(c1._isunique());
     check(c1.size() == 10);
     check(memcmp(c1.data(), "@ABCabDEFG", 10) == 0);
     c1.insert(10, "0123456789", 10);
@@ -163,9 +164,9 @@ void test_bytevec()
     check(c2.size() == 10);
     check(memcmp(c2.data(), "ABCABCabcd", 10) == 0);
     c4 = c2;
-    check(!c2._unique());
+    check(!c2._isunique());
     c2.append(c3);
-    check(c2._unique());
+    check(c2._isunique());
     check(c2.size() == 14);
     check(memcmp(c2.data(), "ABCABCabcdDEFG", 14) == 0);
 
@@ -195,7 +196,7 @@ void test_bytevec()
     check(memcmp(c1.data(), "@AB!!!", 3) == 0);
     c1.resize(0);
     check(c1.empty());
-    check(c1.data() == NULL);
+    check(c1.begin() == NULL);
 }
 
 
@@ -205,7 +206,7 @@ void test_string()
     check(s1.empty());
     check(s1.size() == 0);
     check(s1.c_str()[0] == 0);
-    check(s1.data() == NULL);
+    check(s1.begin() == NULL);
     str s2 = "Kuku";
     check(!s2.empty());
     check(s2.size() == 4);
@@ -216,8 +217,8 @@ void test_string()
     str s4 = s2;
     check(s4 == s2);
     check(s4 == "Kuku");
-    check(!s4._unique());
-    check(!s2._unique());
+    check(!s4._isunique());
+    check(!s2._isunique());
     str s5 = "!";
     check(s5.size() == 1);
     check(s5.c_str()[0] == '!');
@@ -266,7 +267,7 @@ void test_string()
     check(s1.rfind('v') == str::npos);
 
     s1.clear();
-    check(s1.data() == NULL);
+    check(s1.begin() == NULL);
 
     str s8;
     s8 += "";
@@ -343,7 +344,7 @@ void test_podvec()
     check(v1[2] == 30);
     check(v1[3] == 40);
     v2 = v1;
-    check(!v1._unique() && !v2._unique());
+    check(!v1._isunique() && !v2._isunique());
     check(v2.size() == 4);
     v1.erase(2);
     check(v1.size() == 3);
@@ -457,21 +458,21 @@ void test_symtbl()
     check(!s1.bsearch("def", i));
 }
 
-/*
+
 void test_variant()
 {
     {
         variant v1;
-        check(v1.empty() && v1.is(variant::NONE));
+        check(v1.is(variant::NONE));
     }
     {
         variant v1 = variant::null;
-        check(v1.empty() && v1.is_none());
+        check(v1.is_none());
         variant v2 = v1;
-        check(v2.empty() && v2.is_none());
+        check(v2.is_none());
         variant v3;
         v3 = v2;
-        check(v3.empty() && v3.is_none());
+        check(v3.is_none());
     }
     {
         variant v1 = 10; check(v1.as_int() == 10);
@@ -580,6 +581,7 @@ void test_fifos()
 }
 
 
+/*
 void test_typesys()
 {
     {
@@ -622,7 +624,7 @@ void test_typesys()
     check(PDefinition(b)->value.as_int() == 1);
     check(PDefinition(b)->type->isBool());
 }
-
+*/
 
 void test_parser()
 {
@@ -648,7 +650,7 @@ void test_parser()
     }
 }
 
-
+/*
 static void _codegen_load(Type* type, const variant& v)
 {
     CodeSeg code(NULL);
@@ -677,7 +679,6 @@ void test_codegen()
 
 int main()
 {
-/*
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
          << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
          << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
@@ -701,8 +702,9 @@ int main()
     check(sizeof(variant) == 8);
 #endif
 
-    initTypeSys();
-*/
+    initRuntime();
+//    initTypeSys();
+
 
     int exitcode = 0;
     try
@@ -718,10 +720,10 @@ int main()
         test_dict();
         test_set();
         test_symtbl();
-//        test_variant();
-//        test_fifos();
+        test_variant();
+        test_fifos();
 //        test_typesys();
-//        test_parser();
+        test_parser();
 //        test_codegen();
     }
     catch (exception& e)
@@ -730,15 +732,16 @@ int main()
         exitcode = 201;
     }
 
-/*
-    doneTypeSys();
+
+//    doneTypeSys();
+    doneRuntime();
 
     if (object::allocated != 0)
     {
         fprintf(stderr, "Error: object::allocated = %d\n", object::allocated);
         exitcode = 202;
     }
-*/
+
     return exitcode;
 }
 
