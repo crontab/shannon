@@ -41,7 +41,8 @@ public:
     void intersect(const charset& s);
     void invert();
     bool contains(int b) const                     { return (data[uchar(b) / 8] & (1 << (uchar(b) % 8))) != 0; }
-    bool eq(const charset& s) const                { return memcmp(data, s.data, BYTES) == 0; }
+    bool compare(const charset& s) const           { return memcmp(data, s.data, BYTES); }
+    bool eq(const charset& s) const                { return compare(s) == 0; }
     bool le(const charset& s) const;
 
     charset& operator=  (const charset& s)         { assign(s); return *this; }
@@ -56,8 +57,8 @@ public:
     charset& operator*= (const charset& s)         { intersect(s); return *this; }
     charset  operator*  (const charset& s) const   { charset t = *this; return t *= s; }
     charset  operator~  () const                   { charset t = *this; t.invert(); return t; }
-    bool operator== (const charset& s) const       { return eq(s); }
-    bool operator!= (const charset& s) const       { return !eq(s); }
+    bool operator== (const charset& s) const       { return compare(s) == 0; }
+    bool operator!= (const charset& s) const       { return compare(s) != 0; }
     bool operator<= (const charset& s) const       { return le(s); }
     bool operator>= (const charset& s) const       { return s.le(*this); }
     bool operator[] (int b) const                  { return contains(b); }
@@ -122,6 +123,7 @@ public:
     bool empty() const                  { return obj == NULL; }
     bool unique() const                 { return empty() || obj->unique(); }
     bool operator== (const objptr& p)   { return obj == p.obj; }
+    bool operator!= (const objptr& p)   { return obj != p.obj; }
     void operator= (const objptr& p)    { p.obj->assignto(obj); }
     void operator= (T* o)               { o->assignto(obj); }
     T& operator* ()                     { return *obj; }
@@ -129,6 +131,22 @@ public:
     T* operator-> () const              { return obj; }
     operator T*() const                 { return obj; }
     T* get() const                      { return obj; }
+};
+
+
+class Type;    // defined in typesys.h
+
+class rtobject: public object
+{
+    Type* _type;
+protected:
+public:
+    rtobject(Type* t) throw(): _type(t)  { }
+    ~rtobject() throw();
+    Type* getType() const   { return _type; }
+    void setType(Type* t)   { assert(_type == NULL); _type = t; }
+    void clearType()        { _type = NULL; }
+    virtual bool empty() const = 0;
 };
 
 
@@ -403,7 +421,7 @@ public:
     void push_back(const T& t)              { new(_append(Tsize, container::allocate)) T(t); }  // (*)
     void pop_back()                         { parent::pop_back(Tsize); }
     void append(const podvec& v)            { parent::append(v); }
-    void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize)) T(t); }  // (*)
+    void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize, container::allocate)) T(t); }  // (*)
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
     void erase(memint pos)                  { parent::_erase(pos * Tsize, Tsize); }
 
@@ -440,6 +458,216 @@ public:
 
     memint compare(memint i, const T& elem) const
         { comparator<T> comp; return comp(operator[](i), elem); }
+};
+
+
+// --- vector -------------------------------------------------------------- //
+
+
+template <class T>
+class vector: public podvec<T>
+{
+protected:
+    enum { Tsize = sizeof(T) };
+    typedef podvec<T> parent;
+    typedef T* Tptr;
+    typedef Tptr& Tref;
+
+    class cont: public container
+    {
+    protected:
+
+        void finalize(void* p, memint len)
+        {
+            (char*&)p += len - Tsize;
+            for ( ; len; len -= Tsize, Tref(p)--)
+                Tptr(p)->~T();
+        }
+
+        void copy(void* dest, const void* src, memint len)
+        {
+            for ( ; len; len -= Tsize, Tref(dest)++, Tref(src)++)
+                new(dest) T(*Tptr(src));
+        }
+
+        cont(memint cap, memint siz): container(cap, siz)  { }
+
+    public:
+        static container* allocate(memint cap, memint siz)
+            { return new(cap) cont(cap, siz); }
+
+        ~cont()
+            { if (_size) { finalize(data(), _size); _size = 0; } }
+    };
+
+public:
+    vector(): parent()  { }
+
+    // Override stuff that requires allocation of 'vector::cont'
+    void insert(memint pos, const T& t)
+        { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
+    void push_back(const T& t)
+        { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
+    void resize(memint newsize)
+        { notimpl(); /* bytevec::_resize(newsize, cont::allocate); */ }
+
+    // Give a chance to alternative constructors, e.g. str can be constructed
+    // from (const char*). Without these templates below temp objects are
+    // created and then copied into the vector. Though these are somewhat
+    // dangerous too.
+    template <class U>
+        void insert(memint pos, const U& u)
+            { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(u); }
+    template <class U>
+        void push_back(const U& u)
+            { new(bytevec::_append(Tsize, cont::allocate)) T(u); }
+    template <class U>
+        void replace(memint i, const U& u)
+            { parent::atw(i) = u; }
+
+    bool find_insert(const T& item)
+    {
+        if (parent::empty())
+            { push_back(item); return true; }
+        else
+            return parent::find_insert(item);
+    }
+};
+
+
+// --- dict ---------------------------------------------------------------- //
+
+
+template <class Tkey, class Tval>
+class dict
+{
+protected:
+
+    void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
+
+    class dictobj: public object
+    {
+    public:
+        vector<Tkey> keys;
+        vector<Tval> values;
+        dictobj(): keys(), values()  { }
+        dictobj(const dictobj& d): keys(d.keys), values(d.values)  { }
+    };
+
+    objptr<dictobj> obj;
+
+    void _mkunique()
+        { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
+
+public:
+    dict()                                  : obj()  { }
+    dict(const dict& d)                     : obj(d.obj)  { }
+    ~dict()                                 { }
+
+    bool empty() const                      { return obj.empty(); }
+    memint size() const                     { return !empty() ? obj->keys.size() : 0; }
+    bool operator== (const dict& d) const   { return obj == d.obj; }
+    bool operator!= (const dict& d) const   { return obj != d.obj; }
+
+    void clear()                            { obj.clear(); }
+    void operator= (const dict& d)          { obj = d.obj; }
+
+    const Tkey& key(memint i) const         { chkidx(i); return obj->keys[i];  }
+    const Tval& value(memint i) const       { chkidx(i); return obj->values[i];  }
+
+    void replace(memint i, const Tval& v)
+    {
+        chkidx(i);
+        _mkunique();
+        obj->values.replace(i, v);
+    }
+
+    void erase(memint i)
+    {
+        chkidx(i);
+        _mkunique();
+        obj->keys.erase(i);
+        obj->values.erase(i);
+        if (obj->keys.empty())
+            clear();
+    }
+
+    struct item_type
+    {
+        const Tkey& key;
+        Tval& value;
+        item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
+    };
+
+    item_type operator[] (memint i) const
+        { chkidx(i); return item_type(obj->keys[i], obj->values.atw(i)); }
+
+    const Tval* find(const Tkey& k) const
+    {
+        memint i;
+        if (bsearch(k, i))
+            return &obj->values[i];
+        else
+            return NULL;
+    }
+
+    void find_replace(const Tkey& k, const Tval& v)
+    {
+        memint i;
+        if (!bsearch(k, i))
+        {
+            if (empty())
+                obj = new dictobj();
+            else
+                _mkunique();
+            obj->keys.insert(i, k);
+            obj->values.insert(i, v);
+        }
+        else
+            replace(i, v);
+        assert(obj->keys.size() == obj->values.size());
+    }
+
+    void find_erase(const Tkey& k)
+        { memint i; if (bsearch(k, i)) erase(i); }
+
+    // These are public 
+    memint compare(memint i, const Tkey& k) const
+        { comparator<Tkey> comp; return comp(obj->keys[i], k); }
+
+    bool bsearch(const Tkey& k, memint& i) const
+        { return ::bsearch(*this, size() - 1, k, i); }
+};
+
+
+// --- ordset -------------------------------------------------------------- //
+
+
+class ordset
+{
+protected:
+    struct setobj: public object
+    {
+        charset set;
+        setobj(): set()  { }
+        setobj(const setobj& s): set(s.set)  { }
+    };
+    objptr<setobj> obj;
+    charset& _getunique();
+public:
+    ordset()                                : obj()  { }
+    ordset(const ordset& s)                 : obj(s.obj)  { }
+    ~ordset()                               { }
+    bool empty() const                      { return obj.empty() || obj->set.empty(); }
+    memint compare(const ordset& s) const;
+    bool operator== (const ordset& s) const { return compare(s) == 0; }
+    bool operator!= (const ordset& s) const { return compare(s) != 0; }
+    void clear()                            { obj.clear(); }
+    void operator= (const ordset& s)        { obj = s.obj; }
+    bool has(integer v) const               { return !obj.empty() && obj->set[int(v)]; }
+    void insert(integer v);
+    void insert(integer l, integer h);
+    void erase(integer v);
 };
 
 
@@ -536,6 +764,12 @@ public:
     esyserr(int icode, const str& iArg = "") throw();
     ~esyserr() throw();
 };
+
+
+// ------------------------------------------------------------------------- //
+
+void initRuntime();
+void doneRuntime();
 
 
 #endif // __RUNTIME_H

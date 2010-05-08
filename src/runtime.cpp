@@ -905,6 +905,35 @@ str to_quoted(const str& s)
     { return "'" + to_printable(s) + "'"; }
 
 
+// --- ordset -------------------------------------------------------------- //
+
+
+charset& ordset::_getunique()
+{
+    if (obj.empty())
+        obj = new setobj();
+    else if (!obj.unique())
+        obj = new setobj(*obj);
+    return obj->set;
+}
+
+
+memint ordset::compare(const ordset& s) const
+{
+    if (empty())
+        return s.empty() ? 0 : -1;
+    else if (s.empty())
+        return 1;
+    else
+        return obj->set.compare(s.obj->set);
+}
+
+
+void ordset::insert(integer v)                  { _getunique().include(int(v)); }
+void ordset::insert(integer l, integer h)       { _getunique().include(int(l), int(h)); }
+void ordset::erase(integer v)                   { if (!empty()) _getunique().exclude(int(v)); }
+
+
 // --- object collections -------------------------------------------------- //
 
 
@@ -965,4 +994,20 @@ esyserr::esyserr(int code, const str& arg) throw()
 
 
 esyserr::~esyserr() throw()  { }
+
+
+// ------------------------------------------------------------------------- //
+
+
+void initRuntime()
+{
+    // Some critical build integrity tests
+    if (sizeof(str) != sizeof(void*) || sizeof(symtbl) != sizeof(void*))
+        fatal(0x1004, "Broken build");
+}
+
+
+void doneRuntime()
+{
+}
 
