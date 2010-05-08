@@ -13,6 +13,10 @@
 		365B4A72100283E40023D0FD /* common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4A70100283E40023D0FD /* common.cpp */; };
 		369DE917119447A600BBD287 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 369DE915119447A600BBD287 /* runtime.cpp */; };
 		369DE918119447A600BBD287 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 369DE915119447A600BBD287 /* runtime.cpp */; };
+		36B6ACEC1195E0A3001EF4C0 /* rtio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */; };
+		36B6ACED1195E0A3001EF4C0 /* rtio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */; };
+		36B6AD201195F0C7001EF4C0 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD1E1195F0C7001EF4C0 /* parser.cpp */; };
+		36B6AD211195F0C7001EF4C0 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD1E1195F0C7001EF4C0 /* parser.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -46,6 +50,9 @@
 		365B4A70100283E40023D0FD /* common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = common.cpp; path = src/common.cpp; sourceTree = "<group>"; };
 		369DE915119447A600BBD287 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		369DE916119447A600BBD287 /* runtime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = runtime.h; path = src/runtime.h; sourceTree = "<group>"; };
+		36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rtio.cpp; path = src/rtio.cpp; sourceTree = "<group>"; };
+		36B6AD1E1195F0C7001EF4C0 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = src/parser.cpp; sourceTree = "<group>"; };
+		36B6AD1F1195F0C7001EF4C0 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -81,13 +88,16 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				369DE915119447A600BBD287 /* runtime.cpp */,
-				369DE916119447A600BBD287 /* runtime.h */,
-				363C70ED0EF70F4400866D2C /* main.cpp */,
-				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
+				36C8E962100EA94D00117341 /* version.h */,
 				361AF9621000E38D00E12EAE /* common.h */,
 				365B4A70100283E40023D0FD /* common.cpp */,
-				36C8E962100EA94D00117341 /* version.h */,
+				369DE916119447A600BBD287 /* runtime.h */,
+				369DE915119447A600BBD287 /* runtime.cpp */,
+				36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */,
+				36B6AD1E1195F0C7001EF4C0 /* parser.cpp */,
+				36B6AD1F1195F0C7001EF4C0 /* parser.h */,
+				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
+				363C70ED0EF70F4400866D2C /* main.cpp */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -175,6 +185,8 @@
 				363C710D0EF70FBE00866D2C /* main-ut.cpp in Sources */,
 				365B4A72100283E40023D0FD /* common.cpp in Sources */,
 				369DE917119447A600BBD287 /* runtime.cpp in Sources */,
+				36B6ACEC1195E0A3001EF4C0 /* rtio.cpp in Sources */,
+				36B6AD201195F0C7001EF4C0 /* parser.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +197,8 @@
 				363C70F70EF70F4400866D2C /* main.cpp in Sources */,
 				365B4A71100283E40023D0FD /* common.cpp in Sources */,
 				369DE918119447A600BBD287 /* runtime.cpp in Sources */,
+				36B6ACED1195E0A3001EF4C0 /* rtio.cpp in Sources */,
+				36B6AD211195F0C7001EF4C0 /* parser.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

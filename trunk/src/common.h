@@ -119,7 +119,6 @@ bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
 }
 
 
-/*
 class noncopyable
 {
 private:
@@ -129,7 +128,6 @@ public:
     noncopyable() {}
     ~noncopyable() {}
 };
-*/
 
 
 struct exception // : public noncopyable -- doesn't work

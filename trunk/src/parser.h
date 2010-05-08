@@ -2,7 +2,6 @@
 #define __PARSER_H
 
 #include "common.h"
-#include "charset.h"
 #include "runtime.h"
 
 
