@@ -7,193 +7,140 @@
 // #include "compiler.h"
 
 
-// --- vector -------------------------------------------------------------- //
+// --- variant ------------------------------------------------------------- //
 
+class variant;
 
-template <class T>
-class vector: public podvec<T>
+typedef vector<variant> varvec;
+typedef varvec varset;
+typedef dict<variant, variant> vardict;
+
+/*
+class variant
 {
-protected:
-    enum { Tsize = sizeof(T) };
-    typedef podvec<T> parent;
-    typedef T* Tptr;
-    typedef Tptr& Tref;
-
-    class cont: public container
-    {
-    protected:
-
-        void finalize(void* p, memint len)
-        {
-            (char*&)p += len - Tsize;
-            for ( ; len; len -= Tsize, Tref(p)--)
-                Tptr(p)->~T();
-        }
-
-        void copy(void* dest, const void* src, memint len)
-        {
-            for ( ; len; len -= Tsize, Tref(dest)++, Tref(src)++)
-                new(dest) T(*Tptr(src));
-        }
-
-        cont(memint cap, memint siz): container(cap, siz)  { }
-
-    public:
-        static container* allocate(memint cap, memint siz)
-            { return new(cap) cont(cap, siz); }
-
-        ~cont()
-            { if (_size) { finalize(data(), _size); _size = 0; } }
-    };
+    friend void test_variant();
 
 public:
-    vector(): parent()  { }
+    // TODO: tinyset
 
-    // Override stuff that requires allocation of 'vector::cont'
-    void insert(memint pos, const T& t)
-            { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
-    void push_back(const T& t)
-            { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
-    void resize(memint newsize)
-            { notimpl(); /* bytevec::_resize(newsize, cont::allocate); */ }
+    enum Type
+        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
+            NONPOD = STR};
 
-    // Give a chance to alternative constructors, e.g. str can be constructed
-    // from (const char*). Without these templates below temp objects are
-    // created and then copied into the vector. Though these are somewhat
-    // dangerous too.
-    template <class U>
-        void insert(memint pos, const U& u)
-            { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(u); }
-    template <class U>
-        void push_back(const U& u)
-            { new(bytevec::_append(Tsize, cont::allocate)) T(u); }
-    template <class U>
-        void replace(memint i, const U& u)
-            { parent::atw(i) = u; }
+    struct _None { int dummy; }; 
+    static _None null;
 
-    bool find_insert(const T& item)
-    {
-        if (parent::empty())
-        {
-            push_back(item);
-            return true;
-        }
-        else
-            return parent::find_insert(item);
-    }
-};
-
-
-// --- dict ---------------------------------------------------------------- //
-
-
-template <class Tkey, class Tval>
-class dict
-{
 protected:
-
-    void chkidx(memint i) const     { if (umemint(i) >= umemint(size())) container::idxerr(); }
-
-    class dictobj: public object
+    Type type;
+    union
     {
-    public:
-        vector<Tkey> keys;
-        vector<Tval> values;
-        dictobj(): keys(), values()  { }
-        dictobj(const dictobj& d): keys(d.keys), values(d.values)  { }
-    };
+        integer     _ord;       // int, char and bool
+        real        _real;      // not implemented in the VM yet
+        void*       _data;      // str, vector
+        object*     _obj;       // ordset, dict
+        rtobject*   _rtobj;     // runtime objects with the "type" field
+    } val;
 
-    objptr<dictobj> obj;
+    static void _type_err();
+    static void _range_err();
+    bool is_nonpod() const              { return type >= NONPOD; }
+    void _req(Type t) const             { if (type != t) _type_err(); }
+#ifdef DEBUG
+    void _dbg(Type t) const             { _req(t); }
+#else
+    void _dbg(Type t) const             { }
+#endif
 
-    void _mkunique()
-        { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
+    void _init()                        { type = NONE; }
+    void _init(Type);
+    void _init(_None)                   { type = NONE; }
+    void _init(bool v)                  { type = ORD; val._ord = v; }
+    void _init(char v)                  { type = ORD; val._ord = uchar(v); }
+    void _init(uchar v)                 { type = ORD; val._ord = v; }
+    void _init(int v)                   { type = ORD; val._ord = v; }
+#ifdef SHN_64
+    void _init(large v)                 { type = ORD; val._ord = v; }
+#endif
+    void _init(real v)                  { type = REAL; val._real = v; }
+    void _init(const str& v)            { _init(STR, v.data()); }
+    void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
+    void _init(const varvec& v)         { _init(VEC, v.obj); }
+    void _init(const ordset& v)         { _init(ORDSET, v.obj); }
+    void _init(const vardict& v)        { _init(DICT, v.obj); }
+    void _init(Type t, object* o)       { type = t; val._obj = o->grab(); }
+    void _init(rtobject* o)             { type = RTOBJ; val._rtobj = o->grab<rtobject>(); }
+    void _init(const variant& v);
+    void _fin();
 
 public:
-    dict()                                  : obj()  { }
-    dict(const dict& d)                     : obj(d.obj)  { }
-    ~dict()                                 { }
+    variant()                           { _init(); }
+    variant(Type t)                     { _init(t); }
+    variant(const variant& v)           { _init(v); }
+    template <class T>
+        variant(const T& v)             { _init(v); }
+    variant(Type t, object* o)          { _init(t, o); }
+    ~variant()                          { _fin(); }
 
-    bool empty() const                      { return obj.empty(); }
-    memint size() const                     { return !empty() ? obj->keys.size() : 0; }
-    bool operator== (const dict& d) const   { return obj == d.obj; }
+    template <class T>
+        void operator= (const T& v)     { _fin(); _init(v); }
+    void operator= (const variant& v);  // { assert(this != &v); _fin(); _init(v); }
+    void clear()                        { _fin(); _init(); }
+    bool empty() const;
 
-    void clear()                            { obj.clear(); }
-    void operator= (const dict& d)          { obj = d.obj; }
+    memint compare(const variant&) const;
+    bool operator== (const variant&) const;
+    bool operator!= (const variant& v) const { return !(operator==(v)); }
 
-    const Tkey& key(memint i) const         { chkidx(i); return obj->keys[i];  }
-    const Tval& value(memint i) const       { chkidx(i); return obj->values[i];  }
+    Type getType() const                { return Type(type); }
+    bool is(Type t) const               { return type == t; }
+    bool is_none() const                { return type == NONE; }
+    bool is_ord() const                 { return type == ORD; }
+    bool is_str() const                 { return type == STR; }
 
-    void replace(memint i, const Tval& v)
-    {
-        chkidx(i);
-        _mkunique();
-        obj->values.replace(i, v);
-    }
+    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    bool        _bool()           const { _dbg(ORD); return val._ord; }
+    uchar       _uchar()          const { _dbg(ORD); return val._ord; }
+    integer     _int()            const { _dbg(ORD); return val._ord; }
+    integer     _ord()            const { _dbg(ORD); return val._ord; }
+    const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
+    const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
+    const varset& _set()          const { return _vec(); }
+    const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
+    rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
+    object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
+    integer&    _ord()                  { _dbg(ORD); return val._ord; }
+    str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
+    varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
+    varset&     _set()                  { return _vec(); }
+    ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
+    vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
 
-    void erase(memint i)
-    {
-        chkidx(i);
-        _mkunique();
-        obj->keys.erase(i);
-        obj->values.erase(i);
-        if (obj->keys.empty())
-            clear();
-    }
-
-    struct item_type
-    {
-        const Tkey& key;
-        Tval& value;
-        item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
-    };
-    
-    item_type operator[] (memint i) const
-    {
-        chkidx(i);
-        assert(obj->keys.size() == obj->values.size());
-        return item_type(obj->keys[i], obj->values.atw(i));
-    }
-
-    const Tval* find(const Tkey& k) const
-    {
-        memint i;
-        if (bsearch(k, i))
-            return &obj->values[i];
-        else
-            return NULL;
-    }
-
-    void find_replace(const Tkey& k, const Tval& v)
-    {
-        memint i;
-        if (!bsearch(k, i))
-        {
-            if (empty())
-                obj = new dictobj();
-            else
-                _mkunique();
-            obj->keys.insert(i, k);
-            obj->values.insert(i, v);
-        }
-        else
-            replace(i, v);
-    }
-
-    void find_erase(const Tkey& k)
-    {
-        memint i;
-        if (bsearch(k, i))
-            erase(i);
-    }
-
-    // These are public 
-    memint compare(memint i, const Tkey& k) const
-        { comparator<Tkey> comp; return comp(obj->keys[i], k); }
-
-    bool bsearch(const Tkey& k, memint& i) const
-        { return ::bsearch(*this, size() - 1, k, i); }
+    // Safer access methods; may throw an exception
+    bool        as_bool()         const { _req(ORD); return _bool(); }
+    char        as_char()         const { _req(ORD); return _uchar(); }
+    uchar       as_uchar()        const { _req(ORD); return _uchar(); }
+    integer     as_int()          const { _req(ORD); return _int(); }
+    integer     as_ord()          const { _req(ORD); return _ord(); }
+    const str&  as_str()          const { _req(STR); return _str(); }
+    const varvec& as_vec()        const { _req(VEC); return _vec(); }
+    const varset& as_set()        const { return as_vec(); }
+    const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
+    const vardict& as_dict()      const { _req(DICT); return _dict(); }
+    rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
+    object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
+    integer&    as_ord()                { _req(ORD); return _ord(); }
+    str&        as_str()                { _req(STR); return _str(); }
+    varvec&     as_vec()                { _req(VEC); return _vec(); }
+    varset&     as_set()                { return as_vec(); }
+    ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
+    vardict&    as_dict()               { _req(DICT); return _dict(); }
 };
 
+template <>
+    struct comparator<variant>
+        { memint operator() (const variant& a, const variant& b) { return a.compare(b); } };
+*/
 
 // ------------------------------------------------------------------------- //
 
@@ -203,7 +150,7 @@ public:
 // #include "typesys.h"
 
 
-static void ut_fail(unsigned line, const char* e)
+void ut_fail(unsigned line, const char* e)
 {
     fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, line, e);
     exit(200);
@@ -214,59 +161,6 @@ static void ut_fail(unsigned line, const char* e)
 
 #define check_throw(a) \
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
-
-
-static void test_vector()
-{
-    vector<str> v1;
-    v1.push_back("ABC");
-    check(v1[0] == "ABC");
-    vector<str> v2 = v1;
-    check(v2[0] == "ABC");
-    v1.push_back("DEF");
-    v1.push_back("GHI");
-    v1.push_back("JKL");
-    vector<str> v3 = v1;
-    check(v1.size() == 4);
-    check(v2.size() == 1);
-    check(v3.size() == 4);
-    str s1 = "ABC";
-    check(v1[0] == s1);
-    check(v1[1] == "DEF");
-    check(v1[2] == "GHI");
-    check(v1[3] == "JKL");
-    v1.erase(2);
-    check(v1[0] == "ABC");
-    check(v1[1] == "DEF");
-    check(v1[2] == "JKL");
-    check(v1.back() == "JKL");
-    v3 = v1;
-    v1.replace(2, "MNO");
-    check(v1[2] == "MNO");
-    check(v3[2] == "JKL");
-}
-
-
-static void test_dict()
-{
-    dict<str, int> d1;
-    d1.find_replace("three", 3);
-    d1.find_replace("one", 1);
-    d1.find_replace("two", 2);
-    check(d1.size() == 3);
-    check(d1[0].key == "one");
-    check(d1[1].key == "three");
-    check(d1[2].key == "two");
-    dict<str, int> d2 = d1;
-    d1.find_erase("three");
-    check(d1.size() == 2);
-    check(d1[0].key == "one");
-    check(d1[1].key == "two");
-    check(*d1.find("one") == 1);
-    check(d1.find("three") == NULL);
-    check(d2.size() == 3);
-}
-
 
 
 #ifdef XCODE
@@ -283,10 +177,9 @@ int main()
 //        << '.' << SHANNON_VERSION_FIX
 //        << " Copyright (c) 2008-2010 Hovik Melikyan" << endl << endl;
 
-    test_vector();
-    test_dict();
-
     int exitcode = 0;
+
+    initRuntime();
 /*
     initTypeSys();
     try
@@ -313,6 +206,7 @@ int main()
     }
     doneTypeSys();
 */
+    doneRuntime();
 
 #ifdef DEBUG
     if (object::allocated != 0)

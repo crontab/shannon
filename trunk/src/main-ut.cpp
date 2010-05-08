@@ -2,7 +2,7 @@
 #define __STDC_LIMIT_MACROS
 
 #include "common.h"
-// #include "runtime.h"
+#include "runtime.h"
 // #include "parser.h"
 // #include "typesys.h"
 // #include "vm.h"
@@ -42,7 +42,7 @@ void test_common()
     check(pdecrement(&i) == 1);
 }
 
-/*
+
 struct testobj: public object
 {
     testobj()  { }
@@ -51,14 +51,14 @@ struct testobj: public object
 void test_object()
 {
     {
-        object* b = (new testobj())->ref();
+        object* b = (new testobj())->grab();
         check(b->unique());
-        object* c = b->ref();
+        object* c = b->grab();
         check(!b->unique());
         c->release();
         check(b->unique());
         b->release();
-        b = (new testobj())->ref();
+        b = (new testobj())->grab();
         b->release();
     }
     {
@@ -74,21 +74,21 @@ void test_ordset()
 {
     ordset s1;
     check(s1.empty());
-    s1.insert(100);
-    check(s1.has(100));
-    check(!s1.has(101));
+    s1.insert(129);
+    check(s1.has(129));
+    check(!s1.has(1));
     check(!s1.empty());
     ordset s2 = s1;
-    check(s2.has(100));
-    check(!s2.has(101));
+    check(s2.has(129));
+    check(!s2.has(1));
     check(!s2.empty());
-    s1.erase(100);
+    s1.erase(129);
     check(s1.empty());
     check(!s2.empty());
     ordset s3;
     s3 = s1;
 }
-*/
+
 
 void test_bytevec()
 {
@@ -365,8 +365,7 @@ void test_podvec()
 }
 
 
-/*
-void test_vector()
+static void test_vector()
 {
     vector<str> v1;
     v1.push_back("ABC");
@@ -380,7 +379,8 @@ void test_vector()
     check(v1.size() == 4);
     check(v2.size() == 1);
     check(v3.size() == 4);
-    check(v1[0] == "ABC");
+    str s1 = "ABC";
+    check(v1[0] == s1);
     check(v1[1] == "DEF");
     check(v1[2] == "GHI");
     check(v1[3] == "JKL");
@@ -393,6 +393,35 @@ void test_vector()
     v1.replace(2, "MNO");
     check(v1[2] == "MNO");
     check(v3[2] == "JKL");
+}
+
+
+static void test_dict()
+{
+    dict<str, int> d1;
+    d1.find_replace("three", 3);
+    d1.find_replace("one", 1);
+    d1.find_replace("two", 2);
+    check(d1.size() == 3);
+    check(d1[0].key == "one");
+    check(d1[1].key == "three");
+    check(d1[2].key == "two");
+    check(d1[0].value == 1);
+    check(d1[1].value == 3);
+    check(d1[2].value == 2);
+    dict<str, int> d2 = d1;
+    d1.find_erase("three");
+    check(d1.size() == 2);
+    check(d1[0].key == "one");
+    check(d1[1].key == "two");
+    check(*d1.find("one") == 1);
+    check(d1.find("three") == NULL);
+    dict<str, int> d3;
+    d3 = d2;
+    check(d2 == d3);
+    d3.replace(0, 0);
+    check(d2 != d3);
+    check(d2.size() == 3);
 }
 
 
@@ -414,28 +443,7 @@ void test_set()
 }
 
 
-void test_dict()
-{
-    dict<str, int> d1;
-    d1.find_replace("three", 3);
-    d1.find_replace("one", 1);
-    d1.find_replace("two", 2);
-    check(d1.size() == 3);
-    check(d1[0].key == "one");
-    check(d1[1].key == "three");
-    check(d1[2].key == "two");
-    dict<str, int> d2 = d1;
-    d1.find_erase("three");
-    check(d1.size() == 2);
-    check(d1[0].key == "one");
-    check(d1[1].key == "two");
-    check(*d1.find("one") == 1);
-    check(d1.find("three") == NULL);
-    check(d2.size() == 3);
-}
-
-
-void test_symvec()
+void test_symtbl()
 {
     symtbl s1;
     objptr<symbol> p1 = new symbol("abc");
@@ -449,7 +457,7 @@ void test_symvec()
     check(!s1.bsearch("def", i));
 }
 
-
+/*
 void test_variant()
 {
     {
@@ -700,16 +708,16 @@ int main()
     try
     {
         test_common();
-//        test_object();
-//        test_ordset();
+        test_object();
+        test_ordset();
         test_bytevec();
         test_string();
         test_strutils();
         test_podvec();
-//        test_vector();
-//        test_set();
-//        test_dict();
-//        test_symvec();
+        test_vector();
+        test_dict();
+        test_set();
+        test_symtbl();
 //        test_variant();
 //        test_fifos();
 //        test_typesys();
