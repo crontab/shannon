@@ -1,12 +1,4 @@
 
-* $ is for run-time symbols (keyword-like string literals) (?)
-
-* Vector constructor is enclosed in < > and is compatible with fifos. A single 
-  element can be automatically converted to a vector when necessary. Same for 
-  char/str, since char is not distinguishable from string syntactically anyway.
-  The angle brackets play well with the fifo derivator <>, since fifo literals
-  are vectors.
-
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the
   element type is "none". Operator "in" is applicable to both dicts and sets.
   Dict/set constructors are in square brackets.
@@ -18,10 +10,6 @@
 * finally { ... } is a nested block which is executed if the enclosing block
   reaches its end, i.e. the finally label. For states this is the destructor.
   Not the same as try ... finally construct.
-
-* A code block in an expression is an anonymous function; the exact type is
-  determined by the target. Build the execution context for an anon function
-  (copy all external values into a temp object?)
 
 * "def self ..." is not nice, maybe "class ..." is better, or "state"
 

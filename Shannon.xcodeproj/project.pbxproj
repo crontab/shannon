@@ -17,6 +17,14 @@
 		36B6ACED1195E0A3001EF4C0 /* rtio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */; };
 		36B6AD201195F0C7001EF4C0 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD1E1195F0C7001EF4C0 /* parser.cpp */; };
 		36B6AD211195F0C7001EF4C0 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD1E1195F0C7001EF4C0 /* parser.cpp */; };
+		36B6AD3C1195F863001EF4C0 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD3A1195F863001EF4C0 /* typesys.cpp */; };
+		36B6AD3D1195F863001EF4C0 /* typesys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD3A1195F863001EF4C0 /* typesys.cpp */; };
+		36B6AD4811960432001EF4C0 /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD4511960432001EF4C0 /* vm.cpp */; };
+		36B6AD4911960432001EF4C0 /* vmcodegen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD4711960432001EF4C0 /* vmcodegen.cpp */; };
+		36B6AD4A11960432001EF4C0 /* vm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD4511960432001EF4C0 /* vm.cpp */; };
+		36B6AD4B11960432001EF4C0 /* vmcodegen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD4711960432001EF4C0 /* vmcodegen.cpp */; };
+		36B6AD551196061B001EF4C0 /* compiler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD531196061B001EF4C0 /* compiler.cpp */; };
+		36B6AD561196061B001EF4C0 /* compiler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36B6AD531196061B001EF4C0 /* compiler.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -53,6 +61,13 @@
 		36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rtio.cpp; path = src/rtio.cpp; sourceTree = "<group>"; };
 		36B6AD1E1195F0C7001EF4C0 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = src/parser.cpp; sourceTree = "<group>"; };
 		36B6AD1F1195F0C7001EF4C0 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
+		36B6AD3A1195F863001EF4C0 /* typesys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = typesys.cpp; path = src/typesys.cpp; sourceTree = "<group>"; };
+		36B6AD3B1195F863001EF4C0 /* typesys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = typesys.h; path = src/typesys.h; sourceTree = "<group>"; };
+		36B6AD4511960432001EF4C0 /* vm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vm.cpp; path = src/vm.cpp; sourceTree = "<group>"; };
+		36B6AD4611960432001EF4C0 /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vm.h; path = src/vm.h; sourceTree = "<group>"; };
+		36B6AD4711960432001EF4C0 /* vmcodegen.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vmcodegen.cpp; path = src/vmcodegen.cpp; sourceTree = "<group>"; };
+		36B6AD531196061B001EF4C0 /* compiler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = compiler.cpp; path = src/compiler.cpp; sourceTree = "<group>"; };
+		36B6AD541196061B001EF4C0 /* compiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = src/compiler.h; sourceTree = "<group>"; };
 		36C8E962100EA94D00117341 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -94,8 +109,15 @@
 				369DE916119447A600BBD287 /* runtime.h */,
 				369DE915119447A600BBD287 /* runtime.cpp */,
 				36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */,
-				36B6AD1E1195F0C7001EF4C0 /* parser.cpp */,
 				36B6AD1F1195F0C7001EF4C0 /* parser.h */,
+				36B6AD1E1195F0C7001EF4C0 /* parser.cpp */,
+				36B6AD3B1195F863001EF4C0 /* typesys.h */,
+				36B6AD3A1195F863001EF4C0 /* typesys.cpp */,
+				36B6AD4611960432001EF4C0 /* vm.h */,
+				36B6AD4511960432001EF4C0 /* vm.cpp */,
+				36B6AD4711960432001EF4C0 /* vmcodegen.cpp */,
+				36B6AD541196061B001EF4C0 /* compiler.h */,
+				36B6AD531196061B001EF4C0 /* compiler.cpp */,
 				363C710C0EF70FBE00866D2C /* main-ut.cpp */,
 				363C70ED0EF70F4400866D2C /* main.cpp */,
 			);
@@ -187,6 +209,10 @@
 				369DE917119447A600BBD287 /* runtime.cpp in Sources */,
 				36B6ACEC1195E0A3001EF4C0 /* rtio.cpp in Sources */,
 				36B6AD201195F0C7001EF4C0 /* parser.cpp in Sources */,
+				36B6AD3C1195F863001EF4C0 /* typesys.cpp in Sources */,
+				36B6AD4811960432001EF4C0 /* vm.cpp in Sources */,
+				36B6AD4911960432001EF4C0 /* vmcodegen.cpp in Sources */,
+				36B6AD551196061B001EF4C0 /* compiler.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,6 +225,10 @@
 				369DE918119447A600BBD287 /* runtime.cpp in Sources */,
 				36B6ACED1195E0A3001EF4C0 /* rtio.cpp in Sources */,
 				36B6AD211195F0C7001EF4C0 /* parser.cpp in Sources */,
+				36B6AD3D1195F863001EF4C0 /* typesys.cpp in Sources */,
+				36B6AD4A11960432001EF4C0 /* vm.cpp in Sources */,
+				36B6AD4B11960432001EF4C0 /* vmcodegen.cpp in Sources */,
+				36B6AD561196061B001EF4C0 /* compiler.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
