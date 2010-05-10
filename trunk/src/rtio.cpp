@@ -651,7 +651,7 @@ enum FileType
 };
 
 
-FileType getFileType(const char* path)
+static FileType getFileType(const char* path)
 {
     struct stat st;
     if (stat(path, &st) != 0)

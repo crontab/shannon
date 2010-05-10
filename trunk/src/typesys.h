@@ -82,7 +82,6 @@ public:
 
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
-    memint getStackSize() const     { return stackSize; }
     bool empty() const;
     void close();
 
@@ -116,8 +115,8 @@ class Definition: public Symbol
 {
 public:
     variant const value;
-    Definition(const str&, Type*, const variant&) throw();
-    ~Definition() throw();
+    Definition(const str&, Type*, const variant&);
+    ~Definition();
     Type* getAliasedType() const;
 };
 
@@ -127,8 +126,8 @@ class Variable: public Symbol
 public:
     memint const id;
     State* const state;
-    Variable(const str&, SymbolId, Type*, memint, State*) throw();
-    ~Variable() throw();
+    Variable(const str&, SymbolId, Type*, memint, State*);
+    ~Variable();
 };
 
 
@@ -202,15 +201,15 @@ protected:
     str alias;      // for more readable diagnostics output, but not really needed
     State* host;
 
-    Type(Type*, TypeId) throw();
-//    Type(TypeId) throw();
+    Type(Type*, TypeId);
+//    Type(TypeId);
     bool empty() const;
     static TypeId contType(Type* i, Type* e);
 
 public:
     TypeId const typeId;
 
-    ~Type() throw();
+    ~Type();
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
     bool isNone() const         { return typeId == NONE; }
@@ -263,8 +262,8 @@ class TypeReference: public Type
     friend void initTypeSys();
     friend class QueenBee;
 protected:
-    TypeReference() throw();
-    ~TypeReference() throw();
+    TypeReference();
+    ~TypeReference();
 };
 
 
@@ -273,8 +272,8 @@ class None: public Type
     friend void initTypeSys();
     friend class QueenBee;
 protected:
-    None() throw();
-    ~None() throw();
+    None();
+    ~None();
 };
 
 
@@ -282,8 +281,8 @@ class Variant: public Type
 {
     friend class QueenBee;
 protected:
-    Variant() throw();
-    ~Variant() throw();
+    Variant();
+    ~Variant();
 };
 
 
@@ -291,10 +290,10 @@ class Reference: public Type
 {
     friend class Type;
 protected:
-    Reference(Type* _to) throw();
+    Reference(Type* _to);
 public:
     Type* const to;
-    ~Reference() throw();
+    ~Reference();
     str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
 };
@@ -307,8 +306,8 @@ class Ordinal: public Type
 {
     friend class QueenBee;
 protected:
-    Ordinal(TypeId, integer, integer) throw();
-    ~Ordinal() throw();
+    Ordinal(TypeId, integer, integer);
+    ~Ordinal();
     void reassignRight(integer r) // for enums during their definition
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
@@ -334,12 +333,12 @@ class Enumeration: public Ordinal
 protected:
     typedef objvec<Definition> EnumValues;
     EnumValues values;
-    Enumeration(TypeId _typeId) throw();            // built-in enums, e.g. bool
-    Enumeration(const EnumValues&, integer, integer) throw();     // subrange
+    Enumeration(TypeId _typeId);            // built-in enums, e.g. bool
+    Enumeration(const EnumValues&, integer, integer);     // subrange
     Ordinal* _createSubrange(integer, integer);     // override
 public:
-    Enumeration() throw();                          // user-defined enums
-    ~Enumeration() throw();
+    Enumeration();                          // user-defined enums
+    ~Enumeration();
     str definition(const str& ident) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
@@ -355,11 +354,11 @@ class Container: public Type
     friend class Type;
     friend class QueenBee;
 protected:
-    Container(Type* i, Type* e) throw();
+    Container(Type* i, Type* e);
 public:
     Type* const index;
     Type* const elem;
-    ~Container() throw();
+    ~Container();
     str definition(const str& ident) const;
     bool identicalTo(Type*) const;
     bool hasSmallIndex() const
@@ -377,10 +376,10 @@ class Fifo: public Type
     friend class Type;
     friend class QueenBee;
 protected:
-    Fifo(Type*) throw();
+    Fifo(Type*);
 public:
     Type* const elem;
-    ~Fifo() throw();
+    ~Fifo();
     bool identicalTo(Type*) const;
 };
 
@@ -394,8 +393,8 @@ protected:
     Type* returnType;
     objvec<Variable> args;          // owned
 public:
-    Prototype(Type* retType) throw();
-    ~Prototype() throw();
+    Prototype(Type* retType);
+    ~Prototype();
     memint argCount()                   { return args.size(); }
     memint retVarId()                   { return - argCount() - 1; }
     bool identicalTo(Type*) const; // override
@@ -422,8 +421,8 @@ public:
     Prototype* const prototype;
     objptr<CodeSeg> codeseg;
 
-    State(TypeId, Prototype* proto, State* parent, State* self) throw();
-    ~State() throw();
+    State(TypeId, Prototype* proto, State* parent, State* self);
+    ~State();
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
@@ -449,8 +448,8 @@ protected:
     bool complete;
 public:
     objvec<ModuleVar> uses; // used module instances are stored in static vars
-    Module() throw();
-    ~Module() throw();
+    Module();
+    ~Module();
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(const str&, Module*);
@@ -461,8 +460,8 @@ public:
 class ModuleVar: public Variable
 {
 public:
-    ModuleVar(const str& n, Module* m, memint _id, State* s) throw();
-    ~ModuleVar() throw();
+    ModuleVar(const str& n, Module* m, memint _id, State* s);
+    ~ModuleVar();
     Module* getModuleType()     { return cast<Module*>(type); }
 };
 
@@ -491,8 +490,8 @@ class QueenBee: public Module
     typedef Module parent;
     friend void initTypeSys();
 protected:
-    QueenBee() throw();
-    ~QueenBee() throw();
+    QueenBee();
+    ~QueenBee();
     stateobj* newInstance(); // override
 public:
     Variant* const defVariant;

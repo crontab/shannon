@@ -36,7 +36,7 @@ static void ut_fail(unsigned line, const char* e)
 #endif
 
 
-void test_common()
+static void test_common()
 {
     int i = 1;
     check(pincrement(&i) == 2);
@@ -49,7 +49,7 @@ struct testobj: public object
     testobj()  { }
 };
 
-void test_object()
+static void test_object()
 {
     {
         object* b = (new testobj())->grab();
@@ -71,7 +71,7 @@ void test_object()
 }
 
 
-void test_ordset()
+static void test_ordset()
 {
     ordset s1;
     check(s1.empty());
@@ -283,7 +283,7 @@ void test_string()
 }
 
 
-void test_strutils()
+static void test_strutils()
 {
     // string conversion
     check(to_string(integer(0)) == "0");
@@ -427,7 +427,7 @@ static void test_dict()
 }
 
 
-void test_set()
+static void test_set()
 {
     vector<str> s1;
     check(s1.find_insert("GHI"));
@@ -445,7 +445,7 @@ void test_set()
 }
 
 
-void test_symtbl()
+static void test_symtbl()
 {
     symtbl s1;
     objptr<symbol> p1 = new symbol("abc");
@@ -518,7 +518,7 @@ void test_variant()
 }
 
 
-void test_bidir_char_fifo(fifo& fc)
+static void test_bidir_char_fifo(fifo& fc)
 {
     check(fc.is_char_fifo());
     fc.enq("0123456789abcdefghijklmnopqrstuvwxy");
@@ -549,7 +549,7 @@ void test_bidir_char_fifo(fifo& fc)
 }
 
 
-void test_fifos()
+static void test_fifos()
 {
 #ifdef DEBUG
     memfifo::CHUNK_SIZE = 2 * sizeof(variant);
@@ -582,7 +582,7 @@ void test_fifos()
 }
 
 
-void test_parser()
+static void test_parser()
 {
     {
         Parser p(new strfifo(NULL,

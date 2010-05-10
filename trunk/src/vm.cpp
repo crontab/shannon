@@ -8,7 +8,7 @@ CodeSeg::CodeSeg(State* stateType)
 #ifdef DEBUG
     , closed(false)
 #endif
-    , stackSize(-1)
+    , stackSize(0)
     { }
 
 
@@ -24,7 +24,6 @@ void CodeSeg::close()
 {
 #ifdef DEBUG
     assert(!closed);
-    assert(stackSize >= 0);
     closed = true;
 #endif
     append(opEnd);
