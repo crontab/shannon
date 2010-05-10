@@ -937,10 +937,9 @@ void ordset::erase(integer v)                   { if (!empty()) _getunique().exc
 
 void objvec_impl::release_all()
 {
-    for (object* const* o = end(); o != begin(); o--)
-        if (*o)
-            (*o)->release();
-    clear();
+    // TODO: more optimal destruction
+    for (memint i = size() - 1; i >= 0; i--)
+        operator[](i)->release();
 }
 
 
@@ -1077,8 +1076,10 @@ memint variant::compare(const variant& v) const
         {
         case NONE:  return 0;
         case ORD:
+        {
             integer d = val._ord - v.val._ord;
             return d < 0 ? -1 : d > 0 ? 1 : 0;
+        }
         case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?

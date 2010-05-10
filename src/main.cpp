@@ -14,7 +14,7 @@
 
 // #include "typesys.h"
 
-
+/*
 void ut_fail(unsigned line, const char* e)
 {
     fprintf(stderr, "%s:%u: test failed `%s'\n", __FILE__, line, e);
@@ -26,6 +26,7 @@ void ut_fail(unsigned line, const char* e)
 
 #define check_throw(a) \
     { bool chk_throw = false; try { a; } catch(exception&) { chk_throw = true; } check(chk_throw); }
+*/
 
 
 #ifdef XCODE
@@ -45,8 +46,8 @@ int main()
     int exitcode = 0;
 
     initRuntime();
-/*
     initTypeSys();
+
     try
     {
         Context context;
@@ -69,8 +70,8 @@ int main()
         serr << "Error: " << e.what() << endl;
         exitcode = 101;
     }
+
     doneTypeSys();
-*/
     doneRuntime();
 
 #ifdef DEBUG
@@ -80,6 +81,7 @@ int main()
         _fatal(0xff01);
     }
 #endif
+
     return exitcode;
 }
 

@@ -21,11 +21,11 @@ bool Symbol::isTypeAlias() const
 // --- //
 
 
-Definition::Definition(const str& _name, Type* _type, const variant& _value) throw()
+Definition::Definition(const str& _name, Type* _type, const variant& _value)
     : Symbol(_name, DEFINITION, _type), value(_value) { }
 
 
-Definition::~Definition() throw()
+Definition::~Definition()
     { }
 
 
@@ -41,11 +41,11 @@ Type* Definition::getAliasedType() const
 // --- //
 
 
-Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state) throw()
+Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state)
     : Symbol(_name, _sid, _type), id(_id), state(_state)  { }
 
 
-Variable::~Variable() throw()
+Variable::~Variable()
     { }
 
 
@@ -149,12 +149,12 @@ void typeMismatch()
     { throw ecmessage("Type mismatch"); }
 
 
-Type::Type(Type* t, TypeId id) throw()
+Type::Type(Type* t, TypeId id)
     : rtobject(t), refType(NULL), host(NULL), typeId(id)
         { if (id != REF) refType = new Reference(this); }
 
 
-Type::~Type() throw()
+Type::~Type()
     { }
 
 
@@ -237,23 +237,23 @@ Fifo* Type::deriveFifo()
 // --- General Types ------------------------------------------------------- //
 
 
-TypeReference::TypeReference() throw(): Type(this, TYPEREF)  { }
-TypeReference::~TypeReference() throw()  { }
+TypeReference::TypeReference(): Type(this, TYPEREF)  { }
+TypeReference::~TypeReference()  { }
 
 
-None::None() throw(): Type(defTypeRef, NONE)  { }
-None::~None() throw()  { }
+None::None(): Type(defTypeRef, NONE)  { }
+None::~None()  { }
 
 
-Variant::Variant() throw(): Type(defTypeRef, VARIANT)  { }
-Variant::~Variant() throw()  { }
+Variant::Variant(): Type(defTypeRef, VARIANT)  { }
+Variant::~Variant()  { }
 
 
-Reference::Reference(Type* _to) throw()
+Reference::Reference(Type* _to)
     : Type(defTypeRef, REF), to(_to)  { }
 
 
-Reference::~Reference() throw()
+Reference::~Reference()
     { }
 
 
@@ -269,12 +269,12 @@ bool Reference::identicalTo(Type* t) const
 // --- Ordinals ------------------------------------------------------------ //
 
 
-Ordinal::Ordinal(TypeId id, integer l, integer r) throw()
+Ordinal::Ordinal(TypeId id, integer l, integer r)
     : Type(defTypeRef, id), left(l), right(r)
         { assert(isAnyOrd()); }
 
 
-Ordinal::~Ordinal() throw()
+Ordinal::~Ordinal()
     { }
 
 
@@ -318,19 +318,19 @@ bool Ordinal::canAssignTo(Type* t) const
 // --- //
 
 
-Enumeration::Enumeration(TypeId id) throw()
+Enumeration::Enumeration(TypeId id)
     : Ordinal(id, 0, -1)  { }
 
 
-Enumeration::Enumeration(const EnumValues& v, integer l, integer r) throw()
+Enumeration::Enumeration(const EnumValues& v, integer l, integer r)
     : Ordinal(ENUM, l, r), values(v)  { }
 
 
-Enumeration::Enumeration() throw()
+Enumeration::Enumeration()
     : Ordinal(ENUM, 0, -1)  { }
 
 
-Enumeration::~Enumeration() throw()
+Enumeration::~Enumeration()
     { }
 
 
@@ -390,11 +390,11 @@ Type::TypeId Type::contType(Type* i, Type* e)
 }
 
 
-Container::Container(Type* i, Type* e) throw()
+Container::Container(Type* i, Type* e)
     : Type(defTypeRef, contType(i, e)), index(i), elem(e)  { }
 
 
-Container::~Container() throw()
+Container::~Container()
     { }
 
 
@@ -419,11 +419,11 @@ bool Container::identicalTo(Type* t) const
 // --- Fifo ---------------------------------------------------------------- //
 
 
-Fifo::Fifo(Type* e) throw()
+Fifo::Fifo(Type* e)
     : Type(defTypeRef, FIFO), elem(e)  { }
 
 
-Fifo::~Fifo() throw()
+Fifo::~Fifo()
     { }
 
 
@@ -437,11 +437,11 @@ bool Fifo::identicalTo(Type* t) const
 // --- Prototype ----------------------------------------------------------- //
 
 
-Prototype::Prototype(Type* r) throw()
+Prototype::Prototype(Type* r)
     : Type(defTypeRef, PROTOTYPE), returnType(r)  { }
 
 
-Prototype::~Prototype() throw()
+Prototype::~Prototype()
     { args.release_all(); }
 
 
@@ -472,12 +472,12 @@ bool Prototype::identicalTo(Prototype* t) const
 // runtime type of a State object is not TypeRef* like all other types, but
 // Prototype* (actually it's the State constructor's prototype)
 
-State::State(TypeId _id, Prototype* proto, State* parent, State* self) throw()
+State::State(TypeId _id, Prototype* proto, State* parent, State* self)
     : Type(proto, _id), Scope(parent), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
-State::~State() throw()
+State::~State()
 {
     selfVars.release_all();
     defs.release_all();
@@ -560,11 +560,11 @@ stateobj* State::newInstance()
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module() throw()
+Module::Module()
     : State(MODULE, defPrototype, NULL, this), complete(false)  { }
 
 
-Module::~Module() throw()
+Module::~Module()
     { }
 
 
@@ -588,11 +588,11 @@ void Module::registerString(str& s)
 // --- //
 
 
-ModuleVar::ModuleVar(const str& n, Module* m, memint _id, State* s) throw()
+ModuleVar::ModuleVar(const str& n, Module* m, memint _id, State* s)
     : Variable(n, SELFVAR, m, _id, s)  { }
 
 
-ModuleVar::~ModuleVar() throw()  { }
+ModuleVar::~ModuleVar()  { }
 
 
 // --- //
@@ -641,7 +641,7 @@ void ModuleInst::finalize()
 // --- QueenBee ------------------------------------------------------------ //
 
 
-QueenBee::QueenBee() throw()
+QueenBee::QueenBee()
     : Module(),
       defVariant(new Variant()),
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
@@ -680,7 +680,7 @@ QueenBee::QueenBee() throw()
 }
 
 
-QueenBee::~QueenBee() throw()
+QueenBee::~QueenBee()
     { }
 
 

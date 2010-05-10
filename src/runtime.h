@@ -931,6 +931,9 @@ template <>
 // --- runtime objects ----------------------------------------------------- //
 
 
+class State;  // defined in typesys.h
+
+
 class stateobj: public rtobject
 {
     friend class State;

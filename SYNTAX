@@ -29,7 +29,7 @@ const-expr ::= expr | range-spec | enum-spec
 
 range-spec ::= expr '..' expr
 
-enum-spec ::= '(' ident ',' ident { ',' ident } [ ',' ] ')'
+enum-spec ::= 'enum' '(' ident ',' ident { ',' ident } [ ',' ] ')'
 
 
 
