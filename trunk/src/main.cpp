@@ -1,10 +1,10 @@
 
 #include "common.h"
 #include "runtime.h"
-// #include "parser.h"
-// #include "typesys.h"
-// #include "vm.h"
-// #include "compiler.h"
+#include "parser.h"
+#include "typesys.h"
+#include "vm.h"
+#include "compiler.h"
 
 
 // ------------------------------------------------------------------------- //

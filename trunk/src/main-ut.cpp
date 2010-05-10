@@ -4,8 +4,9 @@
 #include "common.h"
 #include "runtime.h"
 #include "parser.h"
-// #include "typesys.h"
-// #include "vm.h"
+#include "typesys.h"
+#include "vm.h"
+#include "compiler.h"
 
 
 static void ut_fail(unsigned line, const char* e)
@@ -581,51 +582,6 @@ void test_fifos()
 }
 
 
-/*
-void test_typesys()
-{
-    {
-        State state(Type::MODULE, NULL, NULL);
-        objptr<Definition> d1 = new Definition("abc", NULL, 0);
-        check(d1->name == "abc");
-        state.addDefinition("def", NULL, 1);
-        state.addDefinition("ghi", NULL, 2);
-        Symbol* s = state.find("def");
-        check(s != NULL);
-        check(s->isDefinition());
-        check(s->name == "def");
-        state.findShallow("def");
-        state.findDeep("def");
-    }
-
-    check(queenBee->defBool->definition("") == "enum(false, true)");
-    check(defTypeRef->isTypeRef());
-    check(defTypeRef->getType() == defTypeRef);
-    check(defNone->isNone());
-    check(defNone->getType() == defTypeRef);
-    check(queenBee->defInt->isInt());
-    check(queenBee->defInt->getType() == defTypeRef);
-    check(queenBee->defInt->isAnyOrd());
-    check(queenBee->defBool->isBool());
-    check(queenBee->defBool->getType() == defTypeRef);
-    check(queenBee->defBool->isEnum());
-    check(queenBee->defBool->isAnyOrd());
-    check(queenBee->defBool->left == 0 && queenBee->defBool->right == 1);
-    check(queenBee->defChar->isChar());
-    check(queenBee->defChar->getType() == defTypeRef);
-    check(queenBee->defChar->isAnyOrd());
-    check(queenBee->defStr->hasSmallElem());
-    check(queenBee->defStr->getType() == defTypeRef);
-    check(queenBee->defStr->isVec());
-//    queenBee->registerType(queenBee->defInt->deriveVec());
-
-    Symbol* b = queenBee->findDeep("true");
-    check(b != NULL && b->isDefinition());
-    check(PDefinition(b)->value.as_int() == 1);
-    check(PDefinition(b)->type->isBool());
-}
-*/
-
 void test_parser()
 {
     {
@@ -649,6 +605,52 @@ void test_parser()
         check_throw(p.next()); // bad hex sequence
     }
 }
+
+
+void test_typesys()
+{
+/*
+    {
+        State state(Type::MODULE, NULL, NULL);
+        objptr<Definition> d1 = new Definition("abc", NULL, 0);
+        check(d1->name == "abc");
+        state.addDefinition("def", NULL, 1);
+        state.addDefinition("ghi", NULL, 2);
+        Symbol* s = state.find("def");
+        check(s != NULL);
+        check(s->isDefinition());
+        check(s->name == "def");
+        state.findShallow("def");
+        state.findDeep("def");
+    }
+*/
+    check(queenBee->defBool->definition("") == "enum(false, true)");
+    check(defTypeRef->isTypeRef());
+    check(defTypeRef->getType() == defTypeRef);
+    check(defNone->isNone());
+    check(defNone->getType() == defTypeRef);
+    check(queenBee->defInt->isInt());
+    check(queenBee->defInt->getType() == defTypeRef);
+    check(queenBee->defInt->isAnyOrd());
+    check(queenBee->defBool->isBool());
+    check(queenBee->defBool->getType() == defTypeRef);
+    check(queenBee->defBool->isEnum());
+    check(queenBee->defBool->isAnyOrd());
+    check(queenBee->defBool->left == 0 && queenBee->defBool->right == 1);
+    check(queenBee->defChar->isChar());
+    check(queenBee->defChar->getType() == defTypeRef);
+    check(queenBee->defChar->isAnyOrd());
+    check(queenBee->defStr->hasSmallElem());
+    check(queenBee->defStr->getType() == defTypeRef);
+    check(queenBee->defStr->isVec());
+//    queenBee->registerType(queenBee->defInt->deriveVec());
+
+    Symbol* b = queenBee->find("true");
+    check(b != NULL && b->isDefinition());
+    check(PDefinition(b)->value.as_int() == 1);
+    check(PDefinition(b)->type->isBool());
+}
+
 
 /*
 static void _codegen_load(Type* type, const variant& v)
@@ -703,8 +705,7 @@ int main()
 #endif
 
     initRuntime();
-//    initTypeSys();
-
+    initTypeSys();
 
     int exitcode = 0;
     try
@@ -722,8 +723,8 @@ int main()
         test_symtbl();
         test_variant();
         test_fifos();
-//        test_typesys();
         test_parser();
+//        test_typesys();
 //        test_codegen();
     }
     catch (exception& e)
@@ -733,7 +734,7 @@ int main()
     }
 
 
-//    doneTypeSys();
+    doneTypeSys();
     doneRuntime();
 
     if (object::allocated != 0)

@@ -204,7 +204,7 @@ struct CompilerOptions
     bool linenumInfo;
     bool vmListing;
     memint stackSize;
-    vector<str> modulePath;
+    strvec modulePath;
 
     CompilerOptions();
 };

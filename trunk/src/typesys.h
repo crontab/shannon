@@ -65,7 +65,7 @@ protected:
 
     // Code gen helpers
     template <class T>
-        void append(const T& t)     { code.push_back<T>(t); }
+        void append(const T& t)     { code.append((const char*)&t, sizeof(T)); }
     void append(const str& s)       { code.append(s); }
     void resize(memint s)           { code.resize(s); }
     str  cutTail(memint start)
@@ -77,8 +77,8 @@ protected:
     char operator[] (memint i) const { return code[i]; }
 
 public:
-    CodeSeg(State*) throw();
-    ~CodeSeg() throw();
+    CodeSeg(State*);
+    ~CodeSeg();
 
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
@@ -86,8 +86,6 @@ public:
     bool empty() const;
     void close();
 
-    // Return a NULL-terminated string ready to be run: NULL char is an opcode
-    // to exit the function
     const char* getCode() const     { assert(closed); return code.data(); }
 };
 
@@ -103,8 +101,8 @@ public:
     SymbolId const symbolId;
     Type* const type;
 
-    Symbol(const str&, SymbolId, Type*) throw();
-    ~Symbol() throw();
+    Symbol(const str&, SymbolId, Type*);
+    ~Symbol();
 
     bool isDefinition() const   { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
@@ -447,7 +445,7 @@ class Module: public State
 {
     friend class ModuleInst;
 protected:
-    vector<str> constStrings;
+    strvec constStrings;
     bool complete;
 public:
     objvec<ModuleVar> uses; // used module instances are stored in static vars
@@ -475,9 +473,9 @@ public:
     objptr<Module> module;
     objptr<stateobj> instance;
 
-    ModuleInst(const str&, Module*) throw();         // for the system module
-    ModuleInst(const str&) throw();
-    ~ModuleInst() throw();
+    ModuleInst(const str&, Module*);         // for the system module
+    ModuleInst(const str&);
+    ~ModuleInst();
     bool isComplete() const     { return module->isComplete(); }
     void setComplete()          { module->setComplete(); }
     void initialize(Context*, rtstack&);

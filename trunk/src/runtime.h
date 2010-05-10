@@ -134,6 +134,8 @@ public:
     bool unique() const                 { return empty() || obj->unique(); }
     bool operator== (const objptr& p)   { return obj == p.obj; }
     bool operator!= (const objptr& p)   { return obj != p.obj; }
+    bool operator== (T* o)              { return obj == o; }
+    bool operator!= (T* o)              { return obj != o; }
     void operator= (const objptr& p)    { p.obj->assignto(obj); }
     void operator= (T* o)               { o->assignto(obj); }
     T& operator* ()                     { return *obj; }
@@ -787,6 +789,7 @@ public:
 
 // --- variant ------------------------------------------------------------- //
 
+
 class variant;
 
 typedef vector<variant> varvec;
@@ -1267,6 +1270,9 @@ bool isFile(const char*);
 
 
 // ------------------------------------------------------------------------- //
+
+
+typedef vector<str> strvec;
 
 
 void initRuntime();

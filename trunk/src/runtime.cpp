@@ -1,6 +1,7 @@
 
 
 #include "runtime.h"
+#include "typesys.h"  // circular reference
 
 
 // --- charset ------------------------------------------------------------- //
@@ -1021,6 +1022,23 @@ void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
 void variant::_range_err() { throw ecmessage("Variant range error"); }
 
 
+void variant::_init(Type t)
+{
+    type = t;
+    switch(t)
+    {
+    case NONE:
+    case ORD:       val._ord = 0; break;
+    case REAL:      val._real = 0; break;
+    case STR:
+    case VEC:
+    case ORDSET:
+    case DICT:
+    case RTOBJ:     val._obj = NULL; break;
+    }
+}
+
+
 void variant::_init(const variant& v)
 {
     type = v.type;
@@ -1113,7 +1131,7 @@ bool variant:: empty() const
 
 // --- runtime objects ----------------------------------------------------- //
 
-/*
+
 #ifdef DEBUG
 void stateobj::idxerr()
     { fatal(0x1005, "Internal: object access error"); }
@@ -1147,12 +1165,12 @@ void stateobj::collapse()
 #endif
     }
 }
-*/
+
 
 rtstack::rtstack(memint maxSize)
 {
     if (maxSize)
-        _append(maxSize * Tsize, container::allocate);
+        _init(maxSize * Tsize);
     bp = base();
 }
 

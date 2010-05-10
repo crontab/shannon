@@ -3,7 +3,7 @@
 #include "compiler.h"
 
 
-CodeSeg::CodeSeg(State* stateType) throw()
+CodeSeg::CodeSeg(State* stateType)
     : rtobject(stateType)
 #ifdef DEBUG
     , closed(false)
@@ -12,7 +12,7 @@ CodeSeg::CodeSeg(State* stateType) throw()
     { }
 
 
-CodeSeg::~CodeSeg() throw()
+CodeSeg::~CodeSeg()
     { }
 
 
@@ -24,6 +24,7 @@ void CodeSeg::close()
 {
 #ifdef DEBUG
     assert(!closed);
+    assert(stackSize >= 0);
     closed = true;
 #endif
     append(opEnd);
@@ -65,7 +66,7 @@ inline void STORETO(variant*& stk, variant* dest)
 #define UNARY_INT(op)  { stk->_ord() = op stk->_ord(); }
 
 
-void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* ip)
+void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;

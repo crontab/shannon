@@ -6,11 +6,11 @@
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
-Symbol::Symbol(const str& _name, SymbolId _id, Type* _type) throw()
+Symbol::Symbol(const str& _name, SymbolId _id, Type* _type)
     : symbol(_name), symbolId(_id), type(_type)  { }
 
 
-Symbol::~Symbol() throw()
+Symbol::~Symbol()
     { }
 
 
@@ -292,7 +292,7 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 }
 
 
-str Ordinal::definition(const str& ident) const
+str Ordinal::definition(const str&) const
 {
     switch(typeId)
     {
@@ -349,14 +349,14 @@ void Enumeration::addValue(State* state, const str& ident)
 }
 
 
-str Enumeration::definition(const str& ident) const
+str Enumeration::definition(const str&) const
 {
     str result;
     if (left > 0 || right < values.size() - 1)
         result = values[0]->name + ".." + values[memint(right)]->name;
     else
     {
-        result = '(';
+        result = "enum(";
         for (memint i = 0; i < values.size(); i++)
             result += (i ? ", " : "") + values[i]->name;
         result += ')';
@@ -598,16 +598,16 @@ ModuleVar::~ModuleVar() throw()  { }
 // --- //
 
 
-ModuleInst::ModuleInst(const str& n, Module* m) throw()
+ModuleInst::ModuleInst(const str& n, Module* m)
     : Symbol(n, MODULEINST, m), module(m), instance()  { }
 
 
-ModuleInst::ModuleInst(const str& n) throw()
+ModuleInst::ModuleInst(const str& n)
     : Symbol(n, MODULEINST, new Module()),
       module(cast<Module*>(type)), instance()  { }
 
 
-ModuleInst::~ModuleInst() throw()
+ModuleInst::~ModuleInst()
     { }
 
 

@@ -56,7 +56,8 @@ Type* CodeGen::stkPop()
 void CodeGen::stkReplaceTop(Type* t)
 {
     memint offs = simStack.back().offs;
-    simStack.replace_back(SimStackItem(t, offs));
+    simStack.pop_back();
+    simStack.push_back(SimStackItem(t, offs));
 }
 
 
