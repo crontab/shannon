@@ -597,7 +597,7 @@ ModuleVar::~ModuleVar()  { }
 
 // --- //
 
-
+/*
 ModuleInst::ModuleInst(const str& n, Module* m)
     : Symbol(n, MODULEINST, m), module(m), instance()  { }
 
@@ -626,7 +626,7 @@ void ModuleInst::initialize(Context* context, rtstack& stack)
         instance->var(v->id) = inst->instance.get();
     }
 
-    // Run module initialization code
+    // Run module initialization or main code
     runRabbitRun(context, instance, stack, module->codeseg->getCode());
 }
 
@@ -636,7 +636,7 @@ void ModuleInst::finalize()
     if (!instance.empty())
         { instance->collapse(); instance.clear(); }
 }
-
+*/
 
 // --- QueenBee ------------------------------------------------------------ //
 
