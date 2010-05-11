@@ -38,9 +38,7 @@ void ut_fail(unsigned line, const char* e)
 
 int main()
 {
-    sio << "Shannon v" << SHANNON_VERSION_MAJOR
-        << '.' << SHANNON_VERSION_MINOR
-        << '.' << SHANNON_VERSION_FIX
+    sio << "Shannon v" << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
         << ' ' << SHANNON_COPYRIGHT << endl << endl;
 
     int exitcode = 0;

@@ -622,8 +622,8 @@ void ModuleInst::initialize(Context* context, rtstack& stack)
     for (memint i = 0; i < module->uses.size(); i++)
     {
         ModuleVar* v = module->uses[i];
-        ModuleInst* def = context->findModuleDef(v->getModuleType());
-        instance->var(v->id) = def->instance.get();
+        ModuleInst* inst = context->findModuleInst(v->getModuleType());
+        instance->var(v->id) = inst->instance.get();
     }
 
     // Run module initialization code

@@ -476,7 +476,6 @@ public:
     ModuleInst(const str&);
     ~ModuleInst();
     bool isComplete() const     { return module->isComplete(); }
-    void setComplete()          { module->setComplete(); }
     void initialize(Context*, rtstack&);
     void finalize();
 };

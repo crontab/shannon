@@ -10,7 +10,7 @@ class Compiler: protected Parser
     friend class Context;
 protected:
     Context& context;
-    ModuleInst& moduleInst;
+    Module& module;
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols
     BlockScope* blockScope; // for local vars in nested blocks, can be NULL
@@ -37,9 +37,10 @@ protected:
     void definition();
     void assignment();
     void statementList();
-    void module();
 
-    Compiler(Context&, ModuleInst&, fifo*) throw();
+    void compileModule();
+
+    Compiler(Context&, Module&, fifo*) throw();
     ~Compiler() throw();
 };
 

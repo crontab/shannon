@@ -215,7 +215,7 @@ class Context: public Scope
     friend class Compiler;
 protected:
     CompilerOptions options;
-    objvec<ModuleInst> modules;
+    objvec<ModuleInst> moduleInsts;
     ModuleInst* queenBeeInst;
 
     ModuleInst* addModuleInst(ModuleInst*);
@@ -225,7 +225,7 @@ protected:
 public:
     Context();
     ~Context();
-    ModuleInst* findModuleDef(Module*);
+    ModuleInst* findModuleInst(Module*);
     variant execute(const str& filePath);
 };
 

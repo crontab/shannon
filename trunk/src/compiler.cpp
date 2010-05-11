@@ -3,8 +3,8 @@
 #include "compiler.h"
 
 
-Compiler::Compiler(Context& c, ModuleInst& mod, fifo* f) throw()
-    : Parser(f), context(c), moduleInst(mod)  { }
+Compiler::Compiler(Context& c, Module& mod, fifo* f) throw()
+    : Parser(f), context(c), module(mod)  { }
 
 
 Compiler::~Compiler() throw()
@@ -77,10 +77,9 @@ void Compiler::identifier(const str& ident)
     // themselves, too; search backwards
     if (sym == NULL)
     {
-        objvec<ModuleVar> uses = moduleInst.module->uses;
-        for (memint i = uses.size(); i--, sym == NULL; )
+        for (memint i = module.uses.size(); i--, sym == NULL; )
         {
-            moduleVar = uses[i];
+            moduleVar = module.uses[i];
             if (ident == moduleVar->name)
             {
                 sym = moduleVar;
@@ -136,7 +135,7 @@ void Compiler::atom()
             codegen->loadConst(queenBee->defChar, value[0]);
         else
         {
-            moduleInst.module->registerString(value);
+            module.registerString(value);
             codegen->loadConst(queenBee->defStr, value);
         }
         next();
@@ -456,15 +455,15 @@ void Compiler::statementList()
 }
 
 
-void Compiler::module()
+void Compiler::compileModule()
 {
     // The system module is always added implicitly
-    moduleInst.module->addUses(context.queenBeeInst->name, context.queenBeeInst->module);
+    module.addUses(context.queenBeeInst->name, context.queenBeeInst->module);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*moduleInst.module->codeseg);
+    CodeGen mainCodeGen(*module.codeseg);
     codegen = &mainCodeGen;
     blockScope = NULL;
-    scope = state = moduleInst.module;
+    scope = state = &module;
 
     try
     {
@@ -482,7 +481,7 @@ void Compiler::module()
         { error(e.what()); }
 
     mainCodeGen.end();
-    moduleInst.setComplete();
+    module.setComplete();
 
 //    if (options.vmListing)
 //    {

@@ -185,19 +185,19 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(NULL), options(), modules(),
+    : Scope(NULL), options(), moduleInsts(),
       queenBeeInst(new ModuleInst("system", queenBee))
         { addModuleInst(queenBeeInst); }
 
 
 Context::~Context()
-    { modules.release_all(); }
+    { moduleInsts.release_all(); }
 
 
 ModuleInst* Context::addModuleInst(ModuleInst* m)
 {
     addUnique(m);
-    modules.push_back(m->grab<ModuleInst>());
+    moduleInsts.push_back(m->grab<ModuleInst>());
     return m;
 }
 
@@ -206,8 +206,8 @@ ModuleInst* Context::loadModule(const str& filePath)
 {
     str modName = moduleNameFromFileName(filePath);
     ModuleInst* mod = addModuleInst(new ModuleInst(modName));
-    Compiler compiler(*this, *mod, new intext(NULL, filePath));
-    compiler.module();
+    Compiler compiler(*this, *(mod->module), new intext(NULL, filePath));
+    compiler.compileModule();
     return mod;
 }
 
@@ -233,11 +233,12 @@ ModuleInst* Context::getModule(const str& modName)
 }
 
 
-ModuleInst* Context::findModuleDef(Module* m)
+ModuleInst* Context::findModuleInst(Module* m)
 {
-    for (memint i = 0; i < modules.size(); i++)
-        if (modules[i]->module == m)
-            return modules[i];
+    // TODO:
+    for (memint i = 0; i < moduleInsts.size(); i++)
+        if (moduleInsts[i]->module == m)
+            return moduleInsts[i];
     fatal(0x5003, "Internal: module not found");
     return NULL;
 }
@@ -249,8 +250,8 @@ variant Context::execute(const str& filePath)
     rtstack stack(options.stackSize);
     try
     {
-        for (memint i = 0; i < modules.size(); i++)
-            modules[i]->initialize(this, stack);
+        for (memint i = 0; i < moduleInsts.size(); i++)
+            moduleInsts[i]->initialize(this, stack);
     }
     catch (eexit&)
     {
@@ -258,12 +259,12 @@ variant Context::execute(const str& filePath)
     }
     catch (exception&)
     {
-        for (memint i = modules.size() - 1; i--; )
-            modules[i]->finalize();
+        for (memint i = moduleInsts.size() - 1; i--; )
+            moduleInsts[i]->finalize();
         throw;
     }
     variant result = queenBeeInst->instance->var(queenBee->resultVar->id);
-    for (memint i = modules.size(); i--; )
-        modules[i]->finalize();
+    for (memint i = moduleInsts.size(); i--; )
+        moduleInsts[i]->finalize();
     return result;
 }
