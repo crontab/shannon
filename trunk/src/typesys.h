@@ -18,7 +18,6 @@ class Prototype;
 class State;
 class Module;
 class StateDef;
-class ModuleInst;
 class ModuleVar;
 
 typedef Symbol* PSymbol;
@@ -95,7 +94,7 @@ public:
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION, MODULEINST };
+    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION };
 
     SymbolId const symbolId;
     Type* const type;
@@ -431,9 +430,9 @@ public:
     ModuleVar* addModuleVar(const str&, Module*);
     virtual stateobj* newInstance();
     template <class T>
-        T* registerType(const str& n, T* t) { return (T*)_registerType(n, t); }
+        T* registerType(const str& n, T* t) { return cast<T*>(_registerType(n, t)); }
     template <class T>
-        T* registerType(T* t) { return (T*)_registerType(t); }
+        T* registerType(T* t) { return cast<T*>(_registerType(t)); }
 };
 
 
@@ -442,7 +441,6 @@ public:
 
 class Module: public State
 {
-    friend class ModuleInst;
 protected:
     strvec constStrings;
     bool complete;
@@ -465,7 +463,7 @@ public:
     Module* getModuleType()     { return cast<Module*>(type); }
 };
 
-
+/*
 class ModuleInst: public Symbol
 {
 public:
@@ -479,7 +477,7 @@ public:
     void initialize(Context*, rtstack&);
     void finalize();
 };
-
+*/
 
 // --- QueenBee (system module) -------------------------------------------- //
 

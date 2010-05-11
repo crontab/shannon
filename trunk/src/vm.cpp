@@ -185,20 +185,18 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(NULL), options(), moduleInsts(),
-      queenBeeInst(new ModuleInst("system", queenBee))
-        { addModuleInst(queenBeeInst); }
+    : options(), instances(), modInstMap(), modNameMap()
+        { addModule(queenBee); }
 
 
 Context::~Context()
-    { moduleInsts.release_all(); }
+    { instances.release_all(); }
 
 
-ModuleInst* Context::addModuleInst(ModuleInst* m)
+void Context::addModule(Module* m)
 {
-    addUnique(m);
-    moduleInsts.push_back(m->grab<ModuleInst>());
-    return m;
+    assert(modInstMap.find(m) == NULL);
+    HERE!
 }
 
 
@@ -268,3 +266,4 @@ variant Context::execute(const str& filePath)
         moduleInsts[i]->finalize();
     return result;
 }
+

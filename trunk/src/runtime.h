@@ -741,10 +741,14 @@ class symtbl: public objvec<symbol>
 protected:
     typedef objvec<symbol> parent;
 
+    symbol* _find(const str& name); // NULL or symbol*
+
 public:
     symtbl(): parent()  { }
     symtbl(const symtbl& s): parent(s)  { }
-
+    template <class T>
+        T* find(const str& name)
+            { return cast<T*>(_find(name)); }
     memint compare(memint i, const str& key) const;
     bool bsearch(const str& key, memint& index) const;
 };

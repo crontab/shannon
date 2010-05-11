@@ -210,22 +210,34 @@ struct CompilerOptions
 };
 
 
-class Context: public Scope
+class Context
 {
-    friend class Compiler;
 protected:
-    CompilerOptions options;
-    objvec<ModuleInst> moduleInsts;
-    ModuleInst* queenBeeInst;
 
-    ModuleInst* addModuleInst(ModuleInst*);
-    ModuleInst* loadModule(const str& filePath);
+    class ModuleInstance
+    {
+    public:
+        objptr<Module> module;
+        objptr<stateobj> instance;
+        ModuleInstance(Module* m)
+            : module(m), instance(m->newInstance())  { }
+    };
+
+    CompilerOptions options;
+    objvec<ModuleInstance> instances;       // "owned" pointers to compiled modules and inst's
+    dict<Module*, stateobj*> modInstMap;    // compiled module -> mod. instance
+    dict<str, Module*> modNameMap;          // name -> module, can become a global cache of modules
+
+    void addModule(Module*);
+    Module* loadModule(const str& filePath);
     str lookupSource(const str& modName);
-    ModuleInst* getModule(const str&); // for use by the compiler, "uses" clause
+
 public:
     Context();
     ~Context();
-    ModuleInst* findModuleInst(Module*);
+
+    Module* getModule(const str& name); // for use by the compiler, "uses" clause
+    stateobj* getModuleInstance(Module*);
     variant execute(const str& filePath);
 };
 
