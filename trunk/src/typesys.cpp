@@ -560,8 +560,9 @@ stateobj* State::newInstance()
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module()
-    : State(MODULE, defPrototype, NULL, this), complete(false)  { }
+Module::Module(const str& name)
+    : State(MODULE, defPrototype, NULL, this), complete(false)
+        { alias = name; }
 
 
 Module::~Module()
@@ -642,7 +643,7 @@ void ModuleInst::finalize()
 
 
 QueenBee::QueenBee()
-    : Module(),
+    : Module("system"),
       defVariant(new Variant()),
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(Type::CHAR, 0, 255)),

@@ -185,7 +185,7 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : options(), instances(), modInstMap(), modNameMap()
+    : options(), instances(), modInstMap()
         { addModule(queenBee); }
 
 
@@ -196,7 +196,12 @@ Context::~Context()
 void Context::addModule(Module* m)
 {
     assert(modInstMap.find(m) == NULL);
-    HERE!
+    objptr<ModuleInstance> inst = new ModuleInstance(m);
+    memint i;
+    if (instances.bsearch(inst->name, i))
+        fatal(0x5003, "Internal: module already exists");
+    instances.insert(i, inst);
+    modInstMap.find_replace(inst->module, inst->instance);
 }
 
 
@@ -224,6 +229,7 @@ str Context::lookupSource(const str& modName)
 
 ModuleInst* Context::getModule(const str& modName)
 {
+    // TODO: to have a global cache of compiled modulus, not just within the econtext
     ModuleInst* m = cast<ModuleInst*>(Scope::find(modName));
     if (m == NULL)
         m = loadModule(lookupSource(modName));

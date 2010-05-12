@@ -446,8 +446,9 @@ protected:
     bool complete;
 public:
     objvec<ModuleVar> uses; // used module instances are stored in static vars
-    Module();
+    Module(const str& name);
     ~Module();
+    str getModuleName() const   { return alias; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(const str&, Module*);
