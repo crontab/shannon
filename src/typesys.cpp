@@ -598,46 +598,6 @@ ModuleVar::~ModuleVar()  { }
 
 // --- //
 
-/*
-ModuleInst::ModuleInst(const str& n, Module* m)
-    : Symbol(n, MODULEINST, m), module(m), instance()  { }
-
-
-ModuleInst::ModuleInst(const str& n)
-    : Symbol(n, MODULEINST, new Module()),
-      module(cast<Module*>(type)), instance()  { }
-
-
-ModuleInst::~ModuleInst()
-    { }
-
-
-void ModuleInst::initialize(Context* context, rtstack& stack)
-{
-    if (!instance.empty())
-        fatal(0x3003, "Internal: module already initialized");
-    instance = module->newInstance();
-
-    // Assign module vars. This allows to generate code that accesses module
-    // static data by variable id, so that code is context-independant
-    for (memint i = 0; i < module->uses.size(); i++)
-    {
-        ModuleVar* v = module->uses[i];
-        ModuleInst* inst = context->findModuleInst(v->getModuleType());
-        instance->var(v->id) = inst->instance.get();
-    }
-
-    // Run module initialization or main code
-    runRabbitRun(context, instance, stack, module->codeseg->getCode());
-}
-
-
-void ModuleInst::finalize()
-{
-    if (!instance.empty())
-        { instance->collapse(); instance.clear(); }
-}
-*/
 
 // --- QueenBee ------------------------------------------------------------ //
 
