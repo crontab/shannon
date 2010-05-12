@@ -219,8 +219,9 @@ protected:
     public:
         objptr<Module> module;
         objptr<stateobj> instance;
-        ModuleInstance(Module* m)
-            : symbol(m->getModuleName()), module(m), instance(m->newInstance())  { }
+        ModuleInstance(Module* m);
+        void run(Context*, rtstack&);
+        void finalize();
     };
 
     CompilerOptions options;

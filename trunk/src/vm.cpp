@@ -193,25 +193,53 @@ Context::~Context()
     { instances.release_all(); }
 
 
+Context::ModuleInstance::ModuleInstance(Module* m)
+    : symbol(m->getModuleName()), module(m), instance(m->newInstance())  { }
+
+
+void Context::ModuleInstance::run(Context* context, rtstack& stack)
+{
+    // Assign module vars. This allows to generate code that accesses module
+    // static data by variable id, so that code is context-independant
+    for (memint i = 0; i < module->uses.size(); i++)
+    {
+        ModuleVar* v = module->uses[i];
+        stateobj* o = context->getModuleInstance(v->getModuleType());
+        instance->var(v->id) = o;
+    }
+
+    // Run module initialization or main code
+    runRabbitRun(context, instance, stack, module->codeseg->getCode());
+}
+
+
+void Context::ModuleInstance::finalize()
+{
+    instance->collapse(); // destroy possible circular references first
+    instance.clear();
+}
+
+
 void Context::addModule(Module* m)
 {
     assert(modInstMap.find(m) == NULL);
     objptr<ModuleInstance> inst = new ModuleInstance(m);
     memint i;
     if (instances.bsearch(inst->name, i))
-        fatal(0x5003, "Internal: module already exists");
+        fatal(0x5004, "Internal: module already exists");
     instances.insert(i, inst);
     modInstMap.find_replace(inst->module, inst->instance);
 }
 
 
-ModuleInst* Context::loadModule(const str& filePath)
+Module* Context::loadModule(const str& filePath)
 {
     str modName = moduleNameFromFileName(filePath);
-    ModuleInst* mod = addModuleInst(new ModuleInst(modName));
-    Compiler compiler(*this, *(mod->module), new intext(NULL, filePath));
+    objptr<Module> m = new Module(modName);
+    addModule(m);
+    Compiler compiler(*this, *m, new intext(NULL, filePath));
     compiler.compileModule();
-    return mod;
+    return m;
 }
 
 
@@ -227,24 +255,22 @@ str Context::lookupSource(const str& modName)
 }
 
 
-ModuleInst* Context::getModule(const str& modName)
+Module* Context::getModule(const str& modName)
 {
     // TODO: to have a global cache of compiled modulus, not just within the econtext
-    ModuleInst* m = cast<ModuleInst*>(Scope::find(modName));
+    Module* m = instances.find<Module>(modName);
     if (m == NULL)
         m = loadModule(lookupSource(modName));
     return m;
 }
 
 
-ModuleInst* Context::findModuleInst(Module* m)
+stateobj* Context::getModuleInstance(Module* m)
 {
-    // TODO:
-    for (memint i = 0; i < moduleInsts.size(); i++)
-        if (moduleInsts[i]->module == m)
-            return moduleInsts[i];
-    fatal(0x5003, "Internal: module not found");
-    return NULL;
+    stateobj* const* o = modInstMap.find(m);
+    if (o == NULL)
+        fatal(0x5003, "Internal: module not found");
+    return *o;
 }
 
 
@@ -254,8 +280,8 @@ variant Context::execute(const str& filePath)
     rtstack stack(options.stackSize);
     try
     {
-        for (memint i = 0; i < moduleInsts.size(); i++)
-            moduleInsts[i]->initialize(this, stack);
+        for (memint i = 0; i < instances.size(); i++)
+            instances[i]->run(this, stack);
     }
     catch (eexit&)
     {
@@ -263,13 +289,13 @@ variant Context::execute(const str& filePath)
     }
     catch (exception&)
     {
-        for (memint i = moduleInsts.size() - 1; i--; )
-            moduleInsts[i]->finalize();
+        for (memint i = instances.size() - 1; i--; )
+            instances[i]->finalize();
         throw;
     }
     variant result = queenBeeInst->instance->var(queenBee->resultVar->id);
-    for (memint i = moduleInsts.size(); i--; )
-        moduleInsts[i]->finalize();
+    for (memint i = instances.size(); i--; )
+        instances[i]->finalize();
     return result;
 }
 
