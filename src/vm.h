@@ -214,19 +214,18 @@ class Context
 {
 protected:
 
-    class ModuleInstance
+    class ModuleInstance: public symbol
     {
     public:
         objptr<Module> module;
         objptr<stateobj> instance;
         ModuleInstance(Module* m)
-            : module(m), instance(m->newInstance())  { }
+            : symbol(m->getModuleName()), module(m), instance(m->newInstance())  { }
     };
 
     CompilerOptions options;
-    objvec<ModuleInstance> instances;       // "owned" pointers to compiled modules and inst's
+    symtbl instances;       // "owned" pointers to compiled modules and inst's
     dict<Module*, stateobj*> modInstMap;    // compiled module -> mod. instance
-    dict<str, Module*> modNameMap;          // name -> module, can become a global cache of modules
 
     void addModule(Module*);
     Module* loadModule(const str& filePath);
