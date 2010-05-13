@@ -273,7 +273,7 @@ stateobj* Context::getModuleInstance(Module* m)
     return *o;
 }
 
-
+/*
 variant Context::execute(const str& filePath)
 {
     loadModule(filePath);
@@ -298,4 +298,4 @@ variant Context::execute(const str& filePath)
         instances[i]->finalize();
     return result;
 }
-
+*/

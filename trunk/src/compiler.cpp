@@ -458,7 +458,7 @@ void Compiler::statementList()
 void Compiler::compileModule()
 {
     // The system module is always added implicitly
-    module.addUses(context.queenBeeInst->name, context.queenBeeInst->module);
+    module.addUses(queenBee->getModuleName(), queenBee);
     // Start parsing and code generation
     CodeGen mainCodeGen(*module.codeseg);
     codegen = &mainCodeGen;
