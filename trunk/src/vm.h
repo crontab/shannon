@@ -244,9 +244,8 @@ public:
 
 // The Virtual Machine. This routine is used for both evaluating const
 // expressions at compile time and, obviously, running runtime code. It is
-// reenterant and can be launched concurrently in one process so long as
-// the arguments passed belong to one thread (except the code seggment which
-// is read-only anyway).
+// reenterant and can be launched concurrently in one process as long as
+// the arguments are thread safe.
 
 void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* code);
 

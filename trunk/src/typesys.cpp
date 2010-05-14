@@ -72,16 +72,6 @@ Scope::~Scope()
     { }
 
 
-Symbol* Scope::find(const str& ident) const
-{
-    memint i;
-    if (symbols.bsearch(ident, i))
-        return cast<Symbol*>(symbols[i]);
-    else
-        return NULL;
-}
-
-
 void Scope::addUnique(Symbol* s)
 {
     memint i;

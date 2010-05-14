@@ -946,6 +946,16 @@ void objvec_impl::release_all()
 symbol::~symbol()  { }
 
 
+symbol* symtbl::_find(const str& name) const
+{
+    memint i;
+    if (bsearch(name, i))
+        return operator[](i);
+    else
+        return NULL;
+}
+
+
 memint symtbl::compare(memint i, const str& key) const
     { comparator<str> comp; return comp(operator[](i)->name, key); }
 
