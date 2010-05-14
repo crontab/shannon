@@ -158,7 +158,8 @@ public:
     Scope* const outer;
     Scope(Scope* _outer);
     virtual ~Scope();
-    Symbol* find(const str&) const;                 // returns NULL or Symbol
+    Symbol* find(const str& ident) const            // returns NULL or Symbol
+        { return symbols.find<Symbol>(ident); }
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
 //    Symbol* findDeep(const str&) const;             // throws EUnknown
 };
