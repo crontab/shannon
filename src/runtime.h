@@ -736,21 +736,32 @@ public:
 };
 
 
-class symtbl: public objvec<symbol>
+class symtbl_impl: public objvec<symbol>
 {
 protected:
     typedef objvec<symbol> parent;
 
-    symbol* _find(const str& name) const; // NULL or symbol*
-
 public:
-    symtbl(): parent()  { }
-    symtbl(const symtbl& s): parent(s)  { }
-    template <class T>
-        T* find(const str& name) const
-            { return cast<T*>(_find(name)); }
+    symtbl_impl(): parent()  { }
+    symtbl_impl(const symtbl_impl& s); // : parent(s)  { }
+    symbol* find(const str& name) const; // NULL or symbol*
+    bool add(symbol*);
     memint compare(memint i, const str& key) const;
     bool bsearch(const str& key, memint& index) const;
+};
+
+
+template <class T>
+class symtbl: protected symtbl_impl
+{
+protected:
+    typedef symtbl_impl parent;
+public:
+    symtbl(): parent()  { }
+    memint size() const                 { return parent::size(); }
+    T* find(const str& name) const      { return cast<T*>(parent::find(name)); }
+    bool add(T* t)                      { return parent::add(t); }
+    void release_all()                  { parent::release_all(); }
 };
 
 
@@ -930,6 +941,11 @@ public:
 template <>
     struct comparator<variant>
         { memint operator() (const variant& a, const variant& b) { return a.compare(b); } };
+
+
+extern template class vector<variant>;
+extern template class dict<variant, variant>;
+extern template class podvec<variant>;
 
 
 // --- runtime objects ----------------------------------------------------- //

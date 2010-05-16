@@ -447,7 +447,7 @@ static void test_set()
 
 static void test_symtbl()
 {
-    symtbl s1;
+    symtbl_impl s1;
     objptr<symbol> p1 = new symbol("abc");
     s1.insert(0, p1.get());
     check(s1[0] == p1.get());

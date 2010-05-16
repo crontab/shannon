@@ -174,6 +174,41 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
 // --- Execution Context --------------------------------------------------- //
 
 
+ModuleInstance::ModuleInstance(Module* m)
+    : Symbol(m->getModuleName(), DEFINITION, m), module(m), obj()  { }
+
+
+void ModuleInstance::run(Context* context, rtstack& stack)
+{
+    // Assign module vars. This allows to generate code that accesses module
+    // static data by variable id, so that code is context-independant
+    for (memint i = 0; i < module->uses.size(); i++)
+    {
+        ModuleVar* v = module->uses[i];
+        stateobj* o = context->getModuleObject(v->getModuleType());
+        obj->var(v->id) = o;
+    }
+
+    // Run module initialization or main code
+    runRabbitRun(context, obj, stack, module->codeseg->getCode());
+}
+
+
+void ModuleInstance::finalize()
+{
+    if (!obj->empty())
+        try
+        {
+            obj->collapse();   // destroy possible circular references first
+            obj.clear();       // now free the object itself
+        }
+        catch (exception&)
+        {
+            fatal(0x5006, "Internal: exception in destructor");
+        }
+}
+
+
 CompilerOptions::CompilerOptions()
   : enableDump(true), enableAssert(true), linenumInfo(true),
     vmListing(true), stackSize(8192)
@@ -185,50 +220,19 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : options(), instances(), modInstMap()
-        { addModule(queenBee); }
+    : Scope(NULL), options(), instances(), queenBeeInst(addModule(queenBee))  { }
 
 
 Context::~Context()
     { instances.release_all(); }
 
 
-Context::ModuleInstance::ModuleInstance(Module* m)
-    : symbol(m->getModuleName()), module(m), instance(m->newInstance())  { }
-
-
-void Context::ModuleInstance::run(Context* context, rtstack& stack)
+ModuleInstance* Context::addModule(Module* m)
 {
-    // Assign module vars. This allows to generate code that accesses module
-    // static data by variable id, so that code is context-independant
-    for (memint i = 0; i < module->uses.size(); i++)
-    {
-        ModuleVar* v = module->uses[i];
-        stateobj* o = context->getModuleInstance(v->getModuleType());
-        instance->var(v->id) = o;
-    }
-
-    // Run module initialization or main code
-    runRabbitRun(context, instance, stack, module->codeseg->getCode());
-}
-
-
-void Context::ModuleInstance::finalize()
-{
-    instance->collapse(); // destroy possible circular references first
-    instance.clear();
-}
-
-
-void Context::addModule(Module* m)
-{
-    assert(modInstMap.find(m) == NULL);
     objptr<ModuleInstance> inst = new ModuleInstance(m);
-    memint i;
-    if (instances.bsearch(inst->name, i))
-        fatal(0x5004, "Internal: module already exists");
-    instances.insert(i, inst);
-    modInstMap.find_replace(inst->module, inst->instance);
+    Scope::addUnique(inst);
+    instances.push_back(inst->grab<ModuleInstance>());
+    return inst;
 }
 
 
@@ -257,26 +261,49 @@ str Context::lookupSource(const str& modName)
 
 Module* Context::getModule(const str& modName)
 {
-    // TODO: to have a global cache of compiled modulus, not just within the econtext
-    Module* m = instances.find<Module>(modName);
-    if (m == NULL)
-        m = loadModule(lookupSource(modName));
-    return m;
+    // TODO: find a moudle by full path, not just name (hash by path/name?)
+    // TODO: to have a global cache of compiled modules, not just within the econtext
+    ModuleInstance* inst = cast<ModuleInstance*>(Scope::find(modName));
+    if (inst != NULL)
+        return inst->module;
+    else
+        return loadModule(lookupSource(modName));
 }
 
 
-stateobj* Context::getModuleInstance(Module* m)
+stateobj* Context::getModuleObject(Module* m)
 {
-    stateobj* const* o = modInstMap.find(m);
+    stateobj* const* o = modObjMap.find(m);
     if (o == NULL)
         fatal(0x5003, "Internal: module not found");
     return *o;
 }
 
-/*
+
+void Context::instantiateModules()
+{
+    for (memint i = 0; i < instances.size(); i++)
+    {
+        ModuleInstance* inst = instances[i];
+        inst->obj = inst->module->newInstance();
+        assert(modObjMap.find(inst->module) == NULL);
+        modObjMap.find_replace(inst->module, inst->obj);
+    }
+}
+
+
+void Context::clear()
+{
+    for (memint i = instances.size(); i--; )
+        instances[i]->finalize();
+    modObjMap.clear();
+}
+
+
 variant Context::execute(const str& filePath)
 {
     loadModule(filePath);
+    instantiateModules();
     rtstack stack(options.stackSize);
     try
     {
@@ -289,13 +316,11 @@ variant Context::execute(const str& filePath)
     }
     catch (exception&)
     {
-        for (memint i = instances.size() - 1; i--; )
-            instances[i]->finalize();
+        clear();
         throw;
     }
-    variant result = queenBeeInst->instance->var(queenBee->resultVar->id);
-    for (memint i = instances.size(); i--; )
-        instances[i]->finalize();
+    variant result = queenBeeInst->obj->var(queenBee->resultVar->id);
+    clear();
     return result;
 }
-*/
+

@@ -946,7 +946,7 @@ void objvec_impl::release_all()
 symbol::~symbol()  { }
 
 
-symbol* symtbl::_find(const str& name) const
+symbol* symtbl_impl::find(const str& name) const
 {
     memint i;
     if (bsearch(name, i))
@@ -956,11 +956,21 @@ symbol* symtbl::_find(const str& name) const
 }
 
 
-memint symtbl::compare(memint i, const str& key) const
+bool symtbl_impl::add(symbol* s)
+{
+    memint i;
+    if (bsearch(s->name, i))
+        return false;
+    insert(i, s);
+    return true;
+}
+
+
+memint symtbl_impl::compare(memint i, const str& key) const
     { comparator<str> comp; return comp(operator[](i)->name, key); }
 
 
-bool symtbl::bsearch(const str& key, memint& index) const
+bool symtbl_impl::bsearch(const str& key, memint& index) const
     { return ::bsearch(*this, parent::size() - 1, key, index); }
 
 
@@ -1192,7 +1202,7 @@ rtstack::rtstack(memint maxSize)
 void initRuntime()
 {
     // Some critical build integrity tests
-    if (sizeof(str) != sizeof(void*) || sizeof(symtbl) != sizeof(void*))
+    if (sizeof(str) != sizeof(void*) || sizeof(symtbl_impl) != sizeof(void*))
         fatal(0x1004, "Broken build");
 }
 

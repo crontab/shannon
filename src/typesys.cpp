@@ -74,11 +74,8 @@ Scope::~Scope()
 
 void Scope::addUnique(Symbol* s)
 {
-    memint i;
-    if (symbols.bsearch(s->name, i))
+    if (!symbols.add(s))
         throw EDuplicate(s->name);
-    else
-        symbols.insert(i, s);
 }
 
 

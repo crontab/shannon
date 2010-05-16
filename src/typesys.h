@@ -152,14 +152,14 @@ class Scope
 {
     friend void test_typesys();
 protected:
-    symtbl symbols;         // symbol table for search
+    symtbl<Symbol> symbols;         // symbol table for search
     void addUnique(Symbol* s);
 public:
     Scope* const outer;
     Scope(Scope* _outer);
     virtual ~Scope();
     Symbol* find(const str& ident) const            // returns NULL or Symbol
-        { return symbols.find<Symbol>(ident); }
+        { return symbols.find(ident); }
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
 //    Symbol* findDeep(const str&) const;             // throws EUnknown
 };
@@ -465,21 +465,6 @@ public:
     Module* getModuleType()     { return cast<Module*>(type); }
 };
 
-/*
-class ModuleInst: public Symbol
-{
-public:
-    objptr<Module> module;
-    objptr<stateobj> instance;
-
-    ModuleInst(const str&, Module*);         // for the system module
-    ModuleInst(const str&);
-    ~ModuleInst();
-    bool isComplete() const     { return module->isComplete(); }
-    void initialize(Context*, rtstack&);
-    void finalize();
-};
-*/
 
 // --- QueenBee (system module) -------------------------------------------- //
 
