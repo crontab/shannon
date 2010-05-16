@@ -210,34 +210,37 @@ struct CompilerOptions
 };
 
 
-class Context
+class ModuleInstance: public Symbol
+{
+public:
+    objptr<Module> module;
+    objptr<stateobj> obj;
+    ModuleInstance(Module* m);
+    void run(Context*, rtstack&);
+    void finalize();
+};
+
+
+class Context: protected Scope
 {
 protected:
-
-    class ModuleInstance: public symbol
-    {
-    public:
-        objptr<Module> module;
-        objptr<stateobj> instance;
-        ModuleInstance(Module* m);
-        void run(Context*, rtstack&);
-        void finalize();
-    };
-
     CompilerOptions options;
-    symtbl instances;       // "owned" pointers to compiled modules and inst's
-    dict<Module*, stateobj*> modInstMap;    // compiled module -> mod. instance
+    objvec<ModuleInstance> instances;
+    ModuleInstance* queenBeeInst;
+    dict<Module*, stateobj*> modObjMap;
 
-    void addModule(Module*);
+    ModuleInstance* addModule(Module*);
     Module* loadModule(const str& filePath);
     str lookupSource(const str& modName);
+    void instantiateModules();
+    void clear();
 
 public:
     Context();
     ~Context();
 
-    Module* getModule(const str& name); // for use by the compiler, "uses" clause
-    stateobj* getModuleInstance(Module*);
+    Module* getModule(const str& name);     // for use by the compiler, "uses" clause
+    stateobj* getModuleObject(Module*);     // for initializing module vars in ModuleInstance::run()
     variant execute(const str& filePath);
 };
 
