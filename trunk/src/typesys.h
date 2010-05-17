@@ -17,7 +17,6 @@ class Fifo;
 class Prototype;
 class State;
 class Module;
-class StateDef;
 class ModuleVar;
 
 typedef Symbol* PSymbol;
@@ -239,11 +238,11 @@ public:
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
-    virtual str definition(const str& ident) const;
+    virtual str definition() const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
 
-    Reference* deriveRefType()     { return refType; }
+    Reference* deriveRefType()  { return refType; }
     Container* deriveVec();
     Container* deriveSet();
     Container* deriveContainer(Type* idxType);
@@ -294,7 +293,7 @@ protected:
 public:
     Type* const to;
     ~Reference();
-    str definition(const str& ident) const;
+    str definition() const;
     bool identicalTo(Type* t) const;
 };
 
@@ -314,7 +313,7 @@ protected:
 public:
     integer const left;
     integer const right;
-    str definition(const str& ident) const;
+    str definition() const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     bool isInRange(integer v)
@@ -339,7 +338,7 @@ protected:
 public:
     Enumeration();                          // user-defined enums
     ~Enumeration();
-    str definition(const str& ident) const;
+    str definition() const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
@@ -359,7 +358,7 @@ public:
     Type* const index;
     Type* const elem;
     ~Container();
-    str definition(const str& ident) const;
+    str definition() const;
     bool identicalTo(Type*) const;
     bool hasSmallIndex() const
         { return index->isSmallOrd(); }

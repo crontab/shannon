@@ -124,7 +124,7 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
         throw ecmessage("Maximum number of local variables reached");
     objptr<Variable> v = new Variable(name, Symbol::LOCALVAR, type, id, gen->getState());
     addUnique(v);   // may throw
-    localVars.push_back(v);
+    localVars.push_back(v->grab<Variable>());
     return v;
 }
 
@@ -169,13 +169,10 @@ bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
 
 
-str Type::definition(const str& ident) const
+str Type::definition() const
 {
     assert(!alias.empty());
-    str result = alias;
-    if (!ident.empty())
-        result += ' ' + ident;
-    return result;
+    return alias;
 }
 
 
@@ -244,8 +241,8 @@ Reference::~Reference()
     { }
 
 
-str Reference::definition(const str& ident) const
-    { return to->definition(ident) + '^'; }
+str Reference::definition() const
+    { return to->definition() + '^'; }
 
 
 bool Reference::identicalTo(Type* t) const
@@ -279,7 +276,7 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 }
 
 
-str Ordinal::definition(const str&) const
+str Ordinal::definition() const
 {
     switch(typeId)
     {
@@ -328,7 +325,7 @@ Ordinal* Enumeration::_createSubrange(integer l, integer r)
 void Enumeration::addValue(State* state, const str& ident)
 {
     integer n = integer(values.size());
-    if (n >= 256)
+    if (n >= 256)  // TODO: maybe this is not really necessary
         throw emessage("Maximum number of enum constants reached");
     Definition* d = state->addDefinition(ident, this, n);
     values.push_back(d);
@@ -336,7 +333,7 @@ void Enumeration::addValue(State* state, const str& ident)
 }
 
 
-str Enumeration::definition(const str&) const
+str Enumeration::definition() const
 {
     str result;
     if (left > 0 || right < values.size() - 1)
@@ -385,11 +382,11 @@ Container::~Container()
     { }
 
 
-str Container::definition(const str& ident) const
+str Container::definition() const
 {
-    str result = elem->definition(ident) + '[';
+    str result = elem->definition() + "*[";
     if (!isVec())
-        result += index->definition("");
+        result += index->definition();
     result += ']';
     return result;
 }
