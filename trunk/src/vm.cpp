@@ -59,7 +59,10 @@ inline void POPTO(variant*& stk, variant* dest)     // ... to uninitialized area
 inline void STORETO(variant*& stk, variant* dest)
         { dest->~variant(); POPTO(stk, dest); }
 
-#define SETPOD(dest,v) (::new(dest) variant(v))
+template <class T>
+   inline void SETPOD(variant* dest, const T& v)
+        { ::new(dest) variant(v); }
+
 
 #define BINARY_INT(op) { (stk - 1)->_ord() op stk->_ord(); POPPOD(stk); }
 #define UNARY_INT(op)  { stk->_ord() = op stk->_ord(); }
@@ -74,33 +77,34 @@ void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
 loop:
         switch(*ip++)
         {
-        case opEnd:             while (stk >= stack.bp) POP(stk); goto exit;
-        case opNop:             break;
-        case opExit:            doExit(); break;
+        case opEnd:         while (stk >= stack.bp) POP(stk); goto exit;
+        case opNop:         break;
+        case opExit:        doExit(); break;
 
-        case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;
-        case opLoadNull:        PUSH(stk, variant::null); break;
-        case opLoad0:           PUSH(stk, integer(0)); break;
-        case opLoad1:           PUSH(stk, integer(1)); break;
-        case opLoadOrd8:        PUSH(stk, integer(ADV<uchar>(ip))); break;
-        case opLoadOrd:         PUSH(stk, ADV<integer>(ip)); break;
-        case opLoadStr:         PUSH(stk, ADV<str>(ip)); break;
-        case opLoadEmptyVar:    PUSH(stk, variant::Type(ADV<char>(ip))); break;
-        case opLoadConst:       PUSH(stk, ADV<Definition*>(ip)->value); break;
+        case opLoadTypeRef: PUSH(stk, ADV<Type*>(ip)); break;
+        case opLoadNull:    PUSH(stk, variant::null); break;
+        case opLoad0:       PUSH(stk, integer(0)); break;
+        case opLoad1:       PUSH(stk, integer(1)); break;
+        case opLoadOrd8:    PUSH(stk, integer(ADV<uchar>(ip))); break;
+        case opLoadOrd:     PUSH(stk, ADV<integer>(ip)); break;
+        case opLoadStr:     PUSH(stk, ADV<str>(ip)); break;
+        case opLoadEmptyVar:PUSH(stk, variant::Type(ADV<char>(ip))); break;
+        case opLoadConst:   PUSH(stk, ADV<Definition*>(ip)->value); break;  // TODO: better
 
-        case opLoadSelfVar:     PUSH(stk, self->var(ADV<char>(ip))); break;
-        case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
-        case opLoadMember:      *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
+        case opLoadSelfVar: PUSH(stk, self->var(ADV<char>(ip))); break;
+        case opLoadStkVar:  PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
+        case opLoadMember:  *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
+        // TODO: load "far" self var, via a pointer to a module object
 
-        case opInitStkVar:      POPTO(stk, stack.bp + ADV<char>(ip)); break;
+        case opInitStkVar:  POPTO(stk, stack.bp + ADV<char>(ip)); break;
 
-        case opPop:             POP(stk); break;
-        case opChrToStr:        *stk = str(stk->_uchar()); break;
-        case opChrCat:          (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
-        case opStrCat:          (stk - 1)->_str().append(stk->_str()); POP(stk); break;
-        case opVarToVec:        { varvec v; v.push_back(*stk); *stk = v; } break;
-        case opVarCat:          (stk - 1)->_vec().push_back(*stk); POP(stk); break;
-        case opVecCat:          (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
+        case opPop:         POP(stk); break;
+        case opChrToStr:    *stk = str(stk->_uchar()); break;
+        case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
+        case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
+        case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
+        case opVarCat:      (stk - 1)->_vec().push_back(*stk); POP(stk); break;
+        case opVecCat:      (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
 
         // Arithmetic
         // TODO: range checking in debug mode
@@ -184,7 +188,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     // static data by variable id, so that code is context-independant
     for (memint i = 0; i < module->uses.size(); i++)
     {
-        ModuleVar* v = module->uses[i];
+        Variable* v = module->uses[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
         obj->var(v->id) = o;
     }
@@ -282,6 +286,8 @@ stateobj* Context::getModuleObject(Module* m)
 
 void Context::instantiateModules()
 {
+    // Now that all modules are compiled and their dataseg sizes are known, we can
+    // instantiate the objects:
     for (memint i = 0; i < instances.size(); i++)
     {
         ModuleInstance* inst = instances[i];

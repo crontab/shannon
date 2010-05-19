@@ -2,7 +2,6 @@
 #include "vm.h"
 
 
-// TODO: less loaders: for args and locals one instruction can be used
 // TODO: assert: use constant repository for file names
 // TODO: multiple return values probably not needed
 // TODO: store the current file name in a named const, say __FILE__
@@ -152,7 +151,6 @@ void CodeGen::loadTypeRef(Type* type)
 void CodeGen::loadConst(Type* type, const variant& value)
 {
     // NOTE: compound consts should be held by a smart pointer somewhere else
-    // NONE, ORD, REAL, STR, VEC, SET, ORDSET, DICT, RTOBJ
     switch(value.getType())
     {
     case variant::NONE:
@@ -275,7 +273,7 @@ void CodeGen::loadMember(const str& ident)
 }
 
 
-void CodeGen::loadSymbol(ModuleVar* moduleVar, Symbol* sym)
+void CodeGen::loadSymbol(Variable* moduleVar, Symbol* sym)
 {
     if (sym->isDefinition())
         loadDefinition(PDefinition(sym));
