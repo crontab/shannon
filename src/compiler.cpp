@@ -63,31 +63,23 @@ void Compiler::identifier(const str& ident)
 {
     Scope* sc = scope;
     Symbol* sym;
-    ModuleVar* moduleVar = NULL;
+    Variable* moduleVar = NULL;
 
     // Go up the current scope hierarchy within the module
     do
     {
-        sym = scope->find(ident);
+        sym = sc->find(ident);
+        if (sym)
+            break;
         sc = sc->outer;
     }
-    while (sym == NULL && sc != NULL);
+    while (sc != NULL);
 
-    // If not found there, then look it up in used modules; look up module names
-    // themselves, too; search backwards
-    if (sym == NULL)
+    // If not found there, then look it up in used modules; search backwards
+    for (memint i = module.uses.size(); i-- && sym == NULL; )
     {
-        for (memint i = module.uses.size(); i--, sym == NULL; )
-        {
-            moduleVar = module.uses[i];
-            if (ident == moduleVar->name)
-            {
-                sym = moduleVar;
-                moduleVar = NULL;
-            }
-            else
-                sym = moduleVar->getModuleType()->find(ident);
-        }
+        moduleVar = module.uses[i];
+        sym = moduleVar->getModuleType()->find(ident);
     }
 
     if (sym == NULL)

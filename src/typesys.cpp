@@ -514,17 +514,6 @@ Variable* State::addSelfVar(const str& n, Type* t)
 }
 
 
-ModuleVar* State::addModuleVar(const str& n, Module* t)
-{
-    memint id = selfVarCount();
-    if (id >= 127)
-        throw ecmessage("Too many variables");
-    objptr<ModuleVar> v = new ModuleVar(n, t, id, this);
-    selfVars.push_back(v->grab<ModuleVar>());
-    return v;
-}
-
-
 stateobj* State::newInstance()
 {
     memint varcount = selfVarCount();
@@ -539,6 +528,7 @@ stateobj* State::newInstance()
 
 
 // TODO: definition()
+// TODO: identicalTo()
 
 
 // --- Module -------------------------------------------------------------- //
@@ -554,7 +544,7 @@ Module::~Module()
 
 
 void Module::addUses(const str& name, Module* m)
-    { uses.push_back(addModuleVar(name, m)); }
+    { uses.push_back(addSelfVar(name, m)); }
 
 
 void Module::registerString(str& s)
@@ -568,19 +558,6 @@ void Module::registerString(str& s)
 
 
 // TODO: definition()
-
-
-// --- //
-
-
-ModuleVar::ModuleVar(const str& n, Module* m, memint _id, State* s)
-    : Variable(n, SELFVAR, m, _id, s)  { }
-
-
-ModuleVar::~ModuleVar()  { }
-
-
-// --- //
 
 
 // --- QueenBee ------------------------------------------------------------ //

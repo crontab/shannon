@@ -17,7 +17,6 @@ class Fifo;
 class Prototype;
 class State;
 class Module;
-class ModuleVar;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
@@ -427,7 +426,6 @@ public:
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
-    ModuleVar* addModuleVar(const str&, Module*);
     virtual stateobj* newInstance();
     template <class T>
         T* registerType(const str& n, T* t) { return cast<T*>(_registerType(n, t)); }
@@ -445,7 +443,7 @@ protected:
     strvec constStrings;
     bool complete;
 public:
-    objvec<ModuleVar> uses; // used module instances are stored in static vars
+    objvec<Variable> uses; // used module instances are stored in static vars
     Module(const str& name);
     ~Module();
     str getModuleName() const   { return alias; }
@@ -453,15 +451,6 @@ public:
     void setComplete()          { complete = true; }
     void addUses(const str&, Module*);
     void registerString(str&); // returns a previously registered string if found
-};
-
-
-class ModuleVar: public Variable
-{
-public:
-    ModuleVar(const str& n, Module* m, memint _id, State* s);
-    ~ModuleVar();
-    Module* getModuleType()     { return cast<Module*>(type); }
 };
 
 

@@ -8,7 +8,7 @@
 
 enum OpCode
 {
-    // NOTE: the order of many of these instructions in their groups is significant
+    // NOTE: the relative order of many of these instructions in their groups is significant
 
     opEnd = 0,          // end execution and return
     opNop,
@@ -96,14 +96,6 @@ inline bool isUndoableLoadOp(OpCode op)
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
 
-/*
-inline bool isDesignatorLoadOp(OpCode op)
-    { return op >= opLoadSelfVar && op <= opLoadStkVar; }
-
-inline OpCode designatorLoadToStore(OpCode op)
-    { return OpCode(op + opStoreSelfVar - opLoadSelfVar); }
-*/
-
 inline bool isJump(OpCode op)
     { return op >= opJump && op <= opJumpAnd; }
 
@@ -171,7 +163,7 @@ public:
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
-    void loadSymbol(ModuleVar*, Symbol*);
+    void loadSymbol(Variable*, Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
