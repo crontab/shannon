@@ -1,0 +1,132 @@
+#
+# Syntax highlighting rules for Midnight Commander
+#
+
+context default
+	# Keywords
+	keyword whole and		yellow
+	keyword whole as		yellow
+	keyword whole assert		yellow
+	keyword whole begin		yellow
+	keyword whole break		yellow
+	keyword whole case		yellow
+	keyword whole continue		yellow
+	keyword whole def		yellow
+	keyword whole dump		yellow
+	keyword whole else		yellow
+	keyword whole enum		yellow
+	keyword whole exit		yellow
+	keyword whole if		yellow
+	keyword whole in		yellow
+	keyword whole is		yellow
+	keyword whole new		yellow
+	keyword whole mod		yellow
+	keyword whole not		yellow
+	keyword whole or		yellow
+	keyword whole ord		yellow
+	keyword whole return		yellow
+	keyword whole shl		yellow
+	keyword whole shr		yellow
+	keyword whole sub		yellow
+	keyword whole typeof		yellow
+	keyword whole var		yellow
+	keyword whole while		yellow
+	keyword whole xor		yellow
+
+	# Most common functions
+	keyword whole alert		yellow
+	keyword whole escape		yellow
+	keyword whole eval		yellow
+	keyword whole indexOf		yellow
+	keyword whole isNaN		yellow
+	keyword whole toString		yellow
+	keyword whole unescape		yellow
+	keyword whole valueOf		yellow
+
+	# Constants
+	keyword whole false		brightgreen
+	keyword whole null		brightgreen
+	keyword whole true		brightgreen
+	keyword whole undefined		yellow
+
+	# Comments
+	keyword /\*			brown
+	keyword \*/			brown
+	keyword //			brown
+
+	# Numbers
+	wholechars abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.
+
+	keyword whole 0\{xX\}\{0123456789abcdefABCDEF\}\[0123456789abcdefABCDEF\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]	brightgreen
+	keyword whole \[0123456789\]\.\{0123456789\}\[0123456789\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]\.\[0123456789\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	brightgreen
+	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	brightgreen
+
+	# Special symbols
+	keyword \.	yellow
+	keyword \*	yellow
+	keyword \+	yellow
+	keyword -	yellow
+	keyword /	yellow
+	keyword %	yellow
+	keyword =	yellow
+	keyword !	yellow
+	keyword &	yellow
+	keyword |	yellow
+	keyword ^	yellow
+	keyword ~	yellow
+	keyword >	yellow
+	keyword <	yellow
+
+	# Separators
+	keyword {	brightcyan
+	keyword }	brightcyan
+	keyword (	brightcyan
+	keyword )	brightcyan
+	keyword [	brightcyan
+	keyword ]	brightcyan
+	keyword ,	brightcyan
+	keyword ?	brightcyan
+	keyword :	brightcyan
+	keyword ;	brightmagenta
+
+
+# Comments
+
+context exclusive /\* \*/ brown
+	spellcheck
+	keyword whole BUG	brightred
+	keyword whole FixMe	brightred
+	keyword whole FIXME	brightred
+	keyword whole Note	brightred
+	keyword whole NOTE	brightred
+	keyword whole ToDo	brightred
+	keyword whole TODO	brightred
+	keyword !!\[!\]		brightred
+	keyword ??\[?\]		brightred
+
+
+context exclusive // \n brown
+	spellcheck
+	keyword whole BUG	brightred
+	keyword whole FixMe	brightred
+	keyword whole FIXME	brightred
+	keyword whole Note	brightred
+	keyword whole NOTE	brightred
+	keyword whole ToDo	brightred
+	keyword whole TODO	brightred
+	keyword !!\[!\]		brightred
+	keyword ??\[?\]		brightred
+
+
+# Strings
+
+context ' ' green
+	spellcheck
+	keyword \\\{\\'"abtnvfr\}	brightgreen
+	keyword \\\{0123\}\{01234567\}\{01234567\} brightgreen
+

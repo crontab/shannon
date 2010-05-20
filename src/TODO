@@ -1,4 +1,6 @@
 
+* Containers and objects: references vs. values
+
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the
   element type is "none". Operator "in" is applicable to both dicts and sets.
   Dict/set constructors are in square brackets.

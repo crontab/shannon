@@ -21,15 +21,15 @@
 
 statement-list ::= { ( definition | statement ) <SEP> }
 
-definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr
+definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
 
-type-derivator ::= 
+type-expr ::= ( ident | 'ord' | 'set' | 'que' | 'self' ) { type-derivator }
 
-const-expr ::= expr | range-spec | enum-spec
+type-derivator ::= '^' | container-derivator | other-derivator
 
 range-spec ::= expr '..' expr
 
-enum-spec ::= 'enum' '(' ident ',' ident { ',' ident } [ ',' ] ')'
+enum-spec ::= ident ',' ident { ',' ident } [ ',' ]
 
 
 
