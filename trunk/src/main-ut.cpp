@@ -624,7 +624,7 @@ void test_typesys()
         state.findDeep("def");
     }
 */
-    check(queenBee->defBool->definition("") == "enum(false, true)");
+    check(queenBee->defBool->definition() == "enum(false, true)");
     check(defTypeRef->isTypeRef());
     check(defTypeRef->getType() == defTypeRef);
     check(defNone->isNone());
