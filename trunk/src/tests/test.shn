@@ -1,11 +1,13 @@
-def byte = 0..255
-def s0 = 'abc'
-def i0 = 2 * 3 + 4
-def type nums = (one, two, three)
+def byte = sub 0..255
+def type nums = enum one, two, three
 def intvec = int[]
 def charset1 = char[..]
 def type charset2 = none[char]
 def CharIntMap = int[char]
+def charfifo = char<>
+
+def s0 = 'abc'
+def i0 = 2 * 3 + 4
 def v1 = 'a' | 'b'
 def v2 = 'abc' | 'def' | 'g'
 
