@@ -125,6 +125,8 @@ public:
     State* const state;
     Variable(const str&, SymbolId, Type*, memint, State*);
     ~Variable();
+    Module* getModuleType() const
+        { return cast<Module*>(type); }
 };
 
 
