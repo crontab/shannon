@@ -1,4 +1,7 @@
 
+* Small ordinals with the 's' prefix? Custom prefixes will be used for
+  measurement units as well, don't know.
+
 * Containers and objects: references vs. values
 
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the

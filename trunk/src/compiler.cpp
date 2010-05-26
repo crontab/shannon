@@ -11,19 +11,31 @@ Compiler::~Compiler() throw()
     { }
 
 
-void Compiler::enumeration(const str& firstIdent)
+void Compiler::enumeration()
 {
     Enumeration* enumType = state->registerType(new Enumeration());
-    enumType->addValue(state, firstIdent);
-    while (skipIf(tokComma))
+    do
     {
-        if (token == tokRParen) // allow trailing comma
-            break;
         enumType->addValue(state, getIdentifier());
         next();
     }
-    expect(tokRParen, "')'");
+    while (skipIf(tokComma));
     codegen->loadTypeRef(enumType);
+}
+
+
+void Compiler::subrange()
+{
+    // TODO: a more optimal compilation. Subrange is usually compiled within a const
+    // context, and we call two more const evaluations here for left and right bounds.
+    variant left, right;
+    Type* type = getConstValue(NULL, left);
+    if (!type->isAnyOrd())
+        error("Ordinal type expected in subrange");
+    expect(tokRange, "'..'");
+    getConstValue(type, right); // will ensure compatibility with 'left'
+    codegen->loadTypeRef(state->registerType(
+            POrdinal(type)->createSubrange(left._ord(), right._ord())));
 }
 
 
@@ -141,23 +153,8 @@ void Compiler::atom()
 
     else if (skipIf(tokLParen))
     {
-        if (token == tokIdent)
-        {
-            str ident = strValue;
-            if (next() == tokComma)
-                enumeration(ident);
-            else
-            {
-                undoIdent(ident);
-                goto ICantBelieveIUsedAGotoStatementShameShame;
-            }
-        }
-        else
-        {
-ICantBelieveIUsedAGotoStatementShameShame:
-            expression();
-            expect(tokRParen, "')'");
-        }
+        expression();
+        expect(tokRParen, "')'");
     }
 /*
     // TODO:
@@ -170,11 +167,18 @@ ICantBelieveIUsedAGotoStatementShameShame:
     else if (skipIf(tokTypeOf))
         typeOf();
 */
+    else if (skipIf(tokSub))
+        subrange();
+
+    else if (skipIf(tokEnum))
+        enumeration();
+
     else
         errorWithLoc("Expression syntax");
 
     if (token == tokLSquare || token == tokNotEq)
     {
+        // Type derivative?
         Type* type = codegen->tryUndoTypeRef();
         if (type != NULL)
             codegen->loadTypeRef(getTypeDerivators(type));
@@ -346,27 +350,18 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    expression();
+    if (expectType && expectType->isTypeRef())
+        atom();  // Take a shorter path
+    else
+        expression();
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
-    if (resultType->isAnyOrd() && token == tokRange)
-    {
-        next();
-        variant right;
-        getConstValue(resultType, right);
-        result = state->registerType(
-            POrdinal(resultType)->createSubrange(result._ord(), right._ord()));
-        resultType = defTypeRef;
-        if (expectType != NULL && !expectType->isTypeRef())
-            error("Subrange type specifier is not expected here");
-    }
     return resultType;
 }
 
 
 Type* Compiler::getTypeValue()
 {
-    // TODO: make this faster?
     variant result;
     getConstValue(defTypeRef, result);
     return cast<Type*>(result._rtobj());

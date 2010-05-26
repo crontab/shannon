@@ -16,7 +16,8 @@ protected:
     BlockScope* blockScope; // for local vars in nested blocks, can be NULL
     State* state;           // for this-vars, type objects and definitions
 
-    void enumeration(const str& firstIdent);
+    void subrange();
+    void enumeration();
     void identifier(const str&);
     void atom();
     void designator();

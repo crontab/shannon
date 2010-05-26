@@ -34,20 +34,11 @@ context default
 	keyword whole xor		yellow
 
 	# Most common functions
-	keyword whole alert		yellow
-	keyword whole escape		yellow
-	keyword whole eval		yellow
-	keyword whole indexOf		yellow
-	keyword whole isNaN		yellow
-	keyword whole toString		yellow
-	keyword whole unescape		yellow
-	keyword whole valueOf		yellow
 
 	# Constants
 	keyword whole false		brightgreen
 	keyword whole null		brightgreen
 	keyword whole true		brightgreen
-	keyword whole undefined		yellow
 
 	# Comments
 	keyword /\*			brown

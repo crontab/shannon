@@ -23,15 +23,21 @@ statement-list ::= { ( definition | statement ) <SEP> }
 
 definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
 
-type-expr ::= ( ident | 'ord' | 'set' | 'que' | 'self' ) { type-derivator }
 
-type-derivator ::= '^' | container-derivator | other-derivator
+# ---------- Type expression
 
-range-spec ::= expr '..' expr
+type-expr ::= subrange-type | enum-type | other-type
 
-enum-spec ::= ident ',' ident { ',' ident } [ ',' ]
+subrange-type ::= 'sub' arithm-expr '..' arithm-expr
+
+enum-type ::= 'enum' ident { ',' ident }
+
+other-type ::= ident { type-derivator }
+
+type-derivator ::= '^' | '<>' | container-derivator
 
 
+# ---------- Expression
 
 atom ::= ident | number | string-literal | sub-expr
 
