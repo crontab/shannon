@@ -164,7 +164,6 @@ public:
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
     void clearType()        { _type = NULL; }
-    virtual bool empty() const = 0;
 };
 
 
@@ -979,7 +978,6 @@ protected:
 
 public:
     ~stateobj();
-    bool empty() const; // override
     State* getType() const  { return (State*)parent::getType(); }
 
     variant& var(memint index)

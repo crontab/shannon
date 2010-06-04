@@ -395,6 +395,7 @@ void Compiler::definition()
     str ident;
     // TODO: typedef-style definition ?
     Type* type = getTypeAndIdent(ident);
+    // TODO: if ref type, take the original type
     expect(tokAssign, "'='");
     variant value;
     Type* valueType = getConstValue(type, value);

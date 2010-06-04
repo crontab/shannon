@@ -132,8 +132,8 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 // --- Type ---------------------------------------------------------------- //
 
 
-void typeMismatch()
-    { throw ecmessage("Type mismatch"); }
+// void typeMismatch()
+//     { throw ecmessage("Type mismatch"); }
 
 
 Type::Type(Type* t, TypeId id)
@@ -143,10 +143,6 @@ Type::Type(Type* t, TypeId id)
 
 Type::~Type()
     { }
-
-
-bool Type::empty() const
-    { return false; }
 
 
 bool Type::isSmallOrd() const
@@ -242,7 +238,7 @@ Reference::~Reference()
 
 
 str Reference::definition() const
-    { return to->definition() + '^'; }
+    { fatal(0x3003, "Internal: invalid call to Reference::definition()"); return str(); }
 
 
 bool Reference::identicalTo(Type* t) const
@@ -340,7 +336,7 @@ str Enumeration::definition() const
         result = values[0]->name + ".." + values[memint(right)]->name;
     else
     {
-        result = "enum(";
+        result = "(enum ";
         for (memint i = 0; i < values.size(); i++)
             result += (i ? ", " : "") + values[i]->name;
         result += ')';
@@ -430,7 +426,7 @@ Prototype::~Prototype()
 
 
 bool Prototype::identicalTo(Type* t) const
-    { return t->isPrototype() && identicalTo(PPrototype(t)); }
+    { return this == t || (t->isPrototype() && identicalTo(PPrototype(t))); }
 
 
 bool Prototype::identicalTo(Prototype* t) const
@@ -455,6 +451,8 @@ bool Prototype::identicalTo(Prototype* t) const
 // State is a type and at the same time is a prototype object. That's why the
 // runtime type of a State object is not TypeRef* like all other types, but
 // Prototype* (actually it's the State constructor's prototype)
+// TODO: actually, no. Prototype is retrieved with the '@' operator, so State
+// is just a type.
 
 State::State(TypeId _id, Prototype* proto, State* parent, State* self)
     : Type(proto, _id), Scope(parent), selfPtr(self),

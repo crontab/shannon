@@ -79,7 +79,7 @@ public:
 
     State* getType() const          { return cast<State*>(parent::getType()); }
     memint size() const             { return code.size(); }
-    bool empty() const;
+    bool empty() const              { return code.empty(); }
     void close();
 
     const char* getCode() const     { assert(closed); return code.data(); }
@@ -199,11 +199,9 @@ public:
 protected:
     objptr<Reference> refType;
     str alias;      // for more readable diagnostics output, but not really needed
-    State* host;
+    State* host;    // State object that "owns" the given object
 
     Type(Type*, TypeId);
-//    Type(TypeId);
-    bool empty() const;
     static TypeId contType(Type* i, Type* e);
 
 public:
@@ -243,7 +241,8 @@ public:
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
 
-    Reference* deriveRefType()  { return refType; }
+    Reference* getRefType()     { return isReference() ? PReference(this) : refType.get(); }
+    Type* getValueType();       // inlined, see class Reference
     Container* deriveVec();
     Container* deriveSet();
     Container* deriveContainer(Type* idxType);
@@ -251,7 +250,7 @@ public:
 };
 
 
-void typeMismatch();
+// void typeMismatch();
 
 
 // --- General Types ------------------------------------------------------- //
@@ -297,6 +296,10 @@ public:
     str definition() const;
     bool identicalTo(Type* t) const;
 };
+
+
+inline Type* Type::getValueType()
+    { return isReference() ? PReference(this)->to : this; }
 
 
 // --- Ordinals ------------------------------------------------------------ //

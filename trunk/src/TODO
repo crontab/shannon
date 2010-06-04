@@ -1,8 +1,12 @@
 
+* Containers and objects: references vs. values: so variables are by default
+  references, while constants/defs are values.
+
+* Nullable types: look at C#. Easy to implement, just need strictly defined
+  semantics, also a default assignment operator, again, like in C#.
+
 * Small ordinals with the 's' prefix? Custom prefixes will be used for
   measurement units as well, don't know.
-
-* Containers and objects: references vs. values
 
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the
   element type is "none". Operator "in" is applicable to both dicts and sets.
@@ -56,9 +60,6 @@
 * Functions
 
 * Run-time range checking (as well as compile-time)
-
-* Nullable types? Look at C#. Easy to implement, just need strictly defined
-  semantics, also a default assignment operator, again, like in C#.
 
 * HTML/XML embedded mode, also arbitrary text embedded mode
 

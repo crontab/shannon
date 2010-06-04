@@ -16,10 +16,6 @@ CodeSeg::~CodeSeg()
     { }
 
 
-bool CodeSeg::empty() const
-    { return code.empty(); }
-
-
 void CodeSeg::close()
 {
 #ifdef DEBUG
@@ -200,7 +196,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
 
 void ModuleInstance::finalize()
 {
-    if (!obj->empty())
+    if (!obj.empty())
         try
         {
             obj->collapse();   // destroy possible circular references first

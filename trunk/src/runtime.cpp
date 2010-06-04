@@ -1133,7 +1133,7 @@ bool variant::operator== (const variant& v) const
 }
 
 /*
-bool variant:: empty() const
+bool variant::empty() const
 {
     switch(type)
     {
@@ -1144,7 +1144,7 @@ bool variant:: empty() const
     case VEC:       return _vec().empty();
     case ORDSET:    return _ordset().empty();
     case DICT:      return _dict().empty();
-    case RTOBJ:     return _rtobj()->empty();
+    case RTOBJ:     return _rtobj() != NULL;
     }
     return false;
 }
@@ -1161,10 +1161,6 @@ void stateobj::idxerr()
 
 stateobj::stateobj(State* t)
     : rtobject(t)  { }
-
-
-bool stateobj::empty() const
-    { return false; }
 
 
 stateobj::~stateobj()
