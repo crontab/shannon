@@ -490,7 +490,10 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 
 
 Definition* State::addTypeAlias(const str& n, Type* t)
-    { return addDefinition(n, t->getType(), t); }
+{
+    registerType(n, t);
+    return addDefinition(n, t->getType(), t);
+}
 
 
 Variable* State::addSelfVar(const str& n, Type* t)
@@ -568,20 +571,20 @@ QueenBee::QueenBee()
       defCharFifo(new Fifo(defChar))
 {
     // Fundamentals
-    addTypeAlias("type", registerType<Type>("type", defTypeRef));
-    addTypeAlias("none", registerType<Type>("none", defNone));
+    addTypeAlias("type", defTypeRef);
+    addTypeAlias("none", defNone);
     registerType<Type>(defPrototype);
     addDefinition("null", defNone, variant::null);
-    addTypeAlias("any", registerType("any", defVariant));
-    addTypeAlias("int", registerType("int", defInt));
-    addTypeAlias("char", registerType("char", defChar));
-    addTypeAlias("bool", registerType("bool", defBool));
+    addTypeAlias("any", defVariant);
+    addTypeAlias("int", defInt);
+    addTypeAlias("char", defChar);
+    addTypeAlias("bool", defBool);
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
     registerType(defNullCont);
-    addTypeAlias("str", registerType("str", defStr));
-    addTypeAlias("charset", registerType("charset", defCharSet));
-    addTypeAlias("charfifo", registerType("charfifo", defCharFifo));
+    addTypeAlias("str", defStr);
+    addTypeAlias("charset", defCharSet);
+    addTypeAlias("charfifo", defCharFifo);
 
     // Constants
     addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR);
