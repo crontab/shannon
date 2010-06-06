@@ -136,8 +136,8 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 //     { throw ecmessage("Type mismatch"); }
 
 
-Type::Type(Type* t, TypeId id)
-    : rtobject(t), refType(NULL), host(NULL), typeId(id)
+Type::Type(TypeId id)
+    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), typeId(id)
         { if (id != REF) refType = new Reference(this); }
 
 
@@ -217,20 +217,20 @@ Fifo* Type::deriveFifo()
 // --- General Types ------------------------------------------------------- //
 
 
-TypeReference::TypeReference(): Type(this, TYPEREF)  { }
+TypeReference::TypeReference(): Type(TYPEREF)  { }
 TypeReference::~TypeReference()  { }
 
 
-None::None(): Type(defTypeRef, NONE)  { }
+None::None(): Type(NONE)  { }
 None::~None()  { }
 
 
-Variant::Variant(): Type(defTypeRef, VARIANT)  { }
+Variant::Variant(): Type(VARIANT)  { }
 Variant::~Variant()  { }
 
 
 Reference::Reference(Type* _to)
-    : Type(defTypeRef, REF), to(_to)  { }
+    : Type(REF), to(_to)  { }
 
 
 Reference::~Reference()
@@ -250,7 +250,7 @@ bool Reference::identicalTo(Type* t) const
 
 
 Ordinal::Ordinal(TypeId id, integer l, integer r)
-    : Type(defTypeRef, id), left(l), right(r)
+    : Type(id), left(l), right(r)
         { assert(isAnyOrd()); }
 
 
@@ -371,7 +371,7 @@ Type::TypeId Type::contType(Type* i, Type* e)
 
 
 Container::Container(Type* i, Type* e)
-    : Type(defTypeRef, contType(i, e)), index(i), elem(e)  { }
+    : Type(contType(i, e)), index(i), elem(e)  { }
 
 
 Container::~Container()
@@ -400,7 +400,7 @@ bool Container::identicalTo(Type* t) const
 
 
 Fifo::Fifo(Type* e)
-    : Type(defTypeRef, FIFO), elem(e)  { }
+    : Type(FIFO), elem(e)  { }
 
 
 Fifo::~Fifo()
@@ -418,7 +418,7 @@ bool Fifo::identicalTo(Type* t) const
 
 
 Prototype::Prototype(Type* r)
-    : Type(defTypeRef, PROTOTYPE), returnType(r)  { }
+    : Type(PROTOTYPE), returnType(r)  { }
 
 
 Prototype::~Prototype()
@@ -448,14 +448,9 @@ bool Prototype::identicalTo(Prototype* t) const
 
 // --- State --------------------------------------------------------------- //
 
-// State is a type and at the same time is a prototype object. That's why the
-// runtime type of a State object is not TypeRef* like all other types, but
-// Prototype* (actually it's the State constructor's prototype)
-// TODO: actually, no. Prototype is retrieved with the '@' operator, so State
-// is just a type.
 
 State::State(TypeId _id, Prototype* proto, State* parent, State* self)
-    : Type(proto, _id), Scope(parent), selfPtr(self),
+    : Type(_id), Scope(parent), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 

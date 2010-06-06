@@ -201,7 +201,7 @@ protected:
     str alias;      // for more readable diagnostics output, but not really needed
     State* host;    // State object that "owns" the given object
 
-    Type(Type*, TypeId);
+    Type(TypeId);
     static TypeId contType(Type* i, Type* e);
 
 public:
