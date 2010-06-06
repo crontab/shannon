@@ -66,6 +66,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         return type;
 
     // TODO: function derivator
+    // TODO: if no '^' present, return a ref type
 
     return getTypeDerivators(type);
 }
