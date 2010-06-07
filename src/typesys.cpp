@@ -137,7 +137,7 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 
 
 Type::Type(TypeId id)
-    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), typeId(id)
+    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), def(NULL), typeId(id)
         { if (id != REF) refType = new Reference(this); }
 
 
@@ -167,8 +167,8 @@ bool Type::canAssignTo(Type* t) const
 
 str Type::definition() const
 {
-    assert(!alias.empty());
-    return alias;
+    assert(def != NULL);
+    return def->name;
 }
 
 
@@ -462,17 +462,20 @@ State::~State()
 }
 
 
-Type* State::_registerType(Type* t)
-    { return _registerType(str(), t); }
-
-
-Type* State::_registerType(const str& n, Type* t)
+Type* State::_registerType(Type* t, Definition* d)
 {
     if (t->host == NULL)
     {
         types.push_back(t->grab<Type>());
-        t->alias = n;
         t->host = this;
+        if (d)
+            t->def = d;
+        // Also register the bundled reference type, or in case this is a reference,
+        // register its bundled value type.
+        if (isReference())
+            _registerType(t->getValueType(), NULL);
+        else
+            _registerType(t->getRefType(), NULL);
     }
     return t;
 }
@@ -485,15 +488,19 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
     objptr<Definition> d = new Definition(n, t, v);
     addUnique(d); // may throw
     defs.push_back(d->grab<Definition>());
+    if (t->isTypeRef())
+    {
+        // In case this def is a type definition, also register the type with this state,
+        // and bind the type object to this def for better diagnostic output (dump() family).
+        assert(v.as_rtobj()->getType()->isTypeRef());
+        _registerType(cast<Type*>(v._rtobj()), d);
+    }
     return d;
 }
 
 
 Definition* State::addTypeAlias(const str& n, Type* t)
-{
-    registerType(n, t);
-    return addDefinition(n, t->getType(), t);
-}
+    { return addDefinition(n, t->getType(), t); }
 
 
 Variable* State::addSelfVar(const str& n, Type* t)
@@ -530,17 +537,16 @@ stateobj* State::newInstance()
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& name)
-    : State(MODULE, defPrototype, NULL, this), complete(false)
-        { alias = name; }
+Module::Module(const str& n)
+    : State(MODULE, defPrototype, NULL, this), name(n), complete(false)  { }
 
 
 Module::~Module()
     { }
 
 
-void Module::addUses(const str& name, Module* m)
-    { uses.push_back(addSelfVar(name, m)); }
+void Module::addUses(Module* m)
+    { uses.push_back(addSelfVar(m->name, m)); }
 
 
 void Module::registerString(str& s)

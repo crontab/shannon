@@ -198,8 +198,8 @@ public:
 
 protected:
     objptr<Reference> refType;
-    str alias;      // for more readable diagnostics output, but not really needed
-    State* host;    // State object that "owns" the given object
+    State* host;      // State that "owns" a given type
+    Definition* def;  // for more readable diagnostics output, but not really needed
 
     Type(TypeId);
     static TypeId contType(Type* i, Type* e);
@@ -242,7 +242,7 @@ public:
     virtual bool canAssignTo(Type*) const;
 
     Reference* getRefType()     { return isReference() ? PReference(this) : refType.get(); }
-    Type* getValueType();       // inlined, see class Reference
+    Type* getValueType();
     Container* deriveVec();
     Container* deriveSet();
     Container* deriveContainer(Type* idxType);
@@ -290,8 +290,8 @@ class Reference: public Type
     friend class Type;
 protected:
     Reference(Type* _to);
-public:
     Type* const to;
+public:
     ~Reference();
     str definition() const;
     bool identicalTo(Type* t) const;
@@ -415,10 +415,7 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
-
-    Type* _registerType(Type*);
-    Type* _registerType(const str&, Type*);
-
+    Type* _registerType(Type*, Definition* = NULL);
 public:
     State* const selfPtr;
     Prototype* const prototype;
@@ -432,8 +429,6 @@ public:
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();
-    template <class T>
-        T* registerType(const str& n, T* t) { return cast<T*>(_registerType(n, t)); }
     template <class T>
         T* registerType(T* t) { return cast<T*>(_registerType(t)); }
 };
@@ -449,12 +444,12 @@ protected:
     bool complete;
 public:
     objvec<Variable> uses; // used module instances are stored in static vars
+    str const name;
     Module(const str& name);
     ~Module();
-    str getModuleName() const   { return alias; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
-    void addUses(const str&, Module*);
+    void addUses(Module*);
     void registerString(str&); // returns a previously registered string if found
 };
 

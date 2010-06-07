@@ -178,6 +178,8 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::VEC:
     case variant::ORDSET:
     case variant::DICT:
+        fatal(0x6001, "Internal: unknown constant literal");
+        break;
     case variant::RTOBJ:
         if (value._rtobj()->getType()->isTypeRef())
             loadTypeRef(cast<Type*>(value._rtobj()));
