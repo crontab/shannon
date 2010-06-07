@@ -175,11 +175,13 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
 
 
 ModuleInstance::ModuleInstance(Module* m)
-    : Symbol(m->getModuleName(), DEFINITION, m), module(m), obj()  { }
+    : Symbol(m->name, DEFINITION, m), module(m), obj()  { }
 
 
 void ModuleInstance::run(Context* context, rtstack& stack)
 {
+    assert(module->isComplete());
+
     // Assign module vars. This allows to generate code that accesses module
     // static data by variable id, so that code is context-independant
     for (memint i = 0; i < module->uses.size(); i++)
@@ -197,6 +199,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
 void ModuleInstance::finalize()
 {
     if (!obj.empty())
+    {
         try
         {
             obj->collapse();   // destroy possible circular references first
@@ -206,6 +209,7 @@ void ModuleInstance::finalize()
         {
             fatal(0x5006, "Internal: exception in destructor");
         }
+    }
 }
 
 
