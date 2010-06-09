@@ -538,7 +538,7 @@ stateobj* State::newInstance()
 
 
 Module::Module(const str& n)
-    : State(MODULE, defPrototype, NULL, this), name(n), complete(false)  { }
+    : State(MODULE, defPrototype, NULL, this), complete(false), name(n)  { }
 
 
 Module::~Module()
