@@ -1,4 +1,9 @@
 
+* Define an operation that converts an element into a vector. In that case 
+  concatenation can be used as a vector constructor.
+
+* Use '@' for taking function address, to disambiguate from class names.
+
 * Containers and objects: references vs. values: so variables are by default
   references, while constants/defs are values.
 
@@ -28,12 +33,6 @@
 * Enqueue and dequeue operators: << and >>, like the iostream operators in C++.
   The leftmost operand is always a fifo. (Precedence compared to the pipe
   operator "||" ?)
-
-* All values are immutable unless declared as references with the ^ type 
-  derivator. Operation ^ (prefix) makes a value a reference (?) Dereference
-  in expressions is automatic. Const class methods should be declared as
-  such so that the compiler knows whether they can be called on a given
-  object. The ^ derivator can be part of the class specification.
 
 * Range (e.g. A..B) is possible only: (1) in const type expressions where it
   denotes a range type, (2) in ordinal set constructors, (3) in operator 'for',

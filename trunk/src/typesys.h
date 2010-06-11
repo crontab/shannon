@@ -99,6 +99,7 @@ public:
 
     Symbol(const str&, SymbolId, Type*);
     ~Symbol();
+    void dump(fifo&) const;
 
     bool isDefinition() const   { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
@@ -189,6 +190,7 @@ public:
 class Type: public rtobject
 {
     friend class State;
+    friend class Reference; // for access to _dump()
 public:
     enum TypeId {
         TYPEREF, NONE, VARIANT, REF,
@@ -202,6 +204,7 @@ protected:
     Definition* def;  // for more readable diagnostics output, but not really needed
 
     Type(TypeId);
+    virtual void _dump(fifo&) const = 0;
     static TypeId contType(Type* i, Type* e);
 
 public:
@@ -237,7 +240,8 @@ public:
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
-    virtual str definition() const;
+    void dump(fifo&) const;
+    void dumpDefinition(fifo&) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
 
@@ -263,6 +267,7 @@ class TypeReference: public Type
 protected:
     TypeReference();
     ~TypeReference();
+    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -273,6 +278,7 @@ class None: public Type
 protected:
     None();
     ~None();
+    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -282,6 +288,7 @@ class Variant: public Type
 protected:
     Variant();
     ~Variant();
+    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -290,10 +297,10 @@ class Reference: public Type
     friend class Type;
 protected:
     Reference(Type* _to);
+    void _dump(fifo&) const;
     Type* const to;
 public:
     ~Reference();
-    str definition() const;
     bool identicalTo(Type* t) const;
 };
 
@@ -311,13 +318,13 @@ class Ordinal: public Type
 protected:
     Ordinal(TypeId, integer, integer);
     ~Ordinal();
-    void reassignRight(integer r) // for enums during their definition
+    void _dump(fifo&) const;
+    void reassignRight(integer r)
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
 public:
     integer const left;
     integer const right;
-    str definition() const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     bool isInRange(integer v)
@@ -338,11 +345,11 @@ protected:
     EnumValues values;
     Enumeration(TypeId _typeId);            // built-in enums, e.g. bool
     Enumeration(const EnumValues&, integer, integer);     // subrange
+    void _dump(fifo&) const;
     Ordinal* _createSubrange(integer, integer);     // override
 public:
     Enumeration();                          // user-defined enums
     ~Enumeration();
-    str definition() const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
@@ -358,11 +365,11 @@ class Container: public Type
     friend class QueenBee;
 protected:
     Container(Type* i, Type* e);
+    void _dump(fifo&) const;
 public:
     Type* const index;
     Type* const elem;
     ~Container();
-    str definition() const;
     bool identicalTo(Type*) const;
     bool hasSmallIndex() const
         { return index->isSmallOrd(); }
@@ -380,6 +387,7 @@ class Fifo: public Type
     friend class QueenBee;
 protected:
     Fifo(Type*);
+    void _dump(fifo&) const;
 public:
     Type* const elem;
     ~Fifo();
@@ -395,6 +403,7 @@ class Prototype: public Type
 protected:
     Type* returnType;
     objvec<Variable> args;          // owned
+    void _dump(fifo&) const;
 public:
     Prototype(Type* retType);
     ~Prototype();
@@ -414,6 +423,7 @@ protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
+    void _dump(fifo&) const;
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
     Type* _registerType(Type*, Definition* = NULL);
 public:
