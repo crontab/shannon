@@ -14,6 +14,13 @@ Symbol::~Symbol()
     { }
 
 
+void Symbol::dump(fifo& stm) const
+{
+    type->dump(stm);
+    stm << ' ' << name;
+}
+
+
 bool Symbol::isTypeAlias() const
     { return isDefinition() && PDefinition(this)->getAliasedType() != NULL; }
 
@@ -165,10 +172,27 @@ bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
 
 
-str Type::definition() const
+void Type::_dump(fifo& stm) const
 {
     assert(def != NULL);
-    return def->name;
+    stm << def->name;
+}
+
+
+void Type::dump(fifo& stm) const
+{
+    if (def != NULL)
+        stm << def->name;  // TODO: prefixed by scope?
+    else
+        dumpDefinition(stm);
+}
+
+
+void Type::dumpDefinition(fifo& stm) const
+{
+    _dump(stm);
+    if (!isReference())
+        stm << '^';
 }
 
 
@@ -237,8 +261,8 @@ Reference::~Reference()
     { }
 
 
-str Reference::definition() const
-    { fatal(0x3003, "Internal: invalid call to Reference::definition()"); return str(); }
+void Reference::_dump(fifo& stm) const
+    { to->_dump(stm); }  // Type::dumpDefinition() takes care of the '^' symbol for non-refs
 
 
 bool Reference::identicalTo(Type* t) const
@@ -272,16 +296,17 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 }
 
 
-str Ordinal::definition() const
+void Ordinal::_dump(fifo& stm) const
 {
     switch(typeId)
     {
     case INT:
-        return to_string(left) + ".." + to_string(right);
-    case CHAR:
-        return to_quoted(uchar(left)) + ".." + to_quoted(uchar(right));
+        stm << to_string(left) << ".." << to_string(right);
         break;
-    default: return "?"; break;
+    case CHAR:
+        stm << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right));
+        break;
+    default: stm << '?'; break;
     }
 }
 
@@ -329,19 +354,17 @@ void Enumeration::addValue(State* state, const str& ident)
 }
 
 
-str Enumeration::definition() const
+void Enumeration::_dump(fifo& stm) const
 {
-    str result;
-    if (left > 0 || right < values.size() - 1)
-        result = values[0]->name + ".." + values[memint(right)]->name;
+    if (left > 0 || right < values.size() - 1)  // subrange?
+        stm << values[0]->name << ".." << values[memint(right)]->name;
     else
     {
-        result = "(enum ";
+        stm << "(enum ";
         for (memint i = 0; i < values.size(); i++)
-            result += (i ? ", " : "") + values[i]->name;
-        result += ')';
+            stm << (i ? ", " : "") << values[i]->name;
+        stm << ')';
     }
-    return result;
 }
 
 
@@ -378,13 +401,13 @@ Container::~Container()
     { }
 
 
-str Container::definition() const
+void Container::_dump(fifo& stm) const
 {
-    str result = elem->definition() + "*[";
+    elem->dump(stm);
+    stm << '[';
     if (!isVec())
-        result += index->definition();
-    result += ']';
-    return result;
+        index->dump(stm);
+    stm << ']';
 }
 
 
@@ -407,11 +430,12 @@ Fifo::~Fifo()
     { }
 
 
+void Fifo::_dump(fifo& stm) const
+    { elem->dump(stm); stm << "<>"; }
+
+
 bool Fifo::identicalTo(Type* t) const
     { return this == t || (t->isFifo() && elem->identicalTo(PFifo(t)->elem)); }
-
-
-// TODO: definition()
 
 
 // --- Prototype ----------------------------------------------------------- //
@@ -423,6 +447,20 @@ Prototype::Prototype(Type* r)
 
 Prototype::~Prototype()
     { args.release_all(); }
+
+
+void Prototype::_dump(fifo& stm) const
+{
+    returnType->dump(stm);
+    stm << '(';
+    for (int i = 0; i < args.size(); i++)
+    {
+        if (i)
+            stm << ", ";
+        args[i]->dump(stm);
+    }
+    stm << ')';
+}
 
 
 bool Prototype::identicalTo(Type* t) const
@@ -441,9 +479,6 @@ bool Prototype::identicalTo(Prototype* t) const
             return false;
     return true;
 }
-
-
-// TODO: definition()
 
 
 // --- State --------------------------------------------------------------- //
