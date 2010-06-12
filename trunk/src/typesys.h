@@ -207,7 +207,7 @@ protected:
     Definition* def;  // for more readable diagnostics output, but not really needed
 
     Type(TypeId);
-    virtual void _dump(fifo&) const = 0;
+    virtual void _dump(fifo&) const;
     static TypeId contType(Type* i, Type* e);
 
 public:
@@ -270,7 +270,6 @@ class TypeReference: public Type
 protected:
     TypeReference();
     ~TypeReference();
-    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -281,7 +280,6 @@ class Void: public Type
 protected:
     Void();
     ~Void();
-    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -291,7 +289,6 @@ class Variant: public Type
 protected:
     Variant();
     ~Variant();
-    void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
 
@@ -427,7 +424,7 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
-
+    
     void _dump(fifo&) const;
     Type* _registerType(Type*, Definition* = NULL);
 
@@ -441,6 +438,7 @@ public:
     State(TypeId, Prototype* proto, const str&, State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
+    void dumpAll(fifo&, bool indent = false) const;
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);

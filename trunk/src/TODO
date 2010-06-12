@@ -6,13 +6,21 @@
 * Define an operation that converts an element into a vector. In that case 
   concatenation can be used as a vector constructor.
 
-* Use '@' for taking function address, to disambiguate from class names.
+* A state name is a type that describes a state, not a prototype. Now, what to
+  do with prototypes and function addresses?
 
 * Containers and objects: references vs. values: so variables are by default
   references, while constants/defs are values.
 
+* Operators 'is' and 'as'
+
+* if, while, case
+
 * Nullable types: look at C#. Easy to implement, just need strictly defined
   semantics, also a default assignment operator, again, like in C#.
+
+* 'public' and 'forward' blocks: can contain a single statement after ':' or
+  multiple statements in { }.
 
 * Small ordinals with the 's' prefix? Custom prefixes will be used for
   measurement units as well, don't know.
@@ -22,8 +30,6 @@
   Dict/set constructors are in square brackets.
 
 * Operator 'delete' for removing container elements. 
-
-* Fifos are defined as "elem-type name<>"
 
 * finally { ... } is a nested block which is executed if the enclosing block
   reaches its end, i.e. the finally label. For states this is the destructor.
@@ -44,10 +50,6 @@
   (4) with operator 'in'
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
-
-* Operators 'is' and 'as'
-
-* if, while, case
 
 * Ordinal set operations: inversion (not), union (or), intersection (and),
   subtraction (-)
@@ -78,14 +80,13 @@
   drivers can be written this way.
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will work
-  for dynamic states too (?). Actually dict.key might work too.
-
-* Forward declarations
+  for dynamic states too (?).
 
 * Have the code generator evaluate some operations at generation time if
   possible. Need to store codeseg offset with each genstack element.
 
-* Built-ins: empty(), count() etc.
+* Built-ins: empty(), count() etc. Builtins are defined within states; "global"
+  builtins are in QueenBee.
 
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.

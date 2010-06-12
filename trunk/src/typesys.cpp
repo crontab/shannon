@@ -185,6 +185,8 @@ bool Type::canAssignTo(Type* t) const
 
 void Type::_dump(fifo& stm) const
 {
+    if (def == NULL)
+        fatal(0x3003, "Internal: invalid type alias");
     assert(def != NULL);
     stm << def->name;
 }
@@ -463,7 +465,7 @@ Prototype::~Prototype()
 void Prototype::_dump(fifo& stm) const
 {
     returnType->dump(stm);
-    stm << '(';
+    stm << "*(";
     for (int i = 0; i < args.size(); i++)
     {
         if (i)
@@ -522,7 +524,16 @@ void State::fqName(fifo& stm) const
 }
 
 
-void State::_dump(fifo&) const
+void State::_dump(fifo& stm) const
+{
+    prototype->dumpDefinition(stm);
+    stm << endl << '{' << endl;
+    dumpAll(stm, true);
+    stm << '}' << endl;
+}
+
+
+void State::dumpAll(fifo& stm, bool indent) const
 {
     // TODO: 
 }
@@ -558,7 +569,6 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
     {
         // In case this def is a type definition, also register the type with this state,
         // and bind the type object to this def for better diagnostic output (dump() family).
-        assert(v.as_rtobj()->getType()->isTypeRef());
         _registerType(cast<Type*>(v._rtobj()), d);
     }
     return d;
