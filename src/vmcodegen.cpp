@@ -153,7 +153,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     // NOTE: compound consts should be held by a smart pointer somewhere else
     switch(value.getType())
     {
-    case variant::NONE:
+    case variant::VOID:
         addOp(type, opLoadNull);
         break;
     case variant::ORD:
@@ -202,7 +202,7 @@ void CodeGen::loadDefinition(Definition* def)
 
 void CodeGen::loadEmptyCont(Container* contType)
 {
-    variant::Type vartype = variant::NONE;
+    variant::Type vartype = variant::VOID;
     switch (contType->typeId)
     {
     case Type::NULLCONT:
@@ -226,16 +226,16 @@ void CodeGen::loadEmptyCont(Container* contType)
 
 void CodeGen::loadVariable(Variable* var)
 {
-    assert(var->state != NULL);
+    assert(var->host != NULL);
     assert(var->id >= 0 && var->id <= 127);
     if (codeOwner == NULL)
         error("Variables not allowed in constant expressions");
     else
         isConstCode = false;
     // TODO: check parent states too
-    if (var->isSelfVar() && var->state == codeOwner->selfPtr)
+    if (var->isSelfVar() && var->host == codeOwner->selfPtr)
         addOp<char>(var->type, opLoadSelfVar, var->id);
-    else if (var->isLocalVar() && var->state == codeOwner)
+    else if (var->isLocalVar() && var->host == codeOwner)
         addOp<char>(var->type, opLoadStkVar, var->id);
     else
         notimpl();
@@ -250,7 +250,7 @@ void CodeGen::loadMember(Variable* var)
         isConstCode = false;
     Type* stateType = stkPop();
     // TODO: check parent states too
-    if (!stateType->isAnyState() || var->state != stateType
+    if (!stateType->isAnyState() || var->host != stateType
             || !var->isSelfVar())
         error("Invalid member selection");
     addOp<char>(var->type, opLoadMember, var->id);

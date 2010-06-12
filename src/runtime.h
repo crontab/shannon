@@ -819,11 +819,11 @@ public:
     // TODO: tinyset
 
     enum Type
-        { NONE, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
+        { VOID, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
             ANYOBJ = STR };
 
-    struct _None { int dummy; }; 
-    static _None null;
+    struct _Void { int dummy; }; 
+    static _Void null;
 
 protected:
     Type type;
@@ -847,9 +847,9 @@ protected:
     void _dbg_anyobj() const            { }
 #endif
 
-    void _init()                        { type = NONE; }
+    void _init()                        { type = VOID; }
     void _init(Type);
-    void _init(_None)                   { type = NONE; }
+    void _init(_Void)                   { type = VOID; }
     void _init(bool v)                  { type = ORD; val._ord = v; }
     void _init(char v)                  { type = ORD; val._ord = uchar(v); }
     void _init(uchar v)                 { type = ORD; val._ord = v; }
@@ -891,7 +891,7 @@ public:
 
     Type getType() const                { return Type(type); }
     bool is(Type t) const               { return type == t; }
-    bool is_none() const                { return type == NONE; }
+    bool is_none() const                { return type == VOID; }
     bool is_ord() const                 { return type == ORD; }
     bool is_str() const                 { return type == STR; }
     bool is_anyobj() const              { return type >= ANYOBJ; }

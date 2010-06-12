@@ -92,20 +92,24 @@ public:
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION };
+    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION, MODULEINST };
 
     SymbolId const symbolId;
     Type* const type;
+    State* const host;
 
-    Symbol(const str&, SymbolId, Type*);
+    Symbol(const str&, SymbolId, Type*, State*);
     ~Symbol();
+
+    void fqName(fifo&) const;
     void dump(fifo&) const;
 
-    bool isDefinition() const   { return symbolId == DEFINITION; }
+    bool isSelfVar() const          { return symbolId == SELFVAR; }
+    bool isLocalVar() const         { return symbolId == LOCALVAR; }
+    bool isVariable() const         { return symbolId <= SELFVAR; }
+    bool isDefinition() const       { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
-    bool isSelfVar() const      { return symbolId == SELFVAR; }
-    bool isLocalVar() const     { return symbolId == LOCALVAR; }
-    bool isVariable() const     { return symbolId <= SELFVAR; }
+    bool isModuleInstance() const   { return symbolId == MODULEINST; }
 };
 
 
@@ -113,7 +117,7 @@ class Definition: public Symbol
 {
 public:
     variant const value;
-    Definition(const str&, Type*, const variant&);
+    Definition(const str&, Type*, const variant&, State*);
     ~Definition();
     Type* getAliasedType() const;
 };
@@ -123,7 +127,6 @@ class Variable: public Symbol
 {
 public:
     memint const id;
-    State* const state;
     Variable(const str&, SymbolId, Type*, memint, State*);
     ~Variable();
     Module* getModuleType() const
@@ -193,7 +196,7 @@ class Type: public rtobject
     friend class Reference; // for access to _dump()
 public:
     enum TypeId {
-        TYPEREF, NONE, VARIANT, REF,
+        TYPEREF, VOID, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
         NULLCONT, VEC, SET, DICT,
         FIFO, PROTOTYPE, FUNC, CLASS, MODULE };
@@ -213,7 +216,7 @@ public:
     ~Type();
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
-    bool isNone() const         { return typeId == NONE; }
+    bool isNone() const         { return typeId == VOID; }
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
 
@@ -271,13 +274,13 @@ protected:
 };
 
 
-class None: public Type
+class Void: public Type
 {
     friend void initTypeSys();
     friend class QueenBee;
 protected:
-    None();
-    ~None();
+    Void();
+    ~Void();
     void _dump(fifo& stm) const { Type::dump(stm); }
 };
 
@@ -423,16 +426,21 @@ protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
-    void _dump(fifo&) const;
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
+
+    void _dump(fifo&) const;
     Type* _registerType(Type*, Definition* = NULL);
+
 public:
+    str const name;
+    State* const parent;
     State* const selfPtr;
     Prototype* const prototype;
     objptr<CodeSeg> codeseg;
 
-    State(TypeId, Prototype* proto, State* parent, State* self);
+    State(TypeId, Prototype* proto, const str&, State* parent, State* self);
     ~State();
+    void fqName(fifo&) const;
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
@@ -454,7 +462,6 @@ protected:
     bool complete;
 public:
     objvec<Variable> uses; // used module instances are stored in static vars
-    str const name;
     Module(const str& name);
     ~Module();
     bool isComplete() const     { return complete; }
@@ -497,7 +504,7 @@ void initTypeSys();
 void doneTypeSys();
 
 extern objptr<TypeReference> defTypeRef;
-extern objptr<None> defNone;
+extern objptr<Void> defVoid;
 extern objptr<Prototype> defPrototype;
 extern objptr<QueenBee> queenBee;
 
