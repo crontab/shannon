@@ -1,4 +1,8 @@
 
+* Set and dict constructors use { }, while vector ctors use ( ). Angle brackets
+  are reserved for inline markup, and square brackets are reserved for 
+  something else.
+
 * Define an operation that converts an element into a vector. In that case 
   concatenation can be used as a vector constructor.
 
@@ -29,6 +33,7 @@
 
 * Tuples are almost like vectors, except element types are specified
   individually. Can be used for returning multiple values from functions.
+  So a tuple descriptor is a vector of types?
 
 * Enqueue and dequeue operators: << and >>, like the iostream operators in C++.
   The leftmost operand is always a fifo. (Precedence compared to the pipe

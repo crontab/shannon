@@ -1018,14 +1018,14 @@ template class dict<variant, variant>;
 template class podvec<variant>;
 
 
-variant::_None variant::null;
+variant::_Void variant::null;
 
 
 void variant::_fin_anyobj()
 {
     switch(type)
     {
-    case NONE:
+    case VOID:
     case ORD:
     case REAL:      break;
     case STR:       // _str().~str(); break;
@@ -1046,7 +1046,7 @@ void variant::_init(Type t)
     type = t;
     switch(t)
     {
-    case NONE:
+    case VOID:
     case ORD:       val._ord = 0; break;
     case REAL:      val._real = 0; break;
     case STR:
@@ -1076,7 +1076,7 @@ void variant::_init(Type t)
     type = t;
     switch(type)
     {
-    case NONE:      break;
+    case VOID:      break;
     case ORD:       val._ord = 0; break;
     case REAL:      val._real = 0; break;
     case STR:       ::new(&val._obj) str(); break;
@@ -1094,7 +1094,7 @@ memint variant::compare(const variant& v) const
     {
         switch(type)
         {
-        case NONE:  return 0;
+        case VOID:  return 0;
         case ORD:
         {
             integer d = val._ord - v.val._ord;
@@ -1119,7 +1119,7 @@ bool variant::operator== (const variant& v) const
     {
         switch(type)
         {
-        case NONE:      return true;
+        case VOID:      return true;
         case ORD:       return val._ord == v.val._ord;
         case REAL:      return val._real == v.val._real;
         case STR:       return _str() == v._str();
@@ -1137,7 +1137,7 @@ bool variant::empty() const
 {
     switch(type)
     {
-    case NONE:      return true;
+    case VOID:      return true;
     case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0;
     case STR:       return _str().empty();

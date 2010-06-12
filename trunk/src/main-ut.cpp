@@ -464,7 +464,7 @@ void test_variant()
 {
     {
         variant v1;
-        check(v1.is(variant::NONE));
+        check(v1.is(variant::VOID));
     }
     {
         variant v1 = variant::null;
@@ -624,11 +624,13 @@ void test_typesys()
         state.findDeep("def");
     }
 */
-    check(queenBee->defBool->definition() == "enum(false, true)");
+    strfifo s(NULL);
+    queenBee->defBool->dumpDefinition(s);
+    check(s.all() == "enum(false, true)");
     check(defTypeRef->isTypeRef());
     check(defTypeRef->getType() == defTypeRef);
-    check(defNone->isNone());
-    check(defNone->getType() == defTypeRef);
+    check(defVoid->isNone());
+    check(defVoid->getType() == defTypeRef);
     check(queenBee->defInt->isInt());
     check(queenBee->defInt->getType() == defTypeRef);
     check(queenBee->defInt->isAnyOrd());

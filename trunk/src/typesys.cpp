@@ -6,12 +6,23 @@
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
-Symbol::Symbol(const str& _name, SymbolId _id, Type* _type)
-    : symbol(_name), symbolId(_id), type(_type)  { }
+Symbol::Symbol(const str& n, SymbolId id, Type* t, State* h)
+    : symbol(n), symbolId(id), type(t), host(h)  { }
 
 
 Symbol::~Symbol()
     { }
+
+
+void Symbol::fqName(fifo& stm) const
+{
+    if (host)
+    {
+        host->fqName(stm);
+        stm << '.';
+    }
+    stm << name;
+}
 
 
 void Symbol::dump(fifo& stm) const
@@ -28,8 +39,8 @@ bool Symbol::isTypeAlias() const
 // --- //
 
 
-Definition::Definition(const str& _name, Type* _type, const variant& _value)
-    : Symbol(_name, DEFINITION, _type), value(_value) { }
+Definition::Definition(const str& n, Type* t, const variant& v, State* h)
+    : Symbol(n, DEFINITION, t, h), value(v) { }
 
 
 Definition::~Definition()
@@ -48,8 +59,8 @@ Type* Definition::getAliasedType() const
 // --- //
 
 
-Variable::Variable(const str& _name, SymbolId _sid, Type* _type, memint _id, State* _state)
-    : Symbol(_name, _sid, _type), id(_id), state(_state)  { }
+Variable::Variable(const str& n, SymbolId sid, Type* t, memint i, State* h)
+    : Symbol(n, sid, t, h), id(i)  { }
 
 
 Variable::~Variable()
@@ -203,7 +214,7 @@ Container* Type::deriveVec()
     else if (isChar())
         return queenBee->defStr;
     else
-        return new Container(defNone, this);
+        return new Container(defVoid, this);
 }
 
 
@@ -214,7 +225,7 @@ Container* Type::deriveSet()
     else if (isChar())
         return queenBee->defCharSet;
     else
-        return new Container(this, defNone);
+        return new Container(this, defVoid);
 }
 
 
@@ -245,8 +256,8 @@ TypeReference::TypeReference(): Type(TYPEREF)  { }
 TypeReference::~TypeReference()  { }
 
 
-None::None(): Type(NONE)  { }
-None::~None()  { }
+Void::Void(): Type(VOID)  { }
+Void::~Void()  { }
 
 
 Variant::Variant(): Type(VARIANT)  { }
@@ -306,7 +317,7 @@ void Ordinal::_dump(fifo& stm) const
     case CHAR:
         stm << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right));
         break;
-    default: stm << '?'; break;
+    default: stm << "<?>"; break;
     }
 }
 
@@ -484,8 +495,8 @@ bool Prototype::identicalTo(Prototype* t) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId _id, Prototype* proto, State* parent, State* self)
-    : Type(_id), Scope(parent), selfPtr(self),
+State::State(TypeId id, Prototype* proto, const str& n, State* par, State* self)
+    : Type(id), Scope(parent), name(n), parent(par), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
@@ -494,6 +505,26 @@ State::~State()
     selfVars.release_all();
     defs.release_all();
     types.release_all();
+}
+
+
+void State::fqName(fifo& stm) const
+{
+    if (parent)
+    {
+        parent->fqName(stm);
+        stm << '.';
+    }
+    if (name.empty())
+        stm << '*';
+    else
+        stm << name;
+}
+
+
+void State::_dump(fifo&) const
+{
+    // TODO: 
 }
 
 
@@ -520,7 +551,7 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 {
     if (n.empty())
         fatal(0x3001, "Internal: empty identifier");
-    objptr<Definition> d = new Definition(n, t, v);
+    objptr<Definition> d = new Definition(n, t, v, this);
     addUnique(d); // may throw
     defs.push_back(d->grab<Definition>());
     if (t->isTypeRef())
@@ -565,7 +596,6 @@ stateobj* State::newInstance()
 }
 
 
-// TODO: definition()
 // TODO: identicalTo()
 
 
@@ -573,7 +603,7 @@ stateobj* State::newInstance()
 
 
 Module::Module(const str& n)
-    : State(MODULE, defPrototype, NULL, this), complete(false), name(n)  { }
+    : State(MODULE, defPrototype, n, NULL, this), complete(false)  { }
 
 
 Module::~Module()
@@ -594,9 +624,6 @@ void Module::registerString(str& s)
 }
 
 
-// TODO: definition()
-
-
 // --- QueenBee ------------------------------------------------------------ //
 
 
@@ -606,16 +633,16 @@ QueenBee::QueenBee()
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(Type::CHAR, 0, 255)),
       defBool(new Enumeration(Type::BOOL)),
-      defNullCont(new Container(defNone, defNone)),
-      defStr(new Container(defNone, defChar)),
-      defCharSet(new Container(defChar, defNone)),
+      defNullCont(new Container(defVoid, defVoid)),
+      defStr(new Container(defVoid, defChar)),
+      defCharSet(new Container(defChar, defVoid)),
       defCharFifo(new Fifo(defChar))
 {
     // Fundamentals
     addTypeAlias("type", defTypeRef);
-    addTypeAlias("none", defNone);
+    addTypeAlias("void", defVoid);
     registerType<Type>(defPrototype);
-    addDefinition("null", defNone, variant::null);
+    addDefinition("null", defVoid, variant::null);
     addTypeAlias("any", defVariant);
     addTypeAlias("int", defInt);
     addTypeAlias("char", defChar);
@@ -660,7 +687,7 @@ stateobj* QueenBee::newInstance()
 
 
 objptr<TypeReference> defTypeRef;
-objptr<None> defNone;
+objptr<Void> defVoid;
 objptr<Prototype> defPrototype;
 objptr<QueenBee> queenBee;
 
@@ -672,13 +699,13 @@ void initTypeSys()
     // itself and should be created before anything else in the type system.
     defTypeRef = new TypeReference();
 
-    // None is used in deriving vectors and sets, so we need it before some of
+    // Void is used in deriving vectors and sets, so we need it before some of
     // the default types are created in QueenBee
-    defNone = new None();
+    defVoid = new Void();
 
-    // This is a function prototype with no arguments and None return type,
+    // This is a function prototype with no arguments and Void return type,
     // used as a prototype for module constructors
-    defPrototype = new Prototype(defNone);
+    defPrototype = new Prototype(defVoid);
 
     // The "system" module that defines default types; some of them have
     // recursive definitions and other kinds of weirdness, and therefore should
@@ -691,7 +718,7 @@ void doneTypeSys()
 {
     queenBee = NULL;
     defPrototype = NULL;
-    defNone = NULL;
+    defVoid = NULL;
     defTypeRef = NULL;
 }
 
