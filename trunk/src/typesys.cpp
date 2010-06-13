@@ -204,7 +204,7 @@ void Type::dump(fifo& stm) const
 void Type::dumpDefinition(fifo& stm) const
 {
     _dump(stm);
-    if (!isReference())
+    if (!isReference() && !isModule())
         stm << '^';
 }
 
@@ -535,6 +535,17 @@ void State::_dump(fifo& stm) const
 
 void State::dumpAll(fifo& stm, bool indent) const
 {
+    str ind = indent ? "  " : "";
+    // Print all registered types (except states) in comments
+    for (memint i = 0; i < types.size(); i++)
+    {
+        Type* type = types[i];
+        if (type->isAnyState() || type->isReference())
+            continue;
+        stm << ind << "// type ";
+        types[i]->_dump(stm);
+        stm << endl;
+    }
     // TODO: 
 }
 
@@ -618,6 +629,13 @@ Module::Module(const str& n)
 
 Module::~Module()
     { }
+
+
+void Module::_dump(fifo& stm) const
+{
+    stm << "// module " << name << endl;
+    dumpAll(stm, false);
+}
 
 
 void Module::addUses(Module* m)

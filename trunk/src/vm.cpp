@@ -306,9 +306,21 @@ void Context::clear()
 }
 
 
+void Context::dump(const str& listingPath)
+{
+    if (options.enableDump || options.vmListing)
+    {
+        outtext f(NULL, listingPath);
+        for (memint i = 0; i < instances.size(); i++)
+            instances[i]->module->dumpDefinition(f);
+    }
+}
+
+
 variant Context::execute(const str& filePath)
 {
     loadModule(filePath);
+    dump(remove_filename_ext(filePath) + ".lst");
     instantiateModules();
     rtstack stack(options.stackSize);
     try

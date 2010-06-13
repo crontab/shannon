@@ -246,8 +246,8 @@ restart:
     if (c == -1)
     {
         strValue = "<EOF>";
-        if (token != tokBlockEnd)   // return tokBlockEnd at EOF, but only once
-            return token = tokBlockEnd;
+//        if (token != tokBlockEnd)   // return tokBlockEnd at EOF, but only once
+//            return token = tokBlockEnd;
         return token = tokEof;
     }
 
@@ -258,10 +258,10 @@ restart:
         skipWs();
         if (input->eol())
             goto restart;
-        if (input->preview() == '{')
-            goto restart; // will return tokBlockBegin, even though it's on a new line
-        if (token == tokBlockBegin || token == tokBlockEnd || token == tokSingleBlock)
-            goto restart;
+//        if (input->preview() == '{')
+//            goto restart; // will return tokBlockBegin, even though it's on a new line
+//        if (token == tokBlockBegin || token == tokBlockEnd || token == tokSingleBlock)
+//            goto restart;
         strValue = "<EOL>";
         return token = tokSep;
     }
@@ -313,7 +313,7 @@ restart:
         case '.': return token = (input->get_if('.') ? tokRange : tokPeriod);
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': return token = tokSep;
-        case ':': return token = tokSingleBlock;
+        case ':': return token = tokColon;
         case '+': return token = tokPlus;
         case '-': return token = tokMinus;
         case '/': 
@@ -333,8 +333,8 @@ restart:
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;
         case ')': return token = tokRParen;
-        case '{': return token = tokBlockBegin;
-        case '}': return token = tokBlockEnd;
+        case '{': return token = tokLCurly;
+        case '}': return token = tokRCurly;
         case '<':
             if (input->get_if('='))
                 return token = tokLessEq;
@@ -395,7 +395,7 @@ void Parser::expect(Token tok, const char* errName)
 
 void Parser::skipSep()
 {
-    if (token == tokBlockEnd || token == tokEof)
+    if (token == tokRCurly || token == tokEof)
         return;
     if (token != tokSep)
         errorWithLoc("End of statement expected");
