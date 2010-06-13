@@ -246,8 +246,6 @@ restart:
     if (c == -1)
     {
         strValue = "<EOF>";
-//        if (token != tokBlockEnd)   // return tokBlockEnd at EOF, but only once
-//            return token = tokBlockEnd;
         return token = tokEof;
     }
 
@@ -258,10 +256,6 @@ restart:
         skipWs();
         if (input->eol())
             goto restart;
-//        if (input->preview() == '{')
-//            goto restart; // will return tokBlockBegin, even though it's on a new line
-//        if (token == tokBlockBegin || token == tokBlockEnd || token == tokSingleBlock)
-//            goto restart;
         strValue = "<EOL>";
         return token = tokSep;
     }

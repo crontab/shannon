@@ -4,6 +4,8 @@ SRCDIR="."
 OBJDIR="release"
 EXT="cpp"
 
+make release || exit 1
+
 for i in "$SRCDIR"/*.$EXT ; do
     name=$(echo "$i" | sed 's/\.\'$EXT'$//')
     lines=$(wc -l "$i" | awk '{print $1}')
@@ -13,3 +15,4 @@ for i in "$SRCDIR"/*.$EXT ; do
     coeff=$((bytes / lines))
     echo "$coeff  -  $name ($bytes/$lines)"
 done
+

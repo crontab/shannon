@@ -150,12 +150,8 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 // --- Type ---------------------------------------------------------------- //
 
 
-// void typeMismatch()
-//     { throw ecmessage("Type mismatch"); }
-
-
 Type::Type(TypeId id)
-    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), def(NULL), typeId(id)
+    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), defName(), typeId(id)
         { if (id != REF) refType = new Reference(this); }
 
 
@@ -185,26 +181,32 @@ bool Type::canAssignTo(Type* t) const
 
 void Type::_dump(fifo& stm) const
 {
-    if (def == NULL)
+    if (defName.empty())
         fatal(0x3003, "Internal: invalid type alias");
-    assert(def != NULL);
-    stm << def->name;
+    stm << "builtin." << defName;
 }
 
 
 void Type::dump(fifo& stm) const
 {
-    if (def != NULL)
-        stm << def->name;  // TODO: prefixed by scope?
-    else
+    if (defName.empty())
         dumpDefinition(stm);
+    else
+    {
+        if (host)
+        {
+            host->fqName(stm);
+            stm << '.';
+        }
+        stm << defName;
+    }
 }
 
 
 void Type::dumpDefinition(fifo& stm) const
 {
     _dump(stm);
-    if (!isReference() && !isModule())
+    if (!isReference() && !isAnyState())
         stm << '^';
 }
 
@@ -251,11 +253,57 @@ Fifo* Type::deriveFifo()
 }
 
 
+void Type::dumpValue(fifo& stm, const variant& v) const
+{
+    // Default is to print raw variant value
+    dumpVariant(stm, NULL, v);
+}
+
+
+void dumpVariant(fifo& stm, Type* type, const variant& v)
+{
+    if (type)
+        type->dumpValue(stm, v);
+    else
+    {
+        switch (v.getType())
+        {
+        case variant::VOID: stm << "null"; break;
+        case variant::ORD: stm << v._int(); break;
+        case variant::REAL: notimpl(); break;
+        case variant::STR: stm << to_quoted(v._str()); break;
+        case variant::VEC:
+        case variant::ORDSET:
+        case variant::DICT:
+            notimpl();
+            break;
+        case variant::RTOBJ:
+            {
+                rtobject* o = v._rtobj();
+                Type* t = o->getType();
+                if (t)
+                    t->dumpValue(stm, v);
+                else
+                    notimpl();
+            }
+            break;
+        }
+    }
+}
+
+
 // --- General Types ------------------------------------------------------- //
 
 
 TypeReference::TypeReference(): Type(TYPEREF)  { }
 TypeReference::~TypeReference()  { }
+
+
+void TypeReference::dumpValue(fifo& stm, const variant& v) const
+{
+    Type* type = cast<Type*>(v.as_rtobj());
+    type->dump(stm);
+}
 
 
 Void::Void(): Type(VOID)  { }
@@ -314,10 +362,10 @@ void Ordinal::_dump(fifo& stm) const
     switch(typeId)
     {
     case INT:
-        stm << to_string(left) << ".." << to_string(right);
+        stm << "(sub " << to_string(left) << ".." << to_string(right) << ')';
         break;
     case CHAR:
-        stm << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right));
+        stm << "(sub " << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right)) << ')';
         break;
     default: stm << "<?>"; break;
     }
@@ -370,7 +418,7 @@ void Enumeration::addValue(State* state, const str& ident)
 void Enumeration::_dump(fifo& stm) const
 {
     if (left > 0 || right < values.size() - 1)  // subrange?
-        stm << values[0]->name << ".." << values[memint(right)]->name;
+        stm << "(sub " << values[0]->name << ".." << values[memint(right)]->name << ')';
     else
     {
         stm << "(enum ";
@@ -497,8 +545,8 @@ bool Prototype::identicalTo(Prototype* t) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId id, Prototype* proto, const str& n, State* par, State* self)
-    : Type(id), Scope(parent), name(n), parent(par), selfPtr(self),
+State::State(TypeId id, Prototype* proto, State* par, State* self)
+    : Type(id), Scope(parent), parent(par), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
@@ -517,33 +565,46 @@ void State::fqName(fifo& stm) const
         parent->fqName(stm);
         stm << '.';
     }
-    if (name.empty())
+    if (defName.empty())
         stm << '*';
     else
-        stm << name;
+        stm << defName;
 }
 
 
 void State::_dump(fifo& stm) const
 {
     prototype->dumpDefinition(stm);
-    stm << endl << '{' << endl;
-    dumpAll(stm, true);
-    stm << '}' << endl;
+    dumpAll(stm);
 }
 
 
-void State::dumpAll(fifo& stm, bool indent) const
+void State::dumpAll(fifo& stm) const
 {
-    str ind = indent ? "  " : "";
     // Print all registered types (except states) in comments
     for (memint i = 0; i < types.size(); i++)
     {
         Type* type = types[i];
         if (type->isAnyState() || type->isReference())
             continue;
-        stm << ind << "// type ";
+        stm << "type ";
         types[i]->_dump(stm);
+        stm << endl;
+    }
+    // Print definitions
+    for (memint i = 0; i < defs.size(); i++)
+    {
+        Definition* def = defs[i];
+        stm << "def ";
+        def->type->dump(stm);
+        stm << ' ';
+        def->fqName(stm);
+        stm << " = ";
+        Type* typeDef = def->getAliasedType();
+        if (typeDef && def->name == typeDef->defName)
+            typeDef->dumpDefinition(stm);
+        else
+            dumpVariant(stm, def->type, def->value);
         stm << endl;
     }
     // TODO: 
@@ -556,8 +617,6 @@ Type* State::_registerType(Type* t, Definition* d)
     {
         types.push_back(t->grab<Type>());
         t->host = this;
-        if (d)
-            t->def = d;
         // Also register the bundled reference type, or in case this is a reference,
         // register its bundled value type.
         if (isReference())
@@ -565,6 +624,9 @@ Type* State::_registerType(Type* t, Definition* d)
         else
             _registerType(t->getRefType(), NULL);
     }
+    // Also assign the diagnostic type alias, if appropriate
+    if (t->host == this && d && t->defName.empty())
+        t->defName = d->name;
     return t;
 }
 
@@ -624,7 +686,8 @@ stateobj* State::newInstance()
 
 
 Module::Module(const str& n)
-    : State(MODULE, defPrototype, n, NULL, this), complete(false)  { }
+    : State(MODULE, defPrototype, NULL, this), complete(false)
+        { defName = n; }
 
 
 Module::~Module()
@@ -633,13 +696,13 @@ Module::~Module()
 
 void Module::_dump(fifo& stm) const
 {
-    stm << "// module " << name << endl;
-    dumpAll(stm, false);
+    stm << endl << "#MODULE_DUMP " << getName() << endl << endl;
+    dumpAll(stm);
 }
 
 
 void Module::addUses(Module* m)
-    { uses.push_back(addSelfVar(m->name, m)); }
+    { uses.push_back(addSelfVar(m->getName(), m)); }
 
 
 void Module::registerString(str& s)
@@ -679,8 +742,8 @@ QueenBee::QueenBee()
     defBool->addValue(this, "true");
     registerType(defNullCont);
     addTypeAlias("str", defStr);
-    addTypeAlias("charset", defCharSet);
-    addTypeAlias("charfifo", defCharFifo);
+    addTypeAlias("charset", registerType(defCharSet)->getRefType());
+    addTypeAlias("charfifo", registerType(defCharFifo)->getRefType());
 
     // Constants
     addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR);

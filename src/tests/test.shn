@@ -6,6 +6,7 @@ def type charset2 = void[char]
 def CharIntMap = int[char]
 def charfifo = char<>
 
+def n0 = two
 def s0 = 'abc'
 def i0 = 2 * 3 + 4
 def v1 = 'a' | 'b'

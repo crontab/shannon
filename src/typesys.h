@@ -203,8 +203,8 @@ public:
 
 protected:
     objptr<Reference> refType;
-    State* host;      // State that "owns" a given type
-    Definition* def;  // for more readable diagnostics output, but not really needed
+    State* host;    // State that "owns" a given type
+    str defName;    // for more readable diagnostics output, but not really needed
 
     Type(TypeId);
     virtual void _dump(fifo&) const;
@@ -245,6 +245,7 @@ public:
 
     void dump(fifo&) const;
     void dumpDefinition(fifo&) const;
+    virtual void dumpValue(fifo&, const variant&) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
 
@@ -257,7 +258,7 @@ public:
 };
 
 
-// void typeMismatch();
+void dumpVariant(fifo&, Type*, const variant&);
 
 
 // --- General Types ------------------------------------------------------- //
@@ -270,6 +271,7 @@ class TypeReference: public Type
 protected:
     TypeReference();
     ~TypeReference();
+    void dumpValue(fifo&, const variant&) const;
 };
 
 
@@ -429,16 +431,15 @@ protected:
     Type* _registerType(Type*, Definition* = NULL);
 
 public:
-    str const name;
     State* const parent;
     State* const selfPtr;
     Prototype* const prototype;
     objptr<CodeSeg> codeseg;
 
-    State(TypeId, Prototype* proto, const str&, State* parent, State* self);
+    State(TypeId, Prototype* proto, State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
-    void dumpAll(fifo&, bool indent = false) const;
+    void dumpAll(fifo&) const;
     memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
@@ -463,6 +464,7 @@ public:
     objvec<Variable> uses; // used module instances are stored in static vars
     Module(const str& name);
     ~Module();
+    str getName() const         { return defName; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(Module*);
