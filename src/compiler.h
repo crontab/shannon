@@ -19,6 +19,7 @@ protected:
     void subrange();
     void enumeration();
     void identifier(const str&);
+    void vectorCtor();
     void atom();
     void designator();
     void factor();

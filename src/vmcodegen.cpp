@@ -21,8 +21,7 @@ void CodeGen::error(const char* msg)
 
 void CodeGen::addOp(Type* type, OpCode op)
 {
-    memint offs = codeseg.size();
-    simStack.push_back(SimStackItem(type, offs));
+    simStack.push_back(SimStackItem(type, codeseg.size()));
     if (simStack.size() > codeseg.stackSize)
         codeseg.stackSize = simStack.size();
     addOp(op);
@@ -142,6 +141,23 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
+void CodeGen::deref()
+{
+    Type* type = stkTop();
+    if (!type->isReference())
+        return;
+    type = type->getValueType();
+    if (type->isAnyCont())
+    {
+        stkPop();
+        addOp(type, opDeref);
+    }
+    // TODO: states: clone?
+    else
+        stkReplaceTop(type);
+}
+
+
 void CodeGen::loadTypeRef(Type* type)
 {
     addOp<Type*>(defTypeRef, opLoadTypeRef, type);
@@ -176,8 +192,10 @@ void CodeGen::loadConst(Type* type, const variant& value)
         addOp<object*>(type, opLoadStr, value._anyobj());
         break;
     case variant::VEC:
+    case variant::SET:
     case variant::ORDSET:
     case variant::DICT:
+    case variant::REF:
         fatal(0x6001, "Internal: unknown constant literal");
         break;
     case variant::RTOBJ:
@@ -212,7 +230,7 @@ void CodeGen::loadEmptyCont(Container* contType)
         vartype = contType->hasSmallElem() ? variant::STR : variant::VEC;
         break;
     case Type::SET:
-        vartype = contType->hasSmallIndex() ? variant::ORDSET : variant::VEC;
+        vartype = contType->hasSmallIndex() ? variant::ORDSET : variant::SET;
         break;
     case Type::DICT:
         vartype = contType->hasSmallIndex() ? variant::VEC : variant::DICT;
@@ -412,14 +430,14 @@ void CodeGen::_not()
     }
 }
 
-
+/*
 void CodeGen::boolXor()
 {
     if (!stkPop()->isBool() || !stkPop()->isBool())
         error("Operand types do not match binary operator");
     addOp(queenBee->defBool, opBoolXor);
 }
-
+*/
 
 memint CodeGen::boolJumpForward(OpCode op)
 {

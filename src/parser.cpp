@@ -339,6 +339,7 @@ restart:
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
         case '|': return token = tokCat; break;
+        case '^': return token = tokCaret; break;
 
         // tokNotEq is '<>'; it is used in fifo declarations too, so if '!=' is
         // finally added to the language then the token name should be different

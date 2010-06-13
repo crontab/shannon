@@ -227,6 +227,7 @@ public:
     bool isAnyOrd() const       { return typeId >= BOOL && typeId <= ENUM; }
     bool isSmallOrd() const;
     bool isBitOrd() const;
+    bool isFullChar() const;
 
     bool isNullCont() const     { return typeId == NULLCONT; }
     bool isVec() const          { return typeId == VEC; }
@@ -335,6 +336,8 @@ public:
         { return left >= 0 && right <= 255; }
     bool isBitOrd() const
         { return left == 0 && right == 1; }
+    bool isFullChar() const
+        { return isChar() && left == 0 && right == 255; }
     Ordinal* createSubrange(integer, integer);
 };
 

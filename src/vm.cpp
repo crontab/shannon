@@ -94,7 +94,9 @@ loop:
 
         case opInitStkVar:  POPTO(stk, stack.bp + ADV<char>(ip)); break;
 
+        case opDeref:       { reference* r = stk->_ref(); SETPOD(stk, r->var); r->release(); } break;
         case opPop:         POP(stk); break;
+
         case opChrToStr:    *stk = str(stk->_uchar()); break;
         case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
         case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
@@ -114,7 +116,7 @@ loop:
         case opBitXor:      BINARY_INT(^=); break;
         case opBitShl:      BINARY_INT(<<=); break;
         case opBitShr:      BINARY_INT(>>=); break;
-        case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPPOD(stk); break;
+        // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
         case opNot:         SETPOD(stk, ! stk->_ord()); break;

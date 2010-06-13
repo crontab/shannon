@@ -33,6 +33,7 @@ enum OpCode
     // Storers
     opInitStkVar,       // [stk-idx:8] -var
 
+    opDeref,            // -var +var
     opPop,              // -var
 
     opChrToStr,         // -ord +str
@@ -56,7 +57,7 @@ enum OpCode
 
     // Boolean operations are performed with short evaluation using jumps,
     // except NOT and XOR
-    opBoolXor,          // -bool, -bool, +bool
+    // opBoolXor,          // -bool, -bool, +bool
 
     // Arithmetic unary: -ord, +ord
     opNeg,              // -int, +int
@@ -159,6 +160,7 @@ public:
     void discard();
     void implicitCast(Type*, const char* errmsg = NULL);
 
+    void deref();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
@@ -172,12 +174,12 @@ public:
 //    void storeDesignator(str loaderCode, Type* type);
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
-    void boolXor();
+//    void boolXor();
     Container* elemToVec();
     void elemCat();
     void cat();
     void cmp(OpCode);
-    void _not();
+    void _not(); // 'not' is something reserved, probably only with Apple's GCC
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode op);
     void resolveJump(memint jumpOffs);

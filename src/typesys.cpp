@@ -167,6 +167,10 @@ bool Type::isBitOrd() const
     { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
 
 
+bool Type::isFullChar() const
+    { return isChar() && POrdinal(this)->isFullChar(); }
+
+
 bool Type::isOrdVec() const
     { return isVec() && PContainer(this)->hasSmallElem(); }
 
@@ -206,7 +210,7 @@ void Type::dump(fifo& stm) const
 void Type::dumpDefinition(fifo& stm) const
 {
     _dump(stm);
-    if (!isReference() && !isAnyState())
+    if (!isReference() && !isModule())
         stm << '^';
 }
 
@@ -215,7 +219,7 @@ Container* Type::deriveVec()
 {
     if (isNone())
         return queenBee->defNullCont;
-    else if (isChar())
+    else if (isFullChar())
         return queenBee->defStr;
     else
         return new Container(defVoid, this);
@@ -226,7 +230,7 @@ Container* Type::deriveSet()
 {
     if (isNone())
         return queenBee->defNullCont;
-    else if (isChar())
+    else if (isFullChar())
         return queenBee->defCharSet;
     else
         return new Container(this, defVoid);
@@ -246,7 +250,7 @@ Container* Type::deriveContainer(Type* idx)
 
 Fifo* Type::deriveFifo()
 {
-    if (isChar())
+    if (isFullChar())
         return queenBee->defCharFifo;
     else
         return new Fifo(this);
@@ -273,8 +277,10 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
         case variant::REAL: notimpl(); break;
         case variant::STR: stm << to_quoted(v._str()); break;
         case variant::VEC:
+        case variant::SET:
         case variant::ORDSET:
         case variant::DICT:
+        case variant::REF:
             notimpl();
             break;
         case variant::RTOBJ:
@@ -601,7 +607,7 @@ void State::dumpAll(fifo& stm) const
         def->fqName(stm);
         stm << " = ";
         Type* typeDef = def->getAliasedType();
-        if (typeDef && def->name == typeDef->defName)
+        if (typeDef && def->name == typeDef->defName && typeDef->host == this)
             typeDef->dumpDefinition(stm);
         else
             dumpVariant(stm, def->type, def->value);
@@ -742,8 +748,8 @@ QueenBee::QueenBee()
     defBool->addValue(this, "true");
     registerType(defNullCont);
     addTypeAlias("str", defStr);
-    addTypeAlias("charset", registerType(defCharSet)->getRefType());
-    addTypeAlias("charfifo", registerType(defCharFifo)->getRefType());
+    addTypeAlias("chars", defCharSet);
+    addTypeAlias("charf", registerType(defCharFifo)->getRefType());
 
     // Constants
     addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR);

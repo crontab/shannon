@@ -552,6 +552,19 @@ public:
 };
 
 
+template <class T>
+class set: public vector<T>
+{
+protected:
+    enum { Tsize = sizeof(T) };
+    typedef vector<T> parent;
+    typedef T* Tptr;
+    typedef Tptr& Tref;
+public:
+    set(): parent()  { }
+};
+
+
 // --- dict ---------------------------------------------------------------- //
 
 
@@ -805,9 +818,10 @@ public:
 
 
 class variant;
+class reference;
 
 typedef vector<variant> varvec;
-typedef varvec varset;
+typedef set<variant> varset;
 typedef dict<variant, variant> vardict;
 
 
@@ -819,7 +833,7 @@ public:
     // TODO: tinyset
 
     enum Type
-        { VOID, ORD, REAL, STR, VEC, ORDSET, DICT, RTOBJ,
+        { VOID, ORD, REAL, STR, VEC, SET, ORDSET, DICT, REF, RTOBJ,
             ANYOBJ = STR };
 
     struct _Void { int dummy; }; 
@@ -832,6 +846,7 @@ protected:
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
         object*     _obj;       // str, vector, set, map and their variants
+        reference*  _ref;       // reference
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
 
@@ -862,8 +877,10 @@ protected:
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
+    void _init(const varset& v)         { _init(SET, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
     void _init(const vardict& v)        { _init(DICT, v.obj); }
+    void _init(reference* o)            { _init(REF, cast<object*>(o)); }
     void _init(rtobject* o)             { _init(RTOBJ, o); }
     void _init(const variant& v);
 
@@ -904,15 +921,16 @@ public:
     integer     _ord()            const { _dbg(ORD); return val._ord; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
-    const varset& _set()          const { return _vec(); }
+    const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
+    reference*  _ref()            const { _dbg(REF); return val._ref; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _ord()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
-    varset&     _set()                  { return _vec(); }
+    varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
     ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
     vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
 
@@ -924,15 +942,16 @@ public:
     integer     as_ord()          const { _req(ORD); return _ord(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
-    const varset& as_set()        const { return as_vec(); }
+    const varset& as_set()        const { _req(SET); return _set(); }
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
     const vardict& as_dict()      const { _req(DICT); return _dict(); }
+    reference*  as_ref()          const { _req(REF); return val._ref; }
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
     object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
     integer&    as_ord()                { _req(ORD); return _ord(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
-    varset&     as_set()                { return as_vec(); }
+    varset&     as_set()                { _req(SET); return _set(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
 };
@@ -943,11 +962,22 @@ template <>
 
 
 extern template class vector<variant>;
+extern template class set<variant>;
 extern template class dict<variant, variant>;
 extern template class podvec<variant>;
 
 
 // --- runtime objects ----------------------------------------------------- //
+
+
+class reference: public object
+{
+public:
+    variant var;
+    reference()  { }
+    reference(const variant& v): var(v)  { }
+    ~reference();
+};
 
 
 class State;  // defined in typesys.h
