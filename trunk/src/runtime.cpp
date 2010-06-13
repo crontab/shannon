@@ -1014,6 +1014,7 @@ esyserr::~esyserr() throw()  { }
 
 
 template class vector<variant>;
+template class set<variant>;
 template class dict<variant, variant>;
 template class podvec<variant>;
 
@@ -1028,10 +1029,12 @@ void variant::_fin_anyobj()
     case VOID:
     case ORD:
     case REAL:      break;
-    case STR:       // _str().~str(); break;
-    case VEC:       // _vec().~varvec(); break;
-    case ORDSET:    // _ordset().~ordset(); break;
-    case DICT:      // _dict().~vardict(); break;
+    case STR:
+    case VEC:
+    case SET:
+    case ORDSET:
+    case DICT:
+    case REF:
     case RTOBJ:     _anyobj()->release(); break;
     }
 }
@@ -1051,8 +1054,10 @@ void variant::_init(Type t)
     case REAL:      val._real = 0; break;
     case STR:
     case VEC:
+    case SET:
     case ORDSET:
     case DICT:
+    case REF:
     case RTOBJ:     val._obj = NULL; break;
     }
 }
@@ -1104,8 +1109,10 @@ memint variant::compare(const variant& v) const
         case STR:   return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
+        case SET:
         case ORDSET:
         case DICT:
+        case REF:
         case RTOBJ: return memint(_anyobj()) - memint(v._anyobj());
         }
     }
@@ -1124,8 +1131,10 @@ bool variant::operator== (const variant& v) const
         case REAL:      return val._real == v.val._real;
         case STR:       return _str() == v._str();
         case VEC:       return _vec() == v._vec();
+        case SET:       return _set() == v._set();
         case ORDSET:    return _ordset() == v._ordset();
         case DICT:      return _dict() == v._dict();
+        case REF:       return _ref() == v._ref();
         case RTOBJ:     return _rtobj() == v._rtobj();
         }
     }
@@ -1159,14 +1168,16 @@ void stateobj::idxerr()
 #endif
 
 
+reference::~reference()
+    { }
+
+
 stateobj::stateobj(State* t)
     : rtobject(t)  { }
 
 
 stateobj::~stateobj()
-{
-    collapse();
-}
+    { collapse(); }
 
 
 void stateobj::collapse()

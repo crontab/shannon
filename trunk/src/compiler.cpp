@@ -55,18 +55,21 @@ Type* Compiler::getTypeDerivators(Type* type)
             else
                 type = type->deriveContainer(indexType);
         }
-        state->registerType(type);
+        type = state->registerType(type)->getRefType();
         expect(tokRSquare, "']'");
     }
 
     else if (skipIf(tokNotEq)) // <>
-        type = state->registerType(type->deriveFifo());
-
-    else
-        return type;
+        type = state->registerType(type->deriveFifo())->getRefType();
 
     // TODO: function derivator
-    // TODO: if no '^' present, return a ref type
+    // else if (token == tokWildcard)
+
+    else if (skipIf(tokCaret)) // ^
+        type = type->getValueType();
+
+    else
+        return type; // ->getRefType();
 
     return getTypeDerivators(type);
 }
@@ -99,6 +102,11 @@ void Compiler::identifier(const str& ident)
         throw EUnknownIdent(ident);
 
     codegen->loadSymbol(moduleVar, sym);
+}
+
+
+void Compiler::vectorCtor()
+{
 }
 
 
@@ -177,9 +185,9 @@ void Compiler::atom()
     else
         errorWithLoc("Expression syntax");
 
-    if (token == tokLSquare || token == tokNotEq)
+    if (token == tokLSquare || token == tokNotEq || token == tokWildcard
+        || token == tokCaret)
     {
-        // Type derivative?
         Type* type = codegen->tryUndoTypeRef();
         if (type != NULL)
             codegen->loadTypeRef(getTypeDerivators(type));
@@ -190,11 +198,13 @@ void Compiler::atom()
 void Compiler::designator()
 {
     // TODO: qualifiers, container element selectors, function calls
+    // TODO: assignment
     atom();
     while (1)
     {
         if (skipIf(tokPeriod))
         {
+            codegen->deref();
             codegen->loadMember(getIdentifier());
             next();
         }
@@ -209,7 +219,11 @@ void Compiler::factor()
     bool isNeg = skipIf(tokMinus);
     designator();
     if (isNeg)
+    {
+        codegen->deref();
         codegen->arithmUnary(opNeg);
+    }
+    // TODO: as, is
 }
 
 
@@ -218,10 +232,12 @@ void Compiler::term()
     factor();
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
+        codegen->deref();
         OpCode op = token == tokMul ? opMul
             : token == tokDiv ? opDiv : opMod;
         next();
         factor();
+        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -232,9 +248,11 @@ void Compiler::arithmExpr()
     term();
     while (token == tokPlus || token == tokMinus)
     {
+        codegen->deref();
         OpCode op = token == tokPlus ? opAdd : opSub;
         next();
         term();
+        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -245,12 +263,14 @@ void Compiler::simpleExpr()
     arithmExpr();
     if (skipIf(tokCat))
     {
+        codegen->deref();
         Type* type = codegen->getTopType();
         if (!type->isVec())
             state->registerType(codegen->elemToVec());
         do
         {
             arithmExpr();
+            codegen->deref();
             type = codegen->getTopType();
             if (!type->isVec())
                 codegen->elemCat();
@@ -268,9 +288,11 @@ void Compiler::relation()
     simpleExpr();
     if (token >= tokEqual && token <= tokGreaterEq)
     {
+        codegen->deref();
         OpCode op = OpCode(opEqual + int(token - tokEqual));
         next();
         simpleExpr();
+        codegen->deref();
         codegen->cmp(op);
     }
 }
@@ -281,31 +303,35 @@ void Compiler::notLevel()
     bool isNot = skipIf(tokNot);
     relation();
     if (isNot)
-        codegen->_not(); // 'not' is something reserved, probably only with Apple's GCC
+    {
+        codegen->deref();
+        codegen->_not();
+    }
 }
 
 
 void Compiler::andLevel()
 {
     notLevel();
-    Type* type = codegen->getTopType();
-    if (type->isBool())
+    while (token == tokShl || token == tokShr || token == tokAnd)
     {
-        if (skipIf(tokAnd))
+        codegen->deref();
+        Type* type = codegen->getTopType();
+        if (type->isBool() && token == tokAnd)
         {
             memint offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
+            codegen->deref();
             codegen->resolveJump(offs);
+            break;
         }
-    }
-    else if (type->isInt())
-    {
-        while (token == tokShl || token == tokShr || token == tokAnd)
+        else // if (type->isInt())
         {
             OpCode op = token == tokShl ? opBitShl
                     : token == tokShr ? opBitShr : opBitAnd;
             next();
             notLevel();
+            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -315,28 +341,25 @@ void Compiler::andLevel()
 void Compiler::orLevel()
 {
     andLevel();
-    Type* type = codegen->getTopType();
-    if (type->isBool())
+    while (token == tokOr || token == tokXor)
     {
-        if (skipIf(tokOr))
+        codegen->deref();
+        Type* type = codegen->getTopType();
+        // TODO: boolean XOR? Beautiful thing, but not absolutely necessary
+        if (type->isBool() && token == tokOr)
         {
             memint offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
+            codegen->deref();
             codegen->resolveJump(offs);
+            break;
         }
-        else if (skipIf(tokXor))
-        {
-            orLevel();
-            codegen->boolXor();
-        }
-    }
-    else if (type->isInt())
-    {
-        while (token == tokOr || token == tokXor)
+        else // if (type->isInt())
         {
             OpCode op = token == tokOr ? opBitOr : opBitXor;
             next();
             andLevel();
+            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -355,6 +378,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
         atom();  // Take a shorter path
     else
         expression();
+    codegen->deref();
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
     return resultType;
@@ -377,14 +401,12 @@ Type* Compiler::getTypeAndIdent(str& ident)
         ident = strValue;
         if (next() == tokAssign)
             goto ICantBelieveIUsedAGotoStatement;
-        // TODO: see if the type specifier is a single ident and parse it
-        // immediately here (?)
+        // TODO: see if the type specifier is a single ident and parse it immediately here
         undoIdent(ident);
     }
     type = getTypeValue();
     ident = getIdentifier();
     next();
-    type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
     return type;
 }

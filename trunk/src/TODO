@@ -1,16 +1,9 @@
 
-* Set and dict constructors use { }, while vector ctors use ( ). Angle brackets
-  are reserved for inline markup, and square brackets are reserved for 
-  something else.
-
-* Define an operation that converts an element into a vector. In that case 
-  concatenation can be used as a vector constructor.
+* Set and dict constructors use { }, while vector ctors use [ ]. Angle brackets
+  are reserved for inline markup.
 
 * A state name is a type that describes a state, not a prototype. Now, what to
   do with prototypes and function addresses?
-
-* Containers and objects: references vs. values: so variables are by default
-  references, while constants/defs are values.
 
 * Operators 'is' and 'as'
 

@@ -572,7 +572,7 @@ static void test_fifos()
     f.var_eat();
     variant vr;
     f.var_preview(vr);
-    check(vr.is(variant::VEC));
+    check(vr.is(variant::SET));
 
     memfifo fc(NULL, true);
     test_bidir_char_fifo(fc);
