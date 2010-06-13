@@ -226,6 +226,7 @@ protected:
     str lookupSource(const str& modName);
     void instantiateModules();
     void clear();
+    void dump(const str& listingPath);
 
 public:
     Context();

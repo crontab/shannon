@@ -417,7 +417,7 @@ void Compiler::assignment()
 
 void Compiler::statementList()
 {
-    while (!skipIf(tokBlockEnd))
+    while (!skipIfBlockEnd())
     {
         if (skipIf(tokSep))
             ;
@@ -438,6 +438,8 @@ void Compiler::statementList()
             block();
         }
 */
+        else if (eof())
+            break;
         else
             assignment();
     }

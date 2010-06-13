@@ -15,8 +15,7 @@ struct EParser: public emessage
 enum Token
 {
     tokUndefined = -1,
-    tokBlockBegin, tokBlockEnd, tokSingleBlock, tokSep,
-    tokEof,
+    tokSep, tokEof,
     tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
     tokConst, tokDef, tokVar,
@@ -43,7 +42,7 @@ enum Token
 
     // Special chars and sequences
     tokComma, tokPeriod, tokRange,
-    tokLSquare, tokRSquare, tokLParen, tokRParen, /* tokLCurly, tokRCurly, */
+    tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
     tokAssign,
 
     // Aliases; don't define new consts after this
@@ -77,6 +76,8 @@ public:
     ~Parser() throw();
 
     Token next();
+    bool eof() const
+            { return token == tokEof; }
     void undoIdent(const str& ident);
     void redoIdent();
     const str& getPrevIdent()
@@ -89,6 +90,8 @@ public:
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
+    bool skipIfBlockEnd()
+            { return skipIf(tokRCurly); }
     str getIdentifier();
 
     str getFileName() const { return input->get_name(); }

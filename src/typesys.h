@@ -458,6 +458,7 @@ class Module: public State
 protected:
     strvec constStrings;
     bool complete;
+    void _dump(fifo&) const;
 public:
     objvec<Variable> uses; // used module instances are stored in static vars
     Module(const str& name);

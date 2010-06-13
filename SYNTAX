@@ -34,7 +34,9 @@ enum-type ::= 'enum' ident { ',' ident }
 
 other-type ::= ident { type-derivator }
 
-type-derivator ::= '^' | '<>' | container-derivator
+type-derivator ::= '^' | '<>' | container-derivator | func-derivator
+
+container-derivator ::= '[' [ type-expr ] ']'
 
 
 # ---------- Expression
