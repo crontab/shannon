@@ -175,7 +175,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
 
 
 ModuleInstance::ModuleInstance(Module* m)
-    : Symbol(m->name, MODULEINST, m, NULL), module(m), obj()  { }
+    : Symbol(m->getName(), MODULEINST, m, NULL), module(m), obj()  { }
 
 
 void ModuleInstance::run(Context* context, rtstack& stack)
