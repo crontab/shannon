@@ -368,6 +368,10 @@ memint memfifo::enq_chars(const char* p, memint count)
 // --- buffifo ------------------------------------------------------------- //
 
 
+bufevent::bufevent()  { }
+bufevent::~bufevent()  { }
+
+
 buffifo::buffifo(Type* rt, bool is_char)
   : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
 
@@ -458,6 +462,23 @@ memint buffifo::enq_chars(const char* p, memint count)
 }
 
 
+inline void buffifo::call_bufevent()
+{
+    if (!event.empty())
+        event->event(buffer, buftail, bufhead);
+}
+
+
+bufevent* buffifo::set_bufevent(bufevent* e)
+{
+    bufevent* prev = event;
+    call_bufevent();
+    event = e;
+    call_bufevent();
+    return prev;
+}
+
+
 // --- strfifo ------------------------------------------------------------- //
 
 
@@ -486,6 +507,7 @@ bool strfifo::empty() const
 {
     if (buftail == bufhead)
     {
+        call_bufevent();
         if (!string.empty())
             ((strfifo*)this)->clear();
         return true;
@@ -539,6 +561,7 @@ void intext::doopen()
 
 void intext::doread()
 {
+    call_bufevent();
     filebuf.resize(intext::BUF_SIZE);
     buffer = (char*)filebuf.data();
     int result = ::read(_fd, buffer, intext::BUF_SIZE);
@@ -547,6 +570,7 @@ void intext::doread()
     buftail = 0;
     bufsize = bufhead = result;
     _eof = result == 0;
+    call_bufevent();
 }
 
 

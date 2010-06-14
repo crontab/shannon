@@ -89,7 +89,7 @@ EParser::~EParser() throw()
     { }
 
 
-Parser::Parser(fifo* inp) throw()
+Parser::Parser(buffifo* inp) throw()
     : input(inp), linenum(1), prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 

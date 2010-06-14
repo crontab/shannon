@@ -3,7 +3,7 @@
 #include "compiler.h"
 
 
-Compiler::Compiler(Context& c, Module& mod, fifo* f) throw()
+Compiler::Compiler(Context& c, Module& mod, buffifo* f) throw()
     : Parser(f), context(c), module(mod)  { }
 
 
@@ -68,6 +68,8 @@ Type* Compiler::getTypeDerivators(Type* type)
     {
         if (!type->isDerefable())
             error("Reference can not be derived from this type");
+        if (type->isReference())
+            error("Double reference");
         type = type->getRefType();
     }
 
@@ -390,6 +392,12 @@ void Compiler::orLevel()
 }
 
 
+void Compiler::expression()
+{
+    orLevel();
+}
+
+
 void Compiler::expression(Type* expectType)
 {
     expression();
@@ -464,9 +472,11 @@ void Compiler::definition()
 void Compiler::assertion()
 {
     memint offs = codegen->beginDiscardable();
+    integer ln = getLineNum();
     expression();
-    codegen->assertion(module.filePath, Parser::getLineNum());
+    codegen->assertion(module.filePath, ln);
     codegen->endDiscardable(offs, !context.options.enableAssert);
+    skipSep();
 }
 
 
@@ -474,6 +484,7 @@ void Compiler::otherStatement()
 {
     // TODO: assignment, call, pipe, etc
     notimpl();
+    skipSep();
 }
 
 
@@ -513,7 +524,7 @@ void Compiler::compileModule()
     // The system module is always added implicitly
     module.addUses(queenBee);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*module.codeseg);
+    CodeGen mainCodeGen(*module.codeseg, &module);
     codegen = &mainCodeGen;
     blockScope = NULL;
     scope = state = &module;

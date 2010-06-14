@@ -33,8 +33,8 @@ static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
 
-static void failAssertion(const char* fn, integer linenum)
-    { throw emessage("Assertion failed: " + str(fn) + " line " + to_string(linenum)); }
+static void failAssertion(const str& fn, integer linenum)
+    { throw emessage("Assertion failed: " + fn + " line " + to_string(linenum)); }
 
 
 template<class T>
@@ -147,12 +147,13 @@ loop:
 
         // Misc. builtins
         case opAssert:
-            if (!stk->_ord())
             {
-                const char* fn = ADV<const char*>(ip);
-                failAssertion(fn, ADV<integer>(ip));
+                str& fn = ADV<str>(ip);
+                integer ln = ADV<integer>(ip);
+                if (!stk->_ord())
+                    failAssertion(fn, ln);
+                POPPOD(stk);
             }
-            POPPOD(stk);
             break;
 
         default:            invOpcode(); break;
@@ -241,7 +242,7 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(NULL), options(), instances(), queenBeeInst(addModule(queenBee))  { }
+    : Scope(NULL), queenBeeInst(addModule(queenBee))  { }
 
 
 Context::~Context()

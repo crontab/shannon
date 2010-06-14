@@ -30,8 +30,7 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    void expression()
-            { orLevel(); }
+    void expression();
     void expression(Type*);
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result);
@@ -39,12 +38,13 @@ protected:
     Type* getTypeAndIdent(str& ident);
     void definition();
     void assertion();
+    void dump();
     void otherStatement();
     void statementList();
 
     void compileModule();
 
-    Compiler(Context&, Module&, fifo*) throw();
+    Compiler(Context&, Module&, buffifo*) throw();
     ~Compiler() throw();
 };
 

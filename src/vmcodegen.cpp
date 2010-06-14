@@ -204,7 +204,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::REAL: notimpl(); break;
     case variant::STR:
         assert(type->isOrdVec());
-        addOp<object*>(type, opLoadStr, value._anyobj());
+        addOp<object*>(type, opLoadStr, value._str().obj);
         break;
     case variant::VEC:
     case variant::SET:
@@ -460,12 +460,11 @@ void CodeGen::resolveJump(memint jumpOffs)
 }
 
 
-void CodeGen::assertion(const str&, integer line)
+void CodeGen::assertion(const str& fileName, integer line)
 {
-    implicitCast(queenBee->defBool, "Boolean expression expected");
+    implicitCast(queenBee->defBool, "Boolean expression expected for 'assert'");
     stkPop();
-    addOp(opAssert);
-    notimpl(); // TODO: add(file);
+    addOp(opAssert, fileName.obj);
     add(line);
 }
 

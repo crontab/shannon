@@ -155,7 +155,7 @@ protected:
     void loadStoreVar(Variable*, bool);
 
 public:
-    CodeGen(CodeSeg&, State* treg = NULL);
+    CodeGen(CodeSeg&, State* treg);
     ~CodeGen();
     
     memint getLocals()      { return locals; }
