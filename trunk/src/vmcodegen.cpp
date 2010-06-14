@@ -7,8 +7,9 @@
 // TODO: store the current file name in a named const, say __FILE__
 
 
-CodeGen::CodeGen(CodeSeg& c)
-    : codeOwner(c.getType()), codeseg(c), locals(0), isConstCode(true)  { }
+CodeGen::CodeGen(CodeSeg& c, State* treg)
+    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0), isConstCode(true)
+        { if (treg == NULL) treg = codeOwner; }
 
 
 CodeGen::~CodeGen()
@@ -79,6 +80,8 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
+    // TODO: automatic deref and mkref
+
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
     if (to->isVec() && from->identicalTo(PContainer(to)->elem))
@@ -95,13 +98,13 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
-    // TODO: automatic dereference
     return false;
 }
 
 
 void CodeGen::implicitCast(Type* to, const char* errmsg)
 {
+    // TODO: better error message, something like <type> expected; use Type::dump()
     if (!tryImplicitCast(to))
         error(errmsg == NULL ? "Type mismatch" : errmsg);
 }
@@ -141,11 +144,11 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
-void CodeGen::deref()
+bool CodeGen::deref()
 {
     Type* type = stkTop();
     if (!type->isReference())
-        return;
+        return false;
     type = type->getValueType();
     if (type->isAnyCont())
     {
@@ -155,6 +158,7 @@ void CodeGen::deref()
     // TODO: states: clone?
     else
         stkReplaceTop(type);
+    return true;
 }
 
 
@@ -224,7 +228,8 @@ void CodeGen::loadEmptyCont(Container* contType)
     switch (contType->typeId)
     {
     case Type::NULLCONT:
-        error("Container type undefined");
+        // error("Container type undefined");
+        vartype = variant::VEC;
         break;
     case Type::VEC:
         vartype = contType->hasSmallElem() ? variant::STR : variant::VEC;
@@ -364,12 +369,11 @@ void CodeGen::arithmUnary(OpCode op)
 }
 
 
-Container* CodeGen::elemToVec()
+void CodeGen::elemToVec()
 {
     Type* elemType = stkPop();
-    Container* contType = elemType->deriveVec();
+    Container* contType = typeReg->registerType(elemType->deriveVec());
     addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
-    return contType;
 }
 
 

@@ -107,6 +107,20 @@ void Compiler::identifier(const str& ident)
 
 void Compiler::vectorCtor()
 {
+    // Note: no automatic dereference here
+    if (skipIf(tokRSquare))
+    {
+        codegen->loadEmptyCont(queenBee->defNullCont);
+        return;
+    }
+    expression();
+    codegen->elemToVec();
+    while (skipIf(tokComma))
+    {
+        expression();
+        codegen->elemCat();
+    }
+    expect(tokRSquare, "]");
 }
 
 
@@ -114,7 +128,7 @@ void Compiler::vectorCtor()
 
 /*
     1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
-    2. <array-sel>  <member-sel>  <function-call>
+    2. <array-sel>  <member-sel>  <function-call>  ^
     3. unary-
     4. as  is
     5. *  /  mod
@@ -165,10 +179,13 @@ void Compiler::atom()
         expression();
         expect(tokRParen, "')'");
     }
-/*
-    // TODO:
+
     else if (skipIf(tokLSquare))
-        compoundCtor(NULL);
+        vectorCtor();
+/*
+    // TODO: 
+    else if (skipIf(tokLCurly))
+        dictCtor(NULL);
 
     else if (skipIf(tokIf))
         ifFunction();
@@ -207,6 +224,12 @@ void Compiler::designator()
             codegen->deref();
             codegen->loadMember(getIdentifier());
             next();
+        }
+        else if (skipIf(tokCaret))
+        {
+            // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
+            if (!codegen->deref())
+                error("Dereference (^) on a non-reference value");
         }
         else
             break;
@@ -263,16 +286,14 @@ void Compiler::simpleExpr()
     arithmExpr();
     if (skipIf(tokCat))
     {
-        codegen->deref();
-        Type* type = codegen->getTopType();
-        if (!type->isVec())
-            state->registerType(codegen->elemToVec());
+        codegen->deref();  // !
+        if (!codegen->getTopType()->isVec())
+            codegen->elemToVec();
         do
         {
             arithmExpr();
             codegen->deref();
-            type = codegen->getTopType();
-            if (!type->isVec())
+            if (!codegen->getTopType()->isVec())
                 codegen->elemCat();
             else
                 codegen->cat();
@@ -366,13 +387,20 @@ void Compiler::orLevel()
 }
 
 
+void Compiler::expression(Type* expectType)
+{
+    expression();
+    codegen->implicitCast(expectType);
+}
+
+
 // ------------------------------------------------------------------------- //
 
 
 Type* Compiler::getConstValue(Type* expectType, variant& result)
 {
     CodeSeg constCode(NULL);
-    CodeGen constCodeGen(constCode);
+    CodeGen constCodeGen(constCode, state);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     if (expectType && expectType->isTypeRef())
         atom();  // Take a shorter path

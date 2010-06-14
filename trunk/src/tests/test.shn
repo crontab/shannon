@@ -11,8 +11,11 @@ def s0 = 'abc'
 def i0 = 2 * 3 + 4
 def v1 = 'a' | 'b'
 def v2 = 'abc' | 'def' | 'g'
+def v3 = 3 | 4
+def v4 = []
+def v5 = [5]
+def v6 = [5, 6]
 
-// var a = [1, 2, 3]
 // var b = {3, 2, 1}
 // var c = {'a' = 1, 'b' = 2}
 

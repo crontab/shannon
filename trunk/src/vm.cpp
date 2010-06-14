@@ -3,8 +3,8 @@
 #include "compiler.h"
 
 
-CodeSeg::CodeSeg(State* stateType)
-    : rtobject(stateType)
+CodeSeg::CodeSeg(State* s)
+    : object(), state(s)
 #ifdef DEBUG
     , closed(false)
 #endif
