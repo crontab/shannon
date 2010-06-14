@@ -277,6 +277,17 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
         case variant::REAL: notimpl(); break;
         case variant::STR: stm << to_quoted(v._str()); break;
         case variant::VEC:
+        {
+            const varvec& vec = v._vec();
+            stm << '[';
+            for (memint i = 0; i < vec.size(); i++)
+            {
+                if (i) stm << ", ";
+                dumpVariant(stm, NULL, vec[i]);
+            }
+            stm << ']';
+        }
+        break;
         case variant::SET:
         case variant::ORDSET:
         case variant::DICT:
@@ -746,7 +757,7 @@ QueenBee::QueenBee()
     addTypeAlias("bool", defBool);
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
-    registerType(defNullCont);
+    addTypeAlias("voidc", defNullCont);
     addTypeAlias("str", defStr);
     addTypeAlias("chars", defCharSet);
     addTypeAlias("charf", registerType(defCharFifo)->getRefType());

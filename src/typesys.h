@@ -46,11 +46,12 @@ class Context; // defined in vm.h
 #define DEFAULT_STACK_SIZE 8192
 
 
-class CodeSeg: public rtobject
+class CodeSeg: public object
 {
     friend class CodeGen;
     typedef rtobject parent;
 
+    State* state;
     str code;
 
 #ifdef DEBUG
@@ -77,7 +78,7 @@ public:
     CodeSeg(State*);
     ~CodeSeg();
 
-    State* getType() const          { return cast<State*>(parent::getType()); }
+    State* getStateType() const     { return state; }
     memint size() const             { return code.size(); }
     bool empty() const              { return code.empty(); }
     void close();

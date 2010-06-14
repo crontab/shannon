@@ -32,6 +32,7 @@ protected:
     void orLevel();
     void expression()
             { orLevel(); }
+    void expression(Type*);
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result);
     Type* getTypeValue();

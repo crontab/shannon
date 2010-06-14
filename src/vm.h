@@ -111,6 +111,7 @@ class CodeGen: noncopyable
 {
 protected:
     State* codeOwner;
+    State* typeReg;  // for calling registerType()
     CodeSeg& codeseg;
 
     struct SimStackItem
@@ -149,7 +150,7 @@ protected:
     void loadStoreVar(Variable*, bool);
 
 public:
-    CodeGen(CodeSeg&);
+    CodeGen(CodeSeg&, State* treg = NULL);
     ~CodeGen();
     
     memint getLocals()      { return locals; }
@@ -160,7 +161,7 @@ public:
     void discard();
     void implicitCast(Type*, const char* errmsg = NULL);
 
-    void deref();
+    bool deref();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
@@ -175,7 +176,7 @@ public:
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
 //    void boolXor();
-    Container* elemToVec();
+    void elemToVec();
     void elemCat();
     void cat();
     void cmp(OpCode);
