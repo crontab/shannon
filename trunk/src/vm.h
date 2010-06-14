@@ -86,6 +86,9 @@ enum OpCode
     opJumpOr,           // [dst 16] (-)bool
     opJumpAnd,          // [dst 16] (-)bool
 
+    // Misc. builtins
+    opAssert,           // [fn:char*, linenum:int] -bool
+
     opInv,
     opMaxCode = opInv,
 };
@@ -143,6 +146,8 @@ protected:
         { return simStack.back().offs; }
     Type* stkTop(memint i)
         { return simStack.back(i).type; }
+    memint stkSize()
+        { return simStack.size(); }
     static void error(const char*);
     void undoLastLoad();
     void canAssign(Type* from, Type* to, const char* errmsg = NULL);
@@ -156,9 +161,11 @@ public:
     memint getLocals()      { return locals; }
     State* getState()       { return codeOwner; }
     Type* getTopType()      { return stkTop(); }
+    memint beginDiscardable();
+    void endDiscardable(memint offs, bool discard);
     Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
-    void discard();
+    void popValue();
     void implicitCast(Type*, const char* errmsg = NULL);
 
     bool deref();
@@ -171,8 +178,6 @@ public:
     void loadMember(const str& ident);
     void loadMember(Variable*);
     void storeRet(Type*);
-//    Type* undoDesignatorLoad(str& loader);
-//    void storeDesignator(str loaderCode, Type* type);
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
 //    void boolXor();
@@ -184,6 +189,7 @@ public:
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode op);
     void resolveJump(memint jumpOffs);
+    void assertion(const str& file, integer line);
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };
@@ -219,7 +225,6 @@ public:
 class Context: protected Scope
 {
 protected:
-    CompilerOptions options;
     objvec<ModuleInstance> instances;
     ModuleInstance* queenBeeInst;
     dict<Module*, stateobj*> modObjMap;
@@ -232,6 +237,8 @@ protected:
     void dump(const str& listingPath);
 
 public:
+    CompilerOptions options;
+
     Context();
     ~Context();
 

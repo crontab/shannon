@@ -38,7 +38,8 @@ protected:
     Type* getTypeValue();
     Type* getTypeAndIdent(str& ident);
     void definition();
-    void assignment();
+    void assertion();
+    void otherStatement();
     void statementList();
 
     void compileModule();

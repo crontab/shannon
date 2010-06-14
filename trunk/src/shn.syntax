@@ -1,6 +1,13 @@
 #
 # Syntax highlighting rules for Midnight Commander
 #
+#
+# Add these lines to /etc/mc/Syntax :
+#   file ..\*\\.shn$ Shannon\sProgram
+#   include shn.syntax
+#
+# The syntax files themselves are usually in /usr/share/mc/syntax
+#
 
 context default
 	# Keywords
@@ -19,11 +26,9 @@ context default
 	keyword whole if		yellow
 	keyword whole in		yellow
 	keyword whole is		yellow
-	keyword whole new		yellow
 	keyword whole mod		yellow
 	keyword whole not		yellow
 	keyword whole or		yellow
-	keyword whole ord		yellow
 	keyword whole return		yellow
 	keyword whole shl		yellow
 	keyword whole shr		yellow
@@ -48,28 +53,26 @@ context default
 	# Numbers
 	wholechars abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.
 
-	keyword whole 0\{xX\}\{0123456789abcdefABCDEF\}\[0123456789abcdefABCDEF\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]	brightgreen
-	keyword whole \[0123456789\]\.\{0123456789\}\[0123456789\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]\.\[0123456789\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	brightgreen
-	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	brightgreen
+	keyword whole 0\{xX\}\{0123456789abcdefABCDEF\}\[0123456789abcdefABCDEF\]	green
+	keyword whole \{0123456789\}\[0123456789\]	green
+	keyword whole \[0123456789\]\.\{0123456789\}\[0123456789\]	green
+	keyword whole \{0123456789\}\[0123456789\]\.\[0123456789\]	green
+	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	green
+	keyword whole \{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	green
+	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{0123456789\}\[0123456789\]	green
+	keyword whole \{0123456789\}\[0123456789\]\.\{0123456789\}\[0123456789\]\{eE\}\{\-\+\}\{0123456789\}\[0123456789\]	green
 
 	# Special symbols
+	keyword \\	yellow
 	keyword \.	yellow
 	keyword \*	yellow
 	keyword \+	yellow
 	keyword -	yellow
 	keyword /	yellow
-	keyword %	yellow
 	keyword =	yellow
-	keyword !	yellow
 	keyword &	yellow
 	keyword |	yellow
 	keyword ^	yellow
-	keyword ~	yellow
 	keyword >	yellow
 	keyword <	yellow
 
@@ -81,7 +84,6 @@ context default
 	keyword [	brightcyan
 	keyword ]	brightcyan
 	keyword ,	brightcyan
-	keyword ?	brightcyan
 	keyword :	brightcyan
 	keyword ;	brightmagenta
 

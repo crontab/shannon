@@ -44,30 +44,28 @@ Type* Compiler::getTypeDerivators(Type* type)
     if (skipIf(tokLSquare))
     {
         if (token == tokRSquare)
-            type = type->deriveVec();
+            type = type->deriveVec(state);
         else if (skipIf(tokRange))
-            type = type->deriveSet();
+            type = type->deriveSet(state);
         else
         {
             Type* indexType = getTypeValue();
             if (indexType->isNone())
-                type = type->deriveVec();
+                type = type->deriveVec(state);
             else
-                type = type->deriveContainer(indexType);
+                type = type->deriveContainer(state, indexType);
         }
-        type = state->registerType(type);
         expect(tokRSquare, "']'");
     }
 
     else if (skipIf(tokNotEq)) // <>
-        type = state->registerType(type->deriveFifo());
+        type = type->deriveFifo(state);
 
     // TODO: function derivator
     // else if (token == tokWildcard)
 
     else if (skipIf(tokCaret)) // ^
     {
-        // TODO: 
         if (!type->isDerefable())
             error("Reference can not be derived from this type");
         type = type->getRefType();
@@ -139,7 +137,7 @@ void Compiler::vectorCtor()
     5. *  /  mod
     6. +  –
     7. |
-    8. ==  <>  !=  <  >  <=  >=  in
+    8. ==  <>  <  >  <=  >=  in
     9. not
     10. and
     11. or  xor
@@ -449,9 +447,8 @@ void Compiler::definition()
 {
     // definition ::= 'def' [ const-expr ] ident { type-derivator } [ '=' const-expr ]
     str ident;
-    // TODO: typedef-style definition ?
     Type* type = getTypeAndIdent(ident);
-    // TODO: if ref type, take the original type
+    // TODO: if ref type, take the original type?
     expect(tokAssign, "'='");
     variant value;
     Type* valueType = getConstValue(type, value);
@@ -464,8 +461,18 @@ void Compiler::definition()
 }
 
 
-void Compiler::assignment()
+void Compiler::assertion()
 {
+    memint offs = codegen->beginDiscardable();
+    expression();
+    codegen->assertion(module.filePath, Parser::getLineNum());
+    codegen->endDiscardable(offs, !context.options.enableAssert);
+}
+
+
+void Compiler::otherStatement()
+{
+    // TODO: assignment, call, pipe, etc
     notimpl();
 }
 
@@ -483,8 +490,6 @@ void Compiler::statementList()
             variable();
         else if (skipIf(tokDump))
             echo();
-        else if (skipIf(tokAssert))
-            assertion();
         else if (skipIf(tokBlockBegin))
             block();
         else if (skipIf(tokBegin))
@@ -493,10 +498,12 @@ void Compiler::statementList()
             block();
         }
 */
+        else if (skipIf(tokAssert))
+            assertion();
         else if (eof())
             break;
         else
-            assignment();
+            otherStatement();
     }
 }
 

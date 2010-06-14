@@ -237,6 +237,7 @@ public:
     bool isDict() const         { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
     bool isOrdVec() const;
+    bool isContainer(Type* idx, Type* elem) const;
 
     bool isFifo() const         { return typeId == FIFO; }
 
@@ -254,10 +255,10 @@ public:
 
     Reference* getRefType()     { return isReference() ? PReference(this) : refType.get(); }
     Type* getValueType();
-    Container* deriveVec();
-    Container* deriveSet();
-    Container* deriveContainer(Type* idxType);
-    Fifo* deriveFifo();
+    Container* deriveVec(State*);
+    Container* deriveSet(State*);
+    Container* deriveContainer(State*, Type* idxType);
+    Fifo* deriveFifo(State*);
 };
 
 
@@ -368,7 +369,7 @@ public:
 
 class Container: public Type
 {
-    friend class Type;
+    friend class State;
     friend class QueenBee;
 protected:
     Container(Type* i, Type* e);
@@ -445,14 +446,15 @@ public:
     ~State();
     void fqName(fifo&) const;
     void dumpAll(fifo&) const;
-    memint selfVarCount()               { return selfVars.size(); } // TODO: plus inherited
+    memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
     Variable* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();
     template <class T>
-        T* registerType(T* t) { return cast<T*>(_registerType(t)); }
+        T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
+    Container* getContainerType(Type* idx, Type* elem) const;
 };
 
 
@@ -466,14 +468,15 @@ protected:
     bool complete;
     void _dump(fifo&) const;
 public:
+    str const filePath;
     objvec<Variable> uses; // used module instances are stored in static vars
-    Module(const str& name);
+    Module(const str& name, const str& filePath);
     ~Module();
     str getName() const         { return defName; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(Module*);
-    void registerString(str&); // returns a previously registered string if found
+    void registerString(str&); // registers a string literal for use at run-time
 };
 
 
