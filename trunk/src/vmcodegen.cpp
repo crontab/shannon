@@ -80,7 +80,7 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
-    // TODO: automatic deref and mkref
+    // TODO: automatic deref and mkref?
 
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
@@ -150,14 +150,13 @@ bool CodeGen::deref()
     if (!type->isReference())
         return false;
     type = type->getValueType();
-    if (type->isAnyCont())
+    if (type->isDerefable())
     {
         stkPop();
         addOp(type, opDeref);
     }
-    // TODO: states: clone?
     else
-        stkReplaceTop(type);
+        notimpl();
     return true;
 }
 
@@ -228,8 +227,7 @@ void CodeGen::loadEmptyCont(Container* contType)
     switch (contType->typeId)
     {
     case Type::NULLCONT:
-        // error("Container type undefined");
-        vartype = variant::VEC;
+        vartype = variant::VOID;
         break;
     case Type::VEC:
         vartype = contType->hasSmallElem() ? variant::STR : variant::VEC;

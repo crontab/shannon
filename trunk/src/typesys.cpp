@@ -207,14 +207,6 @@ void Type::dump(fifo& stm) const
 }
 
 
-void Type::dumpDefinition(fifo& stm) const
-{
-    _dump(stm);
-    if (!isReference() && !isModule())
-        stm << '^';
-}
-
-
 Container* Type::deriveVec()
 {
     if (isNone())
@@ -340,7 +332,10 @@ Reference::~Reference()
 
 
 void Reference::_dump(fifo& stm) const
-    { to->_dump(stm); }  // Type::dumpDefinition() takes care of the '^' symbol for non-refs
+{
+    to->_dump(stm);
+    stm << '^';
+}
 
 
 bool Reference::identicalTo(Type* t) const
@@ -591,8 +586,10 @@ void State::fqName(fifo& stm) const
 
 void State::_dump(fifo& stm) const
 {
+    // TODO: 
+    stm << "state ";
     prototype->dumpDefinition(stm);
-    dumpAll(stm);
+//    dumpAll(stm);
 }
 
 

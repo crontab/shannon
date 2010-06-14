@@ -55,21 +55,26 @@ Type* Compiler::getTypeDerivators(Type* type)
             else
                 type = type->deriveContainer(indexType);
         }
-        type = state->registerType(type)->getRefType();
+        type = state->registerType(type);
         expect(tokRSquare, "']'");
     }
 
     else if (skipIf(tokNotEq)) // <>
-        type = state->registerType(type->deriveFifo())->getRefType();
+        type = state->registerType(type->deriveFifo());
 
     // TODO: function derivator
     // else if (token == tokWildcard)
 
     else if (skipIf(tokCaret)) // ^
-        type = type->getValueType();
+    {
+        // TODO: 
+        if (!type->isDerefable())
+            error("Reference can not be derived from this type");
+        type = type->getRefType();
+    }
 
     else
-        return type; // ->getRefType();
+        return type;
 
     return getTypeDerivators(type);
 }
