@@ -54,7 +54,7 @@ enum Token
 class Parser: noncopyable
 {
 protected:
-    objptr<fifo> input;
+    objptr<buffifo> input;
     int linenum;
 
     str prevIdent; // undoIdent()
@@ -72,7 +72,7 @@ public:
     str strValue;
     uinteger intValue;
 
-    Parser(fifo*) throw();
+    Parser(buffifo*) throw();
     ~Parser() throw();
 
     Token next();

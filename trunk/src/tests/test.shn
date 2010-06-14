@@ -14,7 +14,14 @@ def v2 = 'abc' | 'def' | 'g'
 def v3 = 3 | 4
 def v4 = []
 def v5 = [5]
+def v5a = v5
 def v6 = [5, 6]
+
+assert true
+assert s0 == 'abc'
+assert i0 == 10
+assert v5 == v5a
+// assert v3 == [3, 4]
 
 // var b = {3, 2, 1}
 // var c = {'a' = 1, 'b' = 2}

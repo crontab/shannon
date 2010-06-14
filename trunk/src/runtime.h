@@ -223,6 +223,7 @@ public:
 class bytevec
 {
     friend class variant;
+    friend class CodeGen;
 
     friend void test_bytevec();
     friend void test_podvec();
@@ -1200,6 +1201,15 @@ public:
 };
 
 
+class bufevent: public object
+{
+public:
+    bufevent();
+    ~bufevent();
+    virtual void event(char* buf, memint tail, memint head) = 0;
+};
+
+
 // This is an abstract buffered fifo class. Implementations should validate the
 // buffer in the overridden empty() and flush() methods, for input and output
 // fifos respectively. To simplify things, buffifo objects are not supposed to
@@ -1213,6 +1223,8 @@ protected:
     memint   bufsize;
     memint   bufhead;
     memint   buftail;
+    
+    objptr<bufevent> event;
 
     const char* get_tail();
     const char* get_tail(memint*);
@@ -1222,6 +1234,8 @@ protected:
 
     char* enq_space(memint);
     memint enq_avail();
+    
+    void call_bufevent();
 
 public:
     buffifo(Type*, bool is_char);
@@ -1229,6 +1243,8 @@ public:
 
     bool empty() const; // throws efifowronly
     void flush(); // throws efifordonly
+    
+    bufevent* set_bufevent(bufevent*);
 };
 
 
