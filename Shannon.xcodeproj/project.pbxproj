@@ -52,6 +52,7 @@
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
+		363718EF11C67D880004628F /* shn.syntax */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = shn.syntax; path = src/shn.syntax; sourceTree = "<group>"; };
 		363C70ED0EF70F4400866D2C /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = src/main.cpp; sourceTree = "<group>"; };
 		363C710A0EF70F6000866D2C /* Shannon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Shannon; sourceTree = BUILT_PRODUCTS_DIR; };
 		363C710C0EF70FBE00866D2C /* main-ut.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "main-ut.cpp"; path = "src/main-ut.cpp"; sourceTree = "<group>"; };
@@ -136,6 +137,7 @@
 		C6859E8C029090F304C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				363718EF11C67D880004628F /* shn.syntax */,
 				362E29FD0F0D6C58005E05B4 /* TODO */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
 			);

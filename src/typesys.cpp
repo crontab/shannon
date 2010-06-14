@@ -175,6 +175,11 @@ bool Type::isOrdVec() const
     { return isVec() && PContainer(this)->hasSmallElem(); }
 
 
+bool Type::isContainer(Type* idx, Type* elem) const
+    { return isAnyCont() && elem->identicalTo(PContainer(this)->elem)
+         && idx->identicalTo(PContainer(this)->index); }
+
+
 bool Type::identicalTo(Type* t) const
     { return t == this; }
 
@@ -207,45 +212,46 @@ void Type::dump(fifo& stm) const
 }
 
 
-Container* Type::deriveVec()
+Container* Type::deriveVec(State* h)
 {
     if (isNone())
         return queenBee->defNullCont;
     else if (isFullChar())
         return queenBee->defStr;
     else
-        return new Container(defVoid, this);
+        return h->getContainerType(defVoid, this);
 }
 
 
-Container* Type::deriveSet()
+Container* Type::deriveSet(State* h)
 {
     if (isNone())
         return queenBee->defNullCont;
     else if (isFullChar())
         return queenBee->defCharSet;
     else
-        return new Container(this, defVoid);
+        return h->getContainerType(this, defVoid);
 }
 
 
-Container* Type::deriveContainer(Type* idx)
+Container* Type::deriveContainer(State* h, Type* idx)
 {
     if (isNone())
-        return idx->deriveSet();
+        return idx->deriveSet(h);
     else if (idx->isNone())
-        return deriveVec();
+        return deriveVec(h);
     else
-        return new Container(idx, this);
+        return h->getContainerType(idx, this);
 }
 
 
-Fifo* Type::deriveFifo()
+Fifo* Type::deriveFifo(State* h)
 {
     if (isFullChar())
         return queenBee->defCharFifo;
     else
-        return new Fifo(this);
+        // TODO: lookup existing fifo types in h
+        return h->registerType(new Fifo(this));
 }
 
 
@@ -586,7 +592,7 @@ void State::fqName(fifo& stm) const
 
 void State::_dump(fifo& stm) const
 {
-    // TODO: 
+    // TODO: better dump for states?
     stm << "state ";
     prototype->dumpDefinition(stm);
 //    dumpAll(stm);
@@ -621,7 +627,7 @@ void State::dumpAll(fifo& stm) const
             dumpVariant(stm, def->type, def->value);
         stm << endl;
     }
-    // TODO: 
+    // TODO: print vars
 }
 
 
@@ -693,14 +699,27 @@ stateobj* State::newInstance()
 }
 
 
+Container* State::getContainerType(Type* idx, Type* elem) const
+{
+    // TODO: replace linear search with something faster?
+    for (memint i = 0; i < types.size(); i++)
+    {
+        Type* t = types[i];
+        if (t->isContainer(idx, elem))
+            return PContainer(t);
+    }
+    return new Container(idx, elem);
+}
+
+
 // TODO: identicalTo()
 
 
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& n)
-    : State(MODULE, defPrototype, NULL, this), complete(false)
+Module::Module(const str& n, const str& f)
+    : State(MODULE, defPrototype, NULL, this), complete(false), filePath(f)
         { defName = n; }
 
 
@@ -733,7 +752,7 @@ void Module::registerString(str& s)
 
 
 QueenBee::QueenBee()
-    : Module("system"),
+    : Module("system", "<builtin>"),
       defVariant(new Variant()),
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(Type::CHAR, 0, 255)),

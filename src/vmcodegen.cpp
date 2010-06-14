@@ -2,8 +2,6 @@
 #include "vm.h"
 
 
-// TODO: assert: use constant repository for file names
-// TODO: multiple return values probably not needed
 // TODO: store the current file name in a named const, say __FILE__
 
 
@@ -118,14 +116,28 @@ void CodeGen::deinitLocalVar(Variable* var)
     assert(locals == simStack.size());
     assert(var->id == locals - 1);
     locals--;
-    discard();
+    popValue();
 }
 
 
-void CodeGen::discard()
+void CodeGen::popValue()
 {
     stkPop();
     addOp(opPop);
+}
+
+
+memint CodeGen::beginDiscardable()
+    { return codeseg.size(); }
+
+
+void CodeGen::endDiscardable(memint offs, bool discard)
+{
+    if (discard)
+    {
+        assert(stkSize() == 0 || stkTopOffs() < offs);
+        codeseg.resize(offs);
+    }
 }
 
 
@@ -323,29 +335,6 @@ void CodeGen::storeRet(Type* type)
 }
 
 
-/*
-Type* CodeGen::undoDesignatorLoad(str& loader)
-{
-    // Returns a code chunk to be used with store() below.
-    memint offs = stkTopOffs();
-    if (!isDesignatorLoadOp(codeseg[offs]))
-        error("Not a designator (L-value)");
-    loader = codeseg.cutTail(offs);
-    return stkPop();
-}
-
-
-void CodeGen::storeDesignator(str loaderCode, Type* type)
-{
-    OpCode op = OpCode(loaderCode[0]);
-    assert(isDesignatorLoadOp(op));
-    implicitCast(type, "Assignment type mismatch");
-    loaderCode.replace(0, char(designatorLoadToStore(op)));
-    codeseg.append(loaderCode);
-    stkPop();
-}
-*/
-
 void CodeGen::arithmBinary(OpCode op)
 {
     assert(op >= opAdd && op <= opBitShr);
@@ -370,7 +359,7 @@ void CodeGen::arithmUnary(OpCode op)
 void CodeGen::elemToVec()
 {
     Type* elemType = stkPop();
-    Container* contType = typeReg->registerType(elemType->deriveVec());
+    Container* contType = elemType->deriveVec(typeReg);
     addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
 }
 
@@ -468,6 +457,16 @@ void CodeGen::resolveJump(memint jumpOffs)
     if (offs > 32767)
         error("Jump target is too far away");
     codeseg.atw<jumpoffs>(jumpOffs + 1) = offs;
+}
+
+
+void CodeGen::assertion(const str&, integer line)
+{
+    implicitCast(queenBee->defBool, "Boolean expression expected");
+    stkPop();
+    addOp(opAssert);
+    notimpl(); // TODO: add(file);
+    add(line);
 }
 
 

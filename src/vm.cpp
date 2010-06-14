@@ -32,6 +32,11 @@ void CodeSeg::close()
 static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
+
+static void failAssertion(const char* fn, integer linenum)
+    { throw emessage("Assertion failed: " + str(fn) + " line " + to_string(linenum)); }
+
+
 template<class T>
     inline T& ADV(const char*& ip)
         { T& t = *(T*)ip; ip += sizeof(T); return t; }
@@ -90,7 +95,7 @@ loop:
         case opLoadSelfVar: PUSH(stk, self->var(ADV<char>(ip))); break;
         case opLoadStkVar:  PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
         case opLoadMember:  *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
-        // TODO: load "far" self var, via a pointer to a module object
+        // TODO: load "far" self var, via a pointer to a module instance?
 
         case opInitStkVar:  POPTO(stk, stack.bp + ADV<char>(ip)); break;
 
@@ -139,6 +144,16 @@ loop:
         case opJumpFalse:   { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
         case opJumpOr:      { memint o = ADV<jumpoffs>(ip); if (stk->_ord())  ip += o; else POP(stk); } break;
         case opJumpAnd:     { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; else POP(stk); } break;
+
+        // Misc. builtins
+        case opAssert:
+            if (!stk->_ord())
+            {
+                const char* fn = ADV<const char*>(ip);
+                failAssertion(fn, ADV<integer>(ip));
+            }
+            POPPOD(stk);
+            break;
 
         default:            invOpcode(); break;
         }
@@ -245,7 +260,7 @@ ModuleInstance* Context::addModule(Module* m)
 Module* Context::loadModule(const str& filePath)
 {
     str modName = moduleNameFromFileName(filePath);
-    objptr<Module> m = new Module(modName);
+    objptr<Module> m = new Module(modName, filePath);
     addModule(m);
     Compiler compiler(*this, *m, new intext(NULL, filePath));
     compiler.compileModule();

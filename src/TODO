@@ -19,7 +19,7 @@
   measurement units as well, don't know.
 
 * Dicts and sets are declared as "elem-type name[index-type]". For sets the
-  element type is "none". Operator "in" is applicable to both dicts and sets.
+  element type is "void". Operator "in" is applicable to both dicts and sets.
   Dict/set constructors are in square brackets.
 
 * Operator 'delete' for removing container elements. 
@@ -83,4 +83,7 @@
 
 * Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
   and, or, etc.
+
+* A lot of TODO's in the source
+
 
