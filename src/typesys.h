@@ -220,6 +220,7 @@ public:
     bool isNone() const         { return typeId == VOID; }
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
+    bool isDerefable() const    { return !isAnyState() & !isFifo(); }
 
     bool isBool() const         { return typeId == BOOL; }
     bool isChar() const         { return typeId == CHAR; }
@@ -246,7 +247,7 @@ public:
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
     void dump(fifo&) const;
-    void dumpDefinition(fifo&) const;
+    void dumpDefinition(fifo& stm) const { _dump(stm); }
     virtual void dumpValue(fifo&, const variant&) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
