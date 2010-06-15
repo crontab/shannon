@@ -82,17 +82,19 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
-    if (to->isVec() && from->identicalTo(PContainer(to)->elem))
+    if (to->isAnyVec() && from->identicalTo(PContainer(to)->elem))
     {
         elemToVec();
         return true;
     }
 
-    // Null container is automatically converted to a more concrete type
+    // Null container is actually a NULL pointer so it's compatible with
+    // all containers
     if (from->isNullCont() && to->isAnyCont())
     {
-        undoLastLoad();
-        loadEmptyCont(PContainer(to));
+        // undoLastLoad();
+        // loadEmptyCont(PContainer(to));
+        stkReplaceTop(to);
         return true;
     }
 
@@ -223,7 +225,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
 void CodeGen::loadDefinition(Definition* def)
 {
     Type* type = def->type;
-    if (type->isTypeRef() || type->isNone() || def->type->isAnyOrd() || def->type->isOrdVec())
+    if (type->isTypeRef() || type->isVoid() || def->type->isAnyOrd() || def->type->isOrdVec())
         loadConst(def->type, def->value);
     else
         addOp<Definition*>(def->type, opLoadConst, def);
@@ -239,18 +241,37 @@ void CodeGen::loadEmptyCont(Container* contType)
         vartype = variant::VOID;
         break;
     case Type::VEC:
-        vartype = contType->hasSmallElem() ? variant::STR : variant::VEC;
+        vartype = contType->isOrdVec() ? variant::STR : variant::VEC;
         break;
     case Type::SET:
-        vartype = contType->hasSmallIndex() ? variant::ORDSET : variant::SET;
+        vartype = contType->isOrdSet() ? variant::ORDSET : variant::SET;
         break;
     case Type::DICT:
-        vartype = contType->hasSmallIndex() ? variant::VEC : variant::DICT;
+        vartype = contType->isOrdDict() ? variant::VEC : variant::DICT;
         break;
     default:
         notimpl();
     }
     addOp<char>(contType, opLoadEmptyVar, vartype);
+}
+
+
+void CodeGen::loadSymbol(Variable* moduleVar, Symbol* sym)
+{
+    if (sym->isDefinition())
+        loadDefinition(PDefinition(sym));
+    else if (sym->isVariable())
+    {
+        if (moduleVar != NULL)
+        {
+            loadVariable(moduleVar);
+            loadMember(PVariable(sym));
+        }
+        else
+            loadVariable(PVariable(sym));
+    }
+    else
+        notimpl();
 }
 
 
@@ -305,22 +326,72 @@ void CodeGen::loadMember(const str& ident)
 }
 
 
-void CodeGen::loadSymbol(Variable* moduleVar, Symbol* sym)
+void CodeGen::loadContainerElem()
 {
-    if (sym->isDefinition())
-        loadDefinition(PDefinition(sym));
-    else if (sym->isVariable())
+    // This is square brackets op - can be string, vector, array or dictionary.
+    OpCode op = opInv;
+    Type* contType = stkTop(2);
+    if (contType->isAnyVec())
     {
-        if (moduleVar != NULL)
-        {
-            loadVariable(moduleVar);
-            loadMember(PVariable(sym));
-        }
-        else
-            loadVariable(PVariable(sym));
+        implicitCast(queenBee->defInt, "Vector index must be integer");
+        op = contType->isOrdVec() ? opStrElem : opVecElem;
+    }
+    else if (contType->isAnyDict())
+    {
+        notimpl();
+        // implicitCast(PContainer(contType)->index, "Dictionary key type mismatch");
+        // op = contType->isOrdDict() ? opOrdDictElem : opDictElem;
     }
     else
-        notimpl();
+        error("Vector/dictionary type expected");
+    addOp(op);
+    stkPop();
+    stkReplaceTop(cast<Container*>(contType)->elem);
+}
+
+
+void CodeGen::addSetElem()
+{
+    // TODO: nullcont
+    Type* setType = stkTop(2);
+    if (!setType->isAnySet())
+        error("Set type expected");
+    implicitCast(PContainer(setType)->index, "Set element type mismatch");
+    addOp(setType->isOrdSet() ? opAddOrdSetElem : opAddSetElem);
+    stkPop();
+}
+
+
+void CodeGen::elemToVec()
+{
+    Type* elemType = stkPop();
+    Container* contType = elemType->deriveVec(typeReg);
+    addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
+}
+
+
+void CodeGen::elemCat()
+{
+    // TODO: nullcont is also compatible
+    Type* elemType = stkTop();
+    Type* vecType = stkTop(2);
+    if (!vecType->isAnyVec())
+        error("Vector/string type expected");
+    implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
+    elemType = stkPop();
+    addOp(elemType->isSmallOrd() ? opChrCat: opVarCat);
+}
+
+
+void CodeGen::cat()
+{
+    // TODO: if left is nullcont, take right as a basis
+    Type* vecType = stkTop(2);
+    if (!vecType->isAnyVec())
+        error("Left operand is not a vector");
+    implicitCast(vecType, "Vector/string types do not match");
+    stkPop();
+    addOp(vecType->isOrdVec() ? opStrCat : opVecCat);
 }
 
 
@@ -350,37 +421,6 @@ void CodeGen::arithmUnary(OpCode op)
     if (!type->isInt())
         error("Operand type doesn't match unary operator");
     addOp(op);
-}
-
-
-void CodeGen::elemToVec()
-{
-    Type* elemType = stkPop();
-    Container* contType = elemType->deriveVec(typeReg);
-    addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
-}
-
-
-void CodeGen::elemCat()
-{
-    Type* elemType = stkTop();
-    Type* vecType = stkTop(2);
-    if (!vecType->isVec())
-        error("Vector/string type expected");
-    implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
-    elemType = stkPop();
-    addOp(elemType->isSmallOrd() ? opChrCat: opVarCat);
-}
-
-
-void CodeGen::cat()
-{
-    Type* vecType = stkTop(2);
-    if (!vecType->isVec())
-        error("Left operand is not a vector");
-    implicitCast(vecType, "Vector/string types do not match");
-    stkPop();
-    addOp(vecType->isOrdVec() ? opStrCat : opVecCat);
 }
 
 

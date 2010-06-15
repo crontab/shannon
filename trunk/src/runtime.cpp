@@ -1023,24 +1023,6 @@ template class podvec<variant>;
 variant::_Void variant::null;
 
 
-void variant::_fin_anyobj()
-{
-    switch(type)
-    {
-    case VOID:
-    case ORD:
-    case REAL:      break;
-    case STR:
-    case VEC:
-    case SET:
-    case ORDSET:
-    case DICT:
-    case REF:
-    case RTOBJ:     _anyobj()->release(); break;
-    }
-}
-
-
 void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
 void variant::_range_err() { throw ecmessage("Variant range error"); }
 
@@ -1050,7 +1032,12 @@ void variant::_init(Type t)
     type = t;
     switch(t)
     {
-    case VOID:
+    // Try to set the biggest field to 0: probably not reliable
+#ifdef SHN_64
+    case VOID:      val._ord = 0; break;
+#else
+    case VOID:      val._obj = NULL; break;
+#endif
     case ORD:       val._ord = 0; break;
     case REAL:      val._real = 0; break;
     case STR:
@@ -1068,7 +1055,7 @@ void variant::_init(const variant& v)
 {
     type = v.type;
     val = v.val;
-    if (is_alloc())
+    if (is_anyobj())
         val._obj->grab();
 }
 
@@ -1100,7 +1087,7 @@ memint variant::compare(const variant& v) const
     {
         switch(type)
         {
-        case VOID:  return 0;
+        case VOID: return 0;
         case ORD:
         {
             integer d = val._ord - v.val._ord;

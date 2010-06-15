@@ -663,7 +663,6 @@ void test_typesys()
     check(queenBee->defStr->hasSmallElem());
     check(queenBee->defStr->getType() == defTypeRef);
     check(queenBee->defStr->isVec());
-//    queenBee->registerType(queenBee->defInt->deriveVec());
 
     Symbol* b = queenBee->find("true");
     check(b != NULL && b->isDefinition());

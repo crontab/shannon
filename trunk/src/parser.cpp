@@ -397,6 +397,13 @@ void Parser::redoIdent()
 }
 
 
+void Parser::skipToSep()
+{
+    while (!eof() && token != tokSep)
+        next();
+}
+
+
 str Parser::getIdentifier()
 {
     // This function doesn't call next() because in many cases we want
