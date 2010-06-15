@@ -230,6 +230,11 @@ void Compiler::designator()
             codegen->loadMember(getIdentifier());
             next();
         }
+        
+        else if (skipIf(tokLSquare))
+        {
+        }
+        
         else if (skipIf(tokCaret))
         {
             // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
@@ -392,10 +397,8 @@ void Compiler::orLevel()
 }
 
 
-void Compiler::expression()
-{
-    orLevel();
-}
+inline void Compiler::expression()
+    { orLevel(); }
 
 
 void Compiler::expression(Type* expectType)
@@ -475,7 +478,6 @@ void Compiler::assertion()
     if (context.options.enableAssert)
     {
         integer ln = getLineNum();
-        skipWs();
         beginRecording();
         next();
         expression();
@@ -487,7 +489,7 @@ void Compiler::assertion()
     {
         memint offs = codegen->beginDiscardable();
         next();
-        expression();
+        expression(queenBee->defBool);
         codegen->popValue();
         codegen->endDiscardable(offs);
     }
@@ -497,6 +499,29 @@ void Compiler::assertion()
 
 void Compiler::dumpVar()
 {
+    assert(token == tokDump);
+    if (context.options.enableDump)
+        do
+        {
+            beginRecording();
+            next();
+            expression();
+            str s = endRecording();
+            module.registerString(s);
+            codegen->dumpVar(s);
+        }
+        while (token == tokComma);
+    else
+        do
+        {
+            memint offs = codegen->beginDiscardable();
+            next();
+            expression();
+            codegen->popValue();
+            codegen->endDiscardable(offs);
+        }
+        while (token == tokComma);
+    skipSep();
 }
 
 
@@ -531,6 +556,8 @@ void Compiler::statementList()
 */
         else if (token == tokAssert)
             assertion();
+        else if (token == tokDump)
+            dumpVar();
         else if (eof())
             break;
         else

@@ -429,6 +429,7 @@ void Parser::skipSep()
 void Parser::beginRecording()
 {
     assert(!recorder.active());
+    skipWs();
     input->set_bufevent(&recorder);
 }
 

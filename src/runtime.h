@@ -1135,14 +1135,15 @@ public:
     void enq(uchar c);
     void enq(large i);
 
-    fifo& operator<< (const char* s)   { enq(s); return *this; }
-    fifo& operator<< (const str& s)    { enq(s); return *this; }
-    fifo& operator<< (char c)          { enq(c); return *this; }
-    fifo& operator<< (uchar c)         { enq(c); return *this; }
-    fifo& operator<< (large i)         { enq(large(i)); return *this; }
-    fifo& operator<< (int i)           { enq(large(i)); return *this; }
-    fifo& operator<< (long i)          { enq(large(i)); return *this; }
-    fifo& operator<< (size_t i)        { enq(large(i)); return *this; }
+    fifo& operator<< (const char* s)    { enq(s); return *this; }
+    fifo& operator<< (const str& s)     { enq(s); return *this; }
+    fifo& operator<< (char c)           { enq(c); return *this; }
+    fifo& operator<< (uchar c)          { enq(c); return *this; }
+    fifo& operator<< (large i)          { enq(large(i)); return *this; }
+    fifo& operator<< (int i)            { enq(large(i)); return *this; }
+    fifo& operator<< (long i)           { enq(large(i)); return *this; }
+    fifo& operator<< (size_t i)         { enq(large(i)); return *this; }
+    fifo& operator<< (rtobject* o)      { o->dump(*this); return *this; }
 };
 
 const char endl = '\n';

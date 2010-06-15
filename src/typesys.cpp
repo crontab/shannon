@@ -292,7 +292,7 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
         case variant::REF:
             notimpl();
             break;
-        case variant::RTOBJ: v._rtobj()->dump(stm); break;
+        case variant::RTOBJ: stm << v._rtobj(); break;
         }
     }
 }
@@ -308,7 +308,7 @@ TypeReference::~TypeReference()  { }
 void TypeReference::dumpValue(fifo& stm, const variant& v) const
 {
     Type* type = cast<Type*>(v.as_rtobj());
-    type->dump(stm);
+    stm << type;
 }
 
 
@@ -417,7 +417,7 @@ void Enumeration::addValue(State* state, const str& ident)
 {
     integer n = integer(values.size());
     if (n >= 256)  // TODO: maybe this is not really necessary
-        throw emessage("Maximum number of enum constants reached");
+        throw ecmessage("Maximum number of enum constants reached");
     Definition* d = state->addDefinition(ident, this, n);
     values.push_back(d);
     reassignRight(n);
@@ -584,8 +584,7 @@ void State::fqName(fifo& stm) const
 void State::dump(fifo& stm) const
 {
     // TODO: better dump for states?
-    stm << "state ";
-    prototype->dump(stm);
+    stm << "state " << prototype;
 //    dumpAll(stm);
 }
 
@@ -598,9 +597,7 @@ void State::dumpAll(fifo& stm) const
         Type* type = types[i];
         if (type->isAnyState() || type->isReference())
             continue;
-        stm << "type ";
-        types[i]->dump(stm);
-        stm << endl;
+        stm << "type " << types[i] << endl;
     }
     // Print definitions
     for (memint i = 0; i < defs.size(); i++)
