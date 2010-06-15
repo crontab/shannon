@@ -29,6 +29,7 @@ void CodeSeg::close()
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
+static void idxOverflow()           { throw ecmessage("Index overflow"); }
 static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
@@ -40,7 +41,13 @@ static void failAssertion(const str& cond, const str& fn, integer linenum)
 static void dumpVar(const str& expr, Type* type, const variant& var)
 {
     // TODO: dump to serr?
-    sio << "# " << expr << " = ";
+    sio << "# " << expr;
+    if (type)
+    {
+        sio << ": ";
+        type->dumpDef(sio);
+    }
+    sio << " = ";
     dumpVariant(sio, type, var);
     sio << endl;
 }
@@ -111,12 +118,31 @@ loop:
         case opDeref:       { reference* r = stk->_ref(); SETPOD(stk, r->var); r->release(); } break;
         case opPop:         POP(stk); break;
 
+        // Strings and vectors
         case opChrToStr:    *stk = str(stk->_uchar()); break;
         case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
         case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
         case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
         case opVarCat:      (stk - 1)->_vec().push_back(*stk); POP(stk); break;
         case opVecCat:      (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
+        case opStrElem:
+            {
+                integer idx = stk->_int();
+                POPPOD(stk);
+                const str& s = stk->_str();
+                if (idx >= s.size()) idxOverflow();
+                *stk = s[memint(idx)];
+            }
+            break;
+        case opVecElem:
+            {
+                integer idx = stk->_ord();
+                POPPOD(stk);
+                const varvec& v = stk->_vec();
+                if (idx >= v.size()) idxOverflow();
+                *stk = v[memint(idx)];
+            }
+            break;
 
         // Arithmetic
         // TODO: range checking in debug mode
@@ -178,6 +204,9 @@ loop:
         }
         goto loop;
 exit:
+        // while (stk >= stack.bp)
+        //     POP(stk);
+        // TODO: assertion below only for DEBUG build
         assert(stk == stack.bp - 1);
     }
     catch(exception&)
@@ -253,6 +282,15 @@ CompilerOptions::CompilerOptions()
   : enableDump(true), enableAssert(true), linenumInfo(true),
     vmListing(true), stackSize(8192)
         { modulePath.push_back("./"); }
+
+
+void CompilerOptions::setDebugOpts(bool flag)
+{
+    enableDump = flag;
+    enableAssert = flag;
+    linenumInfo = flag;
+    vmListing = flag;
+}
 
 
 static str moduleNameFromFileName(const str& n)

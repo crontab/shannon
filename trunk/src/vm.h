@@ -36,12 +36,15 @@ enum OpCode
     opDeref,            // -var +var
     opPop,              // -var
 
+    // Strings and vectors
     opChrToStr,         // -ord +str
     opChrCat,           // -ord -str +str
     opStrCat,           // -str -str +str
     opVarToVec,         // -var +vec
     opVarCat,           // -var -vec +vec
     opVecCat,           // -vec -vec +vec
+    opStrElem,          // -idx -str +ord
+    opVecElem,          // -idx -vec +var
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -179,6 +182,7 @@ public:
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
+    void loadContainerElem();
     void storeRet(Type*);
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
@@ -211,6 +215,7 @@ struct CompilerOptions
     strvec modulePath;
 
     CompilerOptions();
+    void setDebugOpts(bool);
 };
 
 

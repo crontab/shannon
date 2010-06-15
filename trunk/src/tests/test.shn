@@ -23,6 +23,9 @@ assert i0 == 10
 assert v5 == v5a
 // assert v3 == [3, 4]
 
+dump i0, v5
+dump [7, 8]
+
 // var b = {3, 2, 1}
 // var c = {'a' = 1, 'b' = 2}
 

@@ -49,6 +49,7 @@ int main()
     try
     {
         Context context;
+        // context.options.setDebugOpts(false);
         variant result = context.execute(filePath);
 
         if (result.is_none())
