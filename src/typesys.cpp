@@ -172,7 +172,15 @@ bool Type::isFullChar() const
 
 
 bool Type::isOrdVec() const
-    { return isVec() && PContainer(this)->hasSmallElem(); }
+    { return isAnyVec() && PContainer(this)->hasSmallElem(); }
+
+
+bool Type::isOrdSet() const
+    { return isAnySet() && PContainer(this)->hasSmallIndex(); }
+
+
+bool Type::isOrdDict() const
+    { return isAnyDict() && PContainer(this)->hasSmallIndex(); }
 
 
 bool Type::isContainer(Type* idx, Type* elem) const
@@ -214,7 +222,7 @@ void Type::dumpDef(fifo& stm) const
 
 Container* Type::deriveVec(State* h)
 {
-    if (isNone())
+    if (isVoid())
         return queenBee->defNullCont;
     else if (isFullChar())
         return queenBee->defStr;
@@ -225,7 +233,7 @@ Container* Type::deriveVec(State* h)
 
 Container* Type::deriveSet(State* h)
 {
-    if (isNone())
+    if (isVoid())
         return queenBee->defNullCont;
     else if (isFullChar())
         return queenBee->defCharSet;
@@ -236,9 +244,9 @@ Container* Type::deriveSet(State* h)
 
 Container* Type::deriveContainer(State* h, Type* idx)
 {
-    if (isNone())
+    if (isVoid())
         return idx->deriveSet(h);
-    else if (idx->isNone())
+    else if (idx->isVoid())
         return deriveVec(h);
     else
         return h->getContainerType(idx, this);
@@ -262,6 +270,17 @@ void Type::dumpValue(fifo& stm, const variant& v) const
 }
 
 
+fifo& operator << (fifo& stm, const varvec& vec)
+{
+    for (memint i = 0; i < vec.size(); i++)
+    {
+        if (i) stm << ", ";
+        dumpVariant(stm, NULL, vec[i]);
+    }
+    return stm;
+}
+
+
 void dumpVariant(fifo& stm, Type* type, const variant& v)
 {
     if (type)
@@ -274,19 +293,8 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
         case variant::ORD: stm << v._int(); break;
         case variant::REAL: notimpl(); break;
         case variant::STR: stm << to_quoted(v._str()); break;
-        case variant::VEC:
-        {
-            const varvec& vec = v._vec();
-            stm << '[';
-            for (memint i = 0; i < vec.size(); i++)
-            {
-                if (i) stm << ", ";
-                dumpVariant(stm, NULL, vec[i]);
-            }
-            stm << ']';
-        }
-        break;
-        case variant::SET:
+        case variant::VEC: stm << '[' << v._vec() << ']'; break;
+        case variant::SET: stm << '{' << v._set() << '}'; break;
         case variant::ORDSET:
         case variant::DICT:
         case variant::REF:
@@ -451,12 +459,12 @@ bool Enumeration::canAssignTo(Type* t) const
 
 Type::TypeId Type::contType(Type* i, Type* e)
 {
-    if (i->isNone())
-        if (e->isNone())
+    if (i->isVoid())
+        if (e->isVoid())
             return NULLCONT;
         else
             return VEC;
-    else if (e->isNone())
+    else if (e->isVoid())
         return SET;
     else
         return DICT;
@@ -475,7 +483,7 @@ void Container::dump(fifo& stm) const
 {
     elem->dumpDef(stm);
     stm << '[';
-    if (!isVec())
+    if (!isAnyVec())
         index->dumpDef(stm);
     stm << ']';
 }
@@ -687,7 +695,7 @@ stateobj* State::newInstance()
 }
 
 
-Container* State::getContainerType(Type* idx, Type* elem) const
+Container* State::getContainerType(Type* idx, Type* elem)
 {
     // TODO: replace linear search with something faster?
     for (memint i = 0; i < types.size(); i++)
@@ -696,7 +704,7 @@ Container* State::getContainerType(Type* idx, Type* elem) const
         if (t->isContainer(idx, elem))
             return PContainer(t);
     }
-    return new Container(idx, elem);
+    return registerType(new Container(idx, elem));
 }
 
 

@@ -216,7 +216,7 @@ public:
     ~Type();
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
-    bool isNone() const         { return typeId == VOID; }
+    bool isVoid() const         { return typeId == VOID; }
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
     bool isDerefable() const    { return !isAnyState() & !isFifo(); }
@@ -231,11 +231,13 @@ public:
     bool isFullChar() const;
 
     bool isNullCont() const     { return typeId == NULLCONT; }
-    bool isVec() const          { return typeId == VEC; }
-    bool isSet() const          { return typeId == SET; }
-    bool isDict() const         { return typeId == DICT; }
+    bool isAnyVec() const       { return typeId == VEC; }
+    bool isAnySet() const       { return typeId == SET; }
+    bool isAnyDict() const      { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
     bool isOrdVec() const;
+    bool isOrdSet() const;
+    bool isOrdDict() const;
     bool isContainer(Type* idx, Type* elem) const;
 
     bool isFifo() const         { return typeId == FIFO; }
@@ -454,7 +456,7 @@ public:
     virtual stateobj* newInstance();
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
-    Container* getContainerType(Type* idx, Type* elem) const;
+    Container* getContainerType(Type* idx, Type* elem);
 };
 
 

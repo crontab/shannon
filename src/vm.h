@@ -15,6 +15,7 @@ enum OpCode
     opExit,             // throws eexit()
 
     // Const loaders
+    // --- begin undoable loaders
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +ord
@@ -28,6 +29,7 @@ enum OpCode
     // Loaders
     opLoadSelfVar,      // [self-idx:8] +var
     opLoadStkVar,       // [stk-idx:8] +var
+    // --- end undoable loaders
     opLoadMember,       // [self-idx:8] -stateobj +var
 
     // Storers
@@ -45,6 +47,10 @@ enum OpCode
     opVecCat,           // -vec -vec +vec
     opStrElem,          // -idx -str +ord
     opVecElem,          // -idx -vec +var
+
+    // Sets
+    opAddSetElem,       // -var -set + set
+    opAddOrdSetElem,    // -ord -set + set
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -100,7 +106,7 @@ enum OpCode
 
 
 inline bool isUndoableLoadOp(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadConst); }
+    { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
@@ -182,14 +188,15 @@ public:
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
+    void elemToVec();
+    void elemCat();
+    void cat();
     void loadContainerElem();
+    void addSetElem();
     void storeRet(Type*);
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
 //    void boolXor();
-    void elemToVec();
-    void elemCat();
-    void cat();
     void cmp(OpCode);
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
     memint boolJumpForward(OpCode op);

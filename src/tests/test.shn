@@ -1,3 +1,19 @@
+// EXPRESSION
+assert 1 > 0
+assert system.true
+assert 1 + 2 * 2 == 5
+assert 'o' | 'ne' | ' tw' | 'o' == 'one two'
+assert 'three' | ' four' == 'three four'
+assert not true == false
+assert not 1 == -2
+assert not (1 == 1 and 2 == 1)
+assert 1 == 1 and 2 == 2 and 3 == 2 + 1 and 'a' == 'a'
+assert true or false
+assert not (false or false)
+assert (1 xor 3) == 2
+assert (1 or 2) == 3
+
+// DEFINITIONS
 def byte = sub 0..255
 def type nums = enum one, two, three
 def intvec = int[]
@@ -6,7 +22,9 @@ def charset = char[..]^
 def type charset2 = void[char]
 def CharIntMap = int[char]
 def charfifo = char<>
+def sign = sub -1..1
 
+// CONSTANTS
 def n0 = two
 def s0 = 'abc'
 def i0 = 2 * 3 + 4
@@ -17,14 +35,16 @@ def v4 = []
 def v5 = [5]
 def v5a = v5
 def v6 = [5, 6]
+def sign b0 = -1
+def t0 = {1}
+// dump t0
 
 assert true ; assert s0 == 'abc'
 assert i0 == 10
 assert v5 == v5a
-// assert v3 == [3, 4]
-
-dump i0, v5
-dump [7, 8]
+assert v1 == 'ab'
+assert v2[0] == 'a' and v2[1] == 'b' and v2[3] == 'd' and v2[6] == 'g'
+assert v6[0] == 5 and 6 == v6[1]
 
 // var b = {3, 2, 1}
 // var c = {'a' = 1, 'b' = 2}

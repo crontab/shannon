@@ -110,6 +110,7 @@ public:
             { if (token == tok) { next(); return true; } return false; }
     bool skipIfBlockEnd()
             { return skipIf(tokRCurly); }
+    void skipToSep();
     str getIdentifier();
 
     str getFileName() const { return input->get_name(); }

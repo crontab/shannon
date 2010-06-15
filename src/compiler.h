@@ -20,6 +20,7 @@ protected:
     void enumeration();
     void identifier(const str&);
     void vectorCtor();
+    void dictCtor();
     void atom();
     void designator();
     void factor();

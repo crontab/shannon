@@ -50,7 +50,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         else
         {
             Type* indexType = getTypeValue();
-            if (indexType->isNone())
+            if (indexType->isVoid())
                 type = type->deriveVec(state);
             else
                 type = type->deriveContainer(state, indexType);
@@ -112,7 +112,6 @@ void Compiler::identifier(const str& ident)
 
 void Compiler::vectorCtor()
 {
-    // Note: no automatic dereference here
     if (skipIf(tokRSquare))
     {
         codegen->loadEmptyCont(queenBee->defNullCont);
@@ -126,6 +125,44 @@ void Compiler::vectorCtor()
         codegen->elemCat();
     }
     expect(tokRSquare, "]");
+}
+
+
+void Compiler::dictCtor()
+{
+    if (skipIf(tokRCurly))
+    {
+        codegen->loadEmptyCont(queenBee->defNullCont);
+        return;
+    }
+
+    // First element: see if it's a set or a dict
+    // Container* cont = NULL;
+    codegen->loadEmptyCont(queenBee->defNullCont);
+    expression();
+    Type* idx = codegen->getTopType();
+    Type* elem = NULL;
+    if (skipIf(tokAssign))  // key/value pair?
+    {
+        expression();
+        elem = codegen->getTopType();
+        cont = elem->deriveContainer(state, idx);
+        codegen->loadEmptyCont(cont);
+        notimpl();
+    }
+    else // set
+    {
+        // cont = idx->deriveSet(state);
+        if (skipIf(tokRange))
+        {
+            expression();
+            notimpl();
+        }
+        else
+            codegen->addSetElem();
+    }
+
+    expect(tokRCurly, "}");
 }
 
 
@@ -187,11 +224,11 @@ void Compiler::atom()
 
     else if (skipIf(tokLSquare))
         vectorCtor();
+
+    else if (skipIf(tokLCurly))
+        dictCtor();
 /*
     // TODO: 
-    else if (skipIf(tokLCurly))
-        dictCtor(NULL);
-
     else if (skipIf(tokIf))
         ifFunction();
 
@@ -233,6 +270,9 @@ void Compiler::designator()
         
         else if (skipIf(tokLSquare))
         {
+            expression();
+            expect(tokRSquare, "]");
+            codegen->loadContainerElem();
         }
         
         else if (skipIf(tokCaret))
@@ -297,13 +337,13 @@ void Compiler::simpleExpr()
     if (skipIf(tokCat))
     {
         codegen->deref();  // !
-        if (!codegen->getTopType()->isVec())
+        if (!codegen->getTopType()->isAnyVec())
             codegen->elemToVec();
         do
         {
             arithmExpr();
             codegen->deref();
-            if (!codegen->getTopType()->isVec())
+            if (!codegen->getTopType()->isAnyVec())
                 codegen->elemCat();
             else
                 codegen->cat();
@@ -348,7 +388,7 @@ void Compiler::andLevel()
     {
         codegen->deref();
         Type* type = codegen->getTopType();
-        if (type->isBool() && token == tokAnd)
+        if (type->isBool() && skipIf(tokAnd))
         {
             memint offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
@@ -377,7 +417,7 @@ void Compiler::orLevel()
         codegen->deref();
         Type* type = codegen->getTopType();
         // TODO: boolean XOR? Beautiful thing, but not absolutely necessary
-        if (type->isBool() && token == tokOr)
+        if (type->isBool() && skipIf(tokOr))
         {
             memint offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
@@ -486,13 +526,7 @@ void Compiler::assertion()
         codegen->assertion(s, module.filePath, ln);
     }
     else
-    {
-        memint offs = codegen->beginDiscardable();
-        next();
-        expression(queenBee->defBool);
-        codegen->popValue();
-        codegen->endDiscardable(offs);
-    }
+        skipToSep();
     skipSep();
 }
 
@@ -512,15 +546,7 @@ void Compiler::dumpVar()
         }
         while (token == tokComma);
     else
-        do
-        {
-            memint offs = codegen->beginDiscardable();
-            next();
-            expression();
-            codegen->popValue();
-            codegen->endDiscardable(offs);
-        }
-        while (token == tokComma);
+        skipToSep();
     skipSep();
 }
 

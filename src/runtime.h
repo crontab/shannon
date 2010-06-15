@@ -445,7 +445,7 @@ public:
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
     void erase(memint pos)                  { parent::_erase(pos * Tsize, Tsize); }
 
-    // If you keep the vector sorted, the following will provide a set-like
+    // If you keep the vector sorted, the following will provide set-like
     // functionality:
     bool has(const T& item) const
     {
@@ -555,6 +555,8 @@ public:
 };
 
 
+// This a clone of vector<> but declared separately for overloaded variant
+// constructors. (Is there a better way?)
 template <class T>
 class set: public vector<T>
 {
@@ -887,8 +889,7 @@ protected:
     void _init(rtobject* o)             { _init(RTOBJ, o); }
     void _init(const variant& v);
 
-    void _fin_anyobj();
-    void _fin()                         { if (is_alloc()) _fin_anyobj(); }
+    void _fin()                         { if (is_anyobj()) val._obj->release(); }
 
 public:
     variant()                           { _init(); }
@@ -915,7 +916,6 @@ public:
     bool is_ord() const                 { return type == ORD; }
     bool is_str() const                 { return type == STR; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
-    bool is_alloc() const               { return is_anyobj() && val._obj; }
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
