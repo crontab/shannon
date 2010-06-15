@@ -3,7 +3,8 @@
 
 
 #ifdef DEBUG
-memint memfifo::CHUNK_SIZE = _varsize * 16;
+memint memfifo::CHUNK_SIZE = 32 * _varsize;
+memint intext::BUF_SIZE = 4096 * sizeof(integer);
 #endif
 
 
@@ -13,17 +14,18 @@ fifo::fifo(Type* rt, bool is_char)
 fifo::~fifo()
     { }
 
-void fifo::_empty_err()                { throw emessage("FIFO empty"); }
-void fifo::_wronly_err()               { throw emessage("FIFO is write-only"); }
-void fifo::_rdonly_err()               { throw emessage("FIFO is read-only"); }
-void fifo::_fifo_type_err()            { fatal(0x2001, "FIFO type mismatch"); }
-const char* fifo::get_tail()           { _wronly_err(); return NULL; }
-const char* fifo::get_tail(memint*)    { _wronly_err(); return NULL; }
-void fifo::deq_bytes(memint)           { _wronly_err(); }
-variant* fifo::enq_var()               { _rdonly_err(); return NULL; }
+void fifo::dump(fifo& stm) const        { stm << "<fifo>"; }
+void fifo::_empty_err()                 { throw emessage("FIFO empty"); }
+void fifo::_wronly_err()                { throw emessage("FIFO is write-only"); }
+void fifo::_rdonly_err()                { throw emessage("FIFO is read-only"); }
+void fifo::_fifo_type_err()             { fatal(0x2001, "FIFO type mismatch"); }
+const char* fifo::get_tail()            { _wronly_err(); return NULL; }
+const char* fifo::get_tail(memint*)     { _wronly_err(); return NULL; }
+void fifo::deq_bytes(memint)            { _wronly_err(); }
+variant* fifo::enq_var()                { _rdonly_err(); return NULL; }
 memint fifo::enq_chars(const char*, memint)  { _rdonly_err(); return 0; }
-bool fifo::empty() const               { _rdonly_err(); return true; }
-void fifo::flush()                     { }
+bool fifo::empty() const                { _rdonly_err(); return true; }
+void fifo::flush()                      { }
 
 
 void fifo::_req_non_empty() const
@@ -368,12 +370,9 @@ memint memfifo::enq_chars(const char* p, memint count)
 // --- buffifo ------------------------------------------------------------- //
 
 
-bufevent::bufevent()  { }
-bufevent::~bufevent()  { }
-
-
 buffifo::buffifo(Type* rt, bool is_char)
-  : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0)  { }
+  : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0), buforig(0),
+    event(NULL)  { }
 
 buffifo::~buffifo()  { }
 bool buffifo::empty() const { _wronly_err(); return true; }
@@ -462,9 +461,9 @@ memint buffifo::enq_chars(const char* p, memint count)
 }
 
 
-inline void buffifo::call_bufevent()
+void buffifo::call_bufevent() const
 {
-    if (!event.empty())
+    if (event)
         event->event(buffer, buftail, bufhead);
 }
 
@@ -567,6 +566,7 @@ void intext::doread()
     int result = ::read(_fd, buffer, intext::BUF_SIZE);
     if (result < 0)
         error(errno);
+    buforig += bufhead;
     buftail = 0;
     bufsize = bufhead = result;
     _eof = result == 0;
@@ -632,6 +632,7 @@ void outtext::flush()
         int ret = ::write(_fd, buffer, bufhead);
         if (ret < 0)
             error(errno);
+        buforig += bufhead;
         bufhead = 0;
     }
 }

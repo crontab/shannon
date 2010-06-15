@@ -1,0 +1,10 @@
+We must be careful with terms like readable, user-friendly, and so
+forth. They are vague at best, and often refer to taste and established
+habits. But what is conventional need not also be convenient. In the
+context of programming languages, perhaps "readable" should be replaced
+by "amenable to formal reasoning." For example, mathematical formulas
+are hardly what we might praise as easily readable, but they allow the
+formal derivation of properties that could not be obtained from a vague,
+fuzzy, informal, user-friendly circumscription.
+
+- Niklaus Wirth - From an interview in Software Development, June 1997.

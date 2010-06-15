@@ -27,7 +27,7 @@ void Symbol::fqName(fifo& stm) const
 
 void Symbol::dump(fifo& stm) const
 {
-    type->dump(stm);
+    type->dumpDef(stm);
     stm << ' ' << name;
 }
 
@@ -188,7 +188,7 @@ bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
 
 
-void Type::_dump(fifo& stm) const
+void Type::dump(fifo& stm) const
 {
     if (defName.empty())
         fatal(0x3003, "Internal: invalid type alias");
@@ -196,10 +196,10 @@ void Type::_dump(fifo& stm) const
 }
 
 
-void Type::dump(fifo& stm) const
+void Type::dumpDef(fifo& stm) const
 {
     if (defName.empty())
-        dumpDefinition(stm);
+        dump(stm);
     else
     {
         if (host)
@@ -292,16 +292,7 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
         case variant::REF:
             notimpl();
             break;
-        case variant::RTOBJ:
-            {
-                rtobject* o = v._rtobj();
-                Type* t = o->getType();
-                if (t)
-                    t->dumpValue(stm, v);
-                else
-                    notimpl();
-            }
-            break;
+        case variant::RTOBJ: v._rtobj()->dump(stm); break;
         }
     }
 }
@@ -337,9 +328,9 @@ Reference::~Reference()
     { }
 
 
-void Reference::_dump(fifo& stm) const
+void Reference::dump(fifo& stm) const
 {
-    to->_dump(stm);
+    to->dumpDef(stm);
     stm << '^';
 }
 
@@ -375,7 +366,7 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 }
 
 
-void Ordinal::_dump(fifo& stm) const
+void Ordinal::dump(fifo& stm) const
 {
     switch(typeId)
     {
@@ -433,7 +424,7 @@ void Enumeration::addValue(State* state, const str& ident)
 }
 
 
-void Enumeration::_dump(fifo& stm) const
+void Enumeration::dump(fifo& stm) const
 {
     if (left > 0 || right < values.size() - 1)  // subrange?
         stm << "(sub " << values[0]->name << ".." << values[memint(right)]->name << ')';
@@ -480,12 +471,12 @@ Container::~Container()
     { }
 
 
-void Container::_dump(fifo& stm) const
+void Container::dump(fifo& stm) const
 {
-    elem->dump(stm);
+    elem->dumpDef(stm);
     stm << '[';
     if (!isVec())
-        index->dump(stm);
+        index->dumpDef(stm);
     stm << ']';
 }
 
@@ -509,8 +500,8 @@ Fifo::~Fifo()
     { }
 
 
-void Fifo::_dump(fifo& stm) const
-    { elem->dump(stm); stm << "<>"; }
+void Fifo::dump(fifo& stm) const
+    { elem->dumpDef(stm); stm << "<>"; }
 
 
 bool Fifo::identicalTo(Type* t) const
@@ -528,9 +519,9 @@ Prototype::~Prototype()
     { args.release_all(); }
 
 
-void Prototype::_dump(fifo& stm) const
+void Prototype::dump(fifo& stm) const
 {
-    returnType->dump(stm);
+    returnType->dumpDef(stm);
     stm << "*(";
     for (int i = 0; i < args.size(); i++)
     {
@@ -590,11 +581,11 @@ void State::fqName(fifo& stm) const
 }
 
 
-void State::_dump(fifo& stm) const
+void State::dump(fifo& stm) const
 {
     // TODO: better dump for states?
     stm << "state ";
-    prototype->dumpDefinition(stm);
+    prototype->dump(stm);
 //    dumpAll(stm);
 }
 
@@ -608,7 +599,7 @@ void State::dumpAll(fifo& stm) const
         if (type->isAnyState() || type->isReference())
             continue;
         stm << "type ";
-        types[i]->_dump(stm);
+        types[i]->dump(stm);
         stm << endl;
     }
     // Print definitions
@@ -616,13 +607,13 @@ void State::dumpAll(fifo& stm) const
     {
         Definition* def = defs[i];
         stm << "def ";
-        def->type->dump(stm);
+        def->type->dumpDef(stm);
         stm << ' ';
         def->fqName(stm);
         stm << " = ";
         Type* typeDef = def->getAliasedType();
-        if (typeDef && def->name == typeDef->defName && typeDef->host == this)
-            typeDef->dumpDefinition(stm);
+        if (typeDef && (def->name != typeDef->defName || typeDef->host != this))
+            typeDef->dumpDef(stm);  // just the name if this is not the definition of this type
         else
             dumpVariant(stm, def->type, def->value);
         stm << endl;
@@ -727,7 +718,7 @@ Module::~Module()
     { }
 
 
-void Module::_dump(fifo& stm) const
+void Module::dump(fifo& stm) const
 {
     stm << endl << "#MODULE_DUMP " << getName() << endl << endl;
     dumpAll(stm);
@@ -740,11 +731,17 @@ void Module::addUses(Module* m)
 
 void Module::registerString(str& s)
 {
+    if (s.empty())
+        return;
+    constStrings.push_back(s);
+    // TODO: make the below optional?
+/*
     memint i;
     if (constStrings.bsearch(s, i))
         s = constStrings[i];
     else
         constStrings.insert(i, s);
+*/
 }
 
 

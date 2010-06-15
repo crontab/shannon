@@ -87,7 +87,9 @@ enum OpCode
     opJumpAnd,          // [dst 16] (-)bool
 
     // Misc. builtins
-    opAssert,           // [fn:char*, linenum:int] -bool
+    // TODO: set filename and linenum in a separate op
+    opAssert,           // [cond:str, fn:str, linenum:int] -bool
+    opDump,             // [expr:str, type:Type*] -var
 
     opInv,
     opMaxCode = opInv,
@@ -162,7 +164,7 @@ public:
     State* getState()       { return codeOwner; }
     Type* getTopType()      { return stkTop(); }
     memint beginDiscardable();
-    void endDiscardable(memint offs, bool discard);
+    void endDiscardable(memint offs);
     Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
     void popValue();
@@ -189,7 +191,8 @@ public:
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode op);
     void resolveJump(memint jumpOffs);
-    void assertion(const str& file, integer line);
+    void assertion(const str& cond, const str& file, integer line);
+    void dumpVar(const str& expr);
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };

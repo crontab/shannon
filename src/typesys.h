@@ -194,7 +194,7 @@ public:
 class Type: public rtobject
 {
     friend class State;
-    friend class Reference; // for access to _dump()
+    friend class Reference; // for access to dump()
 public:
     enum TypeId {
         TYPEREF, VOID, VARIANT, REF,
@@ -208,7 +208,6 @@ protected:
     str defName;    // for more readable diagnostics output, but not really needed
 
     Type(TypeId);
-    virtual void _dump(fifo&) const;
     static TypeId contType(Type* i, Type* e);
 
 public:
@@ -248,7 +247,7 @@ public:
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
     void dump(fifo&) const;
-    void dumpDefinition(fifo& stm) const { _dump(stm); }
+    void dumpDef(fifo&) const;
     virtual void dumpValue(fifo&, const variant&) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
@@ -262,7 +261,8 @@ public:
 };
 
 
-void dumpVariant(fifo&, Type*, const variant&);
+void dumpVariant(fifo&, Type*, const variant&); // type can be NULL if unknown
+
 
 
 // --- General Types ------------------------------------------------------- //
@@ -303,7 +303,7 @@ class Reference: public Type
     friend class Type;
 protected:
     Reference(Type* _to);
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
     Type* const to;
 public:
     ~Reference();
@@ -324,7 +324,7 @@ class Ordinal: public Type
 protected:
     Ordinal(TypeId, integer, integer);
     ~Ordinal();
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
     void reassignRight(integer r)
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
@@ -353,7 +353,7 @@ protected:
     EnumValues values;
     Enumeration(TypeId _typeId);            // built-in enums, e.g. bool
     Enumeration(const EnumValues&, integer, integer);     // subrange
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
     Ordinal* _createSubrange(integer, integer);     // override
 public:
     Enumeration();                          // user-defined enums
@@ -373,7 +373,7 @@ class Container: public Type
     friend class QueenBee;
 protected:
     Container(Type* i, Type* e);
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
 public:
     Type* const index;
     Type* const elem;
@@ -395,7 +395,7 @@ class Fifo: public Type
     friend class QueenBee;
 protected:
     Fifo(Type*);
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
 public:
     Type* const elem;
     ~Fifo();
@@ -411,10 +411,10 @@ class Prototype: public Type
 protected:
     Type* returnType;
     objvec<Variable> args;          // owned
-    void _dump(fifo&) const;
 public:
     Prototype(Type* retType);
     ~Prototype();
+    void dump(fifo&) const;
     memint argCount()                   { return args.size(); }
     memint retVarId()                   { return - argCount() - 1; }
     bool identicalTo(Type*) const; // override
@@ -433,7 +433,7 @@ protected:
     objvec<Variable> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
     
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
     Type* _registerType(Type*, Definition* = NULL);
 
 public:
@@ -466,7 +466,7 @@ class Module: public State
 protected:
     strvec constStrings;
     bool complete;
-    void _dump(fifo&) const;
+    void dump(fifo&) const;
 public:
     str const filePath;
     objvec<Variable> uses; // used module instances are stored in static vars

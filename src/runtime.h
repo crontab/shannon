@@ -153,6 +153,7 @@ public:
 
 
 class Type;    // defined in typesys.h
+class fifo;
 
 class rtobject: public object
 {
@@ -164,6 +165,7 @@ public:
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
     void clearType()        { _type = NULL; }
+    virtual void dump(fifo&) const = 0;
 };
 
 
@@ -1011,6 +1013,8 @@ public:
     ~stateobj();
     State* getType() const  { return (State*)parent::getType(); }
 
+    void dump(fifo&) const;
+
     variant& var(memint index)
     {
 #ifdef DEBUG
@@ -1095,6 +1099,8 @@ public:
     ~fifo();
 
     enum { CHAR_ALL = MEMINT_MAX - 2, CHAR_SOME = MEMINT_MAX - 1 };
+
+    void dump(fifo&) const;
 
     virtual bool empty() const;     // throws efifowronly
     virtual void flush();           // empty, overridden in file fifos
@@ -1201,11 +1207,10 @@ public:
 };
 
 
+// Buffer read event handler (write events aren't implemented yet)
 class bufevent: public object
 {
 public:
-    bufevent();
-    ~bufevent();
     virtual void event(char* buf, memint tail, memint head) = 0;
 };
 
@@ -1219,12 +1224,13 @@ public:
 class buffifo: public fifo
 {
 protected:
-    char* buffer;
-    memint   bufsize;
-    memint   bufhead;
-    memint   buftail;
-    
-    objptr<bufevent> event;
+    char*  buffer;
+    memint bufsize;
+    memint bufhead;
+    memint buftail;
+    memint buforig;
+
+    bufevent* event;
 
     const char* get_tail();
     const char* get_tail(memint*);
@@ -1235,7 +1241,7 @@ protected:
     char* enq_space(memint);
     memint enq_avail();
     
-    void call_bufevent();
+    void call_bufevent() const;
 
 public:
     buffifo(Type*, bool is_char);
@@ -1243,7 +1249,9 @@ public:
 
     bool empty() const; // throws efifowronly
     void flush(); // throws efifordonly
-    
+
+    memint tellg() const { return buforig + buftail; }
+    memint tellp() const { return buforig + bufhead; }
     bufevent* set_bufevent(bufevent*);
 };
 
@@ -1270,9 +1278,14 @@ public:
 
 class intext: public buffifo
 {
-protected:
-    enum { BUF_SIZE = 2048 * sizeof(integer) };
+public:
+#ifdef DEBUG
+    static memint BUF_SIZE; // settable from unit tests
+#else
+    enum { BUF_SIZE = 4096 * sizeof(integer) };
+#endif
 
+protected:
     str file_name;
     str  filebuf;
     int  _fd;

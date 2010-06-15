@@ -7,7 +7,7 @@
 
 struct EParser: public emessage
 {
-    EParser(const str& ifilename, int ilinenum, const str& msg) throw();
+    EParser(const str& filename, integer linenum, const str& msg) throw();
     ~EParser() throw();
 };
 
@@ -51,14 +51,32 @@ enum Token
 };
 
 
+class InputRecorder: public bufevent
+{
+    friend class Parser;
+protected:
+    char* buf;
+    memint offs;
+    memint prevpos;
+    void clear();
+    bool active() { return buf != NULL; }
+public:
+    str data;
+    InputRecorder();
+    void event(char* buf, memint tail, memint head);
+};
+
+
 class Parser: noncopyable
 {
 protected:
     objptr<buffifo> input;
-    int linenum;
+    integer linenum;
 
     str prevIdent; // undoIdent()
     Token saveToken;
+    
+    InputRecorder recorder;  // raw input recorder, for assert and dump
 
     str errorLocation() const;
     void parseStringLiteral();
@@ -72,8 +90,8 @@ public:
     str strValue;
     uinteger intValue;
 
-    Parser(buffifo*) throw();
-    ~Parser() throw();
+    Parser(buffifo*);
+    ~Parser();
 
     Token next();
     bool eof() const
@@ -95,7 +113,9 @@ public:
     str getIdentifier();
 
     str getFileName() const { return input->get_name(); }
-    int getLineNum() const { return linenum; }
+    integer getLineNum() const { return linenum; }
+    void beginRecording();
+    str endRecording();
 };
 
 

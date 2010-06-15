@@ -3,11 +3,11 @@
 #include "compiler.h"
 
 
-Compiler::Compiler(Context& c, Module& mod, buffifo* f) throw()
+Compiler::Compiler(Context& c, Module& mod, buffifo* f)
     : Parser(f), context(c), module(mod)  { }
 
 
-Compiler::~Compiler() throw()
+Compiler::~Compiler()
     { }
 
 
@@ -66,10 +66,10 @@ Type* Compiler::getTypeDerivators(Type* type)
 
     else if (skipIf(tokCaret)) // ^
     {
-        if (!type->isDerefable())
-            error("Reference can not be derived from this type");
         if (type->isReference())
             error("Double reference");
+        if (!type->isDerefable())
+            error("Reference can not be derived from this type");
         type = type->getRefType();
     }
 
@@ -471,12 +471,32 @@ void Compiler::definition()
 
 void Compiler::assertion()
 {
-    memint offs = codegen->beginDiscardable();
-    integer ln = getLineNum();
-    expression();
-    codegen->assertion(module.filePath, ln);
-    codegen->endDiscardable(offs, !context.options.enableAssert);
+    assert(token == tokAssert);
+    if (context.options.enableAssert)
+    {
+        integer ln = getLineNum();
+        skipWs();
+        beginRecording();
+        next();
+        expression();
+        str s = endRecording();
+        module.registerString(s);
+        codegen->assertion(s, module.filePath, ln);
+    }
+    else
+    {
+        memint offs = codegen->beginDiscardable();
+        next();
+        expression();
+        codegen->popValue();
+        codegen->endDiscardable(offs);
+    }
     skipSep();
+}
+
+
+void Compiler::dumpVar()
+{
 }
 
 
@@ -509,7 +529,7 @@ void Compiler::statementList()
             block();
         }
 */
-        else if (skipIf(tokAssert))
+        else if (token == tokAssert)
             assertion();
         else if (eof())
             break;
