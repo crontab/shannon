@@ -33,8 +33,17 @@ static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
 
-static void failAssertion(const str& fn, integer linenum)
-    { throw emessage("Assertion failed: " + fn + " line " + to_string(linenum)); }
+static void failAssertion(const str& cond, const str& fn, integer linenum)
+    { throw emessage("Assertion failed [" + cond + "] file: " + fn + ':' + to_string(linenum)); }
+
+
+static void dumpVar(const str& expr, Type* type, const variant& var)
+{
+    // TODO: dump to serr?
+    sio << "# " << expr << " = ";
+    dumpVariant(sio, type, var);
+    sio << endl;
+}
 
 
 template<class T>
@@ -148,11 +157,20 @@ loop:
         // Misc. builtins
         case opAssert:
             {
+                str& cond = ADV<str>(ip);
                 str& fn = ADV<str>(ip);
                 integer ln = ADV<integer>(ip);
                 if (!stk->_ord())
-                    failAssertion(fn, ln);
+                    failAssertion(cond, fn, ln);
                 POPPOD(stk);
+            }
+            break;
+
+        case opDump:
+            {
+                str& expr = ADV<str>(ip);
+                dumpVar(expr, ADV<Type*>(ip), *stk);
+                POP(stk);
             }
             break;
 
@@ -330,7 +348,7 @@ void Context::dump(const str& listingPath)
     {
         outtext f(NULL, listingPath);
         for (memint i = 0; i < instances.size(); i++)
-            instances[i]->module->dumpDefinition(f);
+            instances[i]->module->dumpAll(f);
     }
 }
 

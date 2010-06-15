@@ -131,13 +131,10 @@ memint CodeGen::beginDiscardable()
     { return codeseg.size(); }
 
 
-void CodeGen::endDiscardable(memint offs, bool discard)
+void CodeGen::endDiscardable(memint offs)
 {
-    if (discard)
-    {
-        assert(stkSize() == 0 || stkTopOffs() < offs);
-        codeseg.resize(offs);
-    }
+    assert(stkSize() == 0 || stkTopOffs() < offs);
+    codeseg.resize(offs);
 }
 
 
@@ -460,12 +457,21 @@ void CodeGen::resolveJump(memint jumpOffs)
 }
 
 
-void CodeGen::assertion(const str& fileName, integer line)
+void CodeGen::assertion(const str& cond, const str& fileName, integer line)
 {
     implicitCast(queenBee->defBool, "Boolean expression expected for 'assert'");
     stkPop();
-    addOp(opAssert, fileName.obj);
+    addOp(opAssert, cond.obj);
+    add(fileName.obj);
     add(line);
+}
+
+
+void CodeGen::dumpVar(const str& expr)
+{
+    Type* type = stkPop();
+    addOp(opDump, expr.obj);
+    add(type);
 }
 
 

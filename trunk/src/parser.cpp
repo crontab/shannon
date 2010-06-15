@@ -72,16 +72,16 @@ Keywords::kwinfo Keywords::keywords[] =
     };
 
 
-static str parserErrorStr(const str& filename, int linenum, const str& msg)
+static str parserErrorStr(const str& filename, integer linenum, const str& msg)
 {
     str s;
     if (!filename.empty())
-        s = filename + "(" + to_string(integer(linenum)) + "): ";
+        s = filename + "(" + to_string(linenum) + "): ";
     return s + msg;
 }
 
 
-EParser::EParser(const str& fn, int l, const str& m) throw()
+EParser::EParser(const str& fn, integer l, const str& m) throw()
     : emessage(parserErrorStr(fn, l, m))  { }
 
 
@@ -89,12 +89,39 @@ EParser::~EParser() throw()
     { }
 
 
-Parser::Parser(buffifo* inp) throw()
+InputRecorder::InputRecorder()
+    : buf(NULL), offs(0), prevpos(0)  { }
+
+
+void InputRecorder::event(char* newbuf, memint newtail, memint)
+{
+    if (newbuf == buf && newtail > offs)
+    {
+        data.append(buf + offs, newtail - offs);
+        offs = newtail;
+    }
+    else {
+        buf = newbuf;
+        offs = newtail;
+    }
+}
+
+
+void InputRecorder::clear()
+{
+    buf = NULL;
+    offs = 0;
+    prevpos = 0;
+    data.clear();
+}
+
+
+Parser::Parser(buffifo* inp)
     : input(inp), linenum(1), prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 
 
-Parser::~Parser() throw()
+Parser::~Parser()
     { }
 
 
@@ -132,11 +159,12 @@ const charset digits = "0-9";
 const charset printableChars = "~20-~7E~81-~FE";
 const charset commentChars = printableChars + wsChars;
 
+
 inline bool is_eol_char(char c)
     { return c == '\n' || c == '\r'; }
 
 
-inline void Parser::skipWs()
+void Parser::skipWs()
     { input->skip(wsChars); }
 
 
@@ -235,6 +263,10 @@ void Parser::skipSinglelineComment()
 Token Parser::next()
 {
     assert(token != tokPrevIdent);
+    
+    if (recorder.active())
+        recorder.prevpos = input->tellg();
+    
 restart:
     strValue.clear();
     intValue = 0;
@@ -391,6 +423,25 @@ void Parser::skipSep()
     if (token != tokSep)
         errorWithLoc("End of statement expected");
     next();
+}
+
+
+void Parser::beginRecording()
+{
+    assert(!recorder.active());
+    input->set_bufevent(&recorder);
+}
+
+
+str Parser::endRecording()
+{
+    assert(recorder.active());
+    input->set_bufevent(NULL);
+    // Because the input stream is always ahead by one token, we need to trim it
+    recorder.data.pop_back(input->tellg() - recorder.prevpos);
+    str result = recorder.data;
+    recorder.clear();
+    return result;
 }
 
 

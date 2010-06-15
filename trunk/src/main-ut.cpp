@@ -49,6 +49,7 @@ struct testobj: public object
     testobj()  { }
 };
 
+
 static void test_object()
 {
     {
@@ -603,6 +604,23 @@ static void test_parser()
         check(p.next() == tokStrValue);
         check(p.strValue == "[\t\r\nA\\]");
         check_throw(p.next()); // bad hex sequence
+    }
+    {
+#ifdef XCODE
+        const char* filePath = "../../src/tests/stmtest.txt";
+#else
+        const char* filePath = "tests/stmtest.txt";
+#endif
+#ifdef DEBUG
+    intext::BUF_SIZE = 16;
+#endif
+        intext f(NULL, filePath);
+        f.deq(11);
+        InputRecorder rec;
+        f.set_bufevent(&rec);
+        f.deq(32);
+        f.set_bufevent(NULL);
+        check(rec.data == "careful with terms like readable"); // Yep!
     }
 }
 

@@ -38,14 +38,14 @@ protected:
     Type* getTypeAndIdent(str& ident);
     void definition();
     void assertion();
-    void dump();
+    void dumpVar();
     void otherStatement();
     void statementList();
 
     void compileModule();
 
-    Compiler(Context&, Module&, buffifo*) throw();
-    ~Compiler() throw();
+    Compiler(Context&, Module&, buffifo*);
+    ~Compiler();
 };
 
 

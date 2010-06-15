@@ -501,6 +501,7 @@ void bytevec::insert(memint pos, const bytevec& v)
 
 void bytevec::append(const char* buf, memint len)
 {
+    // TODO: separate version for class str, without the call to copy()
     if (len > 0)
     {
         char* p = _append(len, container::allocate);
@@ -1178,6 +1179,13 @@ stateobj::stateobj(State* t)
 
 stateobj::~stateobj()
     { collapse(); }
+
+
+void stateobj::dump(fifo& stm) const
+{
+    // TODO: full dump
+    stm << "<object>";
+}
 
 
 void stateobj::collapse()
