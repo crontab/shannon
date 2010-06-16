@@ -190,7 +190,7 @@ void test_bytevec()
     c1.pop_back(4);
     check(c1.empty());
     
-    c1.resize(3);
+    c1.append("@AB", 3);
     check(c1.size() == 3);
     check(memcmp(c1.data(), "@AB", 3) == 0);
     c1.resize(6, '!');
@@ -643,11 +643,11 @@ void test_typesys()
     }
 */
     strfifo s(NULL);
-    queenBee->defBool->dumpDefinition(s);
-    check(s.all() == "enum(false, true)");
+    queenBee->defBool->dump(s);
+    check(s.all() == "(enum false, true)");
     check(defTypeRef->isTypeRef());
     check(defTypeRef->getType() == defTypeRef);
-    check(defVoid->isNone());
+    check(defVoid->isVoid());
     check(defVoid->getType() == defTypeRef);
     check(queenBee->defInt->isInt());
     check(queenBee->defInt->getType() == defTypeRef);
@@ -662,7 +662,7 @@ void test_typesys()
     check(queenBee->defChar->isAnyOrd());
     check(queenBee->defStr->hasSmallElem());
     check(queenBee->defStr->getType() == defTypeRef);
-    check(queenBee->defStr->isVec());
+    check(queenBee->defStr->isAnyVec());
 
     Symbol* b = queenBee->find("true");
     check(b != NULL && b->isDefinition());

@@ -355,11 +355,11 @@ protected:
     EnumValues values;
     Enumeration(TypeId _typeId);            // built-in enums, e.g. bool
     Enumeration(const EnumValues&, integer, integer);     // subrange
-    void dump(fifo&) const;
     Ordinal* _createSubrange(integer, integer);     // override
 public:
     Enumeration();                          // user-defined enums
     ~Enumeration();
+    void dump(fifo&) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
