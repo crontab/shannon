@@ -154,6 +154,8 @@ object::~object()  { }
 
 void object::release()
 {
+    if (this == NULL)
+        return;
     assert(_refcount > 0);
     if (pdecrement(&_refcount) == 0)
         delete this;
@@ -1055,7 +1057,7 @@ void variant::_init(const variant& v)
 {
     type = v.type;
     val = v.val;
-    if (is_anyobj())
+    if (is_anyobj() && val._obj)
         val._obj->grab();
 }
 

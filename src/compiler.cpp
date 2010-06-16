@@ -140,19 +140,13 @@ void Compiler::dictCtor()
     // Container* cont = NULL;
     codegen->loadEmptyCont(queenBee->defNullCont);
     expression();
-    Type* idx = codegen->getTopType();
-    Type* elem = NULL;
     if (skipIf(tokAssign))  // key/value pair?
     {
         expression();
-        elem = codegen->getTopType();
-        cont = elem->deriveContainer(state, idx);
-        codegen->loadEmptyCont(cont);
         notimpl();
     }
     else // set
     {
-        // cont = idx->deriveSet(state);
         if (skipIf(tokRange))
         {
             expression();
