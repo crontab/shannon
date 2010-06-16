@@ -29,7 +29,7 @@ void CodeGen::addOp(Type* type, OpCode op)
 
 void CodeGen::undoLastLoad()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkTopItem().offs;
     assert(offs >= 0 && offs < codeseg.size());
     if (isUndoableLoadOp(OpCode(codeseg[offs])))
     {
@@ -52,16 +52,9 @@ Type* CodeGen::stkPop()
 
 void CodeGen::stkReplaceTop(Type* t)
 {
-    memint offs = simStack.back().offs;
+    memint offs = stkTopItem().offs;
     simStack.pop_back();
     simStack.push_back(SimStackItem(t, offs));
-}
-
-
-void CodeGen::canAssign(Type* from, Type* to, const char* errmsg)
-{
-    if (!from->canAssignTo(to))
-        error(errmsg == NULL ? "Type mismatch" : errmsg);
 }
 
 
@@ -88,12 +81,10 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
-    // Null container is actually a NULL pointer so it's compatible with
-    // all containers
     if (from->isNullCont() && to->isAnyCont())
     {
-        // undoLastLoad();
-        // loadEmptyCont(PContainer(to));
+        undoLastLoad();
+        loadEmptyCont(PContainer(to));
         stkReplaceTop(to);
         return true;
     }
@@ -135,14 +126,14 @@ memint CodeGen::beginDiscardable()
 
 void CodeGen::endDiscardable(memint offs)
 {
-    assert(stkSize() == 0 || stkTopOffs() < offs);
+    assert(stkSize() == 0 || stkTopItem().offs < offs);
     codeseg.resize(offs);
 }
 
 
 Type* CodeGen::tryUndoTypeRef()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkTopItem().offs;
     if (codeseg[offs] == opLoadTypeRef)
     {
         Type* type = codeseg.at<Type*>(offs + 1);
@@ -232,27 +223,32 @@ void CodeGen::loadDefinition(Definition* def)
 }
 
 
-void CodeGen::loadEmptyCont(Container* contType)
+static variant::Type typeToVarType(Container* t)
 {
-    variant::Type vartype = variant::VOID;
-    switch (contType->typeId)
+    // Currently only works for containers
+    switch (t->typeId)
     {
-    case Type::NULLCONT:
-        vartype = variant::VOID;
-        break;
-    case Type::VEC:
-        vartype = contType->isOrdVec() ? variant::STR : variant::VEC;
-        break;
-    case Type::SET:
-        vartype = contType->isOrdSet() ? variant::ORDSET : variant::SET;
-        break;
-    case Type::DICT:
-        vartype = contType->isOrdDict() ? variant::VEC : variant::DICT;
-        break;
+    case Type::NULLCONT: return variant::VOID;
+    case Type::VEC:      return t->isOrdVec() ? variant::STR : variant::VEC;
+    case Type::SET:      return t->isOrdSet() ? variant::ORDSET : variant::SET;
+    case Type::DICT:     return t->isOrdDict() ? variant::VEC : variant::DICT;
     default:
         notimpl();
+        return variant::VOID;
     }
-    addOp<char>(contType, opLoadEmptyVar, vartype);
+}
+
+
+void CodeGen::loadEmptyCont(Container* contType)
+    { addOp<char>(contType, opLoadEmptyVar, typeToVarType(contType)); }
+
+
+void CodeGen::resolveContType(Container* type, memint offs)
+{
+    assert(offs >= 0 && offs < codeseg.size());
+    if (codeseg[offs] != opLoadEmptyVar)
+        notimpl();
+    codeseg.atw<char>(offs + 1) = typeToVarType(type);
 }
 
 
@@ -350,42 +346,28 @@ void CodeGen::loadContainerElem()
 }
 
 
-void CodeGen::addSetElem()
-{
-    // TODO: nullcont
-    Type* setType = stkTop(2);
-    if (!setType->isAnySet())
-        error("Set type expected");
-    implicitCast(PContainer(setType)->index, "Set element type mismatch");
-    addOp(setType->isOrdSet() ? opAddOrdSetElem : opAddSetElem);
-    stkPop();
-}
-
-
-void CodeGen::elemToVec()
+Container* CodeGen::elemToVec()
 {
     Type* elemType = stkPop();
     Container* contType = elemType->deriveVec(typeReg);
-    addOp(contType, elemType->isSmallOrd() ? opChrToStr : opVarToVec);
+    addOp(contType, contType->isOrdVec() ? opChrToStr : opVarToVec);
+    return contType;
 }
 
 
 void CodeGen::elemCat()
 {
-    // TODO: nullcont is also compatible
-    Type* elemType = stkTop();
     Type* vecType = stkTop(2);
     if (!vecType->isAnyVec())
         error("Vector/string type expected");
     implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
-    elemType = stkPop();
-    addOp(elemType->isSmallOrd() ? opChrCat: opVarCat);
+    stkPop();
+    addOp(vecType->isOrdVec() ? opChrCat: opVarCat);
 }
 
 
 void CodeGen::cat()
 {
-    // TODO: if left is nullcont, take right as a basis
     Type* vecType = stkTop(2);
     if (!vecType->isAnyVec())
         error("Left operand is not a vector");
@@ -395,11 +377,43 @@ void CodeGen::cat()
 }
 
 
+void CodeGen::elemToSet()
+{
+    Type* elemType = stkPop();
+    Container* setType = elemType->deriveSet(typeReg);
+    addOp(setType, setType->isOrdSet() ? opElemToOrdSet : opElemToSet);
+}
+
+
+void CodeGen::rangeToSet()
+{
+    Type* right = stkPop();
+    Type* left = stkPop();
+    if (!right->canAssignTo(left))
+        error("Incompatible range bounds");
+    if (!left->isAnyOrd())
+        error("Non-ordinal range bounds");
+    Container* setType = left->deriveSet(typeReg);
+    addOp(setType, opRngToOrdSet);
+}
+
+
+void CodeGen::addSetElem()
+{
+    Type* setType = stkTop(2);
+    if (!setType->isAnySet())
+        error("Set type expected");
+    implicitCast(PContainer(setType)->index, "Set element type mismatch");
+    stkPop();
+    addOp(setType->isOrdSet() ? opOrdSetAddElem : opSetAddElem);
+}
+
+
 void CodeGen::storeRet(Type* type)
 {
     implicitCast(type);
-    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
     stkPop();
+    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
 }
 
 

@@ -906,6 +906,14 @@ str to_quoted(const str& s)
 // --- ordset -------------------------------------------------------------- //
 
 
+ordset::ordset(integer v)
+    : obj(new setobj())  { obj->set.include(int(v)); }
+
+
+ordset::ordset(integer l, integer r)
+    : obj(new setobj())  { obj->set.include(int(l), int(r)); }
+
+
 charset& ordset::_getunique()
 {
     if (obj.empty())
@@ -927,9 +935,9 @@ memint ordset::compare(const ordset& s) const
 }
 
 
-void ordset::insert(integer v)                  { _getunique().include(int(v)); }
-void ordset::insert(integer l, integer h)       { _getunique().include(int(l), int(h)); }
-void ordset::erase(integer v)                   { if (!empty()) _getunique().exclude(int(v)); }
+void ordset::find_insert(integer v)             { _getunique().include(int(v)); }
+void ordset::find_insert(integer l, integer h)  { _getunique().include(int(l), int(h)); }
+void ordset::find_erase(integer v)              { if (!empty()) _getunique().exclude(int(v)); }
 
 
 // --- object collections -------------------------------------------------- //
@@ -1025,8 +1033,8 @@ template class podvec<variant>;
 variant::_Void variant::null;
 
 
-void variant::_type_err() { throw ecmessage("Variant type mismatch"); }
-void variant::_range_err() { throw ecmessage("Variant range error"); }
+void variant::_type_err()           { throw ecmessage("Variant type mismatch"); }
+void variant::_range_err()          { throw ecmessage("Variant range error"); }
 
 
 void variant::_init(Type t)
@@ -1034,12 +1042,7 @@ void variant::_init(Type t)
     type = t;
     switch(t)
     {
-    // Try to set the biggest field to 0: probably not reliable
-#ifdef SHN_64
-    case VOID:      val._ord = 0; break;
-#else
-    case VOID:      val._obj = NULL; break;
-#endif
+    case VOID:      memset(&val, 0, sizeof(val)); break;
     case ORD:       val._ord = 0; break;
     case REAL:      val._real = 0; break;
     case STR:

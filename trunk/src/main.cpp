@@ -52,11 +52,11 @@ int main()
         // context.options.setDebugOpts(false);
         variant result = context.execute(filePath);
 
-        if (result.is_none())
+        if (result.is_null())
             exitcode = 0;
-        else if (result.is_ord())
+        else if (result.is(variant::ORD))
             exitcode = int(result._ord());
-        else if (result.is_str())
+        else if (result.is(variant::STR))
         {
             serr << result._str() << endl;
             exitcode = 102;

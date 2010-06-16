@@ -24,7 +24,7 @@ SRCS = common.cpp runtime.cpp rtio.cpp \
 HDRS = version.h common.h runtime.h typesys.h parser.h vm.h compiler.h
 
 
-all: dirs shannon shannon-ut
+all: dirs shannon shannon-ut release
 
 release: dirs shn
 

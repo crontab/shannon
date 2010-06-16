@@ -35,8 +35,15 @@ def v4 = []
 def v5 = [5]
 def v5a = v5
 def v6 = [5, 6]
+def vnull = []
+def int[] v7 = []
+def v8 = v7 | 10 | 11
+def v9 = vnull | [] | 12 | v4 | 13 | []
 def sign b0 = -1
 def t0 = {1}
+def t1 = {1, 5, 10}
+def t3 = {}
+// def t4 = {5..15}
 // dump t0
 
 assert true ; assert s0 == 'abc'
@@ -45,6 +52,8 @@ assert v5 == v5a
 assert v1 == 'ab'
 assert v2[0] == 'a' and v2[1] == 'b' and v2[3] == 'd' and v2[6] == 'g'
 assert v6[0] == 5 and 6 == v6[1]
+assert v8[0] == 10 and v8[1] == 11
+assert v9[0] == 12 and v9[1] == 13
 
 // var b = {3, 2, 1}
 // var c = {'a' = 1, 'b' = 2}
