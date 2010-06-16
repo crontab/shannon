@@ -263,25 +263,61 @@ Fifo* Type::deriveFifo(State* h)
 }
 
 
+// --- Printing ------------------------------------------------------------ //
+
+
 void Type::dumpValue(fifo& stm, const variant& v) const
 {
     // Default is to print raw variant value
-    dumpVariant(stm, NULL, v);
+    dumpVariant(stm, v, NULL);
 }
 
 
-fifo& operator << (fifo& stm, const varvec& vec)
+static void dumpVec(fifo& stm, const varvec& vec, bool curly, Type* elemType = NULL)
 {
+    stm << (curly ? '{' : '[');
     for (memint i = 0; i < vec.size(); i++)
     {
         if (i) stm << ", ";
-        dumpVariant(stm, NULL, vec[i]);
+        dumpVariant(stm, vec[i], elemType);
     }
-    return stm;
+    stm << (curly ? '}' : ']');
 }
 
 
-void dumpVariant(fifo& stm, Type* type, const variant& v)
+static void dumpOrdSet(fifo& stm, const ordset& s, Ordinal* elemType = NULL)
+{
+    stm << '{';
+    if (!s.empty())
+    {
+        int i = elemType ? int(imin<integer>(elemType->left, 0)) : 0;
+        int right = elemType ? int(imax<integer>(elemType->right, 255)) : 255;
+        int count = 0;
+        while (i <= right)
+        {
+            if (s.find(i))
+            {
+                if (count++)
+                    stm << ", ";
+                dumpVariant(stm, i, elemType);
+                int l = i;
+                do { i++; }
+                    while (i <= right && s.find(i));
+                if (l > i)
+                {
+                    stm << "..";
+                    dumpVariant(stm, i, elemType);
+                }
+            }
+            else
+                i++;
+        }
+    }
+    stm << '}';
+}
+
+
+void dumpVariant(fifo& stm, const variant& v, Type* type)
 {
     if (type)
         type->dumpValue(stm, v);
@@ -289,13 +325,13 @@ void dumpVariant(fifo& stm, Type* type, const variant& v)
     {
         switch (v.getType())
         {
-        case variant::VOID: stm << "null"; break;
-        case variant::ORD: stm << v._int(); break;
-        case variant::REAL: notimpl(); break;
-        case variant::STR: stm << to_quoted(v._str()); break;
-        case variant::VEC: stm << '[' << v._vec() << ']'; break;
-        case variant::SET: stm << '{' << v._set() << '}'; break;
-        case variant::ORDSET:
+        case variant::VOID:     stm << "null"; break;
+        case variant::ORD:      stm << v._int(); break;
+        case variant::REAL:     notimpl(); break;
+        case variant::STR:      stm << to_quoted(v._str()); break;
+        case variant::VEC:      dumpVec(stm, v._vec(), false); break;
+        case variant::SET:      dumpVec(stm, v._set(), true); break;
+        case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
         case variant::DICT:
         case variant::REF:
             notimpl();
@@ -620,7 +656,7 @@ void State::dumpAll(fifo& stm) const
         if (typeDef && (def->name != typeDef->defName || typeDef->host != this))
             typeDef->dumpDef(stm);  // just the name if this is not the definition of this type
         else
-            dumpVariant(stm, def->type, def->value);
+            dumpVariant(stm, def->value, def->type);
         stm << endl;
     }
     // TODO: print vars

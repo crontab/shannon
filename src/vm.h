@@ -49,8 +49,11 @@ enum OpCode
     opVecElem,          // -idx -vec +var
 
     // Sets
-    opAddSetElem,       // -var -set + set
-    opAddOrdSetElem,    // -ord -set + set
+    opElemToSet,        // -var +set
+    opSetAddElem,       // -var -set + set
+    opElemToOrdSet,     // -ord +set
+    opRngToOrdSet,      // -ord -ord +set
+    opOrdSetAddElem,    // -ord -set + set
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -153,16 +156,15 @@ protected:
     void stkReplaceTop(Type* t);
     Type* stkTop()
         { return simStack.back().type; }
-    memint stkTopOffs()
-        { return simStack.back().offs; }
     Type* stkTop(memint i)
         { return simStack.back(i).type; }
+    const SimStackItem& stkTopItem()
+        { return simStack.back(); }
+    const SimStackItem& stkTopItem(memint i)
+        { return simStack.back(i); }
     memint stkSize()
         { return simStack.size(); }
     static void error(const char*);
-    void undoLastLoad();
-    void canAssign(Type* from, Type* to, const char* errmsg = NULL);
-    bool tryImplicitCast(Type*);
     void loadStoreVar(Variable*, bool);
 
 public:
@@ -177,21 +179,26 @@ public:
     Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
     void popValue();
+    bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
+    void undoLastLoad();
 
     bool deref();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
+    void resolveContType(Container* type, memint offs);
     void loadSymbol(Variable*, Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
-    void elemToVec();
+    Container* elemToVec();
     void elemCat();
     void cat();
     void loadContainerElem();
+    void elemToSet();
+    void rangeToSet();
     void addSetElem();
     void storeRet(Type*);
     void arithmBinary(OpCode op);

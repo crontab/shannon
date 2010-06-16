@@ -567,6 +567,7 @@ protected:
     typedef Tptr& Tref;
 public:
     set(): parent()  { }
+    set(const T& i)  { parent::push_back(i); }
 };
 
 
@@ -695,6 +696,8 @@ protected:
 public:
     ordset()                                : obj()  { }
     ordset(const ordset& s)                 : obj(s.obj)  { }
+    ordset(integer v);
+    ordset(integer l, integer r);
     ~ordset()                               { }
     bool empty() const                      { return obj.empty() || obj->set.empty(); }
     memint compare(const ordset& s) const;
@@ -702,10 +705,10 @@ public:
     bool operator!= (const ordset& s) const { return compare(s) != 0; }
     void clear()                            { obj.clear(); }
     void operator= (const ordset& s)        { obj = s.obj; }
-    bool has(integer v) const               { return !obj.empty() && obj->set[int(v)]; }
-    void insert(integer v);
-    void insert(integer l, integer h);
-    void erase(integer v);
+    bool find(integer v) const              { return !obj.empty() && obj->set[int(v)]; }
+    void find_insert(integer v);
+    void find_insert(integer l, integer h);
+    void find_erase(integer v);
 };
 
 
@@ -851,7 +854,7 @@ protected:
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
         object*     _obj;       // str, vector, set, map and their variants
-        reference*  _ref;       // reference
+        reference*  _ref;       // reference object
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
 
@@ -867,9 +870,9 @@ protected:
     void _dbg_anyobj() const            { }
 #endif
 
-    void _init()                        { type = VOID; }
+    void _init()                        { type = VOID; memset(&val, 0, sizeof(val)); }
+    void _init(_Void)                   { _init(); }
     void _init(Type);
-    void _init(_Void)                   { type = VOID; }
     void _init(bool v)                  { type = ORD; val._ord = v; }
     void _init(char v)                  { type = ORD; val._ord = uchar(v); }
     void _init(uchar v)                 { type = ORD; val._ord = v; }
@@ -912,9 +915,7 @@ public:
 
     Type getType() const                { return Type(type); }
     bool is(Type t) const               { return type == t; }
-    bool is_none() const                { return type == VOID; }
-    bool is_ord() const                 { return type == ORD; }
-    bool is_str() const                 { return type == STR; }
+    bool is_null() const                { return type == VOID; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode

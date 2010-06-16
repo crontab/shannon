@@ -76,15 +76,15 @@ static void test_ordset()
 {
     ordset s1;
     check(s1.empty());
-    s1.insert(129);
-    check(s1.has(129));
-    check(!s1.has(1));
+    s1.find_insert(129);
+    check(s1.find(129));
+    check(!s1.find(1));
     check(!s1.empty());
     ordset s2 = s1;
-    check(s2.has(129));
-    check(!s2.has(1));
+    check(s2.find(129));
+    check(!s2.find(1));
     check(!s2.empty());
-    s1.erase(129);
+    s1.find_erase(129);
     check(s1.empty());
     check(!s2.empty());
     ordset s3;
@@ -469,12 +469,12 @@ void test_variant()
     }
     {
         variant v1 = variant::null;
-        check(v1.is_none());
+        check(v1.is_null());
         variant v2 = v1;
-        check(v2.is_none());
+        check(v2.is_null());
         variant v3;
         v3 = v2;
-        check(v3.is_none());
+        check(v3.is_null());
     }
     {
         variant v1 = 10; check(v1.as_int() == 10);
@@ -710,17 +710,12 @@ int main()
 
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(memint) == sizeof(size_t));
+    check(sizeof(variant) <= 16);  // can we make more concrete checks on this?
 
 #ifdef SHN_64
     check(sizeof(integer) == 8);
-#  ifdef PTR64
-    check(sizeof(variant) == 16);
-#  else
-    check(sizeof(variant) == 12);
-#  endif
 #else
     check(sizeof(integer) == 4);
-    check(sizeof(variant) == 8);
 #endif
 
     initRuntime();

@@ -136,24 +136,36 @@ void Compiler::dictCtor()
         return;
     }
 
-    // First element: see if it's a set or a dict
-    // Container* cont = NULL;
-    codegen->loadEmptyCont(queenBee->defNullCont);
     expression();
-    if (skipIf(tokAssign))  // key/value pair?
+
+    // Dictionary
+    if (skipIf(tokAssign))
     {
         expression();
         notimpl();
     }
-    else // set
+
+    // Set
+    else
     {
         if (skipIf(tokRange))
         {
             expression();
-            notimpl();
+            codegen->rangeToSet();
         }
         else
-            codegen->addSetElem();
+            codegen->elemToSet();
+        while (skipIf(tokComma))
+        {
+            expression();
+            if (skipIf(tokRange))
+            {
+                expression();
+                notimpl();
+            }
+            else
+                codegen->addSetElem();
+        }
     }
 
     expect(tokRCurly, "}");
@@ -165,8 +177,7 @@ void Compiler::dictCtor()
 /*
     1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
     2. <array-sel>  <member-sel>  <function-call>  ^
-    3. unary-
-    4. as  is
+    3. unary-  as  is
     5. *  /  mod
     6. +  –
     7. |
@@ -328,21 +339,35 @@ void Compiler::arithmExpr()
 void Compiler::simpleExpr()
 {
     arithmExpr();
-    if (skipIf(tokCat))
+    if (token == tokCat)
     {
-        codegen->deref();  // !
-        if (!codegen->getTopType()->isAnyVec())
-            codegen->elemToVec();
-        do
+        Container* contType = NULL;
+        // The trick here is to ignore any null containers in the expression,
+        // and correctly figure out the container type at the same time.
+        while (1)
         {
-            arithmExpr();
             codegen->deref();
-            if (!codegen->getTopType()->isAnyVec())
-                codegen->elemCat();
-            else
-                codegen->cat();
+            Type* top = codegen->getTopType();
+            if (top->isNullCont())
+                codegen->undoLastLoad();
+            else if (contType == NULL)  // first non-null element, container type unknown yet
+            {
+                if (top->isAnyVec())
+                    contType = PContainer(top);
+                else
+                    contType = codegen->elemToVec();
+            }
+            else // non-null element, container type known
+            {
+                if (top->canAssignTo(contType))  // compatible vector? then concatenate as vector
+                    codegen->cat();
+                else
+                    codegen->elemCat();
+            }
+            if (!skipIf(tokCat))  // first iteration will return tokCat
+                break;
+            arithmExpr();
         }
-        while (skipIf(tokCat));
     }
 }
 

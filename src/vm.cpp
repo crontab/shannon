@@ -35,10 +35,10 @@ static void doExit()                { throw eexit(); }
 
 
 static void failAssertion(const str& cond, const str& fn, integer linenum)
-    { throw emessage("Assertion failed [" + cond + "] file: " + fn + ':' + to_string(linenum)); }
+    { throw emessage("Assertion failed \"" + cond + "\" at " + fn + ':' + to_string(linenum)); }
 
 
-static void dumpVar(const str& expr, Type* type, const variant& var)
+static void dumpVar(const str& expr, const variant& var, Type* type)
 {
     // TODO: dump to serr?
     sio << "# " << expr;
@@ -48,9 +48,13 @@ static void dumpVar(const str& expr, Type* type, const variant& var)
         type->dumpDef(sio);
     }
     sio << " = ";
-    dumpVariant(sio, type, var);
+    dumpVariant(sio, var, type);
     sio << endl;
 }
+
+
+static integer chk8(integer i)
+    { if (uinteger(i) > 255) idxOverflow(); return i; }
 
 
 template<class T>
@@ -94,7 +98,7 @@ void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
 loop:
         switch(*ip++)
         {
-        case opEnd:             while (stk >= stack.bp) POP(stk); goto exit;
+        case opEnd:             goto exit;
         case opNop:             break;
         case opExit:            doExit(); break;
 
@@ -151,11 +155,16 @@ loop:
             break;
 
         // Sets
-        case opAddSetElem:
-            (stk - 1)->_set().find_insert(*stk);
-            POP(stk);
-            break;
-        case opAddOrdSetElem: notimpl(); break;
+        case opElemToSet:
+            *stk = varset(*stk); break;
+        case opSetAddElem:
+            (stk - 1)->_set().find_insert(*stk); POP(stk); break;
+        case opElemToOrdSet:
+            *stk = ordset(chk8(stk->_ord())); break;
+        case opRngToOrdSet:
+            *(stk - 1) = ordset(chk8((stk - 1)->_ord()), chk8(stk->_ord())); POPPOD(stk); break;
+        case opOrdSetAddElem:
+            (stk - 1)->_ordset().find_insert(chk8(stk->_ord())); POPPOD(stk); break;
 
         // Arithmetic
         // TODO: range checking in debug mode
@@ -208,7 +217,7 @@ loop:
         case opDump:
             {
                 str& expr = ADV<str>(ip);
-                dumpVar(expr, ADV<Type*>(ip), *stk);
+                dumpVar(expr, *stk, ADV<Type*>(ip));
                 POP(stk);
             }
             break;
@@ -242,7 +251,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
     storeRet(resultType);
     end();
     rtstack stack(codeseg.stackSize + 1);
-    stack.push(variant::null);
+    stack.push(variant::null);  // storage for the return value
     runRabbitRun(NULL, NULL, stack, codeseg.getCode());
     stack.popto(result);
     return resultType;

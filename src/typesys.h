@@ -232,6 +232,7 @@ public:
 
     bool isNullCont() const     { return typeId == NULLCONT; }
     bool isAnyVec() const       { return typeId == VEC; }
+    // bool isVecOrNull() const    { return isAnyVec() || isNullCont(); }
     bool isAnySet() const       { return typeId == SET; }
     bool isAnyDict() const      { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
@@ -263,7 +264,7 @@ public:
 };
 
 
-void dumpVariant(fifo&, Type*, const variant&); // type can be NULL if unknown
+void dumpVariant(fifo&, const variant&, Type*); // type can be NULL if unknown
 
 
 
