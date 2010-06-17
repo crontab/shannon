@@ -1,17 +1,24 @@
 
-
-* Built-ins: empty(), count() etc. Builtins are defined within states; "global"
-  builtins are in QueenBee. How about containers?
+* Builtins are defined within states; "global" builtins are in QueenBee.
+  How about containers?
 
 * Operators 'in', 'is' and 'as'
 
-* A state name is a type that describes a state, not a prototype. Now, what to
-  do with prototypes and function addresses?
+* Operator '#' (prefix) for taking a container length, '?' (postfix) for bool
+  typecast.
+
+* Operators 'ins' and 'del' (and 'swap'?) that work on containers.
+
+* Substring/subvector using '..' e.g.: s[1..3] or s[4..]
+
+* A state name is a type that describes a state, not a prototype. Now,
+  what to do with prototypes and function addresses?
 
 * if, while, case
 
-* Nullable types: look at C#. Easy to implement, just need strictly defined
-  semantics, also a default assignment operator, again, like in C#.
+* Nullable types: look at C#. Easy to implement, just need strictly
+  defined semantics, also a default assignment operator, e.g.
+  i = v as int(0)
 
 * 'public' and 'forward' blocks: can contain a single statement after ':' or
   multiple statements in { }.
@@ -19,36 +26,42 @@
 * Small ordinals with the 's' prefix? Custom prefixes will be used for
   measurement units as well, don't know.
 
-* finally { ... } is a nested block which is executed if the enclosing block
-  reaches its end, i.e. the finally label. For states this is the destructor.
-  Not the same as try ... finally construct.
+* finally { ... } is a nested block which is executed if the enclosing
+  block reaches its end, i.e. the finally label. For states this is the
+  destructor. Not the same as try ... finally construct.
 
 * "def self ..." is not nice, maybe "class ..." is better, or "state"
 
-* Tuples are almost like vectors, except element types are specified
-  individually. Can be used for returning multiple values from functions.
+* Tuples are almost like vectors, except element types are specified    
+  individually. Can be used for returning multiple values from functions.    
   So a tuple descriptor is a vector of types?
 
-* Enqueue and dequeue operators: << and >>, like the iostream operators in C++.
-  The leftmost operand is always a fifo. (Precedence compared to the pipe
-  operator "||" ?)
+* Enqueue and dequeue operators: << and >>, like the iostream operators
+  in C++. The leftmost operand is always a fifo. (Precedence compared to
+  the pipe operator "||" ?)
 
-* Range (e.g. A..B) is possible only: (1) in const type expressions where it
-  denotes a range type, (2) in ordinal set constructors, (3) in operator 'for',
-  (4) with operator 'in'
+* Procedures are declared as, e.g. def (pipe char, char) convert() ...
+
+* A special return value with 'var' indicates it's a special method
+  that's called on a variable or a reference, e.g. def (var chars)
+  include(int, ... Might be especially useful for builtins.
+
+* Range (e.g. A..B) is possible only: (1) in const type expressions
+  where it denotes a range type, (2) in ordinal set constructors, (3) in
+  operator 'for', (4) with operator 'in'
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
 
-* Ordinal set operations: inversion (not), union (or), intersection (and),
-  subtraction (-)
+* Ordinal set operations: inversion (not), union (or), intersection
+  (and), subtraction (-)
 
-* Iterators for all container types. Iterators should lock the container to
-  prevent modification.
+* Iterators for all container types. Iterators should lock the container
+  to prevent modification.
 
-* A `pair` data type, which is a dictionary iteration element. But maybe not
-  only. Can be a built-in state with two fields (?)
+* A `pair` data type, which is a dictionary iteration element. But maybe   
+  not only. Can be a built-in state with two fields (?)
 
-* for loop: allow types, also range as an exception can have variable
+* for loop: allow types, also range as an exception can have variable  
   boundaries. E.g. for i = a ...
 
 * Functions
@@ -60,21 +73,23 @@
 * Compiler directives: DEBUG ON|OFF  RANGE_CHECK ON|OFF  ASSERT ON|OFF
   ECHO ON|OFF  MARKUP ON|OFF (syntax?)
 
-* Two versions of the binary: debug and release. Debug helps to debug both the
-  program (assertions, dumps and range checking are on) and the compiler itself
+* Two versions of the binary: debug and release. Debug helps to debug
+  both the program (assertions, dumps and range checking are on) and the
+  compiler itself
 
-* Abstract module and module inheritance paradigm. Modules can be loaded at run
-  time, but they should be inherited from some known module type. Database
-  drivers can be written this way.
+* Abstract module and module inheritance paradigm. Modules can be loaded
+  at run time, but they should be inherited from some known module type.
+  Database drivers can be written this way.
 
-* Alternate syntax for string keys in dictionaries: dict->key. This will work
-  for dynamic states too (?).
+* Alternate syntax for string keys in dictionaries: dict->key. This will
+  work for dynamic states too (?).
 
-* Have the code generator evaluate some operations at generation time if
+* Have the code generator evaluate some operations at generation time if  
   possible. Need to store codeseg offset with each genstack element.
 
-* Assignment operators (+=, etc) aren't very nice with the boolean/bitwise
-  and, or, etc. However, these are necessary at least: |=, +=, -=
+* Assignment operators (+=, etc) aren't very nice with the
+  boolean/bitwise and, or, etc. However, these are necessary at least:
+  |=, +=, -=
 
 * A lot of TODO's in the source
 

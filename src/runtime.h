@@ -602,6 +602,13 @@ public:
     dict(const dict& d)                     : obj(d.obj)  { }
     ~dict()                                 { }
 
+    dict(const Tkey& k, const Tval& v)
+        : obj(new dictobj())
+    {
+        obj->keys.push_back(k);
+        obj->values.push_back(v);
+    }
+
     bool empty() const                      { return obj.empty(); }
     memint size() const                     { return !empty() ? obj->keys.size() : 0; }
     bool operator== (const dict& d) const   { return obj == d.obj; }
@@ -637,7 +644,7 @@ public:
         item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
     };
 
-    item_type operator[] (memint i) const
+    item_type at(memint i) const
         { chkidx(i); return item_type(obj->keys[i], obj->values.atw(i)); }
 
     const Tval* find(const Tkey& k) const
@@ -921,7 +928,6 @@ public:
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
-    integer     _int()            const { _dbg(ORD); return val._ord; }
     integer     _ord()            const { _dbg(ORD); return val._ord; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
@@ -942,7 +948,6 @@ public:
     bool        as_bool()         const { _req(ORD); return _bool(); }
     char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
-    integer     as_int()          const { _req(ORD); return _int(); }
     integer     as_ord()          const { _req(ORD); return _ord(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }

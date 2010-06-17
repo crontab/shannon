@@ -236,10 +236,11 @@ rtobject::~rtobject()
 
 
 void container::overflow()
-    { fatal(0x1002, "Container overflow"); }
+    { ecmessage("Container overflow"); }
+
 
 void container::idxerr()
-    { fatal(0x1003, "Container index error"); }
+    { ecmessage( "Container index error"); }
 
 
 container::~container()

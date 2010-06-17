@@ -306,11 +306,12 @@ class Reference: public Type
     friend class Type;
 protected:
     Reference(Type* _to);
-    void dump(fifo&) const;
     Type* const to;
 public:
     ~Reference();
     bool identicalTo(Type* t) const;
+    void dump(fifo&) const;
+    void dumpValue(fifo&, const variant&) const;
 };
 
 
@@ -327,16 +328,19 @@ class Ordinal: public Type
 protected:
     Ordinal(TypeId, integer, integer);
     ~Ordinal();
-    void dump(fifo&) const;
     void reassignRight(integer r)
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
+
 public:
     integer const left;
     integer const right;
+
+    void dump(fifo&) const;
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
-    bool isInRange(integer v)
+    bool isInRange(integer v) const
         { return v >= left && v <= right; }
     bool isSmallOrd() const
         { return left >= 0 && right <= 255; }
@@ -361,6 +365,7 @@ public:
     Enumeration();                          // user-defined enums
     ~Enumeration();
     void dump(fifo&) const;
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, const str&);
@@ -374,13 +379,17 @@ class Container: public Type
 {
     friend class State;
     friend class QueenBee;
+
 protected:
     Container(Type* i, Type* e);
-    void dump(fifo&) const;
+
 public:
     Type* const index;
     Type* const elem;
+
     ~Container();
+    void dump(fifo&) const;
+    void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*) const;
     bool hasSmallIndex() const
         { return index->isSmallOrd(); }
@@ -398,10 +407,10 @@ class Fifo: public Type
     friend class QueenBee;
 protected:
     Fifo(Type*);
-    void dump(fifo&) const;
 public:
     Type* const elem;
     ~Fifo();
+    void dump(fifo&) const;
     bool identicalTo(Type*) const;
 };
 
@@ -413,6 +422,7 @@ class Prototype: public Type
 {
 protected:
     Type* returnType;
+    // TODO: define class Argument
     objvec<Variable> args;          // owned
 public:
     Prototype(Type* retType);
@@ -436,7 +446,6 @@ protected:
     objvec<Variable> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
     
-    void dump(fifo&) const;
     Type* _registerType(Type*, Definition* = NULL);
 
 public:
@@ -448,6 +457,7 @@ public:
     State(TypeId, Prototype* proto, State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
+    void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;

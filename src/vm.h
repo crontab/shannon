@@ -53,7 +53,14 @@ enum OpCode
     opSetAddElem,       // -var -set + set
     opElemToOrdSet,     // -ord +set
     opRngToOrdSet,      // -ord -ord +set
-    opOrdSetAddElem,    // -ord -set + set
+    opOrdSetAddElem,    // -ord -set +set
+    opOrdSetAddRng,     // -ord -ord -set +set
+
+    // Dicts
+    opPairToDict,       // -var -var +dict
+    opDictAddPair,      // -var -var -dict +dict
+    opPairToOrdDict,    // -var -ord +vec
+    opOrdDictAddPair,   // -var -ord -vec +vec
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -193,19 +200,28 @@ public:
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
+
+    void storeRet(Type*);
+
     Container* elemToVec();
     void elemCat();
     void cat();
     void loadContainerElem();
     void elemToSet();
     void rangeToSet();
-    void addSetElem();
-    void storeRet(Type*);
+    void setAddElem();
+    void checkRangeLeft();
+    void setAddRange();
+    void pairToDict();
+    void checkDictKey();
+    void dictAddPair();
+
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
 //    void boolXor();
     void cmp(OpCode);
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
+
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode op);
     void resolveJump(memint jumpOffs);

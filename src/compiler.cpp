@@ -142,7 +142,15 @@ void Compiler::dictCtor()
     if (skipIf(tokAssign))
     {
         expression();
-        notimpl();
+        codegen->pairToDict();
+        while (skipIf(tokComma))
+        {
+            expression();
+            codegen->checkDictKey();
+            expect(tokAssign, "=");
+            expression();
+            codegen->dictAddPair();
+        }
     }
 
     // Set
@@ -160,11 +168,12 @@ void Compiler::dictCtor()
             expression();
             if (skipIf(tokRange))
             {
+                codegen->checkRangeLeft(); // calls implicitCast() for left
                 expression();
-                notimpl();
+                codegen->setAddRange();
             }
             else
-                codegen->addSetElem();
+                codegen->setAddElem();
         }
     }
 
