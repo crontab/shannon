@@ -41,42 +41,44 @@ void Compiler::subrange()
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
+    // TODO: do this in opposite order
     if (skipIf(tokLSquare))
     {
-        if (token == tokRSquare)
-            type = type->deriveVec(state);
+        if (skipIf(tokRSquare))
+            return getTypeDerivators(type)->deriveVec(state);
         else if (skipIf(tokRange))
-            type = type->deriveSet(state);
+        {
+            expect(tokRSquare, "]");
+            return getTypeDerivators(type)->deriveSet(state);
+        }
         else
         {
             Type* indexType = getTypeValue();
+            expect(tokRSquare, "]");
             if (indexType->isVoid())
-                type = type->deriveVec(state);
+                return getTypeDerivators(type)->deriveVec(state);
             else
-                type = type->deriveContainer(state, indexType);
+                return getTypeDerivators(type)->deriveContainer(state, indexType);
         }
-        expect(tokRSquare, "']'");
     }
 
     else if (skipIf(tokNotEq)) // <>
-        type = type->deriveFifo(state);
+        return getTypeDerivators(type)->deriveFifo(state);
 
     // TODO: function derivator
     // else if (token == tokWildcard)
 
     else if (skipIf(tokCaret)) // ^
     {
+        type = getTypeDerivators(type);
         if (type->isReference())
             error("Double reference");
         if (!type->isDerefable())
             error("Reference can not be derived from this type");
-        type = type->getRefType();
+        return type->getRefType();
     }
 
-    else
-        return type;
-
-    return getTypeDerivators(type);
+    return type;
 }
 
 

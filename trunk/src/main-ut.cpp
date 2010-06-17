@@ -711,12 +711,13 @@ int main()
 
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(memint) == sizeof(size_t));
-    check(sizeof(variant) == 16 || sizeof(variant) == 8);
 
 #ifdef SHN_64
     check(sizeof(integer) == 8);
+    check(sizeof(variant) <= 16);
 #else
     check(sizeof(integer) == 4);
+    check(sizeof(variant) <= 12);
 #endif
 
     initRuntime();
