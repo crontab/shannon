@@ -24,7 +24,7 @@
 #endif
 
 
-// SHN_64 can be enabled both on 64 and 32-bit systems. Otherwise, ints will be 32 bit.
+// SHN_64 can be enabled both on 64 and 32-bit systems.
 #define SHN_64
 
 

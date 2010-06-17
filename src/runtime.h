@@ -16,7 +16,7 @@ public:
     {
         BITS = 256,
         BYTES = BITS / 8,
-        WORDS = BYTES / sizeof(word)
+        WORDS = BYTES / int(sizeof(word))
     };
 
 protected:
@@ -421,7 +421,7 @@ class podvec: protected bytevec
     friend void test_podvec();
 
 protected:
-    enum { Tsize = sizeof(T) };
+    enum { Tsize = int(sizeof(T)) };
     typedef bytevec parent;
 
     podvec(container* c): parent(c)  { }
@@ -492,7 +492,7 @@ template <class T>
 class vector: public podvec<T>
 {
 protected:
-    enum { Tsize = sizeof(T) };
+    enum { Tsize = int(sizeof(T)) };
     typedef podvec<T> parent;
     typedef T* Tptr;
     typedef Tptr& Tref;
@@ -571,7 +571,7 @@ template <class T>
 class set: public vector<T>
 {
 protected:
-    enum { Tsize = sizeof(T) };
+    enum { Tsize = int(sizeof(T)) };
     typedef vector<T> parent;
     typedef T* Tptr;
     typedef Tptr& Tref;
@@ -1096,7 +1096,7 @@ public:
 // --- FIFO ---------------------------------------------------------------- //
 
 
-const memint _varsize = memint(sizeof(variant));
+const int _varsize = int(sizeof(variant));
 
 
 // The abstract FIFO interface. There are 2 modes of operation: variant FIFO
@@ -1355,7 +1355,7 @@ public:
 class outtext: public buffifo
 {
 protected:
-    enum { BUF_SIZE = 2048 * sizeof(integer) };
+    enum { BUF_SIZE = 2048 * int(sizeof(integer)) };
 
     str file_name;
     str  filebuf;

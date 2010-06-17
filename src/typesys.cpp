@@ -417,7 +417,7 @@ Reference::~Reference()
 
 
 void Reference::dump(fifo& stm) const
-    { to->dumpDef(stm); stm << '^'; }
+    { stm << '('; to->dumpDef(stm); stm << "^)"; }
 
 
 void Reference::dumpValue(fifo& stm, const variant& v) const
@@ -579,11 +579,20 @@ Container::~Container()
 
 void Container::dump(fifo& stm) const
 {
-    elem->dumpDef(stm);
-    stm << '[';
-    if (!isAnyVec())
+    stm << '(';
+    if (isAnySet())
+    {
         index->dumpDef(stm);
-    stm << ']';
+        stm << "[..";
+    }
+    else
+    {
+        elem->dumpDef(stm);
+        stm << '[';
+        if (!isAnyVec())
+            index->dumpDef(stm);
+    }
+    stm << "])";
 }
 
 
@@ -639,7 +648,7 @@ Fifo::~Fifo()
 
 
 void Fifo::dump(fifo& stm) const
-    { elem->dumpDef(stm); stm << "<>"; }
+    { stm << '('; elem->dumpDef(stm); stm << "<>)"; }
 
 
 bool Fifo::identicalTo(Type* t) const
@@ -659,6 +668,7 @@ Prototype::~Prototype()
 
 void Prototype::dump(fifo& stm) const
 {
+    stm << '(';
     returnType->dumpDef(stm);
     stm << "*(";
     for (int i = 0; i < args.size(); i++)
@@ -667,7 +677,7 @@ void Prototype::dump(fifo& stm) const
             stm << ", ";
         args[i]->dump(stm);
     }
-    stm << ')';
+    stm << "))";
 }
 
 
@@ -722,8 +732,9 @@ void State::fqName(fifo& stm) const
 void State::dump(fifo& stm) const
 {
     // TODO: better dump for states?
-    stm << "state ";
+    stm << "(state ";
     prototype->dump(stm);
+    stm << ')';
 //    dumpAll(stm);
 }
 

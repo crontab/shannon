@@ -4,7 +4,7 @@
 
 #ifdef DEBUG
 int memfifo::CHUNK_SIZE = 32 * _varsize;
-int intext::BUF_SIZE = 4096 * sizeof(integer);
+int intext::BUF_SIZE = 4096 * int(sizeof(integer));
 #endif
 
 
