@@ -29,7 +29,6 @@ void CodeSeg::close()
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-// static void idxOverflow()           { throw ecmessage("Index overflow"); }
 static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
@@ -53,8 +52,20 @@ static void dumpVar(const str& expr, const variant& var, Type* type)
 }
 
 
-// static integer chk8(integer i)
-//     { if (uinteger(i) > 255) idxOverflow(); return i; }
+static void byteDictReplace(varvec& v, integer i, const variant& val)
+{
+    memint size = v.size();
+    if (uinteger(i) > 255)
+        container::keyerr();
+    if (memint(i) == size)
+        v.push_back(val);
+    else
+    {
+        if (memint(i) > size)
+            v.grow(memint(i) - size + 1);
+        v.replace(memint(i), val);
+    }
+}
 
 
 template<class T>
@@ -92,7 +103,7 @@ template <class T>
 void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
-    register variant* stk = stack.bp - 1;
+    variant* stk = stack.bp - 1;
     try
     {
 loop:
@@ -106,7 +117,7 @@ loop:
         case opLoadNull:        PUSH(stk, variant::null); break;
         case opLoad0:           PUSH(stk, integer(0)); break;
         case opLoad1:           PUSH(stk, integer(1)); break;
-        case opLoadOrd8:        PUSH(stk, integer(ADV<uchar>(ip))); break;
+        case opLoadByte:        PUSH(stk, integer(ADV<uchar>(ip))); break;
         case opLoadOrd:         PUSH(stk, ADV<integer>(ip)); break;
         case opLoadStr:         PUSH(stk, ADV<str>(ip)); break;
         case opLoadEmptyVar:    PUSH(stk, variant::Type(ADV<char>(ip))); break;
@@ -145,20 +156,42 @@ loop:
             *stk = varset(*stk); break;
         case opSetAddElem:
             (stk - 1)->_set().find_insert(*stk); POP(stk); break;
-        case opElemToOrdSet:
+        case opElemToByteSet:
             *stk = ordset(stk->_ord()); break;
-        case opRngToOrdSet:
+        case opRngToByteSet:
             *(stk - 1) = ordset((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); break;
-        case opOrdSetAddElem:
+        case opByteSetAddElem:
             (stk - 1)->_ordset().find_insert(stk->_ord()); POPPOD(stk); break;
-        case opOrdSetAddRng:
+        case opByteSetAddRng:
             (stk - 2)->_ordset().find_insert((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); POPPOD(stk); break;
 
         // Dictionaries
-        case opPairToDict:      *(stk - 1) = vardict(*(stk - 1), *stk); POP(stk); break;
-        case opDictAddPair:     (stk - 2)->_dict().find_replace(*(stk - 1), *stk); POP(stk); POP(stk); break;
-        case opPairToOrdDict:   notimpl(); break;
-        case opOrdDictAddPair:  notimpl(); break;
+        case opPairToDict:
+            *(stk - 1) = vardict(*(stk - 1), *stk); POP(stk); break;
+        case opDictAddPair:
+            (stk - 2)->_dict().find_replace(*(stk - 1), *stk); POP(stk); POP(stk); break;
+        case opPairToByteDict:
+            { integer i = (stk - 1)->_ord(); SETPOD(stk - 1, varvec()); byteDictReplace((stk - 1)->_vec(), i, *stk); POP(stk); } break;
+        case opByteDictAddPair:
+            byteDictReplace((stk - 2)->_vec(), (stk - 1)->_ord(), *stk); POP(stk); POPPOD(stk); break;
+        case opDictElem:
+            {
+                const variant* v = (stk - 1)->_dict().find(*stk);
+                POPPOD(stk);
+                if (v) *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
+                    else container::keyerr();
+            }
+            break;
+        case opByteDictElem:
+            {
+                integer i = stk->_ord();
+                POPPOD(stk);
+                if (uinteger(i) > 255) container::keyerr();
+                const variant& v = stk->_dict().at(memint(i));
+                if (v.is_null()) container::keyerr();
+                *stk = v;  // same as for opDictElem
+            }
+            break;
 
         // Arithmetic
         // TODO: range checking in debug mode
@@ -175,19 +208,19 @@ loop:
         // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
-        case opNot:         SETPOD(stk, ! stk->_ord()); break;
+        case opNot:         SETPOD(stk, int(!stk->_ord())); break;
 
         // Comparators
         case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPPOD(stk); break;
         case opCmpStr:      *(stk - 1) = integer((stk - 1)->_str().compare(stk->_str())); POP(stk); break;
         case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-        case opEqual:       SETPOD(stk, stk->_ord() == 0); break;
-        case opNotEq:       SETPOD(stk, stk->_ord() != 0); break;
-        case opLessThan:    SETPOD(stk, stk->_ord() < 0); break;
-        case opLessEq:      SETPOD(stk, stk->_ord() <= 0); break;
-        case opGreaterThan: SETPOD(stk, stk->_ord() > 0); break;
-        case opGreaterEq:   SETPOD(stk, stk->_ord() >= 0); break;
+        case opEqual:       SETPOD(stk, int(stk->_ord() == 0)); break;
+        case opNotEq:       SETPOD(stk, int(stk->_ord() != 0)); break;
+        case opLessThan:    SETPOD(stk, int(stk->_ord() < 0)); break;
+        case opLessEq:      SETPOD(stk, int(stk->_ord() <= 0)); break;
+        case opGreaterThan: SETPOD(stk, int(stk->_ord() > 0)); break;
+        case opGreaterEq:   SETPOD(stk, int(stk->_ord() >= 0)); break;
 
         // Jumps
         case opJump:        { memint o = ADV<jumpoffs>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps

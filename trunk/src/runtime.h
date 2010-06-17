@@ -199,6 +199,7 @@ public:
 
     static void overflow();
     static void idxerr();
+    static void keyerr();
 
     ~container();
     virtual void finalize(void*, memint);
@@ -528,8 +529,14 @@ public:
         { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
     void push_back(const T& t)
         { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
-    void resize(memint)
-        { notimpl(); /* bytevec::_resize(newsize, cont::allocate); */ }
+    void resize(memint); // not implemented
+
+    void grow(memint extra_items)
+    {
+        memint extra_mem = extra_items * Tsize;
+        char* p = bytevec::_resize(parent::size() + extra_mem, cont::allocate);
+        memset(p, 0, extra_mem);
+    }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are
@@ -589,7 +596,7 @@ protected:
         vector<Tkey> keys;
         vector<Tval> values;
         dictobj(): keys(), values()  { }
-        dictobj(const dictobj& d): keys(d.keys), values(d.values)  { }
+        dictobj(const dictobj& d): object(), keys(d.keys), values(d.values)  { }
     };
 
     objptr<dictobj> obj;
@@ -696,7 +703,7 @@ protected:
     {
         charset set;
         setobj(): set()  { }
-        setobj(const setobj& s): set(s.set)  { }
+        setobj(const setobj& s): object(), set(s.set)  { }
     };
     objptr<setobj> obj;
     charset& _getunique();
@@ -834,6 +841,7 @@ public:
 
 class variant;
 class reference;
+class stateobj;
 
 typedef vector<variant> varvec;
 typedef set<variant> varset;
@@ -843,6 +851,13 @@ typedef dict<variant, variant> vardict;
 class variant
 {
     friend void test_variant();
+
+private:
+    void _init(void*);   // compiler traps
+    void _init(const void*);
+    void _init(bool);
+    void _init(variant*);
+    void _init(const variant*);
 
 public:
     // TODO: tinyset
@@ -873,14 +888,14 @@ protected:
     void _dbg(Type t) const             { _req(t); }
     void _dbg_anyobj() const            { _req_anyobj(); }
 #else
-    void _dbg(Type t) const             { }
+    void _dbg(Type) const               { }
     void _dbg_anyobj() const            { }
 #endif
 
     void _init()                        { type = VOID; memset(&val, 0, sizeof(val)); }
     void _init(_Void)                   { _init(); }
     void _init(Type);
-    void _init(bool v)                  { type = ORD; val._ord = v; }
+    // void _init(bool v)                  { type = ORD; val._ord = v; }
     void _init(char v)                  { type = ORD; val._ord = uchar(v); }
     void _init(uchar v)                 { type = ORD; val._ord = v; }
     void _init(int v)                   { type = ORD; val._ord = v; }
@@ -895,8 +910,9 @@ protected:
     void _init(const varset& v)         { _init(SET, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
     void _init(const vardict& v)        { _init(DICT, v.obj); }
-    void _init(reference* o)            { _init(REF, cast<object*>(o)); }
+    void _init(reference* o);
     void _init(rtobject* o)             { _init(RTOBJ, o); }
+    void _init(stateobj* o);
     void _init(const variant& v);
 
     void _fin()                         { if (is_anyobj()) val._obj->release(); }
@@ -912,7 +928,7 @@ public:
 
     template <class T>
         void operator= (const T& v)     { _fin(); _init(v); }
-    void operator= (const variant& v);  // { assert(this != &v); _fin(); _init(v); }
+    void operator= (const variant& v);
     void clear()                        { _fin(); _init(); }
     bool empty() const;
 
@@ -989,6 +1005,9 @@ public:
 };
 
 
+inline void variant::_init(reference* o)  { _init(REF, o); }
+
+
 class State;  // defined in typesys.h
 
 
@@ -1034,6 +1053,10 @@ public:
 };
 
 
+inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
+
+
+
 struct podvar { char data[sizeof(variant)]; };
 
 // TODO: Runtime stack is a fixed, uninitialized and unmanaged array of
@@ -1073,6 +1096,7 @@ class fifo: public rtobject
     fifo& operator<< (bool);   // compiler traps
     fifo& operator<< (void*);
     fifo& operator<< (object*);
+    fifo& operator<< (rtobject* o); //      { o->dump(*this); return *this; }
 
 protected:
     enum { TAB_SIZE = 8 };
@@ -1149,7 +1173,6 @@ public:
     fifo& operator<< (int i)            { enq(large(i)); return *this; }
     fifo& operator<< (long i)           { enq(large(i)); return *this; }
     fifo& operator<< (size_t i)         { enq(large(i)); return *this; }
-    fifo& operator<< (rtobject* o)      { o->dump(*this); return *this; }
 };
 
 const char endl = '\n';
@@ -1165,7 +1188,7 @@ class memfifo: public fifo
 {
 public:
 #ifdef DEBUG
-    static memint CHUNK_SIZE; // settable from unit tests
+    static int CHUNK_SIZE; // settable from unit tests
 #else
     enum { CHUNK_SIZE = 32 * _varsize };
 #endif
@@ -1287,7 +1310,7 @@ class intext: public buffifo
 {
 public:
 #ifdef DEBUG
-    static memint BUF_SIZE; // settable from unit tests
+    static int BUF_SIZE; // settable from unit tests
 #else
     enum { BUF_SIZE = 4096 * sizeof(integer) };
 #endif

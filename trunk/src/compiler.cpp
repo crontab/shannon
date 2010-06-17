@@ -168,7 +168,7 @@ void Compiler::dictCtor()
             expression();
             if (skipIf(tokRange))
             {
-                codegen->checkRangeLeft(); // calls implicitCast() for left
+                codegen->checkRangeLeft();
                 expression();
                 codegen->setAddRange();
             }

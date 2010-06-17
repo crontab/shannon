@@ -236,11 +236,15 @@ rtobject::~rtobject()
 
 
 void container::overflow()
-    { ecmessage("Container overflow"); }
+    { throw ecmessage("Container overflow"); }
 
 
 void container::idxerr()
-    { ecmessage( "Container index error"); }
+    { throw ecmessage( "Container index error"); }
+
+
+void container::keyerr()
+    { throw ecmessage( "Dictionary key error"); }
 
 
 container::~container()

@@ -47,6 +47,7 @@ def identChars = {'A'..'Z', 'a'..'z', '0'..'9', '_'}
 // def t4 = {5..15, 17}
 def t5 = {two..three}
 def d0 = {'one' = 1, 'two' = 2}
+def d1 = {'a' = 'Letter A', 'b' = 'Letter B'}
 // def a = #v9
 
 assert true ; assert s0 == 'abc'

@@ -20,7 +20,7 @@ enum OpCode
     opLoadNull,         // +null
     opLoad0,            // +ord
     opLoad1,            // +ord
-    opLoadOrd8,         // [int8] +ord
+    opLoadByte,         // [int8] +ord
     opLoadOrd,          // [int] +ord
     opLoadStr,          // [object*] +str
     opLoadEmptyVar,     // [variant::Type:8] + var
@@ -51,16 +51,18 @@ enum OpCode
     // Sets
     opElemToSet,        // -var +set
     opSetAddElem,       // -var -set + set
-    opElemToOrdSet,     // -ord +set
-    opRngToOrdSet,      // -ord -ord +set
-    opOrdSetAddElem,    // -ord -set +set
-    opOrdSetAddRng,     // -ord -ord -set +set
+    opElemToByteSet,    // -ord +set
+    opRngToByteSet,     // -ord -ord +set
+    opByteSetAddElem,   // -ord -set +set
+    opByteSetAddRng,    // -ord -ord -set +set
 
     // Dicts
     opPairToDict,       // -var -var +dict
     opDictAddPair,      // -var -var -dict +dict
-    opPairToOrdDict,    // -var -ord +vec
-    opOrdDictAddPair,   // -var -ord -vec +vec
+    opPairToByteDict,   // -var -ord +vec
+    opByteDictAddPair,  // -var -ord -vec +vec
+    opDictElem,         // -var -dict +var
+    opByteDictElem,     // -ord -dict +var
 
     // Arithmetic binary: -ord, -ord, +ord
     opAdd,              // -int, +int, +int
@@ -195,7 +197,6 @@ public:
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
-    void resolveContType(Container* type, memint offs);
     void loadSymbol(Variable*, Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);

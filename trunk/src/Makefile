@@ -4,8 +4,8 @@
 # SHBITS = -DSHN_64
 # SHTHR = -DSHN_THR
 
-CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DDEBUG -g
-CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Werror -DNDEBUG -O2
+CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DDEBUG -g
+CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/runtime.o debug/rtio.o \
