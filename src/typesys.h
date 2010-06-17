@@ -226,8 +226,8 @@ public:
     bool isInt() const          { return typeId == INT; }
     bool isEnum() const         { return typeId == ENUM || isBool(); }
     bool isAnyOrd() const       { return typeId >= BOOL && typeId <= ENUM; }
-    bool isSmallOrd() const;
-    bool isBitOrd() const;
+    bool isByte() const;
+    bool isBit() const;
     bool isFullChar() const;
 
     bool isNullCont() const     { return typeId == NULLCONT; }
@@ -236,9 +236,9 @@ public:
     bool isAnySet() const       { return typeId == SET; }
     bool isAnyDict() const      { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
-    bool isOrdVec() const;
-    bool isOrdSet() const;
-    bool isOrdDict() const;
+    bool isByteVec() const;
+    bool isByteSet() const;
+    bool isByteDict() const;
     bool isContainer(Type* idx, Type* elem) const;
 
     bool isFifo() const         { return typeId == FIFO; }
@@ -264,7 +264,7 @@ public:
 };
 
 
-void dumpVariant(fifo&, const variant&, Type*); // type can be NULL if unknown
+void dumpVariant(fifo&, const variant&, Type* = NULL);
 
 
 
@@ -342,9 +342,9 @@ public:
     bool canAssignTo(Type*) const;
     bool isInRange(integer v) const
         { return v >= left && v <= right; }
-    bool isSmallOrd() const
+    bool isByte() const
         { return left >= 0 && right <= 255; }
-    bool isBitOrd() const
+    bool isBit() const
         { return left == 0 && right == 1; }
     bool isFullChar() const
         { return isChar() && left == 0 && right == 255; }
@@ -391,10 +391,10 @@ public:
     void dump(fifo&) const;
     void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*) const;
-    bool hasSmallIndex() const
-        { return index->isSmallOrd(); }
-    bool hasSmallElem() const
-        { return elem->isSmallOrd(); }
+    bool hasByteIndex() const
+        { return index->isByte(); }
+    bool hasByteElem() const
+        { return elem->isByte(); }
 };
 
 

@@ -107,7 +107,8 @@ void CodeGen::deinitLocalVar(Variable* var)
     // TODO: don't generate POPs if at the end of a function
     assert(var->isLocalVar());
     assert(locals == simStack.size());
-    assert(var->id == locals - 1);
+    if (var->id != locals - 1)
+        fatal(0x6002, "Invalid local var id");
     locals--;
     popValue();
 }
@@ -186,14 +187,14 @@ void CodeGen::loadConst(Type* type, const variant& value)
             else if (i == 1)
                 addOp(type, opLoad1);
             else if (uinteger(i) <= 255)
-                addOp<uchar>(type, opLoadOrd8, i);
+                addOp<uchar>(type, opLoadByte, i);
             else
                 addOp<integer>(type, opLoadOrd, i);
         }
         break;
     case variant::REAL: notimpl(); break;
     case variant::STR:
-        assert(type->isOrdVec());
+        assert(type->isByteVec());
         addOp<object*>(type, opLoadStr, value._str().obj);
         break;
     case variant::VEC:
@@ -216,7 +217,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
 void CodeGen::loadDefinition(Definition* def)
 {
     Type* type = def->type;
-    if (type->isTypeRef() || type->isVoid() || def->type->isAnyOrd() || def->type->isOrdVec())
+    if (type->isTypeRef() || type->isVoid() || def->type->isAnyOrd() || def->type->isByteVec())
         loadConst(def->type, def->value);
     else
         addOp<Definition*>(def->type, opLoadConst, def);
@@ -229,9 +230,9 @@ static variant::Type typeToVarType(Container* t)
     switch (t->typeId)
     {
     case Type::NULLCONT: return variant::VOID;
-    case Type::VEC:      return t->isOrdVec() ? variant::STR : variant::VEC;
-    case Type::SET:      return t->isOrdSet() ? variant::ORDSET : variant::SET;
-    case Type::DICT:     return t->isOrdDict() ? variant::VEC : variant::DICT;
+    case Type::VEC:      return t->isByteVec() ? variant::STR : variant::VEC;
+    case Type::SET:      return t->isByteSet() ? variant::ORDSET : variant::SET;
+    case Type::DICT:     return t->isByteDict() ? variant::VEC : variant::DICT;
     default:
         notimpl();
         return variant::VOID;
@@ -241,15 +242,6 @@ static variant::Type typeToVarType(Container* t)
 
 void CodeGen::loadEmptyCont(Container* contType)
     { addOp<char>(contType, opLoadEmptyVar, typeToVarType(contType)); }
-
-
-void CodeGen::resolveContType(Container* type, memint offs)
-{
-    assert(offs >= 0 && offs < codeseg.size());
-    if (codeseg[offs] != opLoadEmptyVar)
-        notimpl();
-    codeseg.atw<char>(offs + 1) = typeToVarType(type);
-}
 
 
 void CodeGen::loadSymbol(Variable* moduleVar, Symbol* sym)
@@ -338,13 +330,12 @@ void CodeGen::loadContainerElem()
     if (contType->isAnyVec())
     {
         implicitCast(queenBee->defInt, "Vector index must be integer");
-        op = contType->isOrdVec() ? opStrElem : opVecElem;
+        op = contType->isByteVec() ? opStrElem : opVecElem;
     }
     else if (contType->isAnyDict())
     {
-        notimpl();
-        // implicitCast(PContainer(contType)->index, "Dictionary key type mismatch");
-        // op = contType->isOrdDict() ? opOrdDictElem : opDictElem;
+        implicitCast(PContainer(contType)->index, "Dictionary key type mismatch");
+        op = contType->isByteDict() ? opByteDictElem : opDictElem;
     }
     else
         error("Vector/dictionary type expected");
@@ -358,7 +349,7 @@ Container* CodeGen::elemToVec()
 {
     Type* elemType = stkPop();
     Container* contType = elemType->deriveVec(typeReg);
-    addOp(contType, contType->isOrdVec() ? opChrToStr : opVarToVec);
+    addOp(contType, contType->isByteVec() ? opChrToStr : opVarToVec);
     return contType;
 }
 
@@ -370,7 +361,7 @@ void CodeGen::elemCat()
         error("Vector/string type expected");
     implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
     stkPop();
-    addOp(vecType->isOrdVec() ? opChrCat: opVarCat);
+    addOp(vecType->isByteVec() ? opChrCat: opVarCat);
 }
 
 
@@ -381,7 +372,7 @@ void CodeGen::cat()
         error("Left operand is not a vector");
     implicitCast(vecType, "Vector/string types do not match");
     stkPop();
-    addOp(vecType->isOrdVec() ? opStrCat : opVecCat);
+    addOp(vecType->isByteVec() ? opStrCat : opVecCat);
 }
 
 
@@ -389,7 +380,7 @@ void CodeGen::elemToSet()
 {
     Type* elemType = stkPop();
     Container* setType = elemType->deriveSet(typeReg);
-    addOp(setType, setType->isOrdSet() ? opElemToOrdSet : opElemToSet);
+    addOp(setType, setType->isByteSet() ? opElemToByteSet : opElemToSet);
 }
 
 
@@ -401,9 +392,9 @@ void CodeGen::rangeToSet()
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
     Container* setType = left->deriveSet(typeReg);
-    if (!setType->isOrdSet())
+    if (!setType->isByteSet())
         error("Invalid element type for ordinal set");
-    addOp(setType, opRngToOrdSet);
+    addOp(setType, opRngToByteSet);
 }
 
 
@@ -414,15 +405,15 @@ void CodeGen::setAddElem()
         error("Set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
     stkPop();
-    addOp(setType->isOrdSet() ? opOrdSetAddElem : opSetAddElem);
+    addOp(setType->isByteSet() ? opByteSetAddElem : opSetAddElem);
 }
 
 
 void CodeGen::checkRangeLeft()
 {
     Type* setType = stkTop(2);
-    if (!setType->isOrdSet())
-        error("Ordinal set type expected");
+    if (!setType->isByteSet())
+        error("Byte set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
 }
 
@@ -430,12 +421,12 @@ void CodeGen::checkRangeLeft()
 void CodeGen::setAddRange()
 {
     Type* setType = stkTop(3);
-    if (!setType->isOrdSet())
-        error("Ordinal set type expected");
+    if (!setType->isByteSet())
+        error("Byte set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
     stkPop();
     stkPop();
-    addOp(opOrdSetAddRng);
+    addOp(opByteSetAddRng);
 }
 
 
@@ -444,7 +435,7 @@ void CodeGen::pairToDict()
     Type* val = stkPop();
     Type* key = stkPop();
     Container* dictType = val->deriveContainer(typeReg, key);
-    addOp(dictType, dictType->isOrdDict() ? opPairToOrdDict : opPairToDict);
+    addOp(dictType, dictType->isByteDict() ? opPairToByteDict : opPairToDict);
 }
 
 
@@ -465,7 +456,7 @@ void CodeGen::dictAddPair()
     implicitCast(PContainer(dictType)->elem, "Dictionary element type mismatch");
     stkPop();
     stkPop();
-    addOp(dictType->isOrdDict() ? opOrdDictAddPair : opDictAddPair);
+    addOp(dictType->isByteDict() ? opByteDictAddPair : opDictAddPair);
 }
 
 
@@ -498,7 +489,7 @@ void CodeGen::cmp(OpCode op)
     Type* right = stkTop();
     if (left->isAnyOrd() && right->isAnyOrd())
         addOp(opCmpOrd);
-    else if (left->isOrdVec() && right->isOrdVec())
+    else if (left->isByteVec() && right->isByteVec())
         addOp(opCmpStr);
     else
     {

@@ -159,28 +159,28 @@ Type::~Type()
     { }
 
 
-bool Type::isSmallOrd() const
-    { return isAnyOrd() && POrdinal(this)->isSmallOrd(); }
+bool Type::isByte() const
+    { return isAnyOrd() && POrdinal(this)->isByte(); }
 
 
-bool Type::isBitOrd() const
-    { return isAnyOrd() && POrdinal(this)->isBitOrd(); }
+bool Type::isBit() const
+    { return isAnyOrd() && POrdinal(this)->isBit(); }
 
 
 bool Type::isFullChar() const
     { return isChar() && POrdinal(this)->isFullChar(); }
 
 
-bool Type::isOrdVec() const
-    { return isAnyVec() && PContainer(this)->hasSmallElem(); }
+bool Type::isByteVec() const
+    { return isAnyVec() && PContainer(this)->hasByteElem(); }
 
 
-bool Type::isOrdSet() const
-    { return isAnySet() && PContainer(this)->hasSmallIndex(); }
+bool Type::isByteSet() const
+    { return isAnySet() && PContainer(this)->hasByteIndex(); }
 
 
-bool Type::isOrdDict() const
-    { return isAnyDict() && PContainer(this)->hasSmallIndex(); }
+bool Type::isByteDict() const
+    { return isAnyDict() && PContainer(this)->hasByteIndex(); }
 
 
 bool Type::isContainer(Type* idx, Type* elem) const
@@ -375,10 +375,8 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
         case variant::SET:      dumpVec(stm, v._set(), true); break;
         case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
         case variant::DICT:     dumpDict(stm, v._dict()); break;
-        case variant::REF:
-            notimpl();
-            break;
-        case variant::RTOBJ: stm << v._rtobj(); break;
+        case variant::REF:      stm << '@'; dumpVariant(stm, v._ref()->var); break;
+        case variant::RTOBJ:    if (v._rtobj()) v._rtobj()->dump(stm); break;
         }
     }
 }
@@ -394,7 +392,7 @@ TypeReference::~TypeReference()  { }
 void TypeReference::dumpValue(fifo& stm, const variant& v) const
 {
     Type* type = cast<Type*>(v.as_rtobj());
-    stm << type;
+    type->dump(stm);
 }
 
 
@@ -593,21 +591,21 @@ void Container::dumpValue(fifo& stm, const variant& v) const
     {
         if (elem->isChar())
             stm << to_quoted(v.as_str());
-        else if (isOrdVec())
+        else if (isByteVec())
             dumpOrdVec(stm, v.as_str(), elem);
         else
             dumpVec(stm, v.as_vec(), false, elem);
     }
     else if (isAnySet())
     {
-        if (isOrdSet())
+        if (isByteSet())
             dumpOrdSet(stm, v.as_ordset(), POrdinal(index));
         else
             dumpVec(stm, v.as_set(), true, index);
     }
     else if (isAnyDict())
     {
-        if (isOrdDict())
+        if (isByteDict())
             dumpOrdDict(stm, v.as_vec(), index, elem);
         else
             dumpDict(stm, v.as_dict(), index, elem);
@@ -720,7 +718,8 @@ void State::fqName(fifo& stm) const
 void State::dump(fifo& stm) const
 {
     // TODO: better dump for states?
-    stm << "state " << prototype;
+    stm << "state ";
+    prototype->dump(stm);
 //    dumpAll(stm);
 }
 
@@ -733,7 +732,9 @@ void State::dumpAll(fifo& stm) const
         Type* type = types[i];
         if (type->isAnyState() || type->isReference())
             continue;
-        stm << "type " << types[i] << endl;
+        stm << "type ";
+        types[i]->dump(stm);
+        stm << endl;
     }
     // Print definitions
     for (memint i = 0; i < defs.size(); i++)

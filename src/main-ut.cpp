@@ -660,7 +660,7 @@ void test_typesys()
     check(queenBee->defChar->isChar());
     check(queenBee->defChar->getType() == defTypeRef);
     check(queenBee->defChar->isAnyOrd());
-    check(queenBee->defStr->hasSmallElem());
+    check(queenBee->defStr->hasByteElem());
     check(queenBee->defStr->getType() == defTypeRef);
     check(queenBee->defStr->isAnyVec());
 

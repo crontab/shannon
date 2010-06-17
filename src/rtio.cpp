@@ -3,8 +3,8 @@
 
 
 #ifdef DEBUG
-memint memfifo::CHUNK_SIZE = 32 * _varsize;
-memint intext::BUF_SIZE = 4096 * sizeof(integer);
+int memfifo::CHUNK_SIZE = 32 * _varsize;
+int intext::BUF_SIZE = 4096 * sizeof(integer);
 #endif
 
 
@@ -324,8 +324,8 @@ const char* memfifo::get_tail(memint* count)
 
 void memfifo::deq_bytes(memint count)
 {
-    tail_offs += count;
-    assert(tail != NULL && tail_offs <= ((tail == head) ? head_offs : CHUNK_SIZE));
+    assert(tail != NULL && (tail_offs + count) <= ((tail == head) ? head_offs : CHUNK_SIZE));
+    tail_offs += int(count);
     if (tail_offs == ((tail == head) ? head_offs : CHUNK_SIZE))
         deq_chunk();
 }
@@ -345,7 +345,7 @@ char* memfifo::enq_space(memint count)
         enq_chunk();
     assert(count <= CHUNK_SIZE - head_offs);
     char* result = head->data + head_offs;
-    head_offs += count;
+    head_offs += int(count);
     return result;
 }
 
@@ -563,7 +563,7 @@ void intext::doread()
     call_bufevent();
     filebuf.resize(intext::BUF_SIZE);
     buffer = (char*)filebuf.data();
-    int result = ::read(_fd, buffer, intext::BUF_SIZE);
+    memint result = ::read(_fd, buffer, intext::BUF_SIZE);
     if (result < 0)
         error(errno);
     buforig += bufhead;
@@ -629,7 +629,7 @@ void outtext::flush()
             if (_fd < 0)
                 error(errno);
         }
-        int ret = ::write(_fd, buffer, bufhead);
+        memint ret = ::write(_fd, buffer, bufhead);
         if (ret < 0)
             error(errno);
         buforig += bufhead;

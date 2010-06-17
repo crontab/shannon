@@ -1,4 +1,6 @@
 
+* OrdOrd dictionary implementation (small ordinal keys and values)
+
 * Builtins are defined within states; "global" builtins are in QueenBee.
   How about containers?
 
