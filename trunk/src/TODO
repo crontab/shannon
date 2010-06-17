@@ -1,13 +1,12 @@
 
-* OrdOrd dictionary implementation (small ordinal keys and values)
+* ByteByte dictionary implementation (small ordinal keys and values)?
+
+* Tiny set implementation
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
   How about containers?
 
 * Operators 'in', 'is' and 'as'
-
-* Operator '#' (prefix) for taking a container length, '?' (postfix) for bool
-  typecast.
 
 * Operators 'ins' and 'del' (and 'swap'?) that work on containers.
 

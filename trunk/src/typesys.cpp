@@ -196,6 +196,10 @@ bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
 
 
+bool Type::empty() const
+    { return false; }
+
+
 void Type::dump(fifo& stm) const
 {
     if (defName.empty())
@@ -368,7 +372,7 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
         switch (v.getType())
         {
         case variant::VOID:     stm << "null"; break;
-        case variant::ORD:      stm << v._ord(); break;
+        case variant::ORD:      stm << v._int(); break;
         case variant::REAL:     notimpl(); break;
         case variant::STR:      stm << to_quoted(v._str()); break;
         case variant::VEC:      dumpVec(stm, v._vec(), false); break;

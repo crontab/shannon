@@ -11,11 +11,12 @@
 class charset
 {
 public:
+    typedef uinteger word;
     enum
     {
         BITS = 256,
         BYTES = BITS / 8,
-        WORDS = BYTES / sizeof(unsigned)
+        WORDS = BYTES / sizeof(word)
     };
 
 protected:
@@ -165,6 +166,7 @@ public:
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
     void clearType()        { _type = NULL; }
+    virtual bool empty() const = 0;
     virtual void dump(fifo&) const = 0;
 };
 
@@ -350,6 +352,7 @@ public:
     bool operator!= (const char* s) const   { return !(*this == s); }
     bool operator!= (const str& s) const    { return !(*this == s); }
     bool operator!= (char c) const          { return !(*this == c); }
+
 
     void operator+= (const char* s);
     void operator+= (const str& s)          { append(s); }
@@ -814,6 +817,12 @@ public:
 };
 
 
+// TODO: define these as separate classes
+typedef ecmessage econtainer;
+typedef ecmessage evariant;
+typedef ecmessage efifo;
+
+
 // For dynamically generated strings
 class emessage: public exception
 {
@@ -842,6 +851,7 @@ public:
 class variant;
 class reference;
 class stateobj;
+struct podvar;
 
 typedef vector<variant> varvec;
 typedef set<variant> varset;
@@ -914,6 +924,7 @@ protected:
     void _init(rtobject* o)             { _init(RTOBJ, o); }
     void _init(stateobj* o);
     void _init(const variant& v);
+    void _init(const podvar* v);
 
     void _fin()                         { if (is_anyobj()) val._obj->release(); }
 
@@ -944,7 +955,7 @@ public:
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
-    integer     _ord()            const { _dbg(ORD); return val._ord; }
+    integer     _int()            const { _dbg(ORD); return val._ord; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
@@ -953,7 +964,7 @@ public:
     reference*  _ref()            const { _dbg(REF); return val._ref; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
-    integer&    _ord()                  { _dbg(ORD); return val._ord; }
+    integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
     varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
@@ -964,7 +975,7 @@ public:
     bool        as_bool()         const { _req(ORD); return _bool(); }
     char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
-    integer     as_ord()          const { _req(ORD); return _ord(); }
+    integer     as_ord()          const { _req(ORD); return _int(); }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { _req(SET); return _set(); }
@@ -973,13 +984,19 @@ public:
     reference*  as_ref()          const { _req(REF); return val._ref; }
     rtobject*   as_rtobj()        const { _req(RTOBJ); return _rtobj(); }
     object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
-    integer&    as_ord()                { _req(ORD); return _ord(); }
+    integer&    as_ord()                { _req(ORD); return _int(); }
     str&        as_str()                { _req(STR); return _str(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
     varset&     as_set()                { _req(SET); return _set(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
 };
+
+
+struct podvar { char data[sizeof(variant)]; };
+
+inline void variant::_init(const podvar* v)
+    { *(podvar*)this = *v; }
 
 template <>
     struct comparator<variant>
@@ -1001,6 +1018,7 @@ public:
     variant var;
     reference()  { }
     reference(const variant& v): var(v)  { }
+    reference(const podvar* v): var(v)  { }
     ~reference();
 };
 
@@ -1038,7 +1056,8 @@ public:
     ~stateobj();
     State* getType() const  { return (State*)parent::getType(); }
 
-    void dump(fifo&) const;
+    bool empty() const;  // override
+    void dump(fifo&) const;  // override
 
     variant& var(memint index)
     {
@@ -1056,8 +1075,6 @@ public:
 inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
 
 
-
-struct podvar { char data[sizeof(variant)]; };
 
 // TODO: Runtime stack is a fixed, uninitialized and unmanaged array of
 //       variants, should be implemented more efficiently than this.
@@ -1132,8 +1149,8 @@ public:
 
     void dump(fifo&) const;
 
-    virtual bool empty() const;     // throws efifowronly
-    virtual void flush();           // empty, overridden in file fifos
+    bool empty() const;                 // override, throws
+    virtual void flush();               // empty, overridden in file fifos
     virtual str get_name() const = 0;
 
     // Main FIFO operations, work on both char and variant fifos; for char

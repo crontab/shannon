@@ -35,7 +35,7 @@ void Compiler::subrange()
     expect(tokRange, "'..'");
     getConstValue(type, right); // will ensure compatibility with 'left'
     codegen->loadTypeRef(state->registerType(
-            POrdinal(type)->createSubrange(left._ord(), right._ord())));
+            POrdinal(type)->createSubrange(left._int(), right._int())));
 }
 
 
@@ -186,7 +186,7 @@ void Compiler::dictCtor()
 /*
     1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
     2. <array-sel>  <member-sel>  <function-call>  ^
-    3. unary-  as  is
+    3. unary-  #  as  is  ?
     5. *  /  mod
     6. +  –
     7. |
@@ -277,13 +277,14 @@ void Compiler::designator()
     {
         if (skipIf(tokPeriod))
         {
-            codegen->deref();
+            codegen->deref(true);
             codegen->loadMember(getIdentifier());
             next();
         }
         
         else if (skipIf(tokLSquare))
         {
+            codegen->deref(true);
             expression();
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
@@ -291,8 +292,9 @@ void Compiler::designator()
         
         else if (skipIf(tokCaret))
         {
+            // TODO: this should be distinguished from the automatic deref (opAutoDeref?)
             // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
-            if (!codegen->deref())
+            if (!codegen->deref(false))
                 error("Dereference (^) on a non-reference value");
         }
         else
@@ -304,12 +306,17 @@ void Compiler::designator()
 void Compiler::factor()
 {
     bool isNeg = skipIf(tokMinus);
+    bool isLen = skipIf(tokSharp);
+
     designator();
+    codegen->deref(true);
+
+    if (isLen)
+        codegen->length();
     if (isNeg)
-    {
-        codegen->deref();
         codegen->arithmUnary(opNeg);
-    }
+    if (skipIf(tokQuestion))
+        codegen->nonEmpty();
     // TODO: as, is
 }
 
@@ -319,12 +326,10 @@ void Compiler::term()
     factor();
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
-        codegen->deref();
         OpCode op = token == tokMul ? opMul
             : token == tokDiv ? opDiv : opMod;
         next();
         factor();
-        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -335,11 +340,9 @@ void Compiler::arithmExpr()
     term();
     while (token == tokPlus || token == tokMinus)
     {
-        codegen->deref();
         OpCode op = token == tokPlus ? opAdd : opSub;
         next();
         term();
-        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -355,7 +358,6 @@ void Compiler::simpleExpr()
         // and correctly figure out the container type at the same time.
         while (1)
         {
-            codegen->deref();
             Type* top = codegen->getTopType();
             if (top->isNullCont())
                 codegen->undoLastLoad();
@@ -387,11 +389,9 @@ void Compiler::relation()
     simpleExpr();
     if (token >= tokEqual && token <= tokGreaterEq)
     {
-        codegen->deref();
         OpCode op = OpCode(opEqual + int(token - tokEqual));
         next();
         simpleExpr();
-        codegen->deref();
         codegen->cmp(op);
     }
 }
@@ -402,10 +402,7 @@ void Compiler::notLevel()
     bool isNot = skipIf(tokNot);
     relation();
     if (isNot)
-    {
-        codegen->deref();
         codegen->_not();
-    }
 }
 
 
@@ -414,13 +411,11 @@ void Compiler::andLevel()
     notLevel();
     while (token == tokShl || token == tokShr || token == tokAnd)
     {
-        codegen->deref();
         Type* type = codegen->getTopType();
         if (type->isBool() && skipIf(tokAnd))
         {
             memint offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
-            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -430,7 +425,6 @@ void Compiler::andLevel()
                     : token == tokShr ? opBitShr : opBitAnd;
             next();
             notLevel();
-            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -442,14 +436,12 @@ void Compiler::orLevel()
     andLevel();
     while (token == tokOr || token == tokXor)
     {
-        codegen->deref();
         Type* type = codegen->getTopType();
         // TODO: boolean XOR? Beautiful thing, but not absolutely necessary
         if (type->isBool() && skipIf(tokOr))
         {
             memint offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
-            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -458,7 +450,6 @@ void Compiler::orLevel()
             OpCode op = token == tokOr ? opBitOr : opBitXor;
             next();
             andLevel();
-            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -488,7 +479,6 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
         atom();  // Take a shorter path
     else
         expression();
-    codegen->deref();
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
     return resultType;

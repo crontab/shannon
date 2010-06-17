@@ -707,10 +707,11 @@ int main()
     sio << "integer: " << sizeof(integer) << "  memint: " << sizeof(memint)
          << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
          << "  object: " << sizeof(object) << "  rtobject: " << sizeof(rtobject) << '\n';
+    sio  << "stateobj: " << sizeof(stateobj)<< "  opcodes: " << opMaxCode << '\n';
 
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(memint) == sizeof(size_t));
-    check(sizeof(variant) <= 16);  // can we make more concrete checks on this?
+    check(sizeof(variant) == 16 || sizeof(variant) == 8);
 
 #ifdef SHN_64
     check(sizeof(integer) == 8);
@@ -746,7 +747,6 @@ int main()
         fprintf(stderr, "Exception: %s\n", e.what());
         exitcode = 201;
     }
-
 
     doneTypeSys();
     doneRuntime();

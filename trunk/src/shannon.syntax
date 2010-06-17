@@ -75,6 +75,7 @@ context default
 	keyword ^	yellow
 	keyword >	yellow
 	keyword <	yellow
+	keyword #	yellow
 
 	# Separators
 	keyword {	brightcyan

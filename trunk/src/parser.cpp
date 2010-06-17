@@ -370,8 +370,10 @@ restart:
                 return tokLAngle;
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
-        case '|': return token = tokCat; break;
-        case '^': return token = tokCaret; break;
+        case '|': return token = tokCat;
+        case '^': return token = tokCaret;
+        case '#': return token = tokSharp;
+        case '?': return token = tokQuestion;
         }
     }
 

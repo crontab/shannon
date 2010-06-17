@@ -249,7 +249,8 @@ public:
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
-    void dump(fifo&) const;
+    bool empty() const;  // override
+    void dump(fifo&) const;  // override
     void dumpDef(fifo&) const;
     virtual void dumpValue(fifo&, const variant&) const;
     virtual bool identicalTo(Type*) const;

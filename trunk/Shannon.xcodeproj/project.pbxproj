@@ -49,6 +49,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3609125811CA87BB0091B8AA /* test.shn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.shn; path = src/tests/test.shn; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
@@ -137,6 +138,7 @@
 		C6859E8C029090F304C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				3609125811CA87BB0091B8AA /* test.shn */,
 				36510CA511C9731500071AB4 /* shannon.syntax */,
 				362E29FD0F0D6C58005E05B4 /* TODO */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
@@ -240,6 +242,7 @@
 		1DEB923208733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -254,6 +257,7 @@
 		1DEB923308733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/bin;
@@ -264,7 +268,7 @@
 		1DEB923608733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_OPTIMIZATION_LEVEL = 2;
@@ -317,7 +321,7 @@
 		1DEB923708733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
@@ -353,6 +357,7 @@
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CFLAGS = "";
 				OTHER_CPLUSPLUSFLAGS = "-DNDEBUG";
 				PREBINDING = NO;
 				SDKROOT = macosx10.5;
