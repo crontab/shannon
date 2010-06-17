@@ -406,17 +406,17 @@ static void test_dict()
     d1.find_replace("one", 1);
     d1.find_replace("two", 2);
     check(d1.size() == 3);
-    check(d1[0].key == "one");
-    check(d1[1].key == "three");
-    check(d1[2].key == "two");
-    check(d1[0].value == 1);
-    check(d1[1].value == 3);
-    check(d1[2].value == 2);
+    check(d1.at(0).key == "one");
+    check(d1.at(1).key == "three");
+    check(d1.key(2) == "two");
+    check(d1.at(0).value == 1);
+    check(d1.value(1) == 3);
+    check(d1.value(2) == 2);
     dict<str, int> d2 = d1;
     d1.find_erase("three");
     check(d1.size() == 2);
-    check(d1[0].key == "one");
-    check(d1[1].key == "two");
+    check(d1.key(0) == "one");
+    check(d1.key(1) == "two");
     check(*d1.find("one") == 1);
     check(d1.find("three") == NULL);
     dict<str, int> d3;
@@ -477,9 +477,9 @@ void test_variant()
         check(v3.is_null());
     }
     {
-        variant v1 = 10; check(v1.as_int() == 10);
-        variant v2 = v1; check(v2.as_int() == 10);
-        variant v3; v3 = v2; check(v3.as_int() == 10);
+        variant v1 = 10; check(v1.as_ord() == 10);
+        variant v2 = v1; check(v2.as_ord() == 10);
+        variant v3; v3 = v2; check(v3.as_ord() == 10);
     }
     {
         variant v1 = "abc"; check(v1.as_str() == "abc");
@@ -487,7 +487,7 @@ void test_variant()
         variant v3; v3 = v2; check(v3.as_str() == "abc");
         str s = "def";
         variant v4 = s; check(v4.as_str() == "def");
-        v4 = 20; check(v4.as_int() == 20);
+        v4 = 20; check(v4.as_ord() == 20);
     }
 
     {
@@ -666,7 +666,7 @@ void test_typesys()
 
     Symbol* b = queenBee->find("true");
     check(b != NULL && b->isDefinition());
-    check(PDefinition(b)->value.as_int() == 1);
+    check(PDefinition(b)->value.as_ord() == 1);
     check(PDefinition(b)->type->isBool());
 }
 

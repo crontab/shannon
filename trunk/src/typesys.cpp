@@ -285,6 +285,34 @@ static void dumpVec(fifo& stm, const varvec& vec, bool curly, Type* elemType = N
 }
 
 
+static void dumpOrdVec(fifo& stm, const str& s, Type* elemType = NULL)
+{
+    stm << '[';
+    for (memint i = 0; i < s.size(); i++)
+    {
+        if (i) stm << ", ";
+        dumpVariant(stm, s[i], elemType);
+    }
+    stm << ']';
+}
+
+
+static void dumpOrdDict(fifo& stm, const varvec& v, Type* keyType = NULL, Type* elemType = NULL)
+{
+    stm << '{';
+    int count = 0;
+    for (memint i = 0; i < v.size(); i++)
+    {
+        if (v[i].is_null()) continue;
+        if (count++) stm << ", ";
+        dumpVariant(stm, integer(i), keyType);
+        stm << " = ";
+        dumpVariant(stm, v[i], elemType);
+    }
+    stm << '}';
+}
+
+
 static void dumpOrdSet(fifo& stm, const ordset& s, Ordinal* elemType = NULL)
 {
     stm << '{';
@@ -300,18 +328,32 @@ static void dumpOrdSet(fifo& stm, const ordset& s, Ordinal* elemType = NULL)
                 if (count++)
                     stm << ", ";
                 dumpVariant(stm, i, elemType);
-                int l = i;
-                do { i++; }
-                    while (i <= right && s.find(i));
-                if (l > i)
+                int l = ++i;
+                while (i <= right && s.find(i))
+                    i++;
+                if (i > l)
                 {
                     stm << "..";
-                    dumpVariant(stm, i, elemType);
+                    dumpVariant(stm, i - 1, elemType);
                 }
             }
             else
                 i++;
         }
+    }
+    stm << '}';
+}
+
+
+static void dumpDict(fifo& stm, const vardict& d, Type* keyType = NULL, Type* valType = NULL)
+{
+    stm << '{';
+    for (memint i = 0; i < d.size(); i++)
+    {
+        if (i) stm << ", ";
+        dumpVariant(stm, d.key(i), keyType);
+        stm << " = ";
+        dumpVariant(stm, d.value(i), valType);
     }
     stm << '}';
 }
@@ -326,13 +368,13 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
         switch (v.getType())
         {
         case variant::VOID:     stm << "null"; break;
-        case variant::ORD:      stm << v._int(); break;
+        case variant::ORD:      stm << v._ord(); break;
         case variant::REAL:     notimpl(); break;
         case variant::STR:      stm << to_quoted(v._str()); break;
         case variant::VEC:      dumpVec(stm, v._vec(), false); break;
         case variant::SET:      dumpVec(stm, v._set(), true); break;
         case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
-        case variant::DICT:
+        case variant::DICT:     dumpDict(stm, v._dict()); break;
         case variant::REF:
             notimpl();
             break;
@@ -373,10 +415,11 @@ Reference::~Reference()
 
 
 void Reference::dump(fifo& stm) const
-{
-    to->dumpDef(stm);
-    stm << '^';
-}
+    { to->dumpDef(stm); stm << '^'; }
+
+
+void Reference::dumpValue(fifo& stm, const variant& v) const
+    { stm << '@'; dumpVariant(stm, v, to); }
 
 
 bool Reference::identicalTo(Type* t) const
@@ -412,16 +455,23 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 
 void Ordinal::dump(fifo& stm) const
 {
-    switch(typeId)
-    {
-    case INT:
+    if (isInt())
         stm << "(sub " << to_string(left) << ".." << to_string(right) << ')';
-        break;
-    case CHAR:
+    else if (isChar())
         stm << "(sub " << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right)) << ')';
-        break;
-    default: stm << "<?>"; break;
-    }
+    else
+        notimpl();
+}
+
+
+void Ordinal::dumpValue(fifo& stm, const variant& v) const
+{
+    if (isInt())
+        stm << v.as_ord();
+    else if (isChar())
+        stm << to_quoted(uchar(v.as_ord()));
+    else
+        notimpl();
 }
 
 
@@ -482,6 +532,16 @@ void Enumeration::dump(fifo& stm) const
 }
 
 
+void Enumeration::dumpValue(fifo& stm, const variant& v) const
+{
+    integer i = v.as_ord();
+    if (isInRange(i))
+        stm << values[memint(i)]->name;
+    else
+        stm << i;
+}
+
+
 bool Enumeration::identicalTo(Type* t) const
     { return this == t; }
 
@@ -522,6 +582,38 @@ void Container::dump(fifo& stm) const
     if (!isAnyVec())
         index->dumpDef(stm);
     stm << ']';
+}
+
+
+void Container::dumpValue(fifo& stm, const variant& v) const
+{
+    if (isNullCont())
+        stm << "[]";
+    else if (isAnyVec())
+    {
+        if (elem->isChar())
+            stm << to_quoted(v.as_str());
+        else if (isOrdVec())
+            dumpOrdVec(stm, v.as_str(), elem);
+        else
+            dumpVec(stm, v.as_vec(), false, elem);
+    }
+    else if (isAnySet())
+    {
+        if (isOrdSet())
+            dumpOrdSet(stm, v.as_ordset(), POrdinal(index));
+        else
+            dumpVec(stm, v.as_set(), true, index);
+    }
+    else if (isAnyDict())
+    {
+        if (isOrdDict())
+            dumpOrdDict(stm, v.as_vec(), index, elem);
+        else
+            dumpDict(stm, v.as_dict(), index, elem);
+    }
+    else
+        notimpl();
 }
 
 

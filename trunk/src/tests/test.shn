@@ -41,10 +41,13 @@ def v8 = v7 | 10 | 11
 def v9 = vnull | [] | 12 | v4 | 13 | []
 def sign b0 = -1
 def t0 = {1}
-def t1 = {1, 5, 10}
+def t1 = {1, 5, 6, 7, 10}
 def t3 = {}
-// def t4 = {5..15}
-// dump t0
+def identChars = {'A'..'Z', 'a'..'z', '0'..'9', '_'}
+// def t4 = {5..15, 17}
+def t5 = {two..three}
+def d0 = {'one' = 1, 'two' = 2}
+// def a = #v9
 
 assert true ; assert s0 == 'abc'
 assert i0 == 10

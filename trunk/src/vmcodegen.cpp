@@ -322,6 +322,14 @@ void CodeGen::loadMember(const str& ident)
 }
 
 
+void CodeGen::storeRet(Type* type)
+{
+    implicitCast(type);
+    stkPop();
+    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
+}
+
+
 void CodeGen::loadContainerElem()
 {
     // This is square brackets op - can be string, vector, array or dictionary.
@@ -387,18 +395,19 @@ void CodeGen::elemToSet()
 
 void CodeGen::rangeToSet()
 {
-    Type* right = stkPop();
+    implicitCast(stkTop(2), "Incompatible range bounds");
+    stkPop();
     Type* left = stkPop();
-    if (!right->canAssignTo(left))
-        error("Incompatible range bounds");
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
     Container* setType = left->deriveSet(typeReg);
+    if (!setType->isOrdSet())
+        error("Invalid element type for ordinal set");
     addOp(setType, opRngToOrdSet);
 }
 
 
-void CodeGen::addSetElem()
+void CodeGen::setAddElem()
 {
     Type* setType = stkTop(2);
     if (!setType->isAnySet())
@@ -409,11 +418,54 @@ void CodeGen::addSetElem()
 }
 
 
-void CodeGen::storeRet(Type* type)
+void CodeGen::checkRangeLeft()
 {
-    implicitCast(type);
+    Type* setType = stkTop(2);
+    if (!setType->isOrdSet())
+        error("Ordinal set type expected");
+    implicitCast(PContainer(setType)->index, "Set element type mismatch");
+}
+
+
+void CodeGen::setAddRange()
+{
+    Type* setType = stkTop(3);
+    if (!setType->isOrdSet())
+        error("Ordinal set type expected");
+    implicitCast(PContainer(setType)->index, "Set element type mismatch");
     stkPop();
-    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
+    stkPop();
+    addOp(opOrdSetAddRng);
+}
+
+
+void CodeGen::pairToDict()
+{
+    Type* val = stkPop();
+    Type* key = stkPop();
+    Container* dictType = val->deriveContainer(typeReg, key);
+    addOp(dictType, dictType->isOrdDict() ? opPairToOrdDict : opPairToDict);
+}
+
+
+void CodeGen::checkDictKey()
+{
+    Type* dictType = stkTop(2);
+    if (!dictType->isAnyDict())
+        error("Dictionary type expected");
+    implicitCast(PContainer(dictType)->index, "Dictionary key type mismatch");
+}
+
+
+void CodeGen::dictAddPair()
+{
+    Type* dictType = stkTop(3);
+    if (!dictType->isAnyDict())
+        error("Dictionary type expected");
+    implicitCast(PContainer(dictType)->elem, "Dictionary element type mismatch");
+    stkPop();
+    stkPop();
+    addOp(dictType->isOrdDict() ? opOrdDictAddPair : opDictAddPair);
 }
 
 

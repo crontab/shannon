@@ -29,7 +29,7 @@ void CodeSeg::close()
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-static void idxOverflow()           { throw ecmessage("Index overflow"); }
+// static void idxOverflow()           { throw ecmessage("Index overflow"); }
 static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
@@ -53,8 +53,8 @@ static void dumpVar(const str& expr, const variant& var, Type* type)
 }
 
 
-static integer chk8(integer i)
-    { if (uinteger(i) > 255) idxOverflow(); return i; }
+// static integer chk8(integer i)
+//     { if (uinteger(i) > 255) idxOverflow(); return i; }
 
 
 template<class T>
@@ -129,30 +129,16 @@ loop:
         case opPop:             POP(stk); break;
 
         // Strings and vectors
-        case opChrToStr:        *stk = str(stk->_uchar()); break;
-        case opChrCat:          (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
-        case opStrCat:          (stk - 1)->_str().append(stk->_str()); POP(stk); break;
-        case opVarToVec:        { varvec v; v.push_back(*stk); *stk = v; } break;
-        case opVarCat:          (stk - 1)->_vec().push_back(*stk); POP(stk); break;
-        case opVecCat:          (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
+        case opChrToStr:    *stk = str(stk->_ord()); break;
+        case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
+        case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
+        case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
+        case opVarCat:      (stk - 1)->_vec().push_back(*stk); POP(stk); break;
+        case opVecCat:      (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
         case opStrElem:
-            {
-                integer idx = stk->_int();
-                POPPOD(stk);
-                const str& s = stk->_str();
-                if (idx >= s.size()) idxOverflow();
-                *stk = s[memint(idx)];
-            }
-            break;
+            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_ord())); POPPOD(stk); break;
         case opVecElem:
-            {
-                integer idx = stk->_ord();
-                POPPOD(stk);
-                const varvec& v = stk->_vec();
-                if (idx >= v.size()) idxOverflow();
-                *stk = v[memint(idx)];
-            }
-            break;
+            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_ord())); POPPOD(stk); break;
 
         // Sets
         case opElemToSet:
@@ -160,11 +146,19 @@ loop:
         case opSetAddElem:
             (stk - 1)->_set().find_insert(*stk); POP(stk); break;
         case opElemToOrdSet:
-            *stk = ordset(chk8(stk->_ord())); break;
+            *stk = ordset(stk->_ord()); break;
         case opRngToOrdSet:
-            *(stk - 1) = ordset(chk8((stk - 1)->_ord()), chk8(stk->_ord())); POPPOD(stk); break;
+            *(stk - 1) = ordset((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); break;
         case opOrdSetAddElem:
-            (stk - 1)->_ordset().find_insert(chk8(stk->_ord())); POPPOD(stk); break;
+            (stk - 1)->_ordset().find_insert(stk->_ord()); POPPOD(stk); break;
+        case opOrdSetAddRng:
+            (stk - 2)->_ordset().find_insert((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); POPPOD(stk); break;
+
+        // Dictionaries
+        case opPairToDict:      *(stk - 1) = vardict(*(stk - 1), *stk); POP(stk); break;
+        case opDictAddPair:     (stk - 2)->_dict().find_replace(*(stk - 1), *stk); POP(stk); POP(stk); break;
+        case opPairToOrdDict:   notimpl(); break;
+        case opOrdDictAddPair:  notimpl(); break;
 
         // Arithmetic
         // TODO: range checking in debug mode
