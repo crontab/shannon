@@ -88,16 +88,16 @@ inline void POPPOD(variant*& stk)
 inline void POPTO(variant*& stk, variant* dest)     // ... to uninitialized area
         { *(podvar*)dest = *(podvar*)stk; stk--; }
 
-inline void STORETO(variant*& stk, variant* dest)
-        { dest->~variant(); POPTO(stk, dest); }
+// inline void STORETO(variant*& stk, variant* dest)
+//         { dest->~variant(); POPTO(stk, dest); }
 
 template <class T>
    inline void SETPOD(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
 
-#define BINARY_INT(op) { (stk - 1)->_ord() op stk->_ord(); POPPOD(stk); }
-#define UNARY_INT(op)  { stk->_ord() = op stk->_ord(); }
+#define BINARY_INT(op) { (stk - 1)->_int() op stk->_int(); POPPOD(stk); }
+#define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
 void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
@@ -121,7 +121,7 @@ loop:
         case opLoadOrd:         PUSH(stk, ADV<integer>(ip)); break;
         case opLoadStr:         PUSH(stk, ADV<str>(ip)); break;
         case opLoadEmptyVar:    PUSH(stk, variant::Type(ADV<char>(ip))); break;
-        case opLoadConst:       PUSH(stk, ADV<Definition*>(ip)->value); break;  // TODO: better
+        case opLoadConst:       PUSH(stk, ADV<Definition*>(ip)->value); break;  // TODO: better?
 
         case opLoadSelfVar:     PUSH(stk, self->var(ADV<char>(ip))); break;
         case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
@@ -130,26 +130,32 @@ loop:
 
         case opInitStkVar:      POPTO(stk, stack.bp + ADV<char>(ip)); break;
 
+        case opMkRef:           SETPOD(stk, new reference((podvar*)stk)); break;
+        case opAutoDeref:
         case opDeref:
             {
+                notimpl();
                 reference* r = stk->_ref();
                 SETPOD(stk, r->var);
                 r->release();
             }
             break;
+        case opNonEmpty:        *stk = int(!stk->empty()); break;
         case opPop:             POP(stk); break;
 
         // Strings and vectors
-        case opChrToStr:    *stk = str(stk->_ord()); break;
+        case opChrToStr:    *stk = str(stk->_int()); break;
         case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
         case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
         case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
         case opVarCat:      (stk - 1)->_vec().push_back(*stk); POP(stk); break;
         case opVecCat:      (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
         case opStrElem:
-            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_ord())); POPPOD(stk); break;
+            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int())); POPPOD(stk); break;
         case opVecElem:
-            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_ord())); POPPOD(stk); break;
+            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int())); POPPOD(stk); break;
+        case opStrLen:      *stk = integer(stk->_str().size()); break;
+        case opVecLen:      *stk = integer(stk->_vec().size()); break;
 
         // Sets
         case opElemToSet:
@@ -157,13 +163,13 @@ loop:
         case opSetAddElem:
             (stk - 1)->_set().find_insert(*stk); POP(stk); break;
         case opElemToByteSet:
-            *stk = ordset(stk->_ord()); break;
+            *stk = ordset(stk->_int()); break;
         case opRngToByteSet:
-            *(stk - 1) = ordset((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); break;
+            *(stk - 1) = ordset((stk - 1)->_int(), stk->_int()); POPPOD(stk); break;
         case opByteSetAddElem:
-            (stk - 1)->_ordset().find_insert(stk->_ord()); POPPOD(stk); break;
+            (stk - 1)->_ordset().find_insert(stk->_int()); POPPOD(stk); break;
         case opByteSetAddRng:
-            (stk - 2)->_ordset().find_insert((stk - 1)->_ord(), stk->_ord()); POPPOD(stk); POPPOD(stk); break;
+            (stk - 2)->_ordset().find_insert((stk - 1)->_int(), stk->_int()); POPPOD(stk); POPPOD(stk); break;
 
         // Dictionaries
         case opPairToDict:
@@ -171,23 +177,23 @@ loop:
         case opDictAddPair:
             (stk - 2)->_dict().find_replace(*(stk - 1), *stk); POP(stk); POP(stk); break;
         case opPairToByteDict:
-            { integer i = (stk - 1)->_ord(); SETPOD(stk - 1, varvec()); byteDictReplace((stk - 1)->_vec(), i, *stk); POP(stk); } break;
+            { integer i = (stk - 1)->_int(); SETPOD(stk - 1, varvec()); byteDictReplace((stk - 1)->_vec(), i, *stk); POP(stk); } break;
         case opByteDictAddPair:
-            byteDictReplace((stk - 2)->_vec(), (stk - 1)->_ord(), *stk); POP(stk); POPPOD(stk); break;
+            byteDictReplace((stk - 2)->_vec(), (stk - 1)->_int(), *stk); POP(stk); POPPOD(stk); break;
         case opDictElem:
             {
                 const variant* v = (stk - 1)->_dict().find(*stk);
-                POPPOD(stk);
+                POP(stk);
                 if (v) *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
                     else container::keyerr();
             }
             break;
         case opByteDictElem:
             {
-                integer i = stk->_ord();
+                integer i = stk->_int();
                 POPPOD(stk);
-                if (uinteger(i) > 255) container::keyerr();
-                const variant& v = stk->_dict().at(memint(i));
+                if (i < 0 || i >= stk->_vec().size()) container::keyerr();
+                const variant& v = stk->_vec()[memint(i)];
                 if (v.is_null()) container::keyerr();
                 *stk = v;  // same as for opDictElem
             }
@@ -205,29 +211,29 @@ loop:
         case opBitXor:      BINARY_INT(^=); break;
         case opBitShl:      BINARY_INT(<<=); break;
         case opBitShr:      BINARY_INT(>>=); break;
-        // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_ord() ^ stk->_ord())); POPPOD(stk); break;
+        // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_int() ^ stk->_int())); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
-        case opNot:         SETPOD(stk, int(!stk->_ord())); break;
+        case opNot:         SETPOD(stk, int(!stk->_int())); break;
 
         // Comparators
-        case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_ord() - stk->_ord()); POPPOD(stk); break;
+        case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_int() - stk->_int()); POPPOD(stk); break;
         case opCmpStr:      *(stk - 1) = integer((stk - 1)->_str().compare(stk->_str())); POP(stk); break;
         case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
 
-        case opEqual:       SETPOD(stk, int(stk->_ord() == 0)); break;
-        case opNotEq:       SETPOD(stk, int(stk->_ord() != 0)); break;
-        case opLessThan:    SETPOD(stk, int(stk->_ord() < 0)); break;
-        case opLessEq:      SETPOD(stk, int(stk->_ord() <= 0)); break;
-        case opGreaterThan: SETPOD(stk, int(stk->_ord() > 0)); break;
-        case opGreaterEq:   SETPOD(stk, int(stk->_ord() >= 0)); break;
+        case opEqual:       SETPOD(stk, int(stk->_int() == 0)); break;
+        case opNotEq:       SETPOD(stk, int(stk->_int() != 0)); break;
+        case opLessThan:    SETPOD(stk, int(stk->_int() < 0)); break;
+        case opLessEq:      SETPOD(stk, int(stk->_int() <= 0)); break;
+        case opGreaterThan: SETPOD(stk, int(stk->_int() > 0)); break;
+        case opGreaterEq:   SETPOD(stk, int(stk->_int() >= 0)); break;
 
         // Jumps
         case opJump:        { memint o = ADV<jumpoffs>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
-        case opJumpTrue:    { memint o = ADV<jumpoffs>(ip); if (stk->_ord())  ip += o; POP(stk); } break;
-        case opJumpFalse:   { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; POP(stk); } break;
-        case opJumpOr:      { memint o = ADV<jumpoffs>(ip); if (stk->_ord())  ip += o; else POP(stk); } break;
-        case opJumpAnd:     { memint o = ADV<jumpoffs>(ip); if (!stk->_ord()) ip += o; else POP(stk); } break;
+        case opJumpTrue:    { memint o = ADV<jumpoffs>(ip); if (stk->_int())  ip += o; POP(stk); } break;
+        case opJumpFalse:   { memint o = ADV<jumpoffs>(ip); if (!stk->_int()) ip += o; POP(stk); } break;
+        case opJumpOr:      { memint o = ADV<jumpoffs>(ip); if (stk->_int())  ip += o; else POP(stk); } break;
+        case opJumpAnd:     { memint o = ADV<jumpoffs>(ip); if (!stk->_int()) ip += o; else POP(stk); } break;
 
         // Misc. builtins
         case opAssert:
@@ -235,7 +241,7 @@ loop:
                 str& cond = ADV<str>(ip);
                 str& fn = ADV<str>(ip);
                 integer ln = ADV<integer>(ip);
-                if (!stk->_ord())
+                if (!stk->_int())
                     failAssertion(cond, fn, ln);
                 POPPOD(stk);
             }

@@ -96,7 +96,7 @@ void charset::assign(const charset& s)
 bool charset::empty() const
 {
     for(int i = 0; i < WORDS; i++) 
-        if (*((unsigned*)(data) + i) != 0)
+        if (((word*)data)[i] != 0)
             return false;
     return true;
 }
@@ -105,28 +105,28 @@ bool charset::empty() const
 void charset::unite(const charset& s) 
 {
     for(int i = 0; i < WORDS; i++) 
-        *((unsigned*)(data) + i) |= *((unsigned*)(s.data) + i);
+        ((word*)data)[i] |= ((word*)s.data)[i];
 }
 
 
 void charset::subtract(const charset& s) 
 {
     for(int i = 0; i < WORDS; i++) 
-        *((unsigned*)(data) + i) &= ~(*((unsigned*)(s.data) + i));
+        ((word*)data)[i] &= ~((word*)s.data)[i];
 }
 
 
 void charset::intersect(const charset& s) 
 {
     for(int i = 0; i < WORDS; i++) 
-        *((unsigned*)(data) + i) &= *((unsigned*)(s.data) + i);
+        ((word*)data)[i] &= ((word*)s.data)[i];
 }
 
 
 void charset::invert() 
 {
     for(int i = 0; i < WORDS; i++) 
-        *((unsigned*)(data) + i) = ~(*((unsigned*)(data) + i));
+        ((word*)data)[i] = ~((word*)data)[i];
 }
 
 
@@ -134,8 +134,8 @@ bool charset::le(const charset& s) const
 {
     for (int i = 0; i < WORDS; i++) 
     {
-        int w1 = *((unsigned*)(data) + i);
-        int w2 = *((unsigned*)(s.data) + i);
+        word w1 = ((word*)data)[i];
+        word w2 = ((word*)s.data)[i];
         if ((w2 | w1) != w2)
             return false;
     }
@@ -236,24 +236,26 @@ rtobject::~rtobject()
 
 
 void container::overflow()
-    { throw ecmessage("Container overflow"); }
+    { throw econtainer("Container overflow"); }
 
 
 void container::idxerr()
-    { throw ecmessage( "Container index error"); }
+    { throw econtainer( "Container index error"); }
 
 
 void container::keyerr()
-    { throw ecmessage( "Dictionary key error"); }
+    { throw econtainer( "Dictionary key error"); }
 
 
 container::~container()
     { }  // must call finalize() in descendant classes
 
+
 void container::finalize(void*, memint)
     { }
 
-void container::copy(void* dest, const void* src, memint len)
+
+inline void container::copy(void* dest, const void* src, memint len)
     { ::memcpy(dest, src, len); }
 
 
@@ -508,7 +510,6 @@ void bytevec::insert(memint pos, const bytevec& v)
 
 void bytevec::append(const char* buf, memint len)
 {
-    // TODO: separate version for class str, without the call to copy()
     if (len > 0)
     {
         char* p = _append(len, container::allocate);
@@ -1038,8 +1039,8 @@ template class podvec<variant>;
 variant::_Void variant::null;
 
 
-void variant::_type_err()           { throw ecmessage("Variant type mismatch"); }
-void variant::_range_err()          { throw ecmessage("Variant range error"); }
+void variant::_type_err()           { throw evariant("Variant type mismatch"); }
+void variant::_range_err()          { throw evariant("Variant range error"); }
 
 
 void variant::_init(Type t)
@@ -1139,7 +1140,7 @@ bool variant::operator== (const variant& v) const
     return false;
 }
 
-/*
+
 bool variant::empty() const
 {
     switch(type)
@@ -1149,13 +1150,15 @@ bool variant::empty() const
     case REAL:      return val._real == 0;
     case STR:       return _str().empty();
     case VEC:       return _vec().empty();
+    case SET:       return _set().empty();
     case ORDSET:    return _ordset().empty();
     case DICT:      return _dict().empty();
-    case RTOBJ:     return _rtobj() != NULL;
+    case REF:       return _ref()->var.empty();
+    case RTOBJ:     return _rtobj() == NULL || _rtobj()->empty();
     }
     return false;
 }
-*/
+
 
 // --- runtime objects ----------------------------------------------------- //
 
@@ -1176,6 +1179,10 @@ stateobj::stateobj(State* t)
 
 stateobj::~stateobj()
     { collapse(); }
+
+
+bool stateobj::empty() const
+    { return false; }
 
 
 void stateobj::dump(fifo& stm) const
@@ -1214,7 +1221,8 @@ rtstack::rtstack(memint maxSize)
 void initRuntime()
 {
     // Some critical build integrity tests
-    if (sizeof(str) != sizeof(void*) || sizeof(symtbl_impl) != sizeof(void*))
+    if (sizeof(str) != sizeof(void*) || sizeof(symtbl_impl) != sizeof(void*)
+            || sizeof(memint) > sizeof(integer))
         fatal(0x1004, "Broken build");
 }
 

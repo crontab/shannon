@@ -147,7 +147,7 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
-bool CodeGen::deref()
+bool CodeGen::deref(bool autoDeref)
 {
     Type* type = stkTop();
     if (!type->isReference())
@@ -156,11 +156,22 @@ bool CodeGen::deref()
     if (type->isDerefable())
     {
         stkPop();
-        addOp(type, opDeref);
+        addOp(type, autoDeref ? opAutoDeref : opDeref);
     }
     else
         notimpl();
     return true;
+}
+
+
+void CodeGen::nonEmpty()
+{
+    Type* type = stkTop();
+    if (!type->isBool())
+    {
+        stkPop();
+        addOp(queenBee->defBool, opNonEmpty);
+    }
 }
 
 
@@ -181,7 +192,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::ORD:
         {
             assert(type->isAnyOrd());
-            integer i = value._ord();
+            integer i = value._int();
             if (i == 0)
                 addOp(type, opLoad0);
             else if (i == 1)
@@ -342,6 +353,24 @@ void CodeGen::loadContainerElem()
     addOp(op);
     stkPop();
     stkReplaceTop(cast<Container*>(contType)->elem);
+}
+
+
+void CodeGen::length()
+{
+    Type* type = stkTop();
+    if (type->isNullCont())
+    {
+        undoLastLoad();
+        loadConst(queenBee->defInt, 0);
+    }
+    else if (type->isAnyVec())
+    {
+        stkPop();
+        addOp(queenBee->defInt, type->isByteVec() ? opStrLen : opVecLen);
+    }
+    else
+        error("'#' expects vector or string");
 }
 
 

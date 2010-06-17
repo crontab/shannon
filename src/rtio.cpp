@@ -15,9 +15,9 @@ fifo::~fifo()
     { }
 
 void fifo::dump(fifo& stm) const        { stm << "<fifo>"; }
-void fifo::_empty_err()                 { throw ecmessage("FIFO empty"); }
-void fifo::_wronly_err()                { throw ecmessage("FIFO is write-only"); }
-void fifo::_rdonly_err()                { throw ecmessage("FIFO is read-only"); }
+void fifo::_empty_err()                 { throw efifo("FIFO empty"); }
+void fifo::_wronly_err()                { throw efifo("FIFO is write-only"); }
+void fifo::_rdonly_err()                { throw efifo("FIFO is read-only"); }
 void fifo::_fifo_type_err()             { fatal(0x2001, "FIFO type mismatch"); }
 const char* fifo::get_tail()            { _wronly_err(); return NULL; }
 const char* fifo::get_tail(memint*)     { _wronly_err(); return NULL; }

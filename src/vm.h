@@ -18,10 +18,10 @@ enum OpCode
     // --- begin undoable loaders
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
-    opLoad0,            // +ord
-    opLoad1,            // +ord
-    opLoadByte,         // [int8] +ord
-    opLoadOrd,          // [int] +ord
+    opLoad0,            // +int
+    opLoad1,            // +int
+    opLoadByte,         // [int8] +int
+    opLoadOrd,          // [int] +int
     opLoadStr,          // [object*] +str
     opLoadEmptyVar,     // [variant::Type:8] + var
     opLoadConst,        // [Definition*] +var
@@ -35,36 +35,41 @@ enum OpCode
     // Storers
     opInitStkVar,       // [stk-idx:8] -var
 
-    opDeref,            // -var +var
+    opMkRef,            // -var +ref
+    opAutoDeref,        // -ref +var
+    opDeref,            // -ref +var
+    opNonEmpty,         // -var +bool
     opPop,              // -var
 
     // Strings and vectors
-    opChrToStr,         // -ord +str
-    opChrCat,           // -ord -str +str
+    opChrToStr,         // -int +str
+    opChrCat,           // -int -str +str
     opStrCat,           // -str -str +str
     opVarToVec,         // -var +vec
     opVarCat,           // -var -vec +vec
     opVecCat,           // -vec -vec +vec
-    opStrElem,          // -idx -str +ord
+    opStrElem,          // -idx -str +int
     opVecElem,          // -idx -vec +var
+    opStrLen,           // -str +int
+    opVecLen,           // -str +int
 
     // Sets
     opElemToSet,        // -var +set
     opSetAddElem,       // -var -set + set
-    opElemToByteSet,    // -ord +set
-    opRngToByteSet,     // -ord -ord +set
-    opByteSetAddElem,   // -ord -set +set
-    opByteSetAddRng,    // -ord -ord -set +set
+    opElemToByteSet,    // -int +set
+    opRngToByteSet,     // -int -int +set
+    opByteSetAddElem,   // -int -set +set
+    opByteSetAddRng,    // -int -int -set +set
 
     // Dicts
     opPairToDict,       // -var -var +dict
     opDictAddPair,      // -var -var -dict +dict
-    opPairToByteDict,   // -var -ord +vec
-    opByteDictAddPair,  // -var -ord -vec +vec
+    opPairToByteDict,   // -var -int +vec
+    opByteDictAddPair,  // -var -int -vec +vec
     opDictElem,         // -var -dict +var
-    opByteDictElem,     // -ord -dict +var
+    opByteDictElem,     // -int -dict +var
 
-    // Arithmetic binary: -ord, -ord, +ord
+    // Arithmetic binary: -int, -int, +int
     opAdd,              // -int, +int, +int
     opSub,              // -int, +int, +int
     opMul,              // -int, +int, +int
@@ -80,13 +85,13 @@ enum OpCode
     // except NOT and XOR
     // opBoolXor,          // -bool, -bool, +bool
 
-    // Arithmetic unary: -ord, +ord
+    // Arithmetic unary: -int, +int
     opNeg,              // -int, +int
     opBitNot,           // -int, +int
     opNot,              // -bool, +bool
 
     // Comparators
-    opCmpOrd,           // -ord, -ord, +{-1,0,1}
+    opCmpOrd,           // -int, -int, +{-1,0,1}
     opCmpStr,           // -str, -str, +{-1,0,1}
     opCmpVar,           // -var, -var, +{0,1}
 
@@ -192,7 +197,8 @@ public:
     void implicitCast(Type*, const char* errmsg = NULL);
     void undoLastLoad();
 
-    bool deref();
+    bool deref(bool autoDeref);
+    void nonEmpty();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
@@ -208,6 +214,7 @@ public:
     void elemCat();
     void cat();
     void loadContainerElem();
+    void length();
     void elemToSet();
     void rangeToSet();
     void setAddElem();

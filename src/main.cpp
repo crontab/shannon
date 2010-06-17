@@ -55,7 +55,7 @@ int main()
         if (result.is_null())
             exitcode = 0;
         else if (result.is(variant::ORD))
-            exitcode = int(result._ord());
+            exitcode = int(result._int());
         else if (result.is(variant::STR))
         {
             serr << result._str() << endl;

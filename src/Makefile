@@ -68,7 +68,7 @@ debug/%.o: %.cpp Makefile
 
 shn: $(ROBJS) release/main.o
 	$(CXX) $(CXXROPTS) $(LDLIBS) $^ -o $@
-#	@strip $@
+	@strip $@
 
 release/%.o: %.cpp Makefile
 	$(CXX) $(CXXROPTS) -c $< -o $@
