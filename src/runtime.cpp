@@ -994,10 +994,6 @@ bool symtbl_impl::bsearch(const str& key, memint& index) const
 // --- Exceptions ---------------------------------------------------------- //
 
 
-ecmessage::ecmessage(const char* _msg) throw(): msg(_msg)  { }
-ecmessage::~ecmessage() throw()  { }
-const char* ecmessage::what() throw()  { return msg; }
-
 emessage::emessage(const str& _msg) throw(): msg(_msg)  { }
 emessage::emessage(const char* _msg) throw(): msg(_msg)  { }
 emessage::~emessage() throw()  { }

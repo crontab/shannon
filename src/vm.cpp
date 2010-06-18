@@ -97,7 +97,7 @@ template <class T>
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(Context*, variant* selfvars, rtstack& stack, const char* ip)
+void runRabbitRun(variant* selfvars, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
@@ -387,7 +387,7 @@ exit:
 }
 
 
-eexit::eexit() throw(): ecmessage("Exit called")  {}
+eexit::eexit() throw(): emessage("Exit called")  {}
 eexit::~eexit() throw()  { }
 
 
@@ -399,7 +399,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
     end();
     rtstack stack(codeseg.stackSize + 1);
     stack.push(variant::null);  // storage for the return value
-    runRabbitRun(NULL, NULL, stack, codeseg.getCode());
+    runRabbitRun(NULL, stack, codeseg.getCode());
     stack.popto(result);
     return resultType;
 }
@@ -426,7 +426,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(context, obj->varbase(), stack, module->codeseg->getCode());
+    runRabbitRun(obj->varbase(), stack, module->codeseg->getCode());
 }
 
 

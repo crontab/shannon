@@ -806,24 +806,6 @@ public:
 // --- Exceptions ---------------------------------------------------------- //
 
 
-// This is for static C-style string constants
-class ecmessage: public exception
-{
-public:
-    const char* msg;
-    ecmessage(const ecmessage&) throw(); // not defined
-    ecmessage(const char* _msg) throw();
-    ~ecmessage() throw();
-    const char* what() throw();
-};
-
-
-// TODO: define these as separate classes
-typedef ecmessage econtainer;
-typedef ecmessage evariant;
-typedef ecmessage efifo;
-
-
 // For dynamically generated strings
 class emessage: public exception
 {
@@ -835,6 +817,12 @@ public:
     ~emessage() throw();
     const char* what() throw();
 };
+
+
+// TODO: define these as separate classes
+typedef emessage econtainer;
+typedef emessage evariant;
+typedef emessage efifo;
 
 
 // UNIX system errors
