@@ -158,6 +158,10 @@ loop:
             break;
 
         // --- 5. DESIGNATOR OPS, MISC
+        case opMkSubrange:
+            *(stk - 1) = ADV<Ordinal*>(ip)->createSubrange((stk - 1)->_int(), stk->_int());
+            POP();
+            break;
         case opMkRef:
             SETPOD(stk, new reference((podvar*)stk));
             break;

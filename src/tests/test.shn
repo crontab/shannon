@@ -14,8 +14,9 @@ assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
 // DEFINITIONS
-def byte = sub 0..255
-def type nums = enum one, two, three
+def byte = 0..255
+def type nums = (one, two, three)
+def dow = Mon, Tue, Wed, Thu, Fri, Sat, Sun
 def intvec = int[]
 def numvec = int[nums]
 def charset = char^[..]
@@ -23,7 +24,7 @@ def matrix0 = int[str]^[int]
 def type charset2 = void[char]
 def CharIntMap = int[char]
 def charfifo = char<>
-def sign = sub -1..1
+def sign = -1..1
 
 // CONSTANTS
 def n0 = two

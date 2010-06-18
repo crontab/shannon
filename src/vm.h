@@ -37,6 +37,7 @@ enum OpCode
     opInitStkVar,       // [stk-idx:8] -var
 
     // --- 5. DESIGNATOR OPS, MISC
+    opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
     opMkRef,            // -var +ref
     opAutoDeref,        // -ref +var
     opDeref,            // -ref +var
@@ -153,7 +154,6 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
-    bool isConstCode;
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
@@ -181,9 +181,10 @@ protected:
     void loadStoreVar(Variable*, bool);
 
 public:
-    CodeGen(CodeSeg&, State* treg);
+    CodeGen(CodeSeg&, State* treg, bool compileTime);
     ~CodeGen();
-    
+
+    bool isCompileTime()    { return codeOwner == NULL; }
     memint getLocals()      { return locals; }
     State* getState()       { return codeOwner; }
     Type* getTopType()      { return stkTop(); }
@@ -195,6 +196,7 @@ public:
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
     void explicitCast(Type*);
+    void createSubrangeType();
     void undoLastLoad();
 
     bool deref(bool autoDeref);

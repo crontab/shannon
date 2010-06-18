@@ -21,7 +21,6 @@ context default
 	keyword whole def		yellow
 	keyword whole dump		yellow
 	keyword whole else		yellow
-	keyword whole enum		yellow
 	keyword whole exit		yellow
 	keyword whole if		yellow
 	keyword whole in		yellow
@@ -32,7 +31,6 @@ context default
 	keyword whole return		yellow
 	keyword whole shl		yellow
 	keyword whole shr		yellow
-	keyword whole sub		yellow
 	keyword whole typeof		yellow
 	keyword whole var		yellow
 	keyword whole while		yellow

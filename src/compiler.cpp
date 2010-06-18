@@ -11,9 +11,11 @@ Compiler::~Compiler()
     { }
 
 
-void Compiler::enumeration()
+void Compiler::enumeration(const str& firstIdent)
 {
     Enumeration* enumType = state->registerType(new Enumeration());
+    enumType->addValue(state, firstIdent);
+    expect(tokComma, ",");
     do
     {
         enumType->addValue(state, getIdentifier());
@@ -21,21 +23,6 @@ void Compiler::enumeration()
     }
     while (skipIf(tokComma));
     codegen->loadTypeRef(enumType);
-}
-
-
-void Compiler::subrange()
-{
-    // TODO: a more optimal compilation. Subrange is usually compiled within a const
-    // context, and we call two more const evaluations here for left and right bounds.
-    variant left, right;
-    Type* type = getConstValue(NULL, left);
-    if (!type->isAnyOrd())
-        error("Ordinal type expected in subrange");
-    expect(tokRange, "'..'");
-    getConstValue(type, right); // will ensure compatibility with 'left'
-    codegen->loadTypeRef(state->registerType(
-            POrdinal(type)->createSubrange(left._int(), right._int())));
 }
 
 
@@ -138,7 +125,7 @@ void Compiler::dictCtor()
         return;
     }
 
-    expression();
+    runtimeExpr();
 
     // Dictionary
     if (skipIf(tokAssign))
@@ -160,18 +147,18 @@ void Compiler::dictCtor()
     {
         if (skipIf(tokRange))
         {
-            expression();
+            runtimeExpr();
             codegen->rangeToSet();
         }
         else
             codegen->elemToSet();
         while (skipIf(tokComma))
         {
-            expression();
+            runtimeExpr();
             if (skipIf(tokRange))
             {
                 codegen->checkRangeLeft();
-                expression();
+                runtimeExpr();
                 codegen->setAddRange();
             }
             else
@@ -251,12 +238,6 @@ void Compiler::atom()
     else if (skipIf(tokTypeOf))
         typeOf();
 */
-    else if (skipIf(tokSub))
-        subrange();
-
-    else if (skipIf(tokEnum))
-        enumeration();
-
     else
         errorWithLoc("Expression syntax");
 
@@ -283,7 +264,7 @@ void Compiler::designator()
             codegen->loadMember(getIdentifier());
             next();
         }
-        
+
         else if (skipIf(tokLSquare))
         {
             codegen->deref(true);
@@ -458,13 +439,29 @@ void Compiler::orLevel()
 
 
 inline void Compiler::expression()
-    { orLevel(); }
-
-
-void Compiler::expression(Type* expectType)
 {
-    expression();
-    codegen->implicitCast(expectType);
+    if (!codegen->isCompileTime())
+        runtimeExpr();
+    else if (token == tokIdent)  // Enumeration maybe?
+    {
+        str ident = strValue;
+        if (next() != tokComma)
+        {
+            undoIdent(ident);
+            goto ICouldHaveDoneThisWithoutGoto;
+        }
+        enumeration(ident);
+    }
+    else
+    {
+ICouldHaveDoneThisWithoutGoto:
+        runtimeExpr();
+        if (skipIf(tokRange))  // Subrange
+        {
+            runtimeExpr();
+            codegen->createSubrangeType();
+        }
+    }
 }
 
 
@@ -474,12 +471,9 @@ void Compiler::expression(Type* expectType)
 Type* Compiler::getConstValue(Type* expectType, variant& result)
 {
     CodeSeg constCode(NULL);
-    CodeGen constCodeGen(constCode, state);
+    CodeGen constCodeGen(constCode, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    if (expectType && expectType->isTypeRef())
-        atom();  // Take a shorter path
-    else
-        expression();
+    expression();
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
     return resultType;
@@ -490,7 +484,7 @@ Type* Compiler::getTypeValue()
 {
     variant result;
     getConstValue(defTypeRef, result);
-    return cast<Type*>(result._rtobj());
+    return state->registerType(cast<Type*>(result._rtobj()));
 }
 
 
@@ -616,7 +610,7 @@ void Compiler::compileModule()
     // The system module is always added implicitly
     module.addUses(queenBee);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*module.codeseg, &module);
+    CodeGen mainCodeGen(*module.codeseg, &module, false);
     codegen = &mainCodeGen;
     blockScope = NULL;
     scope = state = &module;

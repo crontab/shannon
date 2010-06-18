@@ -5,9 +5,12 @@
 // TODO: store the current file name in a named const, say __FILE__
 
 
-CodeGen::CodeGen(CodeSeg& c, State* treg)
-    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0), isConstCode(true)
-        { if (treg == NULL) treg = codeOwner; }
+CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
+    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0)
+{
+    assert(compileTime == (codeOwner == NULL));
+    assert(treg != NULL);
+}
 
 
 CodeGen::~CodeGen()
@@ -117,6 +120,18 @@ void CodeGen::explicitCast(Type* to)
     
     // TODO: better error message with type defs
     error("Invalid explicit typecast");
+}
+
+
+void CodeGen::createSubrangeType()
+{
+    Type* left = stkTop(2);
+    if (!left->isAnyOrd())
+        error("Non-ordinal range bounds");
+    implicitCast(left, "Incompatible subrange bounds");
+    stkPop();
+    stkPop();
+    addOp<Ordinal*>(defTypeRef, opMkSubrange, POrdinal(left));
 }
 
 
@@ -306,10 +321,8 @@ void CodeGen::loadVariable(Variable* var)
 {
     assert(var->host != NULL);
     assert(var->id >= 0 && var->id <= 127);
-    if (codeOwner == NULL)
+    if (isCompileTime())
         error("Variables not allowed in constant expressions");
-    else
-        isConstCode = false;
     // TODO: check parent states too
     if (var->isSelfVar() && var->host == codeOwner->selfPtr)
         addOp<char>(var->type, opLoadSelfVar, var->id);
@@ -322,10 +335,8 @@ void CodeGen::loadVariable(Variable* var)
 
 void CodeGen::loadMember(Variable* var)
 {
-    if (codeOwner == NULL)
+    if (isCompileTime())
         error("Variables not allowed in constant expressions");
-    else
-        isConstCode = false;
     Type* stateType = stkPop();
     // TODO: check parent states too
     if (!stateType->isAnyState() || var->host != stateType
@@ -357,7 +368,7 @@ void CodeGen::storeRet(Type* type)
 {
     implicitCast(type);
     stkPop();
-    addOp<char>(opInitStkVar, codeOwner ? codeOwner->prototype->retVarId() : -1);
+    addOp<char>(opInitStkVar, isCompileTime() ? -1 : codeOwner->prototype->retVarId());
 }
 
 
@@ -443,11 +454,12 @@ void CodeGen::elemToSet()
 
 void CodeGen::rangeToSet()
 {
-    implicitCast(stkTop(2), "Incompatible range bounds");
-    stkPop();
-    Type* left = stkPop();
+    Type* left = stkTop(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
+    implicitCast(left, "Incompatible range bounds");
+    stkPop();
+    stkPop();
     Container* setType = left->deriveSet(typeReg);
     if (!setType->isByteSet())
         error("Invalid element type for ordinal set");
