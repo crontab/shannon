@@ -19,13 +19,14 @@
 #include "version.h"
 
 
-#if (defined(DEBUG) || defined(_DEBUG)) && !defined(RANGE_CHECKING)
-#  define RANGE_CHECKING
+// SHN_64 can be enabled on 32-bit systems, and should be enabled on 
+// 64-bit systems, It affects the size of the default int (defined as 
+// `integer' below) and accordingly the size of the `variant' structure.
+// In any case, the `integer' type should not be smaller than 
+// sizeof(void*), otherwise initRuntime() will fail at startup.
+#if defined(__x86_64__) || defined(_WIN64)
+#  define SHN_64
 #endif
-
-
-// SHN_64 can be enabled both on 64 and 32-bit systems.
-#define SHN_64
 
 
 #define SOURCE_EXT ".shn"
