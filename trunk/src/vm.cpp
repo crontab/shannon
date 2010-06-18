@@ -97,7 +97,7 @@ template <class T>
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(Context*, register variant* selfvars, rtstack& stack, const char* ip)
+void runRabbitRun(Context*, variant* selfvars, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
