@@ -272,7 +272,7 @@ void Compiler::atom()
 
 void Compiler::designator()
 {
-    // TODO: qualifiers, container element selectors, function calls
+    // TODO: qualifiers, function calls
     // TODO: assignment
     atom();
     while (1)
@@ -291,10 +291,9 @@ void Compiler::designator()
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
         }
-        
+
         else if (skipIf(tokCaret))
         {
-            // TODO: this should be distinguished from the automatic deref (opAutoDeref?)
             // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
             if (!codegen->deref(false))
                 error("Dereference (^) on a non-reference value");

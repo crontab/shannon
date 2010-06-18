@@ -526,6 +526,7 @@ protected:
 
 public:
     vector(): parent()  { }
+    vector(const T& t): parent()  { push_back(t); }
 
     // Override stuff that requires allocation of 'vector::cont'
     void insert(memint pos, const T& t)

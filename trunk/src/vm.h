@@ -10,11 +10,12 @@ enum OpCode
 {
     // NOTE: the relative order of many of these instructions in their groups is significant
 
+    // --- 1. MISC CONTROL
     opEnd = 0,          // end execution and return
     opNop,
     opExit,             // throws eexit()
 
-    // Const loaders
+    // --- 2. CONST LOADERS
     // --- begin undoable loaders
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
@@ -26,22 +27,23 @@ enum OpCode
     opLoadEmptyVar,     // [variant::Type:8] + var
     opLoadConst,        // [Definition*] +var
 
-    // Loaders
+    // --- 3. LOADERS
     opLoadSelfVar,      // [self-idx:8] +var
     opLoadStkVar,       // [stk-idx:8] +var
     // --- end undoable loaders
     opLoadMember,       // [self-idx:8] -stateobj +var
 
-    // Storers
+    // --- 4. STORERS
     opInitStkVar,       // [stk-idx:8] -var
 
+    // --- 5. DESIGNATOR OPS, MISC
     opMkRef,            // -var +ref
     opAutoDeref,        // -ref +var
     opDeref,            // -ref +var
     opNonEmpty,         // -var +bool
     opPop,              // -var
 
-    // Strings and vectors
+    // --- 6. STRINGS, VECTORS
     opChrToStr,         // -int +str
     opChrCat,           // -int -str +str
     opStrCat,           // -str -str +str
@@ -53,7 +55,7 @@ enum OpCode
     opStrLen,           // -str +int
     opVecLen,           // -str +int
 
-    // Sets
+    // --- 7. SETS
     opElemToSet,        // -var +set
     opSetAddElem,       // -var -set + set
     opElemToByteSet,    // -int +set
@@ -61,7 +63,7 @@ enum OpCode
     opByteSetAddElem,   // -int -set +set
     opByteSetAddRng,    // -int -int -set +set
 
-    // Dicts
+    // --- 8. DICTIONARIES
     opPairToDict,       // -var -var +dict
     opDictAddPair,      // -var -var -dict +dict
     opPairToByteDict,   // -var -int +vec
@@ -69,7 +71,7 @@ enum OpCode
     opDictElem,         // -var -dict +var
     opByteDictElem,     // -int -dict +var
 
-    // Arithmetic binary: -int, -int, +int
+    // --- 9. ARITHMETIC
     opAdd,              // -int, +int, +int
     opSub,              // -int, +int, +int
     opMul,              // -int, +int, +int
@@ -80,9 +82,6 @@ enum OpCode
     opBitXor,           // -int, +int, +int
     opBitShl,           // -int, +int, +int
     opBitShr,           // -int, +int, +int
-
-    // Boolean operations are performed with short evaluation using jumps,
-    // except NOT and XOR
     // opBoolXor,          // -bool, -bool, +bool
 
     // Arithmetic unary: -int, +int
@@ -90,13 +89,11 @@ enum OpCode
     opBitNot,           // -int, +int
     opNot,              // -bool, +bool
 
-    // Comparators
+    // --- 10. BOOLEAN
     opCmpOrd,           // -int, -int, +{-1,0,1}
     opCmpStr,           // -str, -str, +{-1,0,1}
     opCmpVar,           // -var, -var, +{0,1}
 
-    // Compare the stack top with 0 and replace it with a bool value.
-    // The order of these opcodes is in sync with tokens tokEqual..tokGreaterEq
     opEqual,            // -int, +bool
     opNotEq,            // -int, +bool
     opLessThan,         // -int, +bool
@@ -104,13 +101,14 @@ enum OpCode
     opGreaterThan,      // -int, +bool
     opGreaterEq,        // -int, +bool
 
+    // --- 11. JUMPS
     // Jumps; [dst] is a relative 16-bit offset.
     opJump,             // [dst 16]
-    opJumpTrue,         // [dst 16] -bool
     opJumpFalse,        // [dst 16] -bool
+    opJumpTrue,         // [dst 16] -bool
     // Short bool evaluation: pop if jump, leave it otherwise
-    opJumpOr,           // [dst 16] (-)bool
     opJumpAnd,          // [dst 16] (-)bool
+    opJumpOr,           // [dst 16] (-)bool
 
     // Misc. builtins
     // TODO: set filename and linenum in a separate op
