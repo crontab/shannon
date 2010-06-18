@@ -177,6 +177,7 @@ protected:
     memint stkSize()
         { return simStack.size(); }
     static void error(const char*);
+    static void error(const str&);
     void loadStoreVar(Variable*, bool);
 
 public:
@@ -193,6 +194,7 @@ public:
     void popValue();
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
+    void explicitCast(Type*);
     void undoLastLoad();
 
     bool deref(bool autoDeref);
@@ -298,11 +300,14 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(Context* context, variant* selfvars, rtstack& stack, const char* code);
+void runRabbitRun(variant* selfvars, rtstack& stack, const char* code);
 
 
-struct eexit: public ecmessage
-    { eexit() throw(); ~eexit() throw(); };
+struct eexit: public emessage
+{
+    eexit() throw();
+    ~eexit() throw();
+};
 
 
 #endif // __VM_H

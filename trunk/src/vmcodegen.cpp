@@ -15,7 +15,11 @@ CodeGen::~CodeGen()
 
 
 void CodeGen::error(const char* msg)
-    { throw ecmessage(msg); }
+    { throw emessage(msg); }
+
+
+void CodeGen::error(const str& msg)
+    { throw emessage(msg); }
 
 
 void CodeGen::addOp(Type* type, OpCode op)
@@ -62,11 +66,12 @@ bool CodeGen::tryImplicitCast(Type* to)
 {
     Type* from = stkTop();
 
-    if (from == to || from->identicalTo(to))
+    if (from == to)
         return true;
 
-    if (from->canAssignTo(to) || to->isVariant())
+    if (to->isVariant() || from->canAssignTo(to))
     {
+        // canAssignTo() should take care of polymorphic typecasts
         stkReplaceTop(to);
         return true;
     }
@@ -85,7 +90,6 @@ bool CodeGen::tryImplicitCast(Type* to)
     {
         undoLastLoad();
         loadEmptyCont(PContainer(to));
-        stkReplaceTop(to);
         return true;
     }
 
@@ -101,10 +105,25 @@ void CodeGen::implicitCast(Type* to, const char* errmsg)
 }
 
 
+void CodeGen::explicitCast(Type* to)
+{
+    if (tryImplicitCast(to))
+        return;
+
+    Type* from = stkTop();
+
+    if (from->isAnyOrd() && to->isAnyOrd())
+        stkReplaceTop(to);
+    
+    // TODO: better error message with type defs
+    error("Invalid explicit typecast");
+}
+
+
 void CodeGen::deinitLocalVar(Variable* var)
 {
     // This is called from BlockScope.
-    // TODO: don't generate POPs if at the end of a function
+    // TODO: don't generate POPs if at the end of a function in RELEASE mode
     assert(var->isLocalVar());
     assert(locals == simStack.size());
     if (var->id != locals - 1)
@@ -359,9 +378,9 @@ void CodeGen::loadContainerElem()
     }
     else
         error("Vector/dictionary type expected");
-    addOp(op);
     stkPop();
-    stkReplaceTop(cast<Container*>(contType)->elem);
+    stkPop();
+    addOp(PContainer(contType)->elem, op);
 }
 
 

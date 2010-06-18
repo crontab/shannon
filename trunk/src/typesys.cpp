@@ -143,7 +143,7 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 {
     memint id = startId + localVars.size();
     if (id >= 127)
-        throw ecmessage("Maximum number of local variables reached");
+        throw emessage("Maximum number of local variables reached");
     objptr<Variable> v = new Variable(name, Symbol::LOCALVAR, type, id, gen->getState());
     addUnique(v);   // may throw
     localVars.push_back(v->grab<Variable>());
@@ -455,7 +455,7 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
     if (l == left && r == right)
         return this;
     if (l < left || r > right)
-        throw ecmessage("Subrange can't be bigger than original");
+        throw emessage("Subrange can't be bigger than original");
     return _createSubrange(l, r);
 }
 
@@ -518,7 +518,7 @@ void Enumeration::addValue(State* state, const str& ident)
 {
     integer n = integer(values.size());
     if (n >= 256)  // TODO: maybe this is not really necessary
-        throw ecmessage("Maximum number of enum constants reached");
+        throw emessage("Maximum number of enum constants reached");
     Definition* d = state->addDefinition(ident, this, n);
     values.push_back(d);
     reassignRight(n);
@@ -823,7 +823,7 @@ Variable* State::addSelfVar(const str& n, Type* t)
         fatal(0x3002, "Internal: empty identifier");
     memint id = selfVarCount();
     if (id >= 127)
-        throw ecmessage("Too many variables");
+        throw emessage("Too many variables");
     objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
     addUnique(v);
     selfVars.push_back(v->grab<Variable>());
