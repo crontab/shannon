@@ -104,33 +104,66 @@ void runRabbitRun(Context*, stateobj* self, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
     variant* stk = stack.bp - 1;
+    memint offs; // used in jump calculations
     try
     {
 loop:
         switch(*ip++)
         {
+        // --- 1. MISC CONTROL
         case opEnd:             goto exit;
         case opNop:             break;
         case opExit:            doExit(); break;
 
-        case opLoadTypeRef:     PUSH(stk, ADV<Type*>(ip)); break;
-        case opLoadNull:        PUSH(stk, variant::null); break;
-        case opLoad0:           PUSH(stk, integer(0)); break;
-        case opLoad1:           PUSH(stk, integer(1)); break;
-        case opLoadByte:        PUSH(stk, integer(ADV<uchar>(ip))); break;
-        case opLoadOrd:         PUSH(stk, ADV<integer>(ip)); break;
-        case opLoadStr:         PUSH(stk, ADV<str>(ip)); break;
-        case opLoadEmptyVar:    PUSH(stk, variant::Type(ADV<char>(ip))); break;
-        case opLoadConst:       PUSH(stk, ADV<Definition*>(ip)->value); break;  // TODO: better?
+        // --- 2. CONST LOADERS
+        case opLoadTypeRef:
+            PUSH(stk, ADV<Type*>(ip));
+            break;
+        case opLoadNull:
+            PUSH(stk, variant::null);
+            break;
+        case opLoad0:
+            PUSH(stk, integer(0));
+            break;
+        case opLoad1:
+            PUSH(stk, integer(1));
+            break;
+        case opLoadByte:
+            PUSH(stk, integer(ADV<uchar>(ip)));
+            break;
+        case opLoadOrd:
+            PUSH(stk, ADV<integer>(ip));
+            break;
+        case opLoadStr:
+            PUSH(stk, ADV<str>(ip));
+            break;
+        case opLoadEmptyVar:
+            PUSH(stk, variant::Type(ADV<char>(ip)));
+            break;
+        case opLoadConst:
+            PUSH(stk, ADV<Definition*>(ip)->value);  // TODO: better?
+            break;
 
-        case opLoadSelfVar:     PUSH(stk, self->var(ADV<char>(ip))); break;
-        case opLoadStkVar:      PUSH(stk, *(stack.bp + ADV<char>(ip))); break;
-        case opLoadMember:      *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip)); break;
-        // TODO: load "far" self var, via a pointer to a module instance?
+        // --- 3. LOADERS
+        case opLoadSelfVar:
+            PUSH(stk, self->var(ADV<char>(ip)));
+            break;
+        case opLoadStkVar:
+            PUSH(stk, *(stack.bp + ADV<char>(ip)));
+            break;
+        case opLoadMember:
+            *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip));
+            break;
 
-        case opInitStkVar:      POPTO(stk, stack.bp + ADV<char>(ip)); break;
+        // --- 4. STORERS
+        case opInitStkVar:
+            POPTO(stk, stack.bp + ADV<char>(ip));
+            break;
 
-        case opMkRef:           SETPOD(stk, new reference((podvar*)stk)); break;
+        // --- 5. DESIGNATOR OPS, MISC
+        case opMkRef:
+            SETPOD(stk, new reference((podvar*)stk));
+            break;
         case opAutoDeref:
         case opDeref:
             {
@@ -140,66 +173,123 @@ loop:
                 r->release();
             }
             break;
-        case opNonEmpty:        *stk = int(!stk->empty()); break;
-        case opPop:             POP(stk); break;
+        case opNonEmpty:
+            *stk = int(!stk->empty());
+            break;
+        case opPop:
+            POP(stk);
+            break;
 
-        // Strings and vectors
-        case opChrToStr:    *stk = str(stk->_int()); break;
-        case opChrCat:      (stk - 1)->_str().push_back(stk->_uchar()); POPPOD(stk); break;
-        case opStrCat:      (stk - 1)->_str().append(stk->_str()); POP(stk); break;
-        case opVarToVec:    { varvec v; v.push_back(*stk); *stk = v; } break;
-        case opVarCat:      (stk - 1)->_vec().push_back(*stk); POP(stk); break;
-        case opVecCat:      (stk - 1)->_vec().append(stk->_vec()); POP(stk); break;
+        // --- 6. STRINGS, VECTORS
+        case opChrToStr:
+            *stk = str(stk->_int());
+            break;
+        case opChrCat:
+            (stk - 1)->_str().push_back(stk->_uchar());
+            POPPOD(stk);
+            break;
+        case opStrCat:
+            (stk - 1)->_str().append(stk->_str());
+            POP(stk);
+            break;
+        case opVarToVec:
+            *stk = varvec(*stk);
+            break;
+        case opVarCat:
+            (stk - 1)->_vec().push_back(*stk);
+            POP(stk);
+            break;
+        case opVecCat:
+            (stk - 1)->_vec().append(stk->_vec());
+            POP(stk);
+            break;
         case opStrElem:
-            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int())); POPPOD(stk); break;
+            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
+            POPPOD(stk);
+            break;
         case opVecElem:
-            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int())); POPPOD(stk); break;
-        case opStrLen:      *stk = integer(stk->_str().size()); break;
-        case opVecLen:      *stk = integer(stk->_vec().size()); break;
+            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
+            POPPOD(stk);
+            break;
+        case opStrLen:
+            *stk = integer(stk->_str().size());
+            break;
+        case opVecLen:
+            *stk = integer(stk->_vec().size());
+            break;
 
-        // Sets
+        // --- 7. SETS
         case opElemToSet:
-            *stk = varset(*stk); break;
+            *stk = varset(*stk);
+            break;
         case opSetAddElem:
-            (stk - 1)->_set().find_insert(*stk); POP(stk); break;
+            (stk - 1)->_set().find_insert(*stk);
+            POP(stk);
+            break;
         case opElemToByteSet:
-            *stk = ordset(stk->_int()); break;
+            *stk = ordset(stk->_int());
+            break;
         case opRngToByteSet:
-            *(stk - 1) = ordset((stk - 1)->_int(), stk->_int()); POPPOD(stk); break;
+            *(stk - 1) = ordset((stk - 1)->_int(), stk->_int());
+            POPPOD(stk);
+            break;
         case opByteSetAddElem:
-            (stk - 1)->_ordset().find_insert(stk->_int()); POPPOD(stk); break;
+            (stk - 1)->_ordset().find_insert(stk->_int());
+            POPPOD(stk);
+            break;
         case opByteSetAddRng:
-            (stk - 2)->_ordset().find_insert((stk - 1)->_int(), stk->_int()); POPPOD(stk); POPPOD(stk); break;
+            (stk - 2)->_ordset().find_insert((stk - 1)->_int(), stk->_int());
+            POPPOD(stk);
+            POPPOD(stk);
+            break;
 
-        // Dictionaries
+        // --- 8. DICTIONARIES
         case opPairToDict:
-            *(stk - 1) = vardict(*(stk - 1), *stk); POP(stk); break;
+            *(stk - 1) = vardict(*(stk - 1), *stk);
+            POP(stk);
+            break;
         case opDictAddPair:
-            (stk - 2)->_dict().find_replace(*(stk - 1), *stk); POP(stk); POP(stk); break;
+            (stk - 2)->_dict().find_replace(*(stk - 1), *stk);
+            POP(stk);
+            POP(stk);
+            break;
         case opPairToByteDict:
-            { integer i = (stk - 1)->_int(); SETPOD(stk - 1, varvec()); byteDictReplace((stk - 1)->_vec(), i, *stk); POP(stk); } break;
+            {
+                integer i = (stk - 1)->_int();
+                SETPOD(stk - 1, varvec());
+                byteDictReplace((stk - 1)->_vec(), i, *stk);
+                POP(stk);
+            }
+            break;
         case opByteDictAddPair:
-            byteDictReplace((stk - 2)->_vec(), (stk - 1)->_int(), *stk); POP(stk); POPPOD(stk); break;
+            byteDictReplace((stk - 2)->_vec(), (stk - 1)->_int(), *stk);
+            POP(stk);
+            POPPOD(stk);
+            break;
         case opDictElem:
             {
                 const variant* v = (stk - 1)->_dict().find(*stk);
                 POP(stk);
-                if (v) *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
-                    else container::keyerr();
+                if (v)
+                    *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
+                else
+                    container::keyerr();
             }
             break;
         case opByteDictElem:
             {
                 integer i = stk->_int();
                 POPPOD(stk);
-                if (i < 0 || i >= stk->_vec().size()) container::keyerr();
+                if (i < 0 || i >= stk->_vec().size())
+                    container::keyerr();
                 const variant& v = stk->_vec()[memint(i)];
-                if (v.is_null()) container::keyerr();
+                if (v.is_null())
+                    container::keyerr();
                 *stk = v;  // same as for opDictElem
             }
             break;
 
-        // Arithmetic
+        // --- 9. ARITHMETIC
         // TODO: range checking in debug mode
         case opAdd:         BINARY_INT(+=); break;
         case opSub:         BINARY_INT(-=); break;
@@ -214,28 +304,54 @@ loop:
         // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_int() ^ stk->_int())); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
-        case opNot:         SETPOD(stk, int(!stk->_int())); break;
+        case opNot:         UNARY_INT(!); break;
 
-        // Comparators
-        case opCmpOrd:      SETPOD(stk - 1, (stk - 1)->_int() - stk->_int()); POPPOD(stk); break;
-        case opCmpStr:      *(stk - 1) = integer((stk - 1)->_str().compare(stk->_str())); POP(stk); break;
-        case opCmpVar:      *(stk - 1) = int(*(stk - 1) == *stk) - 1; POP(stk); break;
+        // --- 10. BOOLEAN
+        case opCmpOrd:
+            SETPOD(stk - 1, (stk - 1)->_int() - stk->_int());
+            POPPOD(stk);
+            break;
+        case opCmpStr:
+            *(stk - 1) = integer((stk - 1)->_str().compare(stk->_str()));
+            POP(stk);
+            break;
+        case opCmpVar:
+            *(stk - 1) = int(*(stk - 1) == *stk) - 1;
+            POP(stk);
+            break;
 
-        case opEqual:       SETPOD(stk, int(stk->_int() == 0)); break;
-        case opNotEq:       SETPOD(stk, int(stk->_int() != 0)); break;
-        case opLessThan:    SETPOD(stk, int(stk->_int() < 0)); break;
-        case opLessEq:      SETPOD(stk, int(stk->_int() <= 0)); break;
-        case opGreaterThan: SETPOD(stk, int(stk->_int() > 0)); break;
-        case opGreaterEq:   SETPOD(stk, int(stk->_int() >= 0)); break;
+        case opEqual:       stk->_int() = stk->_int() == 0; break;
+        case opNotEq:       stk->_int() = stk->_int() != 0; break;
+        case opLessThan:    stk->_int() = stk->_int() < 0; break;
+        case opLessEq:      stk->_int() = stk->_int() <= 0; break;
+        case opGreaterThan: stk->_int() = stk->_int() > 0; break;
+        case opGreaterEq:   stk->_int() = stk->_int() >= 0; break;
 
-        // Jumps
-        case opJump:        { memint o = ADV<jumpoffs>(ip); ip += o; } break; // beware of a strange bug in GCC, this should be done in 2 steps
-        case opJumpTrue:    { memint o = ADV<jumpoffs>(ip); if (stk->_int())  ip += o; POP(stk); } break;
-        case opJumpFalse:   { memint o = ADV<jumpoffs>(ip); if (!stk->_int()) ip += o; POP(stk); } break;
-        case opJumpOr:      { memint o = ADV<jumpoffs>(ip); if (stk->_int())  ip += o; else POP(stk); } break;
-        case opJumpAnd:     { memint o = ADV<jumpoffs>(ip); if (!stk->_int()) ip += o; else POP(stk); } break;
+        // --- 11. JUMPS
+        case opJump:
+                // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
+            offs = ADV<jumpoffs>(ip);
+            ip += offs;
+            break;
+        case opJumpFalse:
+            UNARY_INT(!);
+        case opJumpTrue:
+            offs = ADV<jumpoffs>(ip);
+            if (stk->_int())
+                ip += offs;
+            POP(stk);
+            break;
+        case opJumpAnd:
+            UNARY_INT(!);
+        case opJumpOr:
+            offs = ADV<jumpoffs>(ip);
+            if (stk->_int())
+                ip += offs;
+            else
+                POP(stk);
+            break;
 
-        // Misc. builtins
+        // --- 12. DEBUGGING, DIAGNOSTICS
         case opAssert:
             {
                 str& cond = ADV<str>(ip);
@@ -246,7 +362,6 @@ loop:
                 POPPOD(stk);
             }
             break;
-
         case opDump:
             {
                 str& expr = ADV<str>(ip);
@@ -255,7 +370,9 @@ loop:
             }
             break;
 
-        default:            invOpcode(); break;
+        default:
+            invOpcode();
+            break;
         }
         goto loop;
 exit:
