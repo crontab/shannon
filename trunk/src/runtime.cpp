@@ -1046,11 +1046,14 @@ void variant::_range_err()          { throw evariant("Variant range error"); }
 void variant::_init(Type t)
 {
     type = t;
+    memset(&val, 0, sizeof(val));
+/*
     switch(t)
     {
     case VOID:      memset(&val, 0, sizeof(val)); break;
     case ORD:       val._ord = 0; break;
     case REAL:      val._real = 0; break;
+    case VARPTR:    val._var = NULL; break;
     case STR:
     case VEC:
     case SET:
@@ -1059,6 +1062,7 @@ void variant::_init(Type t)
     case REF:
     case RTOBJ:     val._obj = NULL; break;
     }
+*/
 }
 
 
@@ -1074,23 +1078,6 @@ void variant::_init(const variant& v)
 void variant::operator= (const variant& v)
     { assert(this != &v); _fin(); _init(v); }
 
-/*
-void variant::_init(Type t)
-{
-    type = t;
-    switch(type)
-    {
-    case VOID:      break;
-    case ORD:       val._ord = 0; break;
-    case REAL:      val._real = 0; break;
-    case STR:       ::new(&val._obj) str(); break;
-    case VEC:       ::new(&val._obj) varvec(); break;
-    case ORDSET:    ::new(&val._obj) ordset(); break;
-    case DICT:      ::new(&val._obj) vardict(); break;
-    case RTOBJ:     val._rtobj = NULL; break;
-    }
-}
-*/
 
 memint variant::compare(const variant& v) const
 {
@@ -1098,21 +1085,27 @@ memint variant::compare(const variant& v) const
     {
         switch(type)
         {
-        case VOID: return 0;
+        case VOID:
+            return 0;
         case ORD:
-        {
-            integer d = val._ord - v.val._ord;
-            return d < 0 ? -1 : d > 0 ? 1 : 0;
-        }
-        case REAL:  return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
-        case STR:   return _str().compare(v._str());
+            {
+                integer d = val._ord - v.val._ord;
+                return d < 0 ? -1 : d > 0 ? 1 : 0;
+            }
+        case REAL:
+            return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
+        case VARPTR:
+            return val._var - v.val._var;
+        case STR:
+            return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
         case VEC:
         case SET:
         case ORDSET:
         case DICT:
         case REF:
-        case RTOBJ: return memint(_anyobj()) - memint(v._anyobj());
+        case RTOBJ:
+            return memint(_anyobj()) - memint(v._anyobj());
         }
     }
     return int(type - v.type);
@@ -1128,6 +1121,7 @@ bool variant::operator== (const variant& v) const
         case VOID:      return true;
         case ORD:       return val._ord == v.val._ord;
         case REAL:      return val._real == v.val._real;
+        case VARPTR:    return val._var == v.val._var;
         case STR:       return _str() == v._str();
         case VEC:       return _vec() == v._vec();
         case SET:       return _set() == v._set();
@@ -1148,6 +1142,7 @@ bool variant::empty() const
     case VOID:      return true;
     case ORD:       return val._ord == 0;
     case REAL:      return val._real == 0;
+    case VARPTR:    return val._var == NULL;
     case STR:       return _str().empty();
     case VEC:       return _vec().empty();
     case SET:       return _set().empty();
@@ -1216,6 +1211,9 @@ rtstack::rtstack(memint maxSize)
 
 
 // ------------------------------------------------------------------------- //
+
+
+template class vector<str>;
 
 
 void initRuntime()

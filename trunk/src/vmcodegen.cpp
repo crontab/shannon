@@ -188,7 +188,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     {
     case variant::VOID:
         addOp(type, opLoadNull);
-        break;
+        return;
     case variant::ORD:
         {
             assert(type->isAnyOrd());
@@ -202,26 +202,31 @@ void CodeGen::loadConst(Type* type, const variant& value)
             else
                 addOp<integer>(type, opLoadOrd, i);
         }
+        return;
+    case variant::REAL:
+        notimpl();
         break;
-    case variant::REAL: notimpl(); break;
+    case variant::VARPTR:
+        break;    
     case variant::STR:
         assert(type->isByteVec());
         addOp<object*>(type, opLoadStr, value._str().obj);
-        break;
+        return;
     case variant::VEC:
     case variant::SET:
     case variant::ORDSET:
     case variant::DICT:
     case variant::REF:
-        fatal(0x6001, "Internal: unknown constant literal");
         break;
     case variant::RTOBJ:
         if (value._rtobj()->getType()->isTypeRef())
+        {
             loadTypeRef(cast<Type*>(value._rtobj()));
-        else
-            fatal(0x6001, "Internal: unknown constant literal");
+            return;
+        }
         break;
     }
+    fatal(0x6001, "Internal: unknown constant literal");
 }
 
 
@@ -240,10 +245,14 @@ static variant::Type typeToVarType(Container* t)
     // Currently only works for containers
     switch (t->typeId)
     {
-    case Type::NULLCONT: return variant::VOID;
-    case Type::VEC:      return t->isByteVec() ? variant::STR : variant::VEC;
-    case Type::SET:      return t->isByteSet() ? variant::ORDSET : variant::SET;
-    case Type::DICT:     return t->isByteDict() ? variant::VEC : variant::DICT;
+    case Type::NULLCONT:
+        return variant::VOID;
+    case Type::VEC:
+        return t->isByteVec() ? variant::STR : variant::VEC;
+    case Type::SET:
+        return t->isByteSet() ? variant::ORDSET : variant::SET;
+    case Type::DICT:
+        return t->isByteDict() ? variant::VEC : variant::DICT;
     default:
         notimpl();
         return variant::VOID;

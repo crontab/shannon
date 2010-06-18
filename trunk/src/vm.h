@@ -127,10 +127,10 @@ inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
 
 inline bool isJump(OpCode op)
-    { return op >= opJump && op <= opJumpAnd; }
+    { return op >= opJump && op <= opJumpOr; }
 
 inline bool isBoolJump(OpCode op)
-    { return op >= opJumpTrue && op <= opJumpAnd; }
+    { return op >= opJumpFalse && op <= opJumpOr; }
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -260,6 +260,7 @@ class ModuleInstance: public Symbol
 public:
     objptr<Module> module;
     objptr<stateobj> obj;
+//    variant* self;
     ModuleInstance(Module* m);
     void run(Context*, rtstack&);
     void finalize();
@@ -297,7 +298,7 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(Context* context, stateobj* self, rtstack& stack, const char* code);
+void runRabbitRun(Context* context, variant* selfvars, rtstack& stack, const char* code);
 
 
 struct eexit: public ecmessage

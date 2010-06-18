@@ -153,6 +153,9 @@ struct EUnknownIdent: public exception
 };
 
 
+extern template class symtbl<Symbol>;
+
+
 class Scope
 {
     friend void test_typesys();
@@ -446,7 +449,7 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<Variable> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
-    
+
     Type* _registerType(Type*, Definition* = NULL);
 
 public:
