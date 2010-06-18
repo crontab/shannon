@@ -463,9 +463,9 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
 void Ordinal::dump(fifo& stm) const
 {
     if (isInt())
-        stm << "(sub " << to_string(left) << ".." << to_string(right) << ')';
+        stm << '(' << to_string(left) << ".." << to_string(right) << ')';
     else if (isChar())
-        stm << "(sub " << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right)) << ')';
+        stm << '(' << to_quoted(uchar(left)) << ".." << to_quoted(uchar(right)) << ')';
     else
         notimpl();
 }
@@ -528,10 +528,10 @@ void Enumeration::addValue(State* state, const str& ident)
 void Enumeration::dump(fifo& stm) const
 {
     if (left > 0 || right < values.size() - 1)  // subrange?
-        stm << "(sub " << values[0]->name << ".." << values[memint(right)]->name << ')';
+        stm << '(' << values[0]->name << ".." << values[memint(right)]->name << ')';
     else
     {
-        stm << "(enum ";
+        stm << '(';
         for (memint i = 0; i < values.size(); i++)
             stm << (i ? ", " : "") << values[i]->name;
         stm << ')';

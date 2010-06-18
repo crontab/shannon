@@ -16,8 +16,7 @@ protected:
     BlockScope* blockScope; // for local vars in nested blocks, can be NULL
     State* state;           // for this-vars, type objects and definitions
 
-    void subrange();
-    void enumeration();
+    void enumeration(const str& firstIdent);
     void identifier(const str&);
     void vectorCtor();
     void dictCtor();
@@ -31,8 +30,9 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
+    void runtimeExpr()  // as opposed to compile-time (below)
+        { orLevel(); }
     void expression();
-    void expression(Type*);
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result);
     Type* getTypeValue();
