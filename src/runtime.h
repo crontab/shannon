@@ -867,15 +867,14 @@ private:
     void _init(void*);   // compiler traps
     void _init(const void*);
     void _init(bool);
-    void _init(variant*);
-    void _init(const variant*);
 
 public:
     // TODO: tinyset
 
     enum Type
-        { VOID, ORD, REAL, STR, VEC, SET, ORDSET, DICT, REF, RTOBJ,
-            ANYOBJ = STR };
+        { VOID, ORD, REAL, VARPTR,
+          STR, VEC, SET, ORDSET, DICT, REF, RTOBJ,
+          ANYOBJ = STR };
 
     struct _Void { int dummy; }; 
     static _Void null;
@@ -886,6 +885,7 @@ protected:
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
+        variant*    _var;       // POD pointer to a variant
         object*     _obj;       // str, vector, set, map and their variants
         reference*  _ref;       // reference object
         rtobject*   _rtobj;     // runtime objects with the "type" field
@@ -914,6 +914,7 @@ protected:
     void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
+    void _init(variant* v)              { type = VARPTR; val._var = v; }
     void _init(Type t, object* o)       { type = t; val._obj = o; if (o) o->grab(); }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
@@ -957,6 +958,7 @@ public:
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
+    variant*    _var()            const { _dbg(VARPTR); return val._var; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
@@ -977,6 +979,7 @@ public:
     char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_ord()          const { _req(ORD); return _int(); }
+    variant*    as_var()          const { _req(VARPTR); return val._var; }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { _req(SET); return _set(); }
@@ -1068,6 +1071,9 @@ public:
 #endif
         return vars[index];
     }
+
+    variant* varbase()
+        { return vars; }
 
     void collapse();
 };
@@ -1401,6 +1407,7 @@ bool isFile(const char*);
 
 
 typedef vector<str> strvec;
+extern template class vector<str>;
 
 
 void initRuntime();
