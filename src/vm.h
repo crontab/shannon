@@ -205,12 +205,14 @@ public:
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
-    void loadSymbol(Variable*, Symbol*);
+    void loadSymbol(Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
 
     void storeRet(Type*);
+    void initLocalVar(Variable*);
+    void initSelfVar(Variable*);
 
     Container* elemToVec();
     void elemCat();

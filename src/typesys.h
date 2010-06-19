@@ -126,10 +126,25 @@ public:
 
 class Variable: public Symbol
 {
+protected:
+    Variable(const str&, SymbolId, Type*, memint, State*);
 public:
     memint const id;
-    Variable(const str&, SymbolId, Type*, memint, State*);
     ~Variable();
+};
+
+
+class LocalVar: public Variable
+{
+public:
+    LocalVar(const str&, Type*, memint, State*);
+};
+
+
+class SelfVar: public Variable
+{
+public:
+    SelfVar(const str&, Type*, memint, State*);
     Module* getModuleType() const
         { return cast<Module*>(type); }
 };
@@ -176,7 +191,7 @@ public:
 class BlockScope: public Scope
 {
 protected:
-    objvec<Variable> localVars;      // owned
+    objvec<LocalVar> localVars;      // owned
     memint startId;
     CodeGen* gen;
 public:
@@ -447,7 +462,7 @@ class State: public Type, public Scope
 protected:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
-    objvec<Variable> selfVars;      // owned
+    objvec<SelfVar> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
 
     Type* _registerType(Type*, Definition* = NULL);
@@ -467,7 +482,7 @@ public:
     // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&);
     Definition* addTypeAlias(const str&, Type*);
-    Variable* addSelfVar(const str&, Type*);
+    SelfVar* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
@@ -486,7 +501,7 @@ protected:
     void dump(fifo&) const;
 public:
     str const filePath;
-    objvec<Variable> uses; // used module instances are stored in static vars
+    objvec<SelfVar> uses; // used module instances are stored in static vars
     Module(const str& name, const str& filePath);
     ~Module();
     str getName() const         { return defName; }

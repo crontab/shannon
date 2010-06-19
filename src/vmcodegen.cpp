@@ -8,8 +8,9 @@
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
     : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0)
 {
-    assert(compileTime == (codeOwner == NULL));
     assert(treg != NULL);
+    if (compileTime != (codeOwner == NULL))
+        fatal(0x6003, "CodeGen: invalid codeOwner");
 }
 
 
@@ -260,7 +261,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         }
         break;
     }
-    fatal(0x6001, "Internal: unknown constant literal");
+    fatal(0x6001, "Unknown constant literal");
 }
 
 
@@ -298,20 +299,12 @@ void CodeGen::loadEmptyCont(Container* contType)
     { addOp<char>(contType, opLoadEmptyVar, typeToVarType(contType)); }
 
 
-void CodeGen::loadSymbol(Variable* moduleVar, Symbol* sym)
+void CodeGen::loadSymbol(Symbol* sym)
 {
     if (sym->isDefinition())
         loadDefinition(PDefinition(sym));
     else if (sym->isVariable())
-    {
-        if (moduleVar != NULL)
-        {
-            loadVariable(moduleVar);
-            loadMember(PVariable(sym));
-        }
-        else
-            loadVariable(PVariable(sym));
-    }
+        loadVariable(PVariable(sym));
     else
         notimpl();
 }
@@ -369,6 +362,18 @@ void CodeGen::storeRet(Type* type)
     implicitCast(type);
     stkPop();
     addOp<char>(opInitStkVar, isCompileTime() ? -1 : codeOwner->prototype->retVarId());
+}
+
+
+void CodeGen::initLocalVar(Variable*)
+{
+    notimpl();
+}
+
+
+void CodeGen::initSelfVar(Variable*)
+{
+    notimpl();
 }
 
 
