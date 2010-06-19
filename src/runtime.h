@@ -476,12 +476,27 @@ public:
             erase(index);
     }
 
-    // Internal methods, but should be public for technical reasons
-    bool bsearch(const T& elem, memint& index) const
-        { return ::bsearch(*this, size() - 1, elem, index); }
-
-    memint compare(memint i, const T& elem) const
-        { comparator<T> comp; return comp(operator[](i), elem); }
+    // Internal method, but should be public for technical reasons
+    bool bsearch(const T& elem, memint& idx) const
+    {
+        comparator<T> comp;
+        idx = 0;
+        memint low = 0;
+        memint high = size() - 1;
+        while (low <= high) 
+        {
+            idx = (low + high) / 2;
+            memint c = comp(operator[](idx), elem);
+            if (c < 0)
+                low = idx + 1;
+            else if (c > 0)
+                high = idx - 1;
+            else
+                return true;
+        }
+        idx = low;
+        return false;
+    }
 };
 
 
@@ -608,8 +623,8 @@ protected:
     void _mkunique()
         { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
 
-    bool bsearch(const Tkey& k, memint& i) const
-        { return !empty() && obj->keys.bsearch(k, i); }
+    bool _bsearch(const Tkey& k, memint& i) const
+        { i = 0; return !empty() && obj->keys.bsearch(k, i); }
 
 public:
     dict()                                  : obj()  { }
@@ -664,7 +679,7 @@ public:
     const Tval* find(const Tkey& k) const
     {
         memint i;
-        if (bsearch(k, i))
+        if (_bsearch(k, i))
             return &obj->values[i];
         else
             return NULL;
@@ -673,7 +688,7 @@ public:
     void find_replace(const Tkey& k, const Tval& v)
     {
         memint i;
-        if (!bsearch(k, i))
+        if (!_bsearch(k, i))
         {
             if (empty())
                 obj = new dictobj();
@@ -688,7 +703,7 @@ public:
     }
 
     void find_erase(const Tkey& k)
-        { memint i; if (bsearch(k, i)) erase(i); }
+        { memint i; if (_bsearch(k, i)) erase(i); }
 };
 
 
@@ -774,13 +789,11 @@ class symtbl_impl: public objvec<symbol>
 {
 protected:
     typedef objvec<symbol> parent;
-
 public:
     symtbl_impl(): parent()  { }
     symtbl_impl(const symtbl_impl& s); // : parent(s)  { }
     symbol* find(const str& name) const; // NULL or symbol*
     bool add(symbol*);
-    memint compare(memint i, const str& key) const;
     bool bsearch(const str& key, memint& index) const;
 };
 

@@ -21,22 +21,22 @@
 
 statement-list ::= { ( definition | statement ) <SEP> }
 
-definition ::= 'def' [ type-expr ] ident { type-derivator } '=' expr
+definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr
 
 
-# ---------- Type expression
+# ---------- Const Expression
 
-type-expr ::= subrange-type | enum-type | other-type
+const-expr ::= subrange-type | enum-type | other-type
 
-subrange-type ::= 'sub' arithm-expr '..' arithm-expr
+subrange-type ::= expr '..' expr
 
-enum-type ::= 'enum' ident { ',' ident }
+enum-type ::= ident { ',' ident }
 
 other-type ::= ident { type-derivator }
 
 type-derivator ::= '^' | '<>' | container-derivator | func-derivator
 
-container-derivator ::= '[' [ type-expr ] ']'
+container-derivator ::= '[' [ const-expr ] ']'
 
 
 # ---------- Expression
