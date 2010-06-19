@@ -9,6 +9,26 @@ static class Keywords
 
     int count;
 
+    bool bsearch(const char* key, int& idx)
+    {
+        idx = 0;
+        int low = 0;
+        int high = count - 1;
+        while (low <= high) 
+        {
+            idx = (low + high) / 2;
+            int comp = strcmp(keywords[idx].kw, key);
+            if (comp < 0)
+                low = idx + 1;
+            else if (comp > 0)
+                high = idx - 1;
+            else
+                return true;
+        }
+        idx = low;
+        return false;
+    }
+
 public:
     Keywords()
     {
@@ -23,13 +43,10 @@ public:
         }
     }
 
-    int compare(int index, const char* b) const
-        { return strcmp(keywords[index].kw, b); }
-
     Token find(const char* s)
     {
         int index;
-        if (::bsearch(*this, count - 1, s, index))
+        if (bsearch(s, index))
             return keywords[index].token;
         else
             return tokUndefined;

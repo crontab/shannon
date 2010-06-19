@@ -983,12 +983,25 @@ bool symtbl_impl::add(symbol* s)
 }
 
 
-memint symtbl_impl::compare(memint i, const str& key) const
-    { comparator<str> comp; return comp(operator[](i)->name, key); }
-
-
-bool symtbl_impl::bsearch(const str& key, memint& index) const
-    { return ::bsearch(*this, parent::size() - 1, key, index); }
+bool symtbl_impl::bsearch(const str& key, memint& idx) const
+{
+    idx = 0;
+    memint low = 0;
+    memint high = size() - 1;
+    while (low <= high) 
+    {
+        idx = (low + high) / 2;
+        memint comp = operator[](idx)->name.compare(key);
+        if (comp < 0)
+            low = idx + 1;
+        else if (comp > 0)
+            high = idx - 1;
+        else
+            return true;
+    }
+    idx = low;
+    return false;
+}
 
 
 // --- Exceptions ---------------------------------------------------------- //

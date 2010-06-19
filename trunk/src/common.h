@@ -97,7 +97,10 @@ template <class T, class X>
         { return (T)x; }
 #endif
 
-
+/*
+// Unfortunately GCC instantiates this method much more often than needed,
+// and I don't really understand why. So instead this code is copied (just a
+// few times really) to where it's used.
 template <class Container, class Key, class Tint>
 bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
 {
@@ -117,7 +120,7 @@ bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
     idx = low;
     return false;
 }
-
+*/
 
 class noncopyable
 {
