@@ -424,7 +424,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     // static data by variable id, so that code is context-independant
     for (memint i = 0; i < module->uses.size(); i++)
     {
-        Variable* v = module->uses[i];
+        SelfVar* v = module->uses[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
         obj->var(v->id) = o;
     }
@@ -445,7 +445,7 @@ void ModuleInstance::finalize()
         }
         catch (exception&)
         {
-            fatal(0x5006, "Internal: exception in destructor");
+            fatal(0x5006, "Exception in destructor");
         }
     }
 }
@@ -526,7 +526,7 @@ stateobj* Context::getModuleObject(Module* m)
 {
     stateobj* const* o = modObjMap.find(m);
     if (o == NULL)
-        fatal(0x5003, "Internal: module not found");
+        fatal(0x5003, "Module not found");
     return *o;
 }
 

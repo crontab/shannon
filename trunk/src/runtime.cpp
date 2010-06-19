@@ -1156,7 +1156,7 @@ bool variant::empty() const
 
 #ifdef DEBUG
 void stateobj::idxerr()
-    { fatal(0x1005, "Internal: object access error"); }
+    { fatal(0x1005, "Object access error"); }
 #endif
 
 

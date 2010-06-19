@@ -608,6 +608,9 @@ protected:
     void _mkunique()
         { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
 
+    bool bsearch(const Tkey& k, memint& i) const
+        { return !empty() && obj->keys.bsearch(k, i); }
+
 public:
     dict()                                  : obj()  { }
     dict(const dict& d)                     : obj(d.obj)  { }
@@ -686,13 +689,6 @@ public:
 
     void find_erase(const Tkey& k)
         { memint i; if (bsearch(k, i)) erase(i); }
-
-    // These are public 
-    memint compare(memint i, const Tkey& k) const
-        { comparator<Tkey> comp; return comp(obj->keys[i], k); }
-
-    bool bsearch(const Tkey& k, memint& i) const
-        { return ::bsearch(*this, size() - 1, k, i); }
 };
 
 

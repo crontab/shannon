@@ -71,11 +71,10 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::identifier(const str& ident)
 {
-    Scope* sc = scope;
     Symbol* sym;
-    Variable* moduleVar = NULL;
 
     // Go up the current scope hierarchy within the module
+    Scope* sc = scope;
     do
     {
         sym = sc->find(ident);
@@ -88,14 +87,14 @@ void Compiler::identifier(const str& ident)
     // If not found there, then look it up in used modules; search backwards
     for (memint i = module.uses.size(); i-- && sym == NULL; )
     {
-        moduleVar = module.uses[i];
-        sym = moduleVar->getModuleType()->find(ident);
+        SelfVar* m = module.uses[i];
+        sym = m->getModuleType()->find(ident);
     }
 
     if (sym == NULL)
         throw EUnknownIdent(ident);
 
-    codegen->loadSymbol(moduleVar, sym);
+    codegen->loadSymbol(sym);
 }
 
 
@@ -183,6 +182,7 @@ void Compiler::dictCtor()
     9. not
     10. and
     11. or  xor
+    12. (const) range, enum
 */
 
 
@@ -260,6 +260,7 @@ void Compiler::designator()
     {
         if (skipIf(tokPeriod))
         {
+            // TODO: see if it's a definition and discard all preceding code
             codegen->deref(true);
             codegen->loadMember(getIdentifier());
             next();
@@ -438,7 +439,7 @@ void Compiler::orLevel()
 }
 
 
-inline void Compiler::expression()
+void Compiler::expression()
 {
     if (!codegen->isCompileTime())
         runtimeExpr();
@@ -503,17 +504,16 @@ Type* Compiler::getTypeAndIdent(str& ident)
     ident = getIdentifier();
     next();
 ICantBelieveIUsedAGotoStatement:
+    expect(tokAssign, "'='");
     return type;
 }
 
 
 void Compiler::definition()
 {
-    // definition ::= 'def' [ const-expr ] ident { type-derivator } [ '=' const-expr ]
     str ident;
     Type* type = getTypeAndIdent(ident);
     // TODO: if ref type, take the original type?
-    expect(tokAssign, "'='");
     variant value;
     Type* valueType = getConstValue(type, value);
     if (type == NULL)
@@ -521,6 +521,33 @@ void Compiler::definition()
     if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))
         error("Constant out of range");
     state->addDefinition(ident, type, value);
+    skipSep();
+}
+
+
+void Compiler::variable()
+{
+    // TODO: undo deref
+    str ident;
+    Type* type = getTypeAndIdent(ident);
+    runtimeExpr();
+    if (type == NULL)
+        type = codegen->getTopType();
+    else
+        codegen->implicitCast(type);
+    if (type->isNullCont())
+        error("Type undefined (null container)");
+    Variable* var;
+    if (blockScope != NULL)
+    {
+        var = blockScope->addLocalVar(ident, type);
+        codegen->initLocalVar(var);
+    }
+    else
+    {
+        var = state->addSelfVar(ident, type);
+        codegen->initSelfVar(var);
+    }
     skipSep();
 }
 

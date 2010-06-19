@@ -67,6 +67,14 @@ Variable::~Variable()
     { }
 
 
+LocalVar::LocalVar(const str& n, Type* t, memint i, State* h)
+    : Variable(n, LOCALVAR, t, i, h)  { }
+
+
+SelfVar::SelfVar(const str& n, Type* t, memint i, State* h)
+    : Variable(n, SELFVAR, t, i, h)  { }
+
+
 // --- //
 
 
@@ -144,9 +152,9 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
     memint id = startId + localVars.size();
     if (id >= 127)
         throw emessage("Maximum number of local variables reached");
-    objptr<Variable> v = new Variable(name, Symbol::LOCALVAR, type, id, gen->getState());
+    objptr<LocalVar> v = new LocalVar(name, type, id, gen->getState());
     addUnique(v);   // may throw
-    localVars.push_back(v->grab<Variable>());
+    localVars.push_back(v->grab<LocalVar>());
     return v;
 }
 
@@ -207,7 +215,7 @@ bool Type::empty() const
 void Type::dump(fifo& stm) const
 {
     if (defName.empty())
-        fatal(0x3003, "Internal: invalid type alias");
+        fatal(0x3003, "Invalid type alias");
     stm << "builtin." << defName;
 }
 
@@ -799,7 +807,7 @@ Type* State::_registerType(Type* t, Definition* d)
 Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 {
     if (n.empty())
-        fatal(0x3001, "Internal: empty identifier");
+        fatal(0x3001, "Empty identifier");
     objptr<Definition> d = new Definition(n, t, v, this);
     addUnique(d); // may throw
     defs.push_back(d->grab<Definition>());
@@ -817,16 +825,16 @@ Definition* State::addTypeAlias(const str& n, Type* t)
     { return addDefinition(n, t->getType(), t); }
 
 
-Variable* State::addSelfVar(const str& n, Type* t)
+SelfVar* State::addSelfVar(const str& n, Type* t)
 {
     if (n.empty())
-        fatal(0x3002, "Internal: empty identifier");
+        fatal(0x3002, "Empty identifier");
     memint id = selfVarCount();
     if (id >= 127)
         throw emessage("Too many variables");
-    objptr<Variable> v = new Variable(n, Symbol::SELFVAR, t, id, this);
+    objptr<SelfVar> v = new SelfVar(n, t, id, this);
     addUnique(v);
-    selfVars.push_back(v->grab<Variable>());
+    selfVars.push_back(v->grab<SelfVar>());
     return v;
 }
 
