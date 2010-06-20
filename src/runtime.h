@@ -106,7 +106,7 @@ public:
     static atomicint allocated; // used only in DEBUG mode
 
     bool unique() const         { return _refcount == 1; }
-    void release();
+    bool release();
     object* grab()              { pincrement(&_refcount); return this; }
     template <class T>
         T* grab()               { object::grab(); return (T*)(this); }
@@ -859,6 +859,7 @@ typedef dict<variant, variant> vardict;
 class variant
 {
     friend void test_variant();
+    friend void initRuntime();
 
 private:
     void _init(void*);   // compiler traps
@@ -878,7 +879,7 @@ public:
 
 protected:
     Type type;
-    union
+    union _val_union
     {
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
@@ -899,8 +900,7 @@ protected:
     void _dbg(Type) const               { }
     void _dbg_anyobj() const            { }
 #endif
-
-    void _init()                        { type = VOID; memset(&val, 0, sizeof(val)); }
+    void _init()                        { type = VOID; val._ord = 0; }
     void _init(_Void)                   { _init(); }
     void _init(Type);
     // void _init(bool v)                  { type = ORD; val._ord = v; }

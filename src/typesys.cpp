@@ -3,6 +3,10 @@
 #include "vm.h"
 
 
+static void error(const char* msg)
+    { throw emessage(msg); }
+
+
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
@@ -147,11 +151,11 @@ void BlockScope::deinitLocals()
 }
 
 
-Variable* BlockScope::addLocalVar(const str& name, Type* type)
+LocalVar* BlockScope::addLocalVar(const str& name, Type* type)
 {
     memint id = startId + localVars.size();
     if (id >= 127)
-        throw emessage("Maximum number of local variables reached");
+        error("Maximum number of local variables reached");
     objptr<LocalVar> v = new LocalVar(name, type, id, gen->getState());
     addUnique(v);   // may throw
     localVars.push_back(v->grab<LocalVar>());
@@ -163,8 +167,20 @@ Variable* BlockScope::addLocalVar(const str& name, Type* type)
 
 
 Type::Type(TypeId id)
-    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), host(NULL), defName(), typeId(id)
-        { if (id != REF) refType = new Reference(this); }
+    : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), // ptrType(NULL),
+      host(NULL), defName(), typeId(id)
+{
+/*
+    if (id != VARPTR)
+    {
+        ptrType = new Pointer(this);
+        if (id != REF)
+            refType = new Reference(this);
+    }
+*/
+    if (id != REF)
+        refType = new Reference(this);
+}
 
 
 Type::~Type()
@@ -249,6 +265,8 @@ Container* Type::deriveVec(State* h)
 
 Container* Type::deriveSet(State* h)
 {
+    if (isReference())
+        error("Reference type not allowed in set");
     if (isVoid())
         return queenBee->defNullCont;
     else if (isFullChar())
@@ -260,6 +278,8 @@ Container* Type::deriveSet(State* h)
 
 Container* Type::deriveContainer(State* h, Type* idx)
 {
+    if (idx->isReference())
+        error("Reference type not allowed in dict/set");
     if (isVoid())
         return idx->deriveSet(h);
     else if (idx->isVoid())
@@ -405,7 +425,6 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
 TypeReference::TypeReference(): Type(TYPEREF)  { }
 TypeReference::~TypeReference()  { }
 
-
 void TypeReference::dumpValue(fifo& stm, const variant& v) const
 {
     Type* type = cast<Type*>(v.as_rtobj());
@@ -442,6 +461,11 @@ bool Reference::identicalTo(Type* t) const
         && to->identicalTo(PReference(t)->to)); }
 
 
+bool Reference::canAssignTo(Type* t) const
+    { return this == t || (t->isReference()
+        && to->canAssignTo(PReference(t)->to)); }
+
+
 // --- Ordinals ------------------------------------------------------------ //
 
 
@@ -463,7 +487,7 @@ Ordinal* Ordinal::createSubrange(integer l, integer r)
     if (l == left && r == right)
         return this;
     if (l < left || r > right)
-        throw emessage("Subrange can't be bigger than original");
+        error("Subrange can't be bigger than original");
     return _createSubrange(l, r);
 }
 
@@ -526,7 +550,7 @@ void Enumeration::addValue(State* state, const str& ident)
 {
     integer n = integer(values.size());
     if (n >= 256)  // TODO: maybe this is not really necessary
-        throw emessage("Maximum number of enum constants reached");
+        error("Maximum number of enum constants reached");
     Definition* d = state->addDefinition(ident, this, n);
     values.push_back(d);
     reassignRight(n);
@@ -716,7 +740,7 @@ bool Prototype::identicalTo(Prototype* t) const
 
 
 State::State(TypeId id, Prototype* proto, State* par, State* self)
-    : Type(id), Scope(parent), parent(par), selfPtr(self),
+    : Type(id), Scope(par), parent(par), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
@@ -780,7 +804,15 @@ void State::dumpAll(fifo& stm) const
             dumpVariant(stm, def->value, def->type);
         stm << endl;
     }
-    // TODO: print vars
+    for (memint i = 0; i < selfVars.size(); i++)
+    {
+        SelfVar* var = selfVars[i];
+        stm << "var ";
+        var->type->dumpDef(stm);
+        stm << ' ';
+        var->fqName(stm);
+        stm << endl;
+    }
 }
 
 
@@ -831,7 +863,7 @@ SelfVar* State::addSelfVar(const str& n, Type* t)
         fatal(0x3002, "Empty identifier");
     memint id = selfVarCount();
     if (id >= 127)
-        throw emessage("Too many variables");
+        error("Too many variables");
     objptr<SelfVar> v = new SelfVar(n, t, id, this);
     addUnique(v);
     selfVars.push_back(v->grab<SelfVar>());
@@ -854,6 +886,7 @@ stateobj* State::newInstance()
 
 Container* State::getContainerType(Type* idx, Type* elem)
 {
+    assert(!idx->isReference());
     // TODO: replace linear search with something faster?
     for (memint i = 0; i < types.size(); i++)
     {

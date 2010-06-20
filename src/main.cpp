@@ -38,13 +38,14 @@ void ut_fail(unsigned line, const char* e)
 
 int main()
 {
-    sio << "Shannon v" << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
+    sio << "Shannon " << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
         << ' ' << SHANNON_COPYRIGHT << endl << endl;
 
     int exitcode = 0;
 
     initRuntime();
     initTypeSys();
+    initVm();
 
     try
     {
@@ -70,6 +71,7 @@ int main()
         exitcode = 101;
     }
 
+    doneVm();
     doneTypeSys();
     doneRuntime();
 

@@ -73,20 +73,21 @@ template<class T>
         { T& t = *(T*)ip; ip += sizeof(T); return t; }
 
 #define PUSH(v) \
-    { ::new(++stk) variant(v);  }
+    { ::new(stk + 1) variant(v); stk++; }
 
-#define PUSHT(t,v) \
-        { ::new(++stk) variant(variant::Type(t), v); }
+// #define PUSHT(t,v) { ::new(++stk) variant(variant::Type(t), v); }
 
 #define POP() \
-        { (*stk--).~variant(); }
+    { (*stk--).~variant(); }
 
 #define POPPOD() \
-        { assert(!stk->is_anyobj()); stk--; }
+    { assert(!stk->is_anyobj()); stk--; }
+
+#define INITTO(dest) \
+    { *(podvar*)(dest) = *(podvar*)stk; stk--; } // pop to to uninitialized area
 
 #define POPTO(dest) \
-        { *(podvar*)(dest) = *(podvar*)stk; stk--; } // pop to to uninitialized area
-
+    { variant* d = dest; d->~variant(); INITTO(d); }
 
 template <class T>
    inline void SETPOD(variant* dest, const T& v)
@@ -97,7 +98,7 @@ template <class T>
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(variant* selfvars, rtstack& stack, const char* ip)
+void runRabbitRun(stateobj* self, rtstack& stack, const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
@@ -142,19 +143,64 @@ loop:
             break;
 
         // --- 3. LOADERS
+        // TODO: LEA loaders: also increment refcount, to be decremented
+        // by opStore (or push both the object and the ptr?)
         case opLoadSelfVar:
-            PUSH(selfvars[ADV<char>(ip)]);
+            PUSH(self->var(ADV<uchar>(ip)));
+            break;
+        case opLEASelfVar:
+            PUSH(&self->var(ADV<uchar>(ip)));
             break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV<char>(ip)));
             break;
+        case opLEAStkVar:
+            PUSH(stack.bp + ADV<char>(ip));
+            break;
         case opLoadMember:
-            *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<char>(ip));
+            *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<uchar>(ip));
+            break;
+        case opLEAMember:
+            {
+                stateobj* o = cast<stateobj*>(stk->_rtobj());
+                PUSH(&o->var(ADV<uchar>(ip)));
+            }
+            break;
+        case opDeref:
+            {
+                reference* r = stk->_ref();
+                SETPOD(stk, r->var);
+                r->release();
+            }
+            break;
+        case opLEARef:
+            {
+                reference* r = stk->_ref();
+                PUSH(&r->var);
+            }
             break;
 
         // --- 4. STORERS
+        case opInitSelfVar:
+            INITTO(&self->var(ADV<uchar>(ip)));
+            break;
+        case opStoreSelfVar:
+            POPTO(&self->var(ADV<uchar>(ip)));
+            break;
         case opInitStkVar:
+            INITTO(stack.bp + memint(ADV<char>(ip)));
+            break;
+        case opStoreStkVar:
             POPTO(stack.bp + memint(ADV<char>(ip)));
+            break;
+        case opStore:
+            // stack: obj ptr var
+            if ((stk - 2)->_anyobj()->release())
+                POP() // object has been destroyed, nothing to do
+            else
+                POPTO((stk - 1)->_var());
+            POPPOD();
+            stk--;  // released already, can't called POPPOD() because of assert() there
             break;
 
         // --- 5. DESIGNATOR OPS, MISC
@@ -164,15 +210,6 @@ loop:
             break;
         case opMkRef:
             SETPOD(stk, new reference((podvar*)stk));
-            break;
-        case opAutoDeref:
-        case opDeref:
-            {
-                notimpl();
-                reference* r = stk->_ref();
-                SETPOD(stk, r->var);
-                r->release();
-            }
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -430,7 +467,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(obj->varbase(), stack, module->codeseg->getCode());
+    runRabbitRun(obj, stack, module->codeseg->getCode());
 }
 
 
@@ -513,7 +550,7 @@ str Context::lookupSource(const str& modName)
 Module* Context::getModule(const str& modName)
 {
     // TODO: find a moudle by full path, not just name (hash by path/name?)
-    // TODO: to have a global cache of compiled modules, not just within the econtext
+    // TODO: to have a global cache of compiled modules, not just within the context
     ModuleInstance* inst = cast<ModuleInstance*>(Scope::find(modName));
     if (inst != NULL)
         return inst->module;
@@ -533,8 +570,6 @@ stateobj* Context::getModuleObject(Module* m)
 
 void Context::instantiateModules()
 {
-    // Now that all modules are compiled and their dataseg sizes are known, we can
-    // instantiate the objects:
     for (memint i = 0; i < instances.size(); i++)
     {
         ModuleInstance* inst = instances[i];
@@ -555,20 +590,23 @@ void Context::clear()
 
 void Context::dump(const str& listingPath)
 {
-    if (options.enableDump || options.vmListing)
-    {
-        outtext f(NULL, listingPath);
-        for (memint i = 0; i < instances.size(); i++)
-            instances[i]->module->dumpAll(f);
-    }
+    outtext f(NULL, listingPath);
+    for (memint i = 0; i < instances.size(); i++)
+        instances[i]->module->dumpAll(f);
 }
 
 
 variant Context::execute(const str& filePath)
 {
     loadModule(filePath);
-    dump(remove_filename_ext(filePath) + ".lst");
+    if (options.enableDump || options.vmListing)
+        dump(remove_filename_ext(filePath) + ".lst");
+
+    // Now that all modules are compiled and their dataseg sizes are known, we can
+    // instantiate the objects
     instantiateModules();
+
+    // Run init code segments for all modules; the last one is the main program
     rtstack stack(options.stackSize);
     try
     {
@@ -584,8 +622,14 @@ variant Context::execute(const str& filePath)
         clear();
         throw;
     }
+
+    // Program exit variable (not necessarily int, can be anything)
     variant result = queenBeeInst->obj->var(queenBee->resultVar->id);
     clear();
     return result;
 }
+
+
+void initVm()  { if (opMaxCode > 255) fatal(0x5001, "Opcodes > 255"); }
+void doneVm()  { }
 

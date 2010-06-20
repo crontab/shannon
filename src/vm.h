@@ -11,12 +11,12 @@ enum OpCode
     // NOTE: the relative order of many of these instructions in their groups is significant
 
     // --- 1. MISC CONTROL
-    opEnd = 0,          // end execution and return
+    opEnd,              // end execution and return
     opNop,
     opExit,             // throws eexit()
 
     // --- 2. CONST LOADERS
-    // --- begin undoable loaders
+    // --- begin undoable loaders, see isUndoableLoadOp()
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +int
@@ -28,19 +28,28 @@ enum OpCode
     opLoadConst,        // [Definition*] +var
 
     // --- 3. LOADERS
-    opLoadSelfVar,      // [self-idx:8] +var
-    opLoadStkVar,       // [stk-idx:8] +var
+    // loaders and their 'load effective address' variants
+    // NOTE: LEA opcode variants should be at +1 from their ordinary load ops
+    opLoadSelfVar,      // [self-idx:u8] +var
+    opLEASelfVar,       // [self-idx:u8] +ptr   ; opStoreSelfVar
+    opLoadStkVar,       // [stk-idx:s8] +var
+    opLEAStkVar,        // [stk-idx:s8] +ptr    ; opStoreStkVar
     // --- end undoable loaders
-    opLoadMember,       // [self-idx:8] -stateobj +var
+    opLoadMember,       // [self-idx:u8] -stateobj +var
+    opLEAMember,        // [self-idx:u8] -stateobj +stateobj +ptr ; opStore
+    opDeref,            // -ref +var
+    opLEARef,           // -ref +ref +ptr       ; opStore
 
     // --- 4. STORERS
-    opInitStkVar,       // [stk-idx:8] -var
+    opInitSelfVar,      // [var-idx:u8] -var
+    opStoreSelfVar,     // [var-idx:u8] -var
+    opInitStkVar,       // [stk-idx:s8] -var
+    opStoreStkVar,      // [stk-idx:s8] -var
+    opStore,            // -var -ptr -obj
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
     opMkRef,            // -var +ref
-    opAutoDeref,        // -ref +var
-    opDeref,            // -ref +var
     opNonEmpty,         // -var +bool
     opPop,              // -var
 
@@ -154,6 +163,7 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
+    str storerCode;                 // see beginAssignment()
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
@@ -165,7 +175,7 @@ protected:
         void addOp(Type* t, OpCode op, const T& a)  { addOp(t, op); add<T>(a); }
     void addJumpOffs(jumpoffs o)                    { add<jumpoffs>(o); }
     Type* stkPop();
-    void stkReplaceTop(Type* t);
+    void stkReplaceTop(Type* t);  // only if the opcode is not changed
     Type* stkTop()
         { return simStack.back().type; }
     Type* stkTop(memint i)
@@ -174,21 +184,20 @@ protected:
         { return simStack.back(); }
     const SimStackItem& stkTopItem(memint i)
         { return simStack.back(i); }
-    memint stkSize()
-        { return simStack.size(); }
     static void error(const char*);
     static void error(const str&);
-    void loadStoreVar(Variable*, bool);
 
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);
     ~CodeGen();
 
-    bool isCompileTime()    { return codeOwner == NULL; }
-    memint getLocals()      { return locals; }
-    State* getState()       { return codeOwner; }
-    Type* getTopType()      { return stkTop(); }
-    memint beginDiscardable();
+    memint getStackLevel()      { return simStack.size(); }
+    bool isCompileTime()        { return codeOwner == NULL; }
+    memint getLocals()          { return locals; }
+    State* getState()           { return codeOwner; }
+    Type* getTopType()          { return stkTop(); }
+    memint getCurrentOffs()     { return codeseg.size(); }
+    memint beginDiscardable()   { return getCurrentOffs(); }
     void endDiscardable(memint offs);
     Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
@@ -199,20 +208,25 @@ public:
     void createSubrangeType();
     void undoLastLoad();
 
-    bool deref(bool autoDeref);
+    bool deref();
+    void mkref();
     void nonEmpty();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
     void loadSymbol(Symbol*);
+    // These 3 functions return code offset of the last addressable load op
+    // that can be converted to a LEA equivalent
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
 
     void storeRet(Type*);
-    void initLocalVar(Variable*);
-    void initSelfVar(Variable*);
+    void initLocalVar(LocalVar*);
+    void initSelfVar(SelfVar*);
+    void beginAssignment();
+    void endAssignment();
 
     Container* elemToVec();
     void elemCat();
@@ -261,6 +275,8 @@ struct CompilerOptions
 };
 
 
+class Context;
+
 class ModuleInstance: public Symbol
 {
 public:
@@ -304,7 +320,7 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(variant* selfvars, rtstack& stack, const char* code);
+void runRabbitRun(stateobj* self, rtstack& stack, const char* code);
 
 
 struct eexit: public emessage
@@ -312,6 +328,10 @@ struct eexit: public emessage
     eexit() throw();
     ~eexit() throw();
 };
+
+
+void initVm();
+void doneVm();
 
 
 #endif // __VM_H

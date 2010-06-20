@@ -722,6 +722,7 @@ int main()
 
     initRuntime();
     initTypeSys();
+    initVm();
 
     int exitcode = 0;
     try
@@ -749,6 +750,7 @@ int main()
         exitcode = 201;
     }
 
+    doneVm();
     doneTypeSys();
     doneRuntime();
 
