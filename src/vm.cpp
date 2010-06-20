@@ -37,6 +37,10 @@ static void failAssertion(const str& cond, const str& fn, integer linenum)
     { throw emessage("Assertion failed \"" + cond + "\" at " + fn + ':' + to_string(linenum)); }
 
 
+static void objectGone()
+    { throw emessage("Object lost before assignment"); }
+
+
 static void dumpVar(const str& expr, const variant& var, Type* type)
 {
     // TODO: dump to serr?
@@ -105,7 +109,7 @@ void runRabbitRun(stateobj* self, rtstack& stack, const char* ip)
     memint offs; // used in jump calculations
     try
     {
-loop:
+loop:  // use goto's instead of while(1) {} so that compilers don't complain
         switch(*ip++)
         {
         // --- 1. MISC CONTROL
@@ -142,29 +146,27 @@ loop:
             PUSH(ADV<Definition*>(ip)->value);  // TODO: better?
             break;
 
-        // --- 3. LOADERS
-        // TODO: LEA loaders: also increment refcount, to be decremented
-        // by opStore (or push both the object and the ptr?)
+        // --- 3. COMMON LOADERS
         case opLoadSelfVar:
-            PUSH(self->var(ADV<uchar>(ip)));
+            PUSH(*self->member(ADV<uchar>(ip)));
             break;
         case opLEASelfVar:
-            PUSH(&self->var(ADV<uchar>(ip)));
+            PUSH((rtobject*)NULL); // No need to lock the self object, just push NULL
+            PUSH(self->member(ADV<uchar>(ip)));
             break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV<char>(ip)));
             break;
         case opLEAStkVar:
+            PUSH((rtobject*)NULL); // Same, no need to lock the stack object, it's always there
             PUSH(stack.bp + ADV<char>(ip));
             break;
         case opLoadMember:
-            *stk = cast<stateobj*>(stk->_rtobj())->var(ADV<uchar>(ip));
+            *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV<uchar>(ip));
             break;
         case opLEAMember:
-            {
-                stateobj* o = cast<stateobj*>(stk->_rtobj());
-                PUSH(&o->var(ADV<uchar>(ip)));
-            }
+            // Leave the object on the stack to lock it until assignment
+            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV<uchar>(ip)));
             break;
         case opDeref:
             {
@@ -174,18 +176,16 @@ loop:
             }
             break;
         case opLEARef:
-            {
-                reference* r = stk->_ref();
-                PUSH(&r->var);
-            }
+            // Same as for opLEAMember, leave the ref object on the stack
+            PUSH(&(stk->_ref()->var));
             break;
 
-        // --- 4. STORERS
+        // --- 4. COMMON STORERS
         case opInitSelfVar:
-            INITTO(&self->var(ADV<uchar>(ip)));
+            INITTO(self->member(ADV<uchar>(ip)));
             break;
         case opStoreSelfVar:
-            POPTO(&self->var(ADV<uchar>(ip)));
+            POPTO(self->member(ADV<uchar>(ip)));
             break;
         case opInitStkVar:
             INITTO(stack.bp + memint(ADV<char>(ip)));
@@ -193,14 +193,13 @@ loop:
         case opStoreStkVar:
             POPTO(stack.bp + memint(ADV<char>(ip)));
             break;
-        case opStore:
-            // stack: obj ptr var
-            if ((stk - 2)->_anyobj()->release())
-                POP() // object has been destroyed, nothing to do
-            else
-                POPTO((stk - 1)->_var());
-            POPPOD();
-            stk--;  // released already, can't called POPPOD() because of assert() there
+        case opStoreMember:
+            POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV<uchar>(ip)));
+            POP();
+            break;
+        case opStoreRef:
+            POPTO(&((stk - 1)->_ref()->var));
+            POP();
             break;
 
         // --- 5. DESIGNATOR OPS, MISC
@@ -241,6 +240,12 @@ loop:
             (stk - 1)->_vec().append(stk->_vec());
             POP();
             break;
+        case opStrLen:
+            *stk = integer(stk->_str().size());
+            break;
+        case opVecLen:
+            *stk = integer(stk->_vec().size());
+            break;
         case opStrElem:
             *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
             POPPOD();
@@ -249,11 +254,20 @@ loop:
             *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
             POPPOD();
             break;
-        case opStrLen:
-            *stk = integer(stk->_str().size());
+        case opStoreStrElem:
+            // -int -int -ptr -obj
+            if ((stk - 3)->_anyobj()->release())
+                objectGone();
+            (stk - 2)->_var()->_str().replace((stk - 1)->_int(), stk->_int());
+            stk -= 4; // all 4 elements are now dummy
             break;
-        case opVecLen:
-            *stk = integer(stk->_vec().size());
+        case opStoreVecElem:
+            // -var -int -ptr -obj
+            if ((stk - 3)->_anyobj()->release())
+                objectGone();
+            (stk - 2)->_var()->_vec().replace((stk - 1)->_int(), *stk);
+            POP();
+            stk -= 3;
             break;
 
         // --- 7. SETS
@@ -463,7 +477,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     {
         SelfVar* v = module->uses[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
-        obj->var(v->id) = o;
+        *obj->member(v->id) = o;
     }
 
     // Run module initialization or main code
@@ -624,7 +638,7 @@ variant Context::execute(const str& filePath)
     }
 
     // Program exit variable (not necessarily int, can be anything)
-    variant result = queenBeeInst->obj->var(queenBee->resultVar->id);
+    variant result = *queenBeeInst->obj->member(queenBee->resultVar->id);
     clear();
     return result;
 }

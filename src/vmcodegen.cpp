@@ -6,7 +6,8 @@
 
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
-    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0)
+    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
+      prevLoaderOffs(-1), storerCode()
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -51,7 +52,9 @@ void CodeGen::undoLastLoad()
 
 Type* CodeGen::stkPop()
 {
-    Type* result = simStack.back().type;
+    const SimStackItem& s = simStack.back();
+    Type* result = s.type;
+    prevLoaderOffs = s.offs;
     simStack.pop_back();
     return result;
 }
@@ -415,30 +418,38 @@ void CodeGen::beginAssignment()
     assert(storerCode.empty());
     memint loaderOffs = stkTopItem().offs;
     OpCode loader = OpCode(codeseg[loaderOffs]);
+    OpCode prevLoader = prevLoaderOffs >= 0 ? OpCode(codeseg[prevLoaderOffs]) : opInv;
     OpCode storer;
+    // There are two kinds of targets: (1) for non-resizable objects 
+    // and also local/self vars the load op is postponed and is simply 
+    // replaced with the correspoding storer; (2) for resizable objects 
+    // the "parent" object is locked on the stack to make sure the LEA
+    // pointer is valid by the end of the assignment statement.
     switch(loader)
     {
-        // Plain local or self var loader: convert to corresponding storer
-        case opLoadSelfVar:
-            storer = opStoreSelfVar;
-            goto GotoIsRootOfAllProgramming;
-        case opLoadStkVar:
-            storer = opStoreStkVar;
-GotoIsRootOfAllProgramming:
-            codeseg.atw<uchar>(loaderOffs) = storer;
-            storerCode = codeseg.cutTail(loaderOffs);
-            assert(storerCode.size() == 2);
-            break;
+        // Local, self, or otherwise simple non-resizable objects
+        case opLoadSelfVar: storer = opStoreSelfVar; break;
+        case opLoadStkVar:  storer = opStoreStkVar; break;
+        case opLoadMember:  storer = opStoreMember; break;
+        case opDeref:       storer = opStoreRef; break;
 
-        // Indirect loaders through any refcounted object: convert to a corresponding LEA
-        case opLoadMember:
-        case opDeref:
-            codeseg.atw<uchar>(loaderOffs)++;
-            storerCode = char(opStore);
+        // Resizable objects
+        case opStrElem:
+            storer = opStoreStrElem;
+GotoIsTheRootOfAllProgramming:
+            if (!isAddressableOp(prevLoader))
+                error("Non-reference in L-value");
+            codeseg.atw<uchar>(prevLoaderOffs)++; // -> LEA
             break;
+        case opVecElem:
+            storer = opStoreVecElem;
+            goto GotoIsTheRootOfAllProgramming;
         default:
             error("Not an L-value");
+            storer = opInv;
     }
+    codeseg.atw<uchar>(loaderOffs) = storer;
+    storerCode = codeseg.cutTail(loaderOffs);
 }
 
 

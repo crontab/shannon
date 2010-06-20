@@ -29,23 +29,30 @@ enum OpCode
 
     // --- 3. LOADERS
     // loaders and their 'load effective address' variants
+    // The LEA variants push two values: the base (object*) and an address
+    // of a variant field inside that object. The first is needed to keep the 
+    // object in memory. Storers check if the refcount reached 1 before 
+    // assignment, which means the object is gone and a runtime exception  
+    // should be thrown.
     // NOTE: LEA opcode variants should be at +1 from their ordinary load ops
     opLoadSelfVar,      // [self-idx:u8] +var
-    opLEASelfVar,       // [self-idx:u8] +ptr   ; opStoreSelfVar
+    opLEASelfVar,       // [self-idx:u8] +NULL +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
-    opLEAStkVar,        // [stk-idx:s8] +ptr    ; opStoreStkVar
+    opLEAStkVar,        // [stk-idx:s8] +NULL +ptr
     // --- end undoable loaders
     opLoadMember,       // [self-idx:u8] -stateobj +var
-    opLEAMember,        // [self-idx:u8] -stateobj +stateobj +ptr ; opStore
+    opLEAMember,        // [self-idx:u8] -stateobj +stateobj +ptr
     opDeref,            // -ref +var
-    opLEARef,           // -ref +ref +ptr       ; opStore
+    opLEARef,           // -ref +ref +ptr            ; opStoreRef
 
     // --- 4. STORERS
     opInitSelfVar,      // [var-idx:u8] -var
     opStoreSelfVar,     // [var-idx:u8] -var
     opInitStkVar,       // [stk-idx:s8] -var
     opStoreStkVar,      // [stk-idx:s8] -var
-    opStore,            // -var -ptr -obj
+    opStoreMember,      // [self-idx:u8] -var -stateobj
+    opStoreRef,         // -var -ref
+    // opStoreEA,            // -var -ptr
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
@@ -60,10 +67,12 @@ enum OpCode
     opVarToVec,         // -var +vec
     opVarCat,           // -var -vec +vec
     opVecCat,           // -vec -vec +vec
-    opStrElem,          // -idx -str +int
-    opVecElem,          // -idx -vec +var
     opStrLen,           // -str +int
     opVecLen,           // -str +int
+    opStrElem,          // -idx -str +int
+    opVecElem,          // -idx -vec +var
+    opStoreStrElem,     // -int -int -ptr -obj
+    opStoreVecElem,     // -var -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -142,6 +151,10 @@ inline bool isJump(OpCode op)
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
+inline bool isAddressableOp(OpCode op)
+    { return op == opLoadSelfVar || op == opLoadStkVar || op == opLoadMember
+        || op == opDeref; }
+
 
 // --- Code Generator ------------------------------------------------------ //
 
@@ -163,6 +176,7 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
+    memint prevLoaderOffs;          // see beginAssignment()
     str storerCode;                 // see beginAssignment()
 
     template <class T>

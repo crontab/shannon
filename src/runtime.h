@@ -79,6 +79,8 @@ class object
 protected:
     atomicint _refcount;
 
+    bool _release();
+
     void _mkstatic()
     {
         // Prevent this object from being free'd by release() and also from
@@ -105,8 +107,8 @@ public:
 
     static atomicint allocated; // used only in DEBUG mode
 
-    bool unique() const         { return _refcount == 1; }
-    bool release();
+    bool isunique() const       { return _refcount == 1; }
+    bool release()              { return this == NULL ? false : _release(); }
     object* grab()              { pincrement(&_refcount); return this; }
     template <class T>
         T* grab()               { object::grab(); return (T*)(this); }
@@ -129,10 +131,10 @@ public:
     objptr()                            : obj(NULL) { }
     objptr(const objptr& p)             : obj(p.obj) { if (obj) obj->grab(); }
     objptr(T* o)                        : obj(o) { if (o) o->grab(); }
-    ~objptr()                           { if (obj) obj->release(); }
-    void clear()                        { if (obj) { obj->release(); obj = NULL; } }
+    ~objptr()                           { obj->release(); }
+    void clear()                        { obj->release(); obj = NULL; }
     bool empty() const                  { return obj == NULL; }
-    bool unique() const                 { return empty() || obj->unique(); }
+    bool isunique() const               { return empty() || obj->isunique(); }
     bool operator== (const objptr& p)   { return obj == p.obj; }
     bool operator!= (const objptr& p)   { return obj != p.obj; }
     bool operator== (T* o)              { return obj == o; }
@@ -148,7 +150,7 @@ public:
     // Internal
     void _init()                        { obj = NULL; }
     void _init(T* o)                    { obj = o; if (o) o->grab(); }
-    void _fin()                         { if (obj) obj->release(); }
+    void _fin()                         { obj->release(); }
     void _reinit(T* o)                  { obj = o; }
 };
 
@@ -242,8 +244,9 @@ protected:
     void chkidxa(memint i) const        { if (umemint(i) > umemint(size())) container::idxerr(); }
     static void chknonneg(memint v)     { if (v < 0) container::overflow(); } 
     void chknz() const                  { if (empty()) container::idxerr(); }
-    bool _isunique() const              { return empty() || obj->unique(); }
-    char* _mkunique();
+    bool _isunique() const              { return empty() || obj->isunique(); }
+    void _dounique();
+    char* mkunique()                    { if (!obj->isunique()) _dounique(); return obj->data(); }
     char* _init(memint len);
     void _init(memint len, char fill);
     void _init(const char*, memint);  // (*)
@@ -275,7 +278,7 @@ public:
     const char* data() const            { return obj->data(); }
     const char* data(memint i) const    { return obj->data(i); }
     const char* at(memint i) const      { chkidx(i); return obj->data(i); }
-    char* atw(memint i)                 { chkidx(i); return _mkunique() + i; }
+    char* atw(memint i)                 { chkidx(i); return mkunique() + i; }
     const char* begin() const           { return empty() ? NULL : obj->data(); }
     const char* end() const             { return empty() ? NULL : obj->end(); }
     const char* back(memint i) const    { chkidxa(i); return obj->end() - i; }
@@ -621,7 +624,7 @@ protected:
     objptr<dictobj> obj;
 
     void _mkunique()
-        { if (!obj.empty() && !obj.unique()) obj = new dictobj(*obj); }
+        { if (!obj.empty() && !obj.isunique()) obj = new dictobj(*obj); }
 
     bool _bsearch(const Tkey& k, memint& i) const
         { i = 0; return !empty() && obj->keys.bsearch(k, i); }
@@ -1060,15 +1063,15 @@ public:
     bool empty() const;  // override
     void dump(fifo&) const;  // override
 
-    variant& var(memint index)
+    variant* member(memint index)
     {
 #ifdef DEBUG
         if (umemint(index) >= umemint(varcount))
             idxerr();
 #endif
-        return vars[index];
+        return vars + index;
     }
-
+    
     variant* varbase()
         { return vars; }
 
