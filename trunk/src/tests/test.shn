@@ -66,6 +66,16 @@ assert d0['one'] == 1 and d0['two'] == 2
 assert d1['a'] == 'Letter A' and d1['b'] == 'Letter B'
 assert i0? and v5? and n0? and not one? and not false? and not s1? and v2?
 
-// var b = {3, 2, 1}
-// var c = {'a' = 1, 'b' = 2}
+var a = 0
+var int b = 1
+assert a == 0 and b == 1
+var int^ r1 = 2
+var str^ r2 = 'abc'
 
+a = 10 + b
+assert a == 11
+a = r1
+assert a == 2
+r1^ = 12
+assert r1 == 12
+# system.__program_result = 'OK'

@@ -125,6 +125,7 @@ void Compiler::dictCtor()
     }
 
     runtimeExpr();
+    codegen->deref();  // keys are always values
 
     // Dictionary
     if (skipIf(tokAssign))
@@ -261,15 +262,16 @@ void Compiler::designator()
         if (skipIf(tokPeriod))
         {
             // TODO: see if it's a definition and discard all preceding code
-            codegen->deref(true);
+            codegen->deref();
             codegen->loadMember(getIdentifier());
             next();
         }
 
         else if (skipIf(tokLSquare))
         {
-            codegen->deref(true);
+            codegen->deref();
             expression();
+            codegen->deref();  // keys are always values
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
         }
@@ -277,7 +279,7 @@ void Compiler::designator()
         else if (skipIf(tokCaret))
         {
             // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
-            if (!codegen->deref(false))
+            if (!codegen->deref())
                 error("Dereference (^) on a non-reference value");
         }
         else
@@ -292,14 +294,22 @@ void Compiler::factor()
     bool isLen = skipIf(tokSharp);
 
     designator();
-    codegen->deref(true);
 
     if (isLen)
+    {
+        codegen->deref();
         codegen->length();
+    }
     if (isNeg)
+    {
+        codegen->deref();
         codegen->arithmUnary(opNeg);
+    }
     if (skipIf(tokQuestion))
+    {
+        codegen->deref();
         codegen->nonEmpty();
+    }
     // TODO: as, is
 }
 
@@ -309,10 +319,12 @@ void Compiler::term()
     factor();
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
+        codegen->deref();
         OpCode op = token == tokMul ? opMul
             : token == tokDiv ? opDiv : opMod;
         next();
         factor();
+        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -323,9 +335,11 @@ void Compiler::arithmExpr()
     term();
     while (token == tokPlus || token == tokMinus)
     {
+        codegen->deref();
         OpCode op = token == tokPlus ? opAdd : opSub;
         next();
         term();
+        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -341,6 +355,7 @@ void Compiler::simpleExpr()
         // and correctly figure out the container type at the same time.
         while (1)
         {
+            codegen->deref();
             Type* top = codegen->getTopType();
             if (top->isNullCont())
                 codegen->undoLastLoad();
@@ -372,9 +387,11 @@ void Compiler::relation()
     simpleExpr();
     if (token >= tokEqual && token <= tokGreaterEq)
     {
+        codegen->deref();
         OpCode op = OpCode(opEqual + int(token - tokEqual));
         next();
         simpleExpr();
+        codegen->deref();
         codegen->cmp(op);
     }
 }
@@ -385,7 +402,10 @@ void Compiler::notLevel()
     bool isNot = skipIf(tokNot);
     relation();
     if (isNot)
+    {
+        codegen->deref();
         codegen->_not();
+    }
 }
 
 
@@ -394,11 +414,13 @@ void Compiler::andLevel()
     notLevel();
     while (token == tokShl || token == tokShr || token == tokAnd)
     {
+        codegen->deref();
         Type* type = codegen->getTopType();
         if (type->isBool() && skipIf(tokAnd))
         {
             memint offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
+            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -408,6 +430,7 @@ void Compiler::andLevel()
                     : token == tokShr ? opBitShr : opBitAnd;
             next();
             notLevel();
+            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -419,12 +442,14 @@ void Compiler::orLevel()
     andLevel();
     while (token == tokOr || token == tokXor)
     {
+        codegen->deref();
         Type* type = codegen->getTopType();
         // TODO: boolean XOR? Beautiful thing, but not absolutely necessary
         if (type->isBool() && skipIf(tokOr))
         {
             memint offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
+            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -433,6 +458,7 @@ void Compiler::orLevel()
             OpCode op = token == tokOr ? opBitOr : opBitXor;
             next();
             andLevel();
+            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -475,6 +501,8 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
     CodeGen constCodeGen(constCode, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     expression();
+    if (codegen->getTopType()->isReference())
+        error("References not allowed in const expressions");
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
     codegen = prevCodeGen;
     return resultType;
@@ -513,7 +541,6 @@ void Compiler::definition()
 {
     str ident;
     Type* type = getTypeAndIdent(ident);
-    // TODO: if ref type, take the original type?
     variant value;
     Type* valueType = getConstValue(type, value);
     if (type == NULL)
@@ -527,25 +554,30 @@ void Compiler::definition()
 
 void Compiler::variable()
 {
-    // TODO: undo deref
     str ident;
     Type* type = getTypeAndIdent(ident);
     runtimeExpr();
     if (type == NULL)
         type = codegen->getTopType();
     else
+    {
+        Type* exprType = codegen->getTopType();
+        // Automatic mkref is allowed only when initializing the var,
+        // otherwise '^' must be used.
+        if (type->isReference() && !exprType->isReference())
+            codegen->mkref();
         codegen->implicitCast(type);
+    }
     if (type->isNullCont())
         error("Type undefined (null container)");
-    Variable* var;
     if (blockScope != NULL)
     {
-        var = blockScope->addLocalVar(ident, type);
+        LocalVar* var = blockScope->addLocalVar(ident, type);
         codegen->initLocalVar(var);
     }
     else
     {
-        var = state->addSelfVar(ident, type);
+        SelfVar* var = state->addSelfVar(ident, type);
         codegen->initSelfVar(var);
     }
     skipSep();
@@ -594,8 +626,20 @@ void Compiler::dumpVar()
 void Compiler::otherStatement()
 {
     // TODO: assignment, call, pipe, etc
-    notimpl();
+    memint stkLevel = codegen->getStackLevel();
+    designator();
+    // TODO: see if the last op is a function call
+    if (skipIf(tokAssign))
+    {
+        codegen->beginAssignment();
+        runtimeExpr();
+        if (!eof() && token != tokSep)
+            errorWithLoc("Statement syntax");
+        codegen->endAssignment();
+    }
     skipSep();
+    if (codegen->getStackLevel() != stkLevel)
+        error("Unused value from previous statement");
 }
 
 
@@ -607,11 +651,9 @@ void Compiler::statementList()
             ;
         else if (skipIf(tokDef))
             definition();
-/*
         else if (skipIf(tokVar))
             variable();
-        else if (skipIf(tokDump))
-            echo();
+/*
         else if (skipIf(tokBlockBegin))
             block();
         else if (skipIf(tokBegin))
@@ -641,7 +683,6 @@ void Compiler::compileModule()
     codegen = &mainCodeGen;
     blockScope = NULL;
     scope = state = &module;
-
     try
     {
         next();
@@ -653,17 +694,11 @@ void Compiler::compileModule()
     catch (EUnknownIdent& e)
         { error("'" + e.ident + "' is unknown in this context"); }
     catch (EParser& e)
-        { throw; }    // comes with file name and line no. already
+        { throw; }    // comes with file name and line number already
     catch (exception& e)
         { error(e.what()); }
 
     mainCodeGen.end();
     module.setComplete();
-
-//    if (options.vmListing)
-//    {
-//        outtext f(NULL, remove_filename_ext(getFileName()) + ".lst");
-//        mainModule.listing(f);
-//    }
 }
 

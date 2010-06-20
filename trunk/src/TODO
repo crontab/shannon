@@ -5,7 +5,7 @@
 
 * Assignments (oh man, what am I gonna do)
 
-* if, while, case
+* if, while, case, break, continue, goto
 
 * Operators 'ins' and 'del' (and 'swap'?) that work on containers.
 
@@ -25,9 +25,8 @@
 * A state name is a type that describes a state, not a prototype. Now,
   what to do with prototypes and function addresses?
 
-* Nullable types: look at C#. Easy to implement, just need strictly
-  defined semantics, also a default assignment operator, e.g.
-  i = v as int(0)
+* Nullable types: var ?int i = v as int(0)  (better syntax needed) Any 
+  operation returns null if any one of the operands is null.
 
 * 'public' and 'forward' blocks: can contain a single statement after ':' or
   multiple statements in { }.

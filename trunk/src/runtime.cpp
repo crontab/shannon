@@ -152,13 +152,18 @@ atomicint object::allocated = 0;
 object::~object()  { }
 
 
-void object::release()
+bool object::release()
 {
     if (this == NULL)
-        return;
+        return true;
     assert(_refcount > 0);
     if (pdecrement(&_refcount) == 0)
+    {
         delete this;
+        return true;
+    }
+    else
+        return false;
 }
 
 
@@ -1055,21 +1060,21 @@ void variant::_range_err()          { throw evariant("Variant range error"); }
 void variant::_init(Type t)
 {
     type = t;
-    memset(&val, 0, sizeof(val));
+    val._ord = 0;
 /*
     switch(t)
     {
-    case VOID:      memset(&val, 0, sizeof(val)); break;
-    case ORD:       val._ord = 0; break;
-    case REAL:      val._real = 0; break;
-    case VARPTR:    val._var = NULL; break;
-    case STR:
-    case VEC:
-    case SET:
-    case ORDSET:
-    case DICT:
-    case REF:
-    case RTOBJ:     val._obj = NULL; break;
+        case VOID:
+        case ORD:       val._ord = 0; break;
+        case REAL:      val._real = 0; break;
+        case VARPTR:    val._var = NULL; break;
+        case STR:
+        case VEC:
+        case SET:
+        case ORDSET:
+        case DICT:
+        case REF:
+        case RTOBJ:     val._obj = NULL; break;
     }
 */
 }
@@ -1127,17 +1132,17 @@ bool variant::operator== (const variant& v) const
     {
         switch(type)
         {
-        case VOID:      return true;
-        case ORD:       return val._ord == v.val._ord;
-        case REAL:      return val._real == v.val._real;
-        case VARPTR:    return val._var == v.val._var;
-        case STR:       return _str() == v._str();
-        case VEC:       return _vec() == v._vec();
-        case SET:       return _set() == v._set();
-        case ORDSET:    return _ordset() == v._ordset();
-        case DICT:      return _dict() == v._dict();
-        case REF:       return _ref() == v._ref();
-        case RTOBJ:     return _rtobj() == v._rtobj();
+            case VOID:      return true;
+            case ORD:       return val._ord == v.val._ord;
+            case REAL:      return val._real == v.val._real;
+            case VARPTR:    return val._var == v.val._var;
+            case STR:       return _str() == v._str();
+            case VEC:       return _vec() == v._vec();
+            case SET:       return _set() == v._set();
+            case ORDSET:    return _ordset() == v._ordset();
+            case DICT:      return _dict() == v._dict();
+            case REF:       return _ref() == v._ref();
+            case RTOBJ:     return _rtobj() == v._rtobj();
         }
     }
     return false;
@@ -1148,17 +1153,17 @@ bool variant::empty() const
 {
     switch(type)
     {
-    case VOID:      return true;
-    case ORD:       return val._ord == 0;
-    case REAL:      return val._real == 0;
-    case VARPTR:    return val._var == NULL;
-    case STR:       return _str().empty();
-    case VEC:       return _vec().empty();
-    case SET:       return _set().empty();
-    case ORDSET:    return _ordset().empty();
-    case DICT:      return _dict().empty();
-    case REF:       return _ref()->var.empty();
-    case RTOBJ:     return _rtobj() == NULL || _rtobj()->empty();
+        case VOID:      return true;
+        case ORD:       return val._ord == 0;
+        case REAL:      return val._real == 0;
+        case VARPTR:    return val._var == NULL;
+        case STR:       return _str().empty();
+        case VEC:       return _vec().empty();
+        case SET:       return _set().empty();
+        case ORDSET:    return _ordset().empty();
+        case DICT:      return _dict().empty();
+        case REF:       return _ref()->var.empty();
+        case RTOBJ:     return _rtobj() == NULL || _rtobj()->empty();
     }
     return false;
 }
@@ -1227,9 +1232,19 @@ template class vector<str>;
 
 void initRuntime()
 {
-    // Some critical build integrity tests
-    if (sizeof(str) != sizeof(void*) || sizeof(symtbl_impl) != sizeof(void*)
-            || sizeof(memint) > sizeof(integer))
+    // Some critical build integrity tests, unfortunately can't be done with macros:
+    if (
+            // Make sure all containers occupy exactly one pointer statically
+            sizeof(str) == sizeof(void*) && sizeof(symtbl_impl) == sizeof(void*)
+            && sizeof(vardict) == sizeof(void*)
+            // memint is equivalent of ssize_t
+            && sizeof(memint) == sizeof(void*)
+            // Container indexes are memint, we keep them in integer vars, thus:
+            && sizeof(memint) <= sizeof(integer)
+            // the following is needed because we initialize the variant to 0 via val._ord
+            && sizeof(variant::_val_union) == sizeof(integer))
+        ;
+    else
         fatal(0x1004, "Broken build");
 }
 

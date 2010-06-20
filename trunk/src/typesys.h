@@ -6,6 +6,8 @@
 
 class Symbol;
 class Variable;
+class SelfVar;
+class LocalVar;
 class Definition;
 class Scope;
 class Type;
@@ -35,7 +37,6 @@ typedef Module* PModule;
 
 class CodeSeg; // defined in vm.h
 class CodeGen; // defined in vm.h
-class Context; // defined in vm.h
 
 
 // --- Code segment -------------------------------------------------------- //
@@ -105,9 +106,9 @@ public:
     void fqName(fifo&) const;
     void dump(fifo&) const;
 
+    bool isAnyVar() const           { return symbolId <= SELFVAR; }
     bool isSelfVar() const          { return symbolId == SELFVAR; }
     bool isLocalVar() const         { return symbolId == LOCALVAR; }
-    bool isVariable() const         { return symbolId <= SELFVAR; }
     bool isDefinition() const       { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
     bool isModuleInstance() const   { return symbolId == MODULEINST; }
@@ -197,7 +198,7 @@ protected:
 public:
     BlockScope(Scope* outer, CodeGen*);
     ~BlockScope();
-    Variable* addLocalVar(const str&, Type*);
+    LocalVar* addLocalVar(const str&, Type*);
     void deinitLocals();
 };
 
@@ -250,7 +251,6 @@ public:
 
     bool isNullCont() const     { return typeId == NULLCONT; }
     bool isAnyVec() const       { return typeId == VEC; }
-    // bool isVecOrNull() const    { return isAnyVec() || isNullCont(); }
     bool isAnySet() const       { return typeId == SET; }
     bool isAnyDict() const      { return typeId == DICT; }
     bool isAnyCont() const      { return typeId >= NULLCONT && typeId <= DICT; }
@@ -293,7 +293,6 @@ void dumpVariant(fifo&, const variant&, Type* = NULL);
 class TypeReference: public Type
 {
     friend void initTypeSys();
-    friend class QueenBee;
 protected:
     TypeReference();
     ~TypeReference();
@@ -304,7 +303,6 @@ protected:
 class Void: public Type
 {
     friend void initTypeSys();
-    friend class QueenBee;
 protected:
     Void();
     ~Void();
@@ -324,10 +322,11 @@ class Reference: public Type
 {
     friend class Type;
 protected:
-    Reference(Type* _to);
-    Type* const to;
+    Reference(Type*);
 public:
+    Type* const to;
     ~Reference();
+    bool canAssignTo(Type*) const;
     bool identicalTo(Type* t) const;
     void dump(fifo&) const;
     void dumpValue(fifo&, const variant&) const;

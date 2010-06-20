@@ -28,7 +28,7 @@ void CodeGen::error(const str& msg)
 
 void CodeGen::addOp(Type* type, OpCode op)
 {
-    simStack.push_back(SimStackItem(type, codeseg.size()));
+    simStack.push_back(SimStackItem(type, getCurrentOffs()));
     if (simStack.size() > codeseg.stackSize)
         codeseg.stackSize = simStack.size();
     addOp(op);
@@ -38,7 +38,6 @@ void CodeGen::addOp(Type* type, OpCode op)
 void CodeGen::undoLastLoad()
 {
     memint offs = stkTopItem().offs;
-    assert(offs >= 0 && offs < codeseg.size());
     if (isUndoableLoadOp(OpCode(codeseg[offs])))
     {
         stkPop();
@@ -79,8 +78,12 @@ bool CodeGen::tryImplicitCast(Type* to)
         stkReplaceTop(to);
         return true;
     }
-
-    // TODO: automatic deref and mkref?
+    
+    if (!to->isReference() && from->isReference())
+    {
+        deref();
+        return tryImplicitCast(to);
+    }
 
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
@@ -155,17 +158,13 @@ void CodeGen::popValue()
     addOp(opPop);
 }
 
-
-memint CodeGen::beginDiscardable()
-    { return codeseg.size(); }
-
-
+/*
 void CodeGen::endDiscardable(memint offs)
 {
     assert(stkSize() == 0 || stkTopItem().offs < offs);
     codeseg.resize(offs);
 }
-
+*/
 
 Type* CodeGen::tryUndoTypeRef()
 {
@@ -182,20 +181,38 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
-bool CodeGen::deref(bool autoDeref)
+bool CodeGen::deref()
+{
+    Type* type = stkTop();
+    if (type->isReference())
+    {
+        type = type->getValueType();
+        if (type->isDerefable())
+        {
+            stkPop();
+            addOp(type, opDeref);
+        }
+        else
+            notimpl();
+        return true;
+    }
+    return false;
+}
+
+
+void CodeGen::mkref()
 {
     Type* type = stkTop();
     if (!type->isReference())
-        return false;
-    type = type->getValueType();
-    if (type->isDerefable())
     {
-        stkPop();
-        addOp(type, autoDeref ? opAutoDeref : opDeref);
+        if (type->isDerefable())
+        {
+            stkPop();
+            addOp(type->getRefType(), opMkRef);
+        }
+        else
+            error("Can't convert to reference");
     }
-    else
-        notimpl();
-    return true;
 }
 
 
@@ -303,7 +320,7 @@ void CodeGen::loadSymbol(Symbol* sym)
 {
     if (sym->isDefinition())
         loadDefinition(PDefinition(sym));
-    else if (sym->isVariable())
+    else if (sym->isAnyVar())
         loadVariable(PVariable(sym));
     else
         notimpl();
@@ -312,15 +329,20 @@ void CodeGen::loadSymbol(Symbol* sym)
 
 void CodeGen::loadVariable(Variable* var)
 {
+    // TODO: check outer states too
     assert(var->host != NULL);
-    assert(var->id >= 0 && var->id <= 127);
     if (isCompileTime())
         error("Variables not allowed in constant expressions");
-    // TODO: check parent states too
     if (var->isSelfVar() && var->host == codeOwner->selfPtr)
-        addOp<char>(var->type, opLoadSelfVar, var->id);
+    {
+        assert(var->id >= 0 && var->id <= 255);
+        addOp<uchar>(var->type, opLoadSelfVar, var->id);
+    }
     else if (var->isLocalVar() && var->host == codeOwner)
+    {
+        assert(var->id >= -128 && var->id <= 127);
         addOp<char>(var->type, opLoadStkVar, var->id);
+    }
     else
         notimpl();
 }
@@ -335,7 +357,8 @@ void CodeGen::loadMember(Variable* var)
     if (!stateType->isAnyState() || var->host != stateType
             || !var->isSelfVar())
         error("Invalid member selection");
-    addOp<char>(var->type, opLoadMember, var->id);
+    assert(var->id >= 0 && var->id <= 255);
+    addOp<uchar>(var->type, opLoadMember, var->id);
 }
 
 
@@ -345,7 +368,7 @@ void CodeGen::loadMember(const str& ident)
     if (!stateType->isAnyState())
         error("Invalid member selection");
     Symbol* sym = PState(stateType)->findShallow(ident);
-    if (sym->isVariable())
+    if (sym->isAnyVar())
         loadMember(PVariable(sym));
     else if (sym->isDefinition())
     {
@@ -365,15 +388,69 @@ void CodeGen::storeRet(Type* type)
 }
 
 
-void CodeGen::initLocalVar(Variable*)
+void CodeGen::initLocalVar(LocalVar* var)
 {
-    notimpl();
+    // Local var simply remains on the stack, so just check the types.
+    assert(var->id >= 0 && var->id <= 127);
+    if (locals != simStack.size() - 1 || var->id != locals)
+        fatal(0x6004, "initLocalVar(): invalid var id");
+    locals++;
+    implicitCast(var->type, "Variable type mismatch");
 }
 
 
-void CodeGen::initSelfVar(Variable*)
+void CodeGen::initSelfVar(SelfVar* var)
 {
-    notimpl();
+    if (var->host != codeOwner)
+        fatal(0x6005, "initSelfVar(): not my var");
+    implicitCast(var->type, "Variable type mismatch");
+    stkPop();
+    assert(var->id >= 0 && var->id <= 255);
+    addOp<uchar>(opInitSelfVar, var->id);
+}
+
+
+void CodeGen::beginAssignment()
+{
+    assert(storerCode.empty());
+    memint loaderOffs = stkTopItem().offs;
+    OpCode loader = OpCode(codeseg[loaderOffs]);
+    OpCode storer;
+    switch(loader)
+    {
+        // Plain local or self var loader: convert to corresponding storer
+        case opLoadSelfVar:
+            storer = opStoreSelfVar;
+            goto GotoIsRootOfAllProgramming;
+        case opLoadStkVar:
+            storer = opStoreStkVar;
+GotoIsRootOfAllProgramming:
+            codeseg.atw<uchar>(loaderOffs) = storer;
+            storerCode = codeseg.cutTail(loaderOffs);
+            assert(storerCode.size() == 2);
+            break;
+
+        // Indirect loaders through any refcounted object: convert to a corresponding LEA
+        case opLoadMember:
+        case opDeref:
+            codeseg.atw<uchar>(loaderOffs)++;
+            storerCode = char(opStore);
+            break;
+        default:
+            error("Not an L-value");
+    }
+}
+
+
+void CodeGen::endAssignment()
+{
+    assert(!storerCode.empty());
+    Type* left = stkTop(2);
+    implicitCast(left, "Type mismatch in assignment");
+    codeseg.append(storerCode);
+    stkPop();
+    stkPop();
+    storerCode.clear();
 }
 
 
@@ -610,7 +687,7 @@ memint CodeGen::boolJumpForward(OpCode op)
 memint CodeGen::jumpForward(OpCode op)
 {
     assert(isJump(op));
-    memint pos = codeseg.size();
+    memint pos = getCurrentOffs();
     addOp(op);
     addJumpOffs(0);
     return pos;
@@ -619,9 +696,9 @@ memint CodeGen::jumpForward(OpCode op)
 
 void CodeGen::resolveJump(memint jumpOffs)
 {
-    assert(jumpOffs <= codeseg.size() - 1 - memint(sizeof(jumpoffs)));
+    assert(jumpOffs <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
     assert(isJump(OpCode(codeseg.at<uchar>(jumpOffs))));
-    integer offs = integer(codeseg.size()) - integer(jumpOffs + 1 + sizeof(jumpoffs));
+    integer offs = integer(getCurrentOffs()) - integer(jumpOffs + 1 + sizeof(jumpoffs));
     if (offs > 32767)
         error("Jump target is too far away");
     codeseg.atw<jumpoffs>(jumpOffs + 1) = offs;
