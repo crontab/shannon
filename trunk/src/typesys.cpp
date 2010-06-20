@@ -991,8 +991,8 @@ stateobj* QueenBee::newInstance()
     stateobj* inst = parent::newInstance();
     sio.setType(defCharFifo);
     serr.setType(defCharFifo);
-    inst->var(sioVar->id) = &sio;
-    inst->var(serrVar->id) = &serr;
+    *inst->member(sioVar->id) = &sio;
+    *inst->member(serrVar->id) = &serr;
     codeseg->close();
     setComplete();
     return inst;

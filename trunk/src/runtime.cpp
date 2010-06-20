@@ -152,10 +152,8 @@ atomicint object::allocated = 0;
 object::~object()  { }
 
 
-bool object::release()
+bool object::_release()
 {
-    if (this == NULL)
-        return true;
     assert(_refcount > 0);
     if (pdecrement(&_refcount) == 0)
     {
@@ -171,8 +169,7 @@ void object::_assignto(object*& p)
 {
     if (p != this)
     {
-        if (p)
-            p->release();
+        p->release();
         p = this;
         if (this)
             this->grab();
@@ -293,7 +290,7 @@ container* container::reallocate(container* p, memint newsize)
         return NULL;
     }
     assert(p);
-    assert(p->unique());
+    assert(p->isunique());
     assert(newsize > p->_capacity || newsize < p->_size);
     p->_capacity = newsize > p->_capacity ? _calc_prealloc(newsize) : newsize;
     if (p->_capacity <= 0)
@@ -347,17 +344,14 @@ void bytevec::_init(const char* buf, memint len)
 }
 
 
-char* bytevec::_mkunique()
+void bytevec::_dounique()
 {
-    // Called only on non-empty objects
-    if (!_isunique())
-    {
-        memint siz = obj->size();
-        container* c = obj->dup(siz, siz);
-        c->copy(c->data(), obj->data(), siz);
-        obj = c;
-    }
-    return obj->data();
+    // Called only on non-empty, non-unique objects
+    assert(!_isunique());
+    memint siz = obj->size();
+    container* c = obj->dup(siz, siz);
+    c->copy(c->data(), obj->data(), siz);
+    obj = c;
 }
 
 
@@ -585,7 +579,7 @@ const char* str::c_str()
 {
     if (empty())
         return "";
-    if (obj->unique() && obj->size() < obj->capacity())
+    if (obj->isunique() && obj->size() < obj->capacity())
         *obj->end() = 0;
     else
     {
@@ -929,7 +923,7 @@ charset& ordset::_getunique()
 {
     if (obj.empty())
         obj = new setobj();
-    else if (!obj.unique())
+    else if (!obj.isunique())
         obj = new setobj(*obj);
     return obj->set;
 }

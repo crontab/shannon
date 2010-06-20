@@ -54,11 +54,11 @@ static void test_object()
 {
     {
         object* b = (new testobj())->grab();
-        check(b->unique());
+        check(b->isunique());
         object* c = b->grab();
-        check(!b->unique());
+        check(!b->isunique());
         c->release();
-        check(b->unique());
+        check(b->isunique());
         b->release();
         b = (new testobj())->grab();
         b->release();
