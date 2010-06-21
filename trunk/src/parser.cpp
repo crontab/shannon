@@ -454,7 +454,7 @@ str Parser::endRecording()
     assert(recorder.active());
     input->set_bufevent(NULL);
     // Because the input stream is always ahead by one token, we need to trim it
-    recorder.data.pop_back(input->tellg() - recorder.prevpos);
+    recorder.data.pop(input->tellg() - recorder.prevpos);
     str result = recorder.data;
     recorder.clear();
     return result;

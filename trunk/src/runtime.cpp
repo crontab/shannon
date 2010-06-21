@@ -1079,7 +1079,7 @@ void variant::_init(const variant& v)
 
 void variant::operator= (const variant& v)
 {
-    if (val._all != v.val._all)
+    if (type != v.type || val._all != v.val._all)
         { _fin(); _init(v); }
 }
 #endif

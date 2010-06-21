@@ -306,7 +306,7 @@ public:
     void append(const char* buf, memint len);  // (*)
     void append(const bytevec& s);
     void erase(memint pos, memint len);
-    void pop_back(memint len)           { if (len > 0) _pop(len); }
+    void pop(memint len)                { if (len > 0) _pop(len); }
     char* resize(memint newsize)        { return _resize(newsize, container::allocate); } // (*)
     void resize(memint, char);  // (*)
 
@@ -325,6 +325,10 @@ public:
         const T* back() const           { return (T*)back(sizeof(T)); }
     template <class T>
         const T* back(memint i) const   { return (T*)back(sizeof(T) * i); }
+    template <class T>
+        void pop_back()                 { pop(sizeof(T)); }
+    template <class T>
+        void pop_back(T& t)             { t = *back<T>(); pop_back<T>(); }
 };
 
 // (*) -- works only with the POD container; should be overridden or hidden in
@@ -464,7 +468,8 @@ public:
     void clear()                            { parent::clear(); }
     void operator= (const podvec& v)        { parent::operator= (v); }
     void push_back(const T& t)              { new(_append(Tsize, container::allocate)) T(t); }  // (*)
-    void pop_back()                         { parent::pop_back(Tsize); }
+    void pop_back()                         { parent::pop_back<T>(); }
+    void pop_back(T& t)                     { parent::pop_back<T>(t); }
     void append(const podvec& v)            { parent::append(v); }
     void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize, container::allocate)) T(t); }  // (*)
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
@@ -1027,7 +1032,7 @@ inline void variant::_init(const variant& v)
 
 inline void variant::operator= (const variant& v)
 {
-    if (val._all != v.val._all)
+    if (type != v.type || val._all != v.val._all)
         { _fin(); _init(v); }
 }
 #endif

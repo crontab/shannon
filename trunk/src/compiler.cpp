@@ -628,7 +628,6 @@ void Compiler::otherStatement()
 {
     // TODO: assignment, call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    codegen->beginLValue();
     designator();
     // TODO: see if the last op is a function call
     if (skipIf(tokAssign))
