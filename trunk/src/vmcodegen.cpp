@@ -470,18 +470,36 @@ void CodeGen::endAssignment()
 
 void CodeGen::beginLValue()
 {
-    notimpl();
     // TODO: only record designator ops when parsing an L-value
-    if (designatorOps.empty())
-        error("Not an L-value");
-    
 }
 
 
 str CodeGen::endLValue()
 {
-    notimpl();
+    // Designator ops are only recorder on Pops, so we add the last op here:
+    recordDesignatorOp(stkTopItem().offs);
+
     str s;
+    memint offs = popDesignatorOp();
+    OpCode loader = codeseg[offs];
+    OpCode storer;
+    switch(loader)
+    {
+        // Local, self, or non-resizable object
+        case opLoadSelfVar: storer = opStoreSelfVar; break;
+        case opLoadStkVar:  storer = opStoreStkVar; break;
+        case opLoadMember:  storer = opStoreMember; break;
+        case opDeref:       storer = opStoreRef; break;
+        default:            storer = opInv; break;
+    }
+    if (storer == opInv)
+        error("Not an L-value");
+
+    codeseg.atw<OpCode>(offs) = storer;
+    s += codeseg.cutOp(offs);
+
+    clearDesignatorOps();
+
     return s;
 }
 

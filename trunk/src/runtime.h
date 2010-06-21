@@ -108,7 +108,7 @@ public:
     static atomicint allocated; // used only in DEBUG mode
 
     bool isunique() const       { return _refcount == 1; }
-    atomicint release();        // inline?
+    atomicint release();
     object* grab()              { pincrement(&_refcount); return this; }
     template <class T>
         T* grab()               { object::grab(); return (T*)(this); }
@@ -118,6 +118,23 @@ public:
     object(): _refcount(0)  { }
     virtual ~object();
 };
+
+
+void _del_obj(object* o);
+
+
+#ifdef SHN_FASTER
+inline atomicint object::release()
+{
+    if (this == NULL)
+        return 0;
+    assert(_refcount > 0);
+    atomicint r = pdecrement(&_refcount);
+    if (r == 0)
+        _del_obj(this);
+    return r;
+}
+#endif
 
 
 // objptr: "smart" pointer
@@ -885,6 +902,7 @@ protected:
     Type type;
     union _val_union
     {
+        integer     _all;       // should be the biggest in this union
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
         variant*    _var;       // POD pointer to a variant
@@ -904,10 +922,9 @@ protected:
     void _dbg(Type) const               { }
     void _dbg_anyobj() const            { }
 #endif
-    void _init()                        { type = VOID; val._ord = 0; }
+    void _init()                        { type = VOID; val._all = 0; }
     void _init(_Void)                   { _init(); }
-    void _init(Type);
-    // void _init(bool v)                  { type = ORD; val._ord = v; }
+    void _init(Type t)                  { type = t; val._all = 0; }
     void _init(char v)                  { type = ORD; val._ord = uchar(v); }
     void _init(uchar v)                 { type = ORD; val._ord = v; }
     void _init(int v)                   { type = ORD; val._ord = v; }
@@ -996,6 +1013,24 @@ public:
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
 };
+
+
+#ifdef SHN_FASTER
+inline void variant::_init(const variant& v)
+{
+    type = v.type;
+    val = v.val;
+    if (is_anyobj() && val._obj)
+        val._obj->grab();
+}
+
+
+inline void variant::operator= (const variant& v)
+{
+    if (val._all != v.val._all)
+        { _fin(); _init(v); }
+}
+#endif
 
 
 struct podvar { char data[sizeof(variant)]; };

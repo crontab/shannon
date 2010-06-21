@@ -152,6 +152,13 @@ atomicint object::allocated = 0;
 object::~object()  { }
 
 
+void _del_obj(object* o)
+{
+    delete o;
+}
+
+
+#ifndef SHN_FASTER
 atomicint object::release()
 {
     if (this == NULL)
@@ -159,9 +166,10 @@ atomicint object::release()
     assert(_refcount > 0);
     atomicint r = pdecrement(&_refcount);
     if (r == 0)
-        delete this;
+        _del_obj(this);
     return r;
 }
+#endif
 
 
 void object::_assignto(object*& p)
@@ -1059,29 +1067,7 @@ void variant::_type_err()           { throw evariant("Variant type mismatch"); }
 void variant::_range_err()          { throw evariant("Variant range error"); }
 
 
-void variant::_init(Type t)
-{
-    type = t;
-    val._ord = 0;
-/*
-    switch(t)
-    {
-        case VOID:
-        case ORD:       val._ord = 0; break;
-        case REAL:      val._real = 0; break;
-        case VARPTR:    val._var = NULL; break;
-        case STR:
-        case VEC:
-        case SET:
-        case ORDSET:
-        case DICT:
-        case REF:
-        case RTOBJ:     val._obj = NULL; break;
-    }
-*/
-}
-
-
+#ifndef SHN_FASTER
 void variant::_init(const variant& v)
 {
     type = v.type;
@@ -1092,7 +1078,11 @@ void variant::_init(const variant& v)
 
 
 void variant::operator= (const variant& v)
-    { assert(this != &v); _fin(); _init(v); }
+{
+    if (val._all != v.val._all)
+        { _fin(); _init(v); }
+}
+#endif
 
 
 memint variant::compare(const variant& v) const
