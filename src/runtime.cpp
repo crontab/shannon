@@ -152,16 +152,15 @@ atomicint object::allocated = 0;
 object::~object()  { }
 
 
-bool object::_release()
+atomicint object::release()
 {
+    if (this == NULL)
+        return 0;
     assert(_refcount > 0);
-    if (pdecrement(&_refcount) == 0)
-    {
+    atomicint r = pdecrement(&_refcount);
+    if (r == 0)
         delete this;
-        return true;
-    }
-    else
-        return false;
+    return r;
 }
 
 
@@ -906,6 +905,15 @@ str to_quoted(char c)
 
 str to_quoted(const str& s)
     { return "'" + to_printable(s) + "'"; }
+
+
+str to_displayable(const str& s)
+{
+    if (s.size() > 40)
+        return s.substr(0, 37) + "...";
+    else
+        return s;
+}
 
 
 // --- ordset -------------------------------------------------------------- //

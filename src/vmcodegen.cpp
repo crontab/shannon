@@ -7,7 +7,7 @@
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
     : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      prevLoaderOffs(-1), storerCode()
+      designatorOps()
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -39,7 +39,7 @@ void CodeGen::addOp(Type* type, OpCode op)
 void CodeGen::undoLastLoad()
 {
     memint offs = stkTopItem().offs;
-    if (isUndoableLoadOp(OpCode(codeseg[offs])))
+    if (isUndoableLoadOp(codeseg[offs]))
     {
         stkPop();
         codeseg.resize(offs);
@@ -54,7 +54,10 @@ Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
     Type* result = s.type;
-    prevLoaderOffs = s.offs;
+    if (isDesignatorOp(codeseg[s.offs]))
+        recordDesignatorOp(s.offs);
+    else
+        clearDesignatorOps();
     simStack.pop_back();
     return result;
 }
@@ -412,13 +415,13 @@ void CodeGen::initSelfVar(SelfVar* var)
     addOp<uchar>(opInitSelfVar, var->id);
 }
 
-
+/*
 void CodeGen::beginAssignment()
 {
     assert(storerCode.empty());
     memint loaderOffs = stkTopItem().offs;
-    OpCode loader = OpCode(codeseg[loaderOffs]);
-    OpCode prevLoader = prevLoaderOffs >= 0 ? OpCode(codeseg[prevLoaderOffs]) : opInv;
+    OpCode loader = codeseg[loaderOffs];
+    OpCode prevLoader = prevLoaderOffs >= 0 ? codeseg[prevLoaderOffs] : opInv;
     OpCode storer;
     // There are two kinds of targets: (1) for non-resizable objects 
     // and also local/self vars the load op is postponed and is simply 
@@ -462,6 +465,33 @@ void CodeGen::endAssignment()
     stkPop();
     stkPop();
     storerCode.clear();
+}
+*/
+
+void CodeGen::beginLValue()
+{
+    notimpl();
+    // TODO: only record designator ops when parsing an L-value
+    if (designatorOps.empty())
+        error("Not an L-value");
+    
+}
+
+
+str CodeGen::endLValue()
+{
+    notimpl();
+    str s;
+    return s;
+}
+
+
+void CodeGen::assignment(const str& storerCode)
+{
+    assert(!storerCode.empty());
+    codeseg.append(storerCode);
+    stkPop();
+    stkPop();
 }
 
 

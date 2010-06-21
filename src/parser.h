@@ -5,13 +5,6 @@
 #include "runtime.h"
 
 
-struct EParser: public emessage
-{
-    EParser(const str& filename, integer linenum, const str& msg) throw();
-    ~EParser() throw();
-};
-
-
 enum Token
 {
     tokUndefined = -1,
@@ -72,6 +65,7 @@ class Parser: noncopyable
 protected:
     objptr<buffifo> input;
     integer linenum;
+    bool prevWasEol;
 
     str prevIdent; // undoIdent()
     Token saveToken;
@@ -101,9 +95,8 @@ public:
     const str& getPrevIdent()
             { return prevIdent; }
     void error(const str& msg);
-    void errorWithLoc(const str& msg);
     void error(const char*);
-    void errorWithLoc(const char*);
+    bool isSep();
     void skipSep();
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
@@ -114,7 +107,7 @@ public:
     str getIdentifier();
 
     str getFileName() const { return input->get_name(); }
-    integer getLineNum() const { return linenum; }
+    integer getLineNum() const;
     void beginRecording();
     str endRecording();
 };

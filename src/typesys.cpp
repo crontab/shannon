@@ -993,7 +993,7 @@ stateobj* QueenBee::newInstance()
     serr.setType(defCharFifo);
     *inst->member(sioVar->id) = &sio;
     *inst->member(serrVar->id) = &serr;
-    codeseg->close();
+    getCodeSeg()->close();
     setComplete();
     return inst;
 }

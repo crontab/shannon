@@ -76,6 +76,7 @@ var int[][] er = [[6, 7], [8, 9, 10]]
 var int^ r1 = 2
 var str^ r2 = 'abc'
 
+/*
 a = 10 + b
 assert a == 11
 assert e[0][1] == 2 and e[1][0] == 4
@@ -89,3 +90,4 @@ assert c == 'a:cd'
 d[0] = 4
 assert d[0] == 4
 // error: e[0][0] = 6
+*/

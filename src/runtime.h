@@ -108,7 +108,7 @@ public:
     static atomicint allocated; // used only in DEBUG mode
 
     bool isunique() const       { return _refcount == 1; }
-    bool release()              { return this == NULL ? false : _release(); }
+    atomicint release();        // inline?
     object* grab()              { pincrement(&_refcount); return this; }
     template <class T>
         T* grab()               { object::grab(); return (T*)(this); }
@@ -396,6 +396,7 @@ str to_printable(char);
 str to_printable(const str&);
 str to_quoted(char c);
 str to_quoted(const str&);
+str to_displayable(const str&);  // shortens to 40 chars + "..."
 
 
 // --- podvec -------------------------------------------------------------- //
@@ -956,7 +957,7 @@ public:
 
     // Fast "unsafe" access methods; checked for correctness in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
-    uchar       _uchar()          const { _dbg(ORD); return val._ord; }
+    uchar       _uchar()          const { _dbg(ORD); return (uchar)val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
     variant*    _var()            const { _dbg(VARPTR); return val._var; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }

@@ -16,7 +16,7 @@ enum OpCode
     opExit,             // throws eexit()
 
     // --- 2. CONST LOADERS
-    // --- begin undoable loaders, see isUndoableLoadOp()
+    // sync with isUndoableLoadOp()
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +int
@@ -27,23 +27,18 @@ enum OpCode
     opLoadEmptyVar,     // [variant::Type:8] + var
     opLoadConst,        // [Definition*] +var
 
-    // --- 3. LOADERS
-    // loaders and their 'load effective address' variants
-    // The LEA variants push two values: the base (object*) and an address
-    // of a variant field inside that object. The first is needed to keep the 
-    // object in memory. Storers check if the refcount reached 1 before 
-    // assignment, which means the object is gone and a runtime exception  
-    // should be thrown.
-    // NOTE: LEA opcode variants should be at +1 from their ordinary load ops
+    // --- 3. DESIGNATOR LOADERS
+    // sync with isDesignatorLoader()
     opLoadSelfVar,      // [self-idx:u8] +var
-    opLEASelfVar,       // [self-idx:u8] +NULL +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
-    opLEAStkVar,        // [stk-idx:s8] +NULL +ptr
     // --- end undoable loaders
     opLoadMember,       // [self-idx:u8] -stateobj +var
-    opLEAMember,        // [self-idx:u8] -stateobj +stateobj +ptr
     opDeref,            // -ref +var
-    opLEARef,           // -ref +ref +ptr            ; opStoreRef
+    opStrElem,          // -idx -str +int
+    opVecElem,          // -idx -vec +var
+    opDictElem,         // -var -dict +var
+    opByteDictElem,     // -int -dict +var
+    // --- end designator loaders
 
     // --- 4. STORERS
     opInitSelfVar,      // [var-idx:u8] -var
@@ -52,7 +47,6 @@ enum OpCode
     opStoreStkVar,      // [stk-idx:s8] -var
     opStoreMember,      // [self-idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
-    // opStoreEA,            // -var -ptr
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
@@ -69,10 +63,8 @@ enum OpCode
     opVecCat,           // -vec -vec +vec
     opStrLen,           // -str +int
     opVecLen,           // -str +int
-    opStrElem,          // -idx -str +int
-    opVecElem,          // -idx -vec +var
-    opStoreStrElem,     // -int -int -ptr -obj
-    opStoreVecElem,     // -var -int -ptr -obj
+    opReplStrElem,      // -int -int -str +str
+    opReplVecElem,      // -var -int -vec +vec
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -87,8 +79,6 @@ enum OpCode
     opDictAddPair,      // -var -var -dict +dict
     opPairToByteDict,   // -var -int +vec
     opByteDictAddPair,  // -var -int -vec +vec
-    opDictElem,         // -var -dict +var
-    opByteDictElem,     // -int -dict +var
 
     // --- 9. ARITHMETIC
     opAdd,              // -int, +int, +int
@@ -112,7 +102,7 @@ enum OpCode
     opCmpOrd,           // -int, -int, +{-1,0,1}
     opCmpStr,           // -str, -str, +{-1,0,1}
     opCmpVar,           // -var, -var, +{0,1}
-
+    // see isCmpOp()
     opEqual,            // -int, +bool
     opNotEq,            // -int, +bool
     opLessThan,         // -int, +bool
@@ -121,7 +111,7 @@ enum OpCode
     opGreaterEq,        // -int, +bool
 
     // --- 11. JUMPS
-    // Jumps; [dst] is a relative 16-bit offset.
+    // Jumps; [dst] is a relative 16-bit offset
     opJump,             // [dst 16]
     opJumpFalse,        // [dst 16] -bool
     opJumpTrue,         // [dst 16] -bool
@@ -130,7 +120,7 @@ enum OpCode
     opJumpOr,           // [dst 16] (-)bool
 
     // Misc. builtins
-    // TODO: set filename and linenum in a separate op
+    // TODO: set filename and linenum in a separate op?
     opAssert,           // [cond:str, fn:str, linenum:int] -bool
     opDump,             // [expr:str, type:Type*] -var
 
@@ -151,9 +141,64 @@ inline bool isJump(OpCode op)
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
-inline bool isAddressableOp(OpCode op)
-    { return op == opLoadSelfVar || op == opLoadStkVar || op == opLoadMember
-        || op == opDeref; }
+inline bool isDesignatorOp(OpCode op)
+    { return op >= opLoadSelfVar && op <= opByteDictElem; }
+
+
+// --- Code segment -------------------------------------------------------- //
+
+
+#define DEFAULT_STACK_SIZE 8192
+
+
+class CodeSeg: public object
+{
+    friend class CodeGen;
+    typedef rtobject parent;
+
+    State* state;
+    str code;
+
+#ifdef DEBUG
+    bool closed;
+#endif
+
+protected:
+    memint stackSize;
+
+    // Code gen helpers
+    template <class T>
+        void append(const T& t)     { code.append((const char*)&t, sizeof(T)); }
+    void append(const str& s)       { code.append(s); }
+    void erase(memint pos, memint len)  { code.erase(pos, len); }
+    void resize(memint s)           { code.resize(s); }
+    str  cutTail(memint start)
+        { str t = code.substr(start); resize(start); return t; }
+    template<class T>
+        const T& at(memint i) const { return *(T*)code.data(i); }
+    template<class T>
+        T& atw(memint i)            { return *(T*)code.atw(i); }
+    OpCode operator[](memint i) const { return OpCode(code.at(i)); }
+
+public:
+    CodeSeg(State*);
+    ~CodeSeg();
+
+    State* getStateType() const     { return state; }
+    memint size() const             { return code.size(); }
+    bool empty() const              { return code.empty(); }
+    void close();
+
+    const char* getCode() const     { assert(closed); return code.data(); }
+};
+
+
+template<>
+    const OpCode& CodeSeg::at<OpCode>(memint i) const;
+
+
+inline CodeSeg* State::getCodeSeg() { return cast<CodeSeg*>(codeseg.get()); }
+
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -176,8 +221,6 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
-    memint prevLoaderOffs;          // see beginAssignment()
-    str storerCode;                 // see beginAssignment()
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
@@ -200,6 +243,13 @@ protected:
         { return simStack.back(i); }
     static void error(const char*);
     static void error(const str&);
+
+    // Assignment analysis
+    podvec<memint> designatorOps;
+    void recordDesignatorOp(memint offs)
+        { designatorOps.push_back(offs); }
+    void clearDesignatorOps()
+        { designatorOps.clear(); }
 
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);
@@ -230,8 +280,6 @@ public:
     void loadDefinition(Definition*);
     void loadEmptyCont(Container* type);
     void loadSymbol(Symbol*);
-    // These 3 functions return code offset of the last addressable load op
-    // that can be converted to a LEA equivalent
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(Variable*);
@@ -239,8 +287,9 @@ public:
     void storeRet(Type*);
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
-    void beginAssignment();
-    void endAssignment();
+    void beginLValue();
+    str endLValue();
+    void assignment(const str& storerCode);
 
     Container* elemToVec();
     void elemCat();
