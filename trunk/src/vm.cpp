@@ -97,6 +97,9 @@ template <class T>
    inline void SETPOD(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
+inline void RELEASE_OBJ(variant* v)
+    { if (v->_anyobj()->release() == 0) objectGone(); }
+
 
 #define BINARY_INT(op) { (stk - 1)->_int() op stk->_int(); POPPOD(); }
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
@@ -146,27 +149,15 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             PUSH(ADV<Definition*>(ip)->value);  // TODO: better?
             break;
 
-        // --- 3. COMMON LOADERS
+        // --- 3. DESIGNATOR LOADERS
         case opLoadSelfVar:
             PUSH(*self->member(ADV<uchar>(ip)));
-            break;
-        case opLEASelfVar:
-            PUSH((rtobject*)NULL); // No need to lock the self object, just push NULL
-            PUSH(self->member(ADV<uchar>(ip)));
             break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV<char>(ip)));
             break;
-        case opLEAStkVar:
-            PUSH((rtobject*)NULL); // Same, no need to lock the stack object, it's always there
-            PUSH(stack.bp + ADV<char>(ip));
-            break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV<uchar>(ip));
-            break;
-        case opLEAMember:
-            // Leave the object on the stack to lock it until assignment
-            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV<uchar>(ip)));
             break;
         case opDeref:
             {
@@ -175,9 +166,35 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
-        case opLEARef:
-            // Same as for opLEAMember, leave the ref object on the stack
-            PUSH(&(stk->_ref()->var));
+        case opStrElem:
+            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
+            POPPOD();
+            break;
+        case opVecElem:
+            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
+            POPPOD();
+            break;
+        case opDictElem:
+            {
+                const variant* v = (stk - 1)->_dict().find(*stk);
+                POP();
+                if (v)
+                    *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
+                else
+                    container::keyerr();
+            }
+            break;
+        case opByteDictElem:
+            {
+                integer i = stk->_int();
+                POPPOD();
+                if (i < 0 || i >= stk->_vec().size())
+                    container::keyerr();
+                const variant& v = stk->_vec()[memint(i)];
+                if (v.is_null())
+                    container::keyerr();
+                *stk = v;  // same as for opDictElem
+            }
             break;
 
         // --- 4. COMMON STORERS
@@ -246,28 +263,18 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opVecLen:
             *stk = integer(stk->_vec().size());
             break;
-        case opStrElem:
-            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
-            POPPOD();
+        case opReplStrElem:
+            // -int -int -str +str
+            RELEASE_OBJ(stk - 2);
+            (stk - 2)->_str().replace((stk - 1)->_int(), stk->_uchar());
+            stk -= 3; // all 3 elements are now dummy
             break;
-        case opVecElem:
-            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
-            POPPOD();
-            break;
-        case opStoreStrElem:
-            // -int -int -ptr -obj
-            if ((stk - 3)->_anyobj()->release())
-                objectGone();
-            (stk - 2)->_var()->_str().replace((stk - 1)->_int(), stk->_int());
-            stk -= 4; // all 4 elements are now dummy
-            break;
-        case opStoreVecElem:
-            // -var -int -ptr -obj
-            if ((stk - 3)->_anyobj()->release())
-                objectGone();
-            (stk - 2)->_var()->_vec().replace((stk - 1)->_int(), *stk);
+        case opReplVecElem:
+            // -var -int -vec +vec
+            RELEASE_OBJ(stk - 2);
+            (stk - 2)->_vec().replace((stk - 1)->_int(), *stk);
             POP();
-            stk -= 3;
+            stk -= 2;
             break;
 
         // --- 7. SETS
@@ -317,28 +324,6 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             byteDictReplace((stk - 2)->_vec(), (stk - 1)->_int(), *stk);
             POP();
             POPPOD();
-            break;
-        case opDictElem:
-            {
-                const variant* v = (stk - 1)->_dict().find(*stk);
-                POP();
-                if (v)
-                    *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
-                else
-                    container::keyerr();
-            }
-            break;
-        case opByteDictElem:
-            {
-                integer i = stk->_int();
-                POPPOD();
-                if (i < 0 || i >= stk->_vec().size())
-                    container::keyerr();
-                const variant& v = stk->_vec()[memint(i)];
-                if (v.is_null())
-                    container::keyerr();
-                *stk = v;  // same as for opDictElem
-            }
             break;
 
         // --- 9. ARITHMETIC
@@ -481,7 +466,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(obj, stack, module->codeseg->getCode());
+    runRabbitRun(obj, stack, module->getCodeSeg()->getCode());
 }
 
 

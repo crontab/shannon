@@ -240,7 +240,7 @@ void Compiler::atom()
         typeOf();
 */
     else
-        errorWithLoc("Expression syntax");
+        error("Expression syntax");
 
     if (token == tokLSquare || token == tokNotEq || token == tokWildcard
         || token == tokCaret)
@@ -628,19 +628,20 @@ void Compiler::otherStatement()
 {
     // TODO: assignment, call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
+    codegen->beginLValue();
     designator();
     // TODO: see if the last op is a function call
     if (skipIf(tokAssign))
     {
-        codegen->beginAssignment();
+        str storerCode = codegen->endLValue();
         runtimeExpr();
-        if (!eof() && token != tokSep)
-            errorWithLoc("Statement syntax");
-        codegen->endAssignment();
+        if (!isSep())
+            error("Statement syntax");
+        codegen->assignment(storerCode);
     }
-    skipSep();
-    if (codegen->getStackLevel() != stkLevel)
+    if (isSep() && codegen->getStackLevel() != stkLevel)
         error("Unused value from previous statement");
+    skipSep();
 }
 
 
@@ -680,24 +681,42 @@ void Compiler::compileModule()
     // The system module is always added implicitly
     module.addUses(queenBee);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*module.codeseg, &module, false);
+    CodeGen mainCodeGen(*module.getCodeSeg(), &module, false);
     codegen = &mainCodeGen;
     blockScope = NULL;
     scope = state = &module;
     try
     {
-        next();
-        statementList();
-        expect(tokEof, "End of file");
+        try
+        {
+            next();
+            statementList();
+            expect(tokEof, "End of file");
+        }
+        catch (EDuplicate& e)
+        {
+            strValue.clear(); // don't need the " near..." part in error message
+            error("'" + e.ident + "' is already defined within this scope");
+        }
+        catch (EUnknownIdent& e)
+        {
+            strValue.clear(); // don't need the " near..." part in error message
+            error("'" + e.ident + "' is unknown in this context");
+        }
     }
-    catch (EDuplicate& e)
-        { error("'" + e.ident + "' is already defined within this scope"); }
-    catch (EUnknownIdent& e)
-        { error("'" + e.ident + "' is unknown in this context"); }
-    catch (EParser& e)
-        { throw; }    // comes with file name and line number already
-    catch (exception& e)
-        { error(e.what()); }
+    catch (emessage& e)
+    {
+        str s;
+        if (!getFileName().empty())
+        {
+            s += getFileName() + '(' + to_string(getLineNum()) + ')';
+            if (!strValue.empty())
+                s += " near '" + to_displayable(to_printable(strValue)) + '\'';
+            s += ": ";
+        }
+        s += e.msg;
+        error(s);
+    }
 
     mainCodeGen.end();
     module.setComplete();

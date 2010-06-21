@@ -591,14 +591,17 @@ static void test_parser()
             " 'asd\n'[\\t\\r\\n\\x41\\\\]' '\\xz'"));
         check(p.next() == tokIntValue);
         check(p.intValue == INTEGER_MAX);
+        check(p.getLineNum() == 1);
+        check(p.next() == tokSep);
+        check(p.getLineNum() == 1);
+        check(p.next() == tokIntValue);
+        check(p.getLineNum() == 2);
         check(p.next() == tokSep);
         check(p.getLineNum() == 2);
-        check(p.next() == tokIntValue);
+        check(p.next() == tokIf);
+        check(p.getLineNum() == 3);
         check(p.next() == tokSep);
         check(p.getLineNum() == 3);
-        check(p.next() == tokIf);
-        check(p.next() == tokSep);
-        check(p.getLineNum() == 4);
         check(p.next() == tokIdent);
         check_throw(p.next()); // unexpected end of line
         check(p.next() == tokStrValue);

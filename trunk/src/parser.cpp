@@ -87,23 +87,6 @@ Keywords::kwinfo Keywords::keywords[] =
     };
 
 
-static str parserErrorStr(const str& filename, integer linenum, const str& msg)
-{
-    str s;
-    if (!filename.empty())
-        s = filename + "(" + to_string(linenum) + "): ";
-    return s + msg;
-}
-
-
-EParser::EParser(const str& fn, integer l, const str& m) throw()
-    : emessage(parserErrorStr(fn, l, m))  { }
-
-
-EParser::~EParser() throw()
-    { }
-
-
 InputRecorder::InputRecorder()
     : buf(NULL), offs(0), prevpos(0)  { }
 
@@ -132,7 +115,8 @@ void InputRecorder::clear()
 
 
 Parser::Parser(buffifo* inp)
-    : input(inp), linenum(1), prevIdent(), saveToken(tokUndefined),
+    : input(inp), linenum(1), prevWasEol(false),
+      prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 
 
@@ -141,28 +125,18 @@ Parser::~Parser()
 
 
 void Parser::error(const str& msg)
-    { throw EParser(getFileName(), linenum, msg); }
+    { throw emessage(msg); }
 
-void Parser::errorWithLoc(const str& msg)
-    { error(msg + errorLocation()); }
 
 void Parser::error(const char* msg)
     { error(str(msg)); }
-
-void Parser::errorWithLoc(const char* msg)
-    { errorWithLoc(str(msg)); }
 
 
 str Parser::errorLocation() const
 {
     str msg;
     if (!strValue.empty())
-    {
-        str s = strValue;
-        if (s.size() > 20)
-            s = s.substr(0, 20) + "...";
-        msg += " near '" + s + "'";
-    }
+        msg += " near '" + to_displayable(to_printable(strValue)) + "'";
     return msg;
 }
 
@@ -188,6 +162,7 @@ void Parser::skipEol()
     assert(input->eol());
     input->skip_eol();
     linenum++;
+    prevWasEol = true;
 }
 
 
@@ -283,6 +258,7 @@ Token Parser::next()
         recorder.prevpos = input->tellg();
     
 restart:
+    prevWasEol = false;
     strValue.clear();
     intValue = 0;
 
@@ -427,7 +403,7 @@ str Parser::getIdentifier()
     // compiler's error messages to point to this identifier rather than
     // the next token.
     if (token != tokIdent)
-        errorWithLoc("Identifier expected");
+        error("Identifier expected");
     return strValue;
 }
 
@@ -435,8 +411,14 @@ str Parser::getIdentifier()
 void Parser::expect(Token tok, const char* errName)
 {
     if (token != tok)
-        errorWithLoc(str(errName) + " expected");
+        error(str(errName) + " expected");
     next();
+}
+
+
+bool Parser::isSep()
+{
+    return token == tokSep || token == tokRCurly || token == tokEof;
 }
 
 
@@ -445,8 +427,17 @@ void Parser::skipSep()
     if (token == tokRCurly || token == tokEof)
         return;
     if (token != tokSep)
-        errorWithLoc("End of statement expected");
+        error("End of statement expected");
     next();
+}
+
+
+integer Parser::getLineNum() const
+{
+    if (token == tokSep && prevWasEol)
+        return linenum - 1;
+    else
+        return linenum;
 }
 
 

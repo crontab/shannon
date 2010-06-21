@@ -36,56 +36,7 @@ typedef Module* PModule;
 
 
 class CodeSeg; // defined in vm.h
-class CodeGen; // defined in vm.h
-
-
-// --- Code segment -------------------------------------------------------- //
-
-// Belongs to vm.h/vm.cpp but defined here because CodeSeg is part of State
-
-
-#define DEFAULT_STACK_SIZE 8192
-
-
-class CodeSeg: public object
-{
-    friend class CodeGen;
-    typedef rtobject parent;
-
-    State* state;
-    str code;
-
-#ifdef DEBUG
-    bool closed;
-#endif
-
-protected:
-    memint stackSize;
-
-    // Code gen helpers
-    template <class T>
-        void append(const T& t)     { code.append((const char*)&t, sizeof(T)); }
-    void append(const str& s)       { code.append(s); }
-    void resize(memint s)           { code.resize(s); }
-    str  cutTail(memint start)
-        { str t = code.substr(start); resize(start); return t; }
-    template<class T>
-        const T& at(memint i) const { return *(T*)code.data(i); }
-    template<class T>
-        T& atw(memint i)            { return *(T*)code.atw(i); }
-    char operator[] (memint i) const { return code[i]; }
-
-public:
-    CodeSeg(State*);
-    ~CodeSeg();
-
-    State* getStateType() const     { return state; }
-    memint size() const             { return code.size(); }
-    bool empty() const              { return code.empty(); }
-    void close();
-
-    const char* getCode() const     { assert(closed); return code.data(); }
-};
+class CodeGen;
 
 
 // --- Symbols & Scope ----------------------------------------------------- //
@@ -470,7 +421,7 @@ public:
     State* const parent;
     State* const selfPtr;
     Prototype* const prototype;
-    objptr<CodeSeg> codeseg;
+    objptr<object> codeseg;
 
     State(TypeId, Prototype* proto, State* parent, State* self);
     ~State();
@@ -486,6 +437,7 @@ public:
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
+    CodeSeg* getCodeSeg();
 };
 
 
