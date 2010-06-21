@@ -197,13 +197,12 @@ protected:
     void append(const str& s)           { code.append(s); }
     void erase(memint pos, memint len)  { code.erase(pos, len); }
     void resize(memint s)               { code.resize(s); }
-//    str  cutTail(memint start)
-//        { str t = code.substr(start); resize(start); return t; }
     template<class T>
         T at(memint i) const            { return *(T*)code.data(i); }
     template<class T>
         T& atw(memint i)                { return *(T*)code.atw(i); }
     OpCode operator[](memint i) const   { return OpCode(code.at(i)); }
+    void replace(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
 
     static inline memint oplen(OpCode op)
         { assert(op < opInv); return memint(ArgSizes[opTable[op].arg]) + 1; }
@@ -223,13 +222,9 @@ public:
 };
 
 
-template<>
-    inline OpCode CodeSeg::at<OpCode>(memint i) const
-        { return (OpCode)code.at(i); }
-
-template<>
-    inline OpCode& CodeSeg::atw<OpCode>(memint i)
-        { return *(OpCode*)code.atw(i); }
+// Compiler traps, don't use these
+template<> OpCode CodeSeg::at<OpCode>(memint i) const;
+template<> OpCode& CodeSeg::atw<OpCode>(memint i);
 
 
 inline CodeSeg* State::getCodeSeg() { return cast<CodeSeg*>(codeseg.get()); }
@@ -278,15 +273,6 @@ protected:
     static void error(const char*);
     static void error(const str&);
 
-    // Assignment analysis
-    podvec<memint> designatorOps;
-    void recordDesignatorOp(memint offs)
-        { designatorOps.push_back(offs); }
-    void clearDesignatorOps()
-        { designatorOps.clear(); }
-    memint popDesignatorOp()
-        { memint t = designatorOps.back(); designatorOps.pop_back(); return t; }
-
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);
     ~CodeGen();
@@ -297,8 +283,6 @@ public:
     State* getState()           { return codeOwner; }
     Type* getTopType()          { return stkTop(); }
     memint getCurrentOffs()     { return codeseg.size(); }
-    memint beginDiscardable()   { return getCurrentOffs(); }
-    void endDiscardable(memint offs);
     Type* tryUndoTypeRef();
     void deinitLocalVar(Variable*);
     void popValue();
@@ -323,7 +307,6 @@ public:
     void storeRet(Type*);
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
-    void beginLValue();
     str endLValue();
     void assignment(const str& storerCode);
 

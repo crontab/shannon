@@ -18,7 +18,7 @@ CodeSeg::~CodeSeg()
 
 str CodeSeg::cutOp(memint offs)
 {
-    memint len = oplen(at<OpCode>(offs));
+    memint len = oplen((*this)[offs]);
     str s = code.substr(offs, len);
     code.erase(offs, len);
     return s;

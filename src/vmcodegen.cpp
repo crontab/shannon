@@ -6,8 +6,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
-    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      designatorOps()
+    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0)
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -54,10 +53,6 @@ Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
     Type* result = s.type;
-    if (isDesignatorOp(codeseg[s.offs]))
-        recordDesignatorOp(s.offs);
-    else
-        clearDesignatorOps();
     simStack.pop_back();
     return result;
 }
@@ -164,13 +159,6 @@ void CodeGen::popValue()
     addOp(opPop);
 }
 
-/*
-void CodeGen::endDiscardable(memint offs)
-{
-    assert(stkSize() == 0 || stkTopItem().offs < offs);
-    codeseg.resize(offs);
-}
-*/
 
 Type* CodeGen::tryUndoTypeRef()
 {
@@ -415,72 +403,11 @@ void CodeGen::initSelfVar(SelfVar* var)
     addOp<uchar>(opInitSelfVar, var->id);
 }
 
-/*
-void CodeGen::beginAssignment()
-{
-    assert(storerCode.empty());
-    memint loaderOffs = stkTopItem().offs;
-    OpCode loader = codeseg[loaderOffs];
-    OpCode prevLoader = prevLoaderOffs >= 0 ? codeseg[prevLoaderOffs] : opInv;
-    OpCode storer;
-    // There are two kinds of targets: (1) for non-resizable objects 
-    // and also local/self vars the load op is postponed and is simply 
-    // replaced with the correspoding storer; (2) for resizable objects 
-    // the "parent" object is locked on the stack to make sure the LEA
-    // pointer is valid by the end of the assignment statement.
-    switch(loader)
-    {
-        // Local, self, or otherwise simple non-resizable objects
-        case opLoadSelfVar: storer = opStoreSelfVar; break;
-        case opLoadStkVar:  storer = opStoreStkVar; break;
-        case opLoadMember:  storer = opStoreMember; break;
-        case opDeref:       storer = opStoreRef; break;
-
-        // Resizable objects
-        case opStrElem:
-            storer = opStoreStrElem;
-GotoIsTheRootOfAllProgramming:
-            if (!isAddressableOp(prevLoader))
-                error("Non-reference in L-value");
-            codeseg.atw<uchar>(prevLoaderOffs)++; // -> LEA
-            break;
-        case opVecElem:
-            storer = opStoreVecElem;
-            goto GotoIsTheRootOfAllProgramming;
-        default:
-            error("Not an L-value");
-            storer = opInv;
-    }
-    codeseg.atw<uchar>(loaderOffs) = storer;
-    storerCode = codeseg.cutTail(loaderOffs);
-}
-
-
-void CodeGen::endAssignment()
-{
-    assert(!storerCode.empty());
-    Type* left = stkTop(2);
-    implicitCast(left, "Type mismatch in assignment");
-    codeseg.append(storerCode);
-    stkPop();
-    stkPop();
-    storerCode.clear();
-}
-*/
-
-void CodeGen::beginLValue()
-{
-    // TODO: only record designator ops when parsing an L-value
-}
-
 
 str CodeGen::endLValue()
 {
-    // Designator ops are only recorder on Pops, so we add the last op here:
-    recordDesignatorOp(stkTopItem().offs);
-
     str s;
-    memint offs = popDesignatorOp();
+    memint offs = stkTopItem().offs;
     OpCode loader = codeseg[offs];
     OpCode storer;
     switch(loader)
@@ -495,10 +422,8 @@ str CodeGen::endLValue()
     if (storer == opInv)
         error("Not an L-value");
 
-    codeseg.atw<OpCode>(offs) = storer;
+    codeseg.replace(offs, storer);
     s += codeseg.cutOp(offs);
-
-    clearDesignatorOps();
 
     return s;
 }
@@ -725,14 +650,6 @@ void CodeGen::_not()
     }
 }
 
-/*
-void CodeGen::boolXor()
-{
-    if (!stkPop()->isBool() || !stkPop()->isBool())
-        error("Operand types do not match binary operator");
-    addOp(queenBee->defBool, opBoolXor);
-}
-*/
 
 memint CodeGen::boolJumpForward(OpCode op)
 {
@@ -756,7 +673,7 @@ memint CodeGen::jumpForward(OpCode op)
 void CodeGen::resolveJump(memint jumpOffs)
 {
     assert(jumpOffs <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
-    assert(isJump(OpCode(codeseg.at<uchar>(jumpOffs))));
+    assert(isJump(codeseg[jumpOffs]));
     integer offs = integer(getCurrentOffs()) - integer(jumpOffs + 1 + sizeof(jumpoffs));
     if (offs > 32767)
         error("Jump target is too far away");
@@ -787,5 +704,4 @@ void CodeGen::end()
     codeseg.close();
     assert(simStack.size() - locals == 0);
 }
-
 

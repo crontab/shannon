@@ -182,12 +182,12 @@ void test_bytevec()
     check(c1.size() == 8);
     check(memcmp(c1.data(), "@ABCDEFG", 8) == 0);
 
-    c1.pop_back(2);
+    c1.pop(2);
     check(c1.size() == 6);
     check(memcmp(c1.data(), "@ABCDE", 6) == 0);
-    c1.pop_back(2);
+    c1.pop(2);
     check(c1.size() == 4);
-    c1.pop_back(4);
+    c1.pop(4);
     check(c1.empty());
     
     c1.append("@AB", 3);
@@ -365,6 +365,9 @@ void test_podvec()
     check(v2.empty());
     check(!v1.empty());
     check(v1.back() == 20);
+    int t;
+    v1.pop_back(t);
+    check(t == 20);
 }
 
 
@@ -577,7 +580,7 @@ static void test_fifos()
 
     memfifo fc(NULL, true);
     test_bidir_char_fifo(fc);
-    
+
     strfifo fs(NULL);
     test_bidir_char_fifo(fs);
 }
