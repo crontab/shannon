@@ -16,6 +16,15 @@ CodeSeg::~CodeSeg()
     { }
 
 
+str CodeSeg::cutOp(memint offs)
+{
+    memint len = oplen(at<OpCode>(offs));
+    str s = code.substr(offs, len);
+    code.erase(offs, len);
+    return s;
+}
+
+
 void CodeSeg::close()
 {
 #ifdef DEBUG
@@ -197,7 +206,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             }
             break;
 
-        // --- 4. COMMON STORERS
+        // --- 4. STORERS
         case opInitSelfVar:
             INITTO(self->member(ADV<uchar>(ip)));
             break;

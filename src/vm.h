@@ -21,9 +21,9 @@ enum OpCode
     opLoadNull,         // +null
     opLoad0,            // +int
     opLoad1,            // +int
-    opLoadByte,         // [int8] +int
+    opLoadByte,         // [int:u8] +int
     opLoadOrd,          // [int] +int
-    opLoadStr,          // [object*] +str
+    opLoadStr,          // [str] +str
     opLoadEmptyVar,     // [variant::Type:8] + var
     opLoadConst,        // [Definition*] +var
 
@@ -32,7 +32,7 @@ enum OpCode
     opLoadSelfVar,      // [self-idx:u8] +var
     opLoadStkVar,       // [stk-idx:s8] +var
     // --- end undoable loaders
-    opLoadMember,       // [self-idx:u8] -stateobj +var
+    opLoadMember,       // [stateobj-idx:u8] -stateobj +var
     opDeref,            // -ref +var
     opStrElem,          // -idx -str +int
     opVecElem,          // -idx -vec +var
@@ -41,11 +41,11 @@ enum OpCode
     // --- end designator loaders
 
     // --- 4. STORERS
-    opInitSelfVar,      // [var-idx:u8] -var
-    opStoreSelfVar,     // [var-idx:u8] -var
+    opInitSelfVar,      // [self-idx:u8] -var
+    opStoreSelfVar,     // [self-idx:u8] -var
     opInitStkVar,       // [stk-idx:s8] -var
     opStoreStkVar,      // [stk-idx:s8] -var
-    opStoreMember,      // [self-idx:u8] -var -stateobj
+    opStoreMember,      // [stateobj-idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
 
     // --- 5. DESIGNATOR OPS, MISC
@@ -81,6 +81,7 @@ enum OpCode
     opByteDictAddPair,  // -var -int -vec +vec
 
     // --- 9. ARITHMETIC
+    // TODO: atomic inc/dec
     opAdd,              // -int, +int, +int
     opSub,              // -int, +int, +int
     opMul,              // -int, +int, +int
@@ -91,7 +92,6 @@ enum OpCode
     opBitXor,           // -int, +int, +int
     opBitShl,           // -int, +int, +int
     opBitShr,           // -int, +int, +int
-    // opBoolXor,          // -bool, -bool, +bool
 
     // Arithmetic unary: -int, +int
     opNeg,              // -int, +int
@@ -145,6 +145,31 @@ inline bool isDesignatorOp(OpCode op)
     { return op >= opLoadSelfVar && op <= opByteDictElem; }
 
 
+// --- OpCode Info
+
+
+enum ArgType
+    { argNone, argType, argUInt8, argInt, argStr, 
+      argVarType8, argDefinition,
+      argSelfIdx, argStkIdx, argStateIdx, 
+      argJump16, argStrStrInt, argStrType,
+      argMax };
+
+
+extern umemint ArgSizes[argMax];
+
+
+struct OpInfo
+{
+    const char* name;
+    OpCode op;
+    ArgType arg;
+};
+
+
+extern OpInfo opTable[];
+
+
 // --- Code segment -------------------------------------------------------- //
 
 
@@ -168,37 +193,46 @@ protected:
 
     // Code gen helpers
     template <class T>
-        void append(const T& t)     { code.append((const char*)&t, sizeof(T)); }
-    void append(const str& s)       { code.append(s); }
+        void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
+    void append(const str& s)           { code.append(s); }
     void erase(memint pos, memint len)  { code.erase(pos, len); }
-    void resize(memint s)           { code.resize(s); }
-    str  cutTail(memint start)
-        { str t = code.substr(start); resize(start); return t; }
+    void resize(memint s)               { code.resize(s); }
+//    str  cutTail(memint start)
+//        { str t = code.substr(start); resize(start); return t; }
     template<class T>
-        const T& at(memint i) const { return *(T*)code.data(i); }
+        T at(memint i) const            { return *(T*)code.data(i); }
     template<class T>
-        T& atw(memint i)            { return *(T*)code.atw(i); }
-    OpCode operator[](memint i) const { return OpCode(code.at(i)); }
+        T& atw(memint i)                { return *(T*)code.atw(i); }
+    OpCode operator[](memint i) const   { return OpCode(code.at(i)); }
+
+    static inline memint oplen(OpCode op)
+        { assert(op < opInv); return memint(ArgSizes[opTable[op].arg]) + 1; }
+
+    str cutOp(memint offs);
 
 public:
     CodeSeg(State*);
     ~CodeSeg();
 
-    State* getStateType() const     { return state; }
-    memint size() const             { return code.size(); }
-    bool empty() const              { return code.empty(); }
+    State* getStateType() const         { return state; }
+    memint size() const                 { return code.size(); }
+    bool empty() const                  { return code.empty(); }
     void close();
 
-    const char* getCode() const     { assert(closed); return code.data(); }
+    const char* getCode() const         { assert(closed); return code.data(); }
 };
 
 
 template<>
-    const OpCode& CodeSeg::at<OpCode>(memint i) const;
+    inline OpCode CodeSeg::at<OpCode>(memint i) const
+        { return (OpCode)code.at(i); }
+
+template<>
+    inline OpCode& CodeSeg::atw<OpCode>(memint i)
+        { return *(OpCode*)code.atw(i); }
 
 
 inline CodeSeg* State::getCodeSeg() { return cast<CodeSeg*>(codeseg.get()); }
-
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -250,6 +284,8 @@ protected:
         { designatorOps.push_back(offs); }
     void clearDesignatorOps()
         { designatorOps.clear(); }
+    memint popDesignatorOp()
+        { memint t = designatorOps.back(); designatorOps.pop_back(); return t; }
 
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);

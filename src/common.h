@@ -19,14 +19,18 @@
 #include "version.h"
 
 
-// SHN_64 can be enabled on 32-bit systems, and should be enabled on 
-// 64-bit systems, It affects the size of the default int (defined as 
-// `integer' below) and accordingly the size of the `variant' structure.
-// In any case, var various reasons the `integer' type should not be smaller
-// than sizeof(void*), otherwise initRuntime() will fail at startup.
+// SHN_64 can be enabled on 32-bit systems, and should be enabled on 64-bit 
+// systems, It affects the size of the default int (defined as `integer' 
+// below) and accordingly the size of the `variant' structure. In any case, 
+// for various reasons the `integer' type should not be smaller than 
+// sizeof(void*), otherwise initRuntime() will fail at startup.
 #if defined(__x86_64__) || defined(_WIN64)
 #  define SHN_64
 #endif
+
+
+// Generate faster but bigger code (more inlined functions)
+// #define SHN_FASTER
 
 
 #define SOURCE_EXT ".shn"

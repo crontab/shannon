@@ -554,7 +554,7 @@ void Compiler::definition()
 
 void Compiler::variable()
 {
-    // const variables
+    // TODO: const variables
     str ident;
     Type* type = getTypeAndIdent(ident);
     runtimeExpr();
