@@ -84,7 +84,7 @@ assert a == 2
 r1^ = 12
 assert r1 == 12
 // system.__program_result = 'OK'
-c[1] = ':'
+// c[1] = ':'
 // assert c == 'a:cd'
 // d[0] = 4
 // assert d[0] == 4

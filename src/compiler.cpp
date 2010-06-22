@@ -467,6 +467,7 @@ void Compiler::orLevel()
 
 void Compiler::expression()
 {
+    // TODO: const expression (e.g. const [1, 2, 3] or const 0..10)
     if (!codegen->isCompileTime())
         runtimeExpr();
     else if (token == tokIdent)  // Enumeration maybe?
@@ -596,7 +597,9 @@ void Compiler::assertion()
         expression();
         str s = endRecording();
         module.registerString(s);
-        codegen->assertion(s, module.filePath, ln);
+        if (!context.options.lineNumbers)
+            codegen->linenum(ln);
+        codegen->assertion(s);
     }
     else
         skipToSep();
@@ -648,6 +651,9 @@ void Compiler::statementList()
 {
     while (!skipIfBlockEnd())
     {
+        if (context.options.lineNumbers)
+            codegen->linenum(getLineNum());
+
         if (skipIf(tokSep))
             ;
         else if (skipIf(tokDef))
@@ -718,6 +724,7 @@ void Compiler::compileModule()
     }
 
     mainCodeGen.end();
+    module.registerCodeSeg(module.getCodeSeg());
     module.setComplete();
 }
 

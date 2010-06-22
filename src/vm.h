@@ -34,12 +34,6 @@ enum OpCode
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
     opDeref,            // -ref +var
-    // --- begin container loaders
-    opStrElem,          // -idx -str +int
-    opVecElem,          // -idx -vec +var
-    opDictElem,         // -var -dict +var
-    opByteDictElem,     // -int -dict +var
-    // --- end container loaders
     // --- end designator loaders
 
     // --- 4. STORERS
@@ -65,8 +59,8 @@ enum OpCode
     opVecCat,           // -vec -vec +vec
     opStrLen,           // -str +int
     opVecLen,           // -str +int
-    opReplStrElem,      // -int -int -str +str
-    opReplVecElem,      // -var -int -vec +vec
+    opStrElem,          // -idx -str +int
+    opVecElem,          // -idx -vec +var
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -81,6 +75,8 @@ enum OpCode
     opDictAddPair,      // -var -var -dict +dict
     opPairToByteDict,   // -var -int +vec
     opByteDictAddPair,  // -var -int -vec +vec
+    opDictElem,         // -var -dict +var
+    opByteDictElem,     // -int -dict +var
 
     // --- 9. ARITHMETIC
     // TODO: atomic inc/dec
@@ -123,7 +119,8 @@ enum OpCode
 
     // Misc. builtins
     // TODO: set filename and linenum in a separate op?
-    opAssert,           // [cond:str, fn:str, linenum:int] -bool
+    opLineNum,          // [linenum:int]
+    opAssert,           // [cond:str] -bool
     opDump,             // [expr:str, type:Type*] -var
 
     opInv,
@@ -143,11 +140,6 @@ inline bool isJump(OpCode op)
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
-// inline bool isDesignatorOp(OpCode op)
-//     { return op >= opLoadSelfVar && op <= opByteDictElem; }
-
-// inline bool isContLoaderOp(OpCode op)
-//     { return op >= opStrElem && op <= opByteDictElem; }
 
 
 // --- OpCode Info
@@ -157,7 +149,7 @@ enum ArgType
     { argNone, argType, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
       argSelfIdx, argStkIdx, argStateIdx, 
-      argJump16, argStrStrInt, argStrType,
+      argJump16, argLineNum, argAssertCond, argDump,
       argMax };
 
 
@@ -224,6 +216,7 @@ public:
     void close();
 
     const char* getCode() const         { assert(closed); return code.data(); }
+    void dump(fifo& stm) const;  // in vminfo.cpp
 };
 
 
@@ -255,10 +248,11 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
+    OpCode lastOp;
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
-    void addOp(OpCode op)                           { codeseg.append<uchar>(op); }
+    void addOp(OpCode op)                           { codeseg.append<uchar>(lastOp = op); }
     void addOp(Type*, OpCode op);
     template <class T>
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
@@ -344,7 +338,8 @@ public:
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode op);
     void resolveJump(memint jumpOffs);
-    void assertion(const str& cond, const str& file, integer line);
+    void linenum(integer);
+    void assertion(const str& cond);
     void dumpVar(const str& expr);
 
     void beginLValue();
@@ -363,7 +358,7 @@ struct CompilerOptions
 {
     bool enableDump;
     bool enableAssert;
-    bool linenumInfo;
+    bool lineNumbers;
     bool vmListing;
     memint stackSize;
     strvec modulePath;

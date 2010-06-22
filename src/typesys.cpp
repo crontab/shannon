@@ -766,6 +766,18 @@ void State::fqName(fifo& stm) const
 }
 
 
+str State::getParentModuleName() const
+{
+    if (parent == NULL)
+    {
+        assert(isModule());
+        return defName.empty() ? str('*') : defName;
+    }
+    else
+        return parent->getParentModuleName();
+}
+
+
 void State::dump(fifo& stm) const
 {
     // TODO: better dump for states?
@@ -910,13 +922,21 @@ Module::Module(const str& n, const str& f)
 
 
 Module::~Module()
-    { }
+    { codeSegs.release_all(); }
 
 
 void Module::dump(fifo& stm) const
 {
     stm << endl << "#MODULE_DUMP " << getName() << endl << endl;
     dumpAll(stm);
+    for (memint i = 0; i < codeSegs.size(); i++)
+    {
+        CodeSeg* c = codeSegs[i];
+        stm << endl << "#CODE_DUMP ";
+        c->getStateType()->fqName(stm);
+        stm << endl << endl;
+        c->dump(stm);
+    }
 }
 
 
@@ -938,6 +958,10 @@ void Module::registerString(str& s)
         constStrings.insert(i, s);
 */
 }
+
+
+void Module::registerCodeSeg(CodeSeg* c)
+    { codeSegs.push_back(c->grab<CodeSeg>()); }
 
 
 // --- QueenBee ------------------------------------------------------------ //

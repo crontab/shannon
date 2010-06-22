@@ -10,7 +10,7 @@ umemint ArgSizes[argMax] =
       0, sizeof(Type*), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(char), sizeof(uchar),
-      sizeof(jumpoffs), sizeof(str) + sizeof(str) + sizeof(integer), sizeof(str) + sizeof(Type*),
+      sizeof(jumpoffs), sizeof(integer), sizeof(str), sizeof(str) + sizeof(Type*),
     };
 
 
@@ -39,10 +39,6 @@ OpInfo opTable[] =
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
-    OP(StrElem, None),          // -idx -str +int
-    OP(VecElem, None),          // -idx -vec +var
-    OP(DictElem, None),         // -var -dict +var
-    OP(ByteDictElem, None),     // -int -dict +var
     // --- end designator loaders
 
     // --- 4. STORERS
@@ -68,8 +64,8 @@ OpInfo opTable[] =
     OP(VecCat, None),           // -vec -vec +vec
     OP(StrLen, None),           // -str +int
     OP(VecLen, None),           // -str +int
-    OP(ReplStrElem, None),      // -int -int -str +str
-    OP(ReplVecElem, None),      // -var -int -vec +vec
+    OP(StrElem, None),          // -idx -str +int
+    OP(VecElem, None),          // -idx -vec +var
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set
@@ -84,6 +80,8 @@ OpInfo opTable[] =
     OP(DictAddPair, None),      // -var -var -dict +dict
     OP(PairToByteDict, None),   // -var -int +vec
     OP(ByteDictAddPair, None),  // -var -int -vec +vec
+    OP(DictElem, None),         // -var -dict +var
+    OP(ByteDictElem, None),     // -int -dict +var
 
     // --- 9. ARITHMETIC
     OP(Add, None),              // -int, +int, +int
@@ -125,8 +123,9 @@ OpInfo opTable[] =
 
     // Misc. builtins
     // TODO: set filename and linenum in a separate op?
-    OP(Assert, StrStrInt),      // [cond:str, fn:str, linenum:int] -bool
-    OP(Dump, StrType),          // [expr:str, type:Type*] -var
+    OP(LineNum, LineNum),       // [linenum:int]
+    OP(Assert, AssertCond),     // [cond:str] -bool
+    OP(Dump, Dump),             // [expr:str, type:Type*] -var
     OP(Inv, None),              // not used
 };
 
@@ -148,4 +147,37 @@ static struct vmdebuginit
 } _vmdebuginit;
 #endif
 
+
+#define ADV(T) \
+    (ip += sizeof(T), *(T*)(ip - sizeof(T)))
+
+
+void CodeSeg::dump(fifo& stm) const
+{
+    if (code.empty())
+        return;
+    const uchar* beginip = (const uchar*)code.data();
+    const uchar* ip = beginip;
+    while (1)
+    {
+        if (*ip >= opMaxCode)
+            fatal(0x5101, "Corrupt code");
+        const OpInfo& info = opTable[*ip];
+        if (*ip == opLineNum)
+        {
+            ip++;
+            stm << "#LINENUM " << ADV(integer);
+        }
+        else
+        {
+            stm << to_string(ip - beginip, 16, 6, '0') << ":\t";
+            ip++;
+            stm << info.name;
+            ip += ArgSizes[info.arg];
+        }
+        stm << endl;
+        if (info.op == opEnd)
+            break;
+    }
+}
 
