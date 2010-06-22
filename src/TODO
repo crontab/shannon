@@ -1,11 +1,11 @@
 
-* Module-wide registry of code segments
-
 * Operators 'in', 'is' and 'as'
 
 * Assignments (oh man, what am I gonna do)
 
-* if, while, case, break, continue, goto
+* Read-only variables (const) and const subexpressions.
+
+* if, while, case, break, continue, goto, exit, return
 
 * Operators 'ins' and 'del' (and 'swap'?) that work on containers.
 
@@ -26,7 +26,8 @@
   what to do with prototypes and function addresses?
 
 * Nullable types: var ?int i = v as int(0)  (better syntax needed) Any 
-  operation returns null if any one of the operands is null.
+  operation returns null if any one of the operands is null. (Or maybe
+  var ?int i = v as int else 0). Oh man, it's patented! Any ideas?
 
 * 'public' and 'forward' blocks: can contain a single statement after ':' or
   multiple statements in { }.

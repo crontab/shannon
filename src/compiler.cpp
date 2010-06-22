@@ -71,30 +71,40 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::identifier(const str& ident)
 {
-    Symbol* sym;
-
     // Go up the current scope hierarchy within the module
     Scope* sc = scope;
     do
     {
-        sym = sc->find(ident);
+        // TODO: implement loading from outer scopes
+        Symbol* sym = sc->find(ident);
         if (sym)
-            break;
+        {
+            codegen->loadSymbol(sym);
+            return;
+        }
         sc = sc->outer;
     }
     while (sc != NULL);
 
-    // If not found there, then look it up in used modules; search backwards
-    for (memint i = module.uses.size(); i-- && sym == NULL; )
+    // Look up in used modules; search backwards
+    for (memint i = module.uses.size(); i--; )
     {
         SelfVar* m = module.uses[i];
-        sym = m->getModuleType()->find(ident);
+        Symbol* sym = m->getModuleType()->find(ident);
+        if (sym)
+        {
+            if (codegen->isCompileTime())
+                codegen->loadSymbol(sym);
+            else
+            {
+                codegen->loadVariable(m);
+                codegen->loadMember(sym);
+            }
+            return;
+        }
     }
 
-    if (sym == NULL)
-        throw EUnknownIdent(ident);
-
-    codegen->loadSymbol(sym);
+    throw EUnknownIdent(ident);
 }
 
 
@@ -642,7 +652,7 @@ void Compiler::otherStatement()
         codegen->assignment(storerCode);
     }
     if (isSep() && codegen->getStackLevel() != stkLevel)
-        error("Unused value from previous statement");
+        error("Unused value in statement");
     skipSep();
 }
 

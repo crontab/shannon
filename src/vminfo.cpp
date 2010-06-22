@@ -35,14 +35,14 @@ OpInfo opTable[] =
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self-idx:u8] +var
-    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +self +ptr
+    // OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +self +ptr
     OP(LoadStkVar, StkIdx),     // [stk-idx:s8] +var
-    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
+    // OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
-    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
+    // OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
     OP(Deref, None),            // -ref +var
-    OP(LeaRef, None),           // -ref +ref +ptr
+    // OP(LeaRef, None),           // -ref +ref +ptr
     // --- end designator loaders
 
     // --- 4. STORERS
@@ -71,6 +71,7 @@ OpInfo opTable[] =
     OP(VecLen, None),           // -str +int
     OP(StrElem, None),          // -idx -str +int
     OP(VecElem, None),          // -idx -vec +var
+    OP(SetStrElem, None),       // -int -int -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set
@@ -191,12 +192,12 @@ void CodeSeg::dump(fifo& stm) const
         const OpInfo& info = opTable[*ip];
         if (*ip == opLineNum)
         {
-            stm << "#LINENUM " << ADV(integer);
             ip++;
+            stm << "#LINENUM " << ADV(integer);
         }
         else
         {
-            stm << to_string(ip - beginip, 16, 6, '0') << ":\t";
+            stm << to_string(ip - beginip, 16, 4, '0') << ":\t";
             ip++;
             stm << info.name;
             if (info.arg != argNone)
@@ -209,26 +210,19 @@ void CodeSeg::dump(fifo& stm) const
             {
                 case argNone:       break;
                 case argType:       ADV(Type*)->dumpDef(stm); break;
-                case argUInt8:      stm << to_quoted(ADV(char)); break;
+                case argUInt8:      stm << to_quoted(*ip); stm << " (" << int(ADV(uchar)) << ')'; break;
                 case argInt:        stm << ADV(integer); break;
-                case argStr:        stm << ADV(str); break;
+                case argStr:        stm << to_quoted(ADV(str)); break;
                 case argVarType8:   stm << varTypeStr(variant::Type(ADV(uchar))); break;
                 case argDefinition: stm << "const " << ADV(Definition*)->name; break;
-/*
-                case argConst16:    queenBee->defVariant->dumpValue(stm, consts[ADV<uint16_t>(ip)]); break;
-                case argIndex:      stm << '.' << integer(ADV<uchar>(ip)); break;
-                case argModIndex:   stm << ADV<Module*>(ip)->name; stm << '.' << int(ADV<uchar>(ip)); break;
-                case argLevelIndex: stm << '.' << ADV<uchar>(ip); stm << ':' << int(ADV<uchar>(ip)); break;
-                case argJump16:
-                    {
-                        mem o = ADV<joffs_t>(ip);
-                        stm << to_string(ip - saveip + o, 16, 4, '0');
-                    }
-                    break;
-                case argIntInt:     stm << ADV<integer>(ip); stm << ',' << ADV<integer>(ip); break;
-                case argFile16Line16: break;
-                case argFlag:       stm << (ADV<uchar>(ip) ? "F" : ""); break;
-*/
+                case argSelfIdx:    stm << "self." << state->selfVars[ADV(uchar)]->name; break;
+                case argStkIdx:     stm << (*(char*)ip < 0 ? "arg." : "local."); stm << int(ADV(char)); break;
+                case argStateIdx:   stm << "state." << int(ADV(uchar)); break;
+                case argJump16:     stm << to_string(ip - beginip + ADV(jumpoffs), 16, 4, '0');
+                case argLineNum:    break; // handled above
+                case argAssertCond: stm << '"' << ADV(str) << '"'; break;
+                case argDump:       stm << ADV(str) << ": "; ADV(Type*)->dumpDef(stm); break;
+                case argMax:        break;
             }
         }
         stm << endl;

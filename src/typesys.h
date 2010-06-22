@@ -410,14 +410,14 @@ public:
 class State: public Type, public Scope
 {
 protected:
+    Type* _registerType(Type*, Definition* = NULL);
+
+public:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
     objvec<SelfVar> selfVars;      // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
 
-    Type* _registerType(Type*, Definition* = NULL);
-
-public:
     State* const parent;
     State* const selfPtr;
     Prototype* const prototype;
@@ -426,7 +426,7 @@ public:
     State(TypeId, Prototype* proto, State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
-    str getParentModuleName() const;
+    Module* getParentModule() const;
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited

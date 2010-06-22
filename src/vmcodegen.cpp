@@ -55,7 +55,7 @@ void CodeGen::undoLastLoad()
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
-    if (designatorStkLevel == simStack.size())
+    if (designatorStkLevel == simStack.size() - 1)
         designatorOps.push_back(s.offs);
     Type* result = s.type;
     simStack.pop_back();
@@ -328,7 +328,7 @@ void CodeGen::loadSymbol(Symbol* sym)
 
 void CodeGen::loadVariable(Variable* var)
 {
-    // TODO: check outer states too
+    // TODO: check outer states too!
     assert(var->host != NULL);
     if (isCompileTime())
         error("Variables not allowed in constant expressions");
@@ -347,6 +347,32 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
+void CodeGen::loadMember(const str& ident)
+{
+    Type* stateType = stkTop();
+    if (!stateType->isAnyState())
+        error("Invalid member selection");
+    loadMember(PState(stateType)->findShallow(ident));
+}
+
+
+void CodeGen::loadMember(Symbol* sym)
+{
+    Type* stateType = stkTop();
+    if (!stateType->isAnyState())
+        error("Invalid member selection");
+    if (sym->isAnyVar())
+        loadMember(PVariable(sym));
+    else if (sym->isDefinition())
+    {
+        undoLastLoad();
+        loadDefinition(PDefinition(sym));
+    }
+    else
+        notimpl();
+}
+
+
 void CodeGen::loadMember(Variable* var)
 {
     if (isCompileTime())
@@ -358,24 +384,6 @@ void CodeGen::loadMember(Variable* var)
         error("Invalid member selection");
     assert(var->id >= 0 && var->id <= 255);
     addOp<uchar>(var->type, opLoadMember, var->id);
-}
-
-
-void CodeGen::loadMember(const str& ident)
-{
-    Type* stateType = stkTop();
-    if (!stateType->isAnyState())
-        error("Invalid member selection");
-    Symbol* sym = PState(stateType)->findShallow(ident);
-    if (sym->isAnyVar())
-        loadMember(PVariable(sym));
-    else if (sym->isDefinition())
-    {
-        undoLastLoad();
-        loadDefinition(PDefinition(sym));
-    }
-    else
-        notimpl();
 }
 
 
@@ -687,14 +695,13 @@ void CodeGen::beginLValue()
 
 static OpCode loaderToStorer(OpCode op)
 {
-    // Should be in sync with loaderToLea() below, i.e. same ops should be 
-    // handled by both functions
     switch (op)
     {
         case opLoadSelfVar: return opStoreSelfVar;
         case opLoadStkVar:  return opStoreStkVar;
         case opLoadMember:  return opStoreMember;
         case opDeref:       return opStoreRef;
+        // --- end final storers
         default:
             throw emessage("Not an l-value");
             return opInv;
@@ -706,12 +713,13 @@ static OpCode loaderToLea(OpCode op)
 {
     switch (op)
     {
-        case opLoadSelfVar: return opLeaSelfVar;
-        case opLoadStkVar:  return opLeaStkVar;
-        case opLoadMember:  return opLeaMember;
-        case opDeref:       return opLeaRef;
+        // case opLoadSelfVar: return opLeaSelfVar;
+        // case opLoadStkVar:  return opLeaStkVar;
+        // case opLoadMember:  return opLeaMember;
+        // case opDeref:       return opLeaRef;
+        // --- end final storers
         default:
-            fatal(0x6006, "loaderToLea(): invalid opcode");
+            throw emessage("Not an l-value");
             return opInv;
     }
 }
@@ -725,8 +733,9 @@ str CodeGen::endLValue(bool isAssignment)
         return str();
     }
 
-    designatorOps.push_back(stkTopItem().offs);
     str s;
+
+    designatorOps.push_back(stkTopItem().offs);
     OpCode storer = opInv;
     memint i = designatorOps.size() - 1;
     while (1)
@@ -736,12 +745,13 @@ str CodeGen::endLValue(bool isAssignment)
         storer = loaderToStorer(loader);
         if (isFinalStorer(storer))
         {
-            codeseg.replace(offs, storer);
+            codeseg.replaceOp(offs, storer);
             s += codeseg.cutOp(offs);
             break;
         }
         // Intermediary (presumably container) load/store transformation
-        codeseg.replace(offs, loaderToLea(loader));
+        OpCode op = loaderToLea(loader);
+        codeseg.replaceOp(offs, op);
         s += char(storer);
         i--;
         if (i < 0)  // shouldn't happen

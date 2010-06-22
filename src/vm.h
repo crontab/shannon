@@ -29,14 +29,14 @@ enum OpCode
 
     // --- 3. DESIGNATOR LOADERS
     opLoadSelfVar,      // [self-idx:u8] +var
-    opLeaSelfVar,       // [self-idx:u8] +self +ptr
+    // opLeaSelfVar,       // [self-idx:u8] +self +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
-    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
+    // opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
-    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
+    // opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
     opDeref,            // -ref +var
-    opLeaRef,           // -ref +ref +ptr
+    // opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
     opInitSelfVar,      // [self-idx:u8] -var
@@ -56,16 +56,17 @@ enum OpCode
     opPop,              // -var
 
     // --- 6. STRINGS, VECTORS
-    opChrToStr,         // -int +str
-    opChrCat,           // -int -str +str
+    opChrToStr,         // -char +str
+    opChrCat,           // -char -str +str
     opStrCat,           // -str -str +str
     opVarToVec,         // -var +vec
     opVarCat,           // -var -vec +vec
     opVecCat,           // -vec -vec +vec
     opStrLen,           // -str +int
     opVecLen,           // -str +int
-    opStrElem,          // -idx -str +int
+    opStrElem,          // -idx -str +char
     opVecElem,          // -idx -vec +var
+    opSetStrElem,       // -char -int -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -201,17 +202,17 @@ protected:
     void append(const str& s)           { code.append(s); }
 //    void erase(memint pos, memint len)  { code.erase(pos, len); }
     void erase(memint from)             { code.resize(from); }
+    void eraseOp(memint offs)           { code.erase(offs, oplen((*this)[offs])); }
+    str cutOp(memint offs);
     template<class T>
         T at(memint i) const            { return *(T*)code.data(i); }
     template<class T>
         T& atw(memint i)                { return *(T*)code.atw(i); }
     OpCode operator[](memint i) const   { return OpCode(code.at(i)); }
-    void replace(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
+    void replaceOp(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
 
     static inline memint oplen(OpCode op)
         { assert(op < opInv); return memint(ArgSizes[opTable[op].arg]) + 1; }
-
-    str cutOp(memint offs);
 
 public:
     CodeSeg(State*);
@@ -226,6 +227,9 @@ public:
     void dump(fifo& stm) const;  // in vminfo.cpp
 };
 
+
+template<> inline void CodeSeg::append<OpCode>(const OpCode& op)
+    { append<uchar>(uchar(op)); }
 
 // Compiler traps, don't use these
 template<> OpCode CodeSeg::at<OpCode>(memint i) const;
@@ -316,6 +320,7 @@ public:
     void loadSymbol(Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
+    void loadMember(Symbol* sym);
     void loadMember(Variable*);
 
     void storeRet(Type*);

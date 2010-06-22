@@ -77,16 +77,18 @@ var int^ r1 = 2
 var str^ r2 = 'abc'
 
 a = 10 + b
-// assert a == 11
-// assert e[0][1] == 2 and e[1][0] == 4
-// a = r1
-// assert a == 2
-// r1^ = 12
-// assert r1 == 12
-// system.__program_result = 'OK'
-// c[1] = ':'
+assert a == 11
+assert e[0][1] == 2 and e[1][0] == 4
+a = r1
+assert a == 2
+r1^ = 12
+assert r1 == 12
+system.__program_result = 'OK'
+assert __program_result == 'OK'
+c[1] = ':'
 // assert c == 'a:cd'
 // d[0] = 4
 // assert d[0] == 4
 // e[0][1] = 6
 
+system.__program_result = null
