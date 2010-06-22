@@ -357,6 +357,7 @@ public:
 
     const char* c_str(); // can actually modify the object
     void push_back(char c)                  { *_append(1, container::allocate) = c; }
+    void push_front(char c)                 { *_insert(0, 1, container::allocate) = c; }
     char operator[] (memint i) const        { return *data(i); }
     char at(memint i) const                 { return *bytevec::at(i); }
     char back() const                       { return *bytevec::back(); }
@@ -910,7 +911,7 @@ protected:
         integer     _all;       // should be the biggest in this union
         integer     _ord;       // int, char and bool
         real        _real;      // not implemented in the VM yet
-        variant*    _var;       // POD pointer to a variant
+        variant*    _ptr;       // POD pointer to a variant
         object*     _obj;       // str, vector, set, map and their variants
         reference*  _ref;       // reference object
         rtobject*   _rtobj;     // runtime objects with the "type" field
@@ -937,7 +938,7 @@ protected:
     void _init(large v)                 { type = ORD; val._ord = v; }
 #endif
     void _init(real v)                  { type = REAL; val._real = v; }
-    void _init(variant* v)              { type = VARPTR; val._var = v; }
+    void _init(variant* v)              { type = VARPTR; val._ptr = v; }
     void _init(Type t, object* o)       { type = t; val._obj = o; if (o) o->grab(); }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
@@ -981,7 +982,7 @@ public:
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return (uchar)val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
-    variant*    _var()            const { _dbg(VARPTR); return val._var; }
+    variant*    _ptr()            const { _dbg(VARPTR); return val._ptr; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
@@ -1002,7 +1003,7 @@ public:
     char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_ord()          const { _req(ORD); return _int(); }
-    variant*    as_var()          const { _req(VARPTR); return val._var; }
+    variant*    as_ptr()          const { _req(VARPTR); return val._ptr; }
     const str&  as_str()          const { _req(STR); return _str(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { _req(SET); return _set(); }

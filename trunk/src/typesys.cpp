@@ -406,7 +406,7 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
         case variant::VOID:     stm << "null"; break;
         case variant::ORD:      stm << v._int(); break;
         case variant::REAL:     notimpl(); break;
-        case variant::VARPTR:   stm << "@@"; if (v._var()) dumpVariant(stm, v._var()); break;
+        case variant::VARPTR:   stm << "@@"; if (v._ptr()) dumpVariant(stm, v._ptr()); break;
         case variant::STR:      stm << to_quoted(v._str()); break;
         case variant::VEC:      dumpVec(stm, v._vec(), false); break;
         case variant::SET:      dumpVec(stm, v._set(), true); break;

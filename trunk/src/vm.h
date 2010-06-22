@@ -16,7 +16,7 @@ enum OpCode
     opExit,             // throws eexit()
 
     // --- 2. CONST LOADERS
-    // sync with isUndoableLoadOp()
+    // --- begin undoable loaders
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +int
@@ -28,21 +28,26 @@ enum OpCode
     opLoadConst,        // [Definition*] +var
 
     // --- 3. DESIGNATOR LOADERS
-    // sync with isDesignatorLoader()
     opLoadSelfVar,      // [self-idx:u8] +var
+    opLeaSelfVar,       // [self-idx:u8] +self +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
+    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
+    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
     opDeref,            // -ref +var
-    // --- end designator loaders
+    opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
     opInitSelfVar,      // [self-idx:u8] -var
-    opStoreSelfVar,     // [self-idx:u8] -var
     opInitStkVar,       // [stk-idx:s8] -var
+    // --- begin final storers
+    opStoreSelfVar,     // [self-idx:u8] -var
     opStoreStkVar,      // [stk-idx:s8] -var
     opStoreMember,      // [stateobj-idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
+    // opStore,            // -var -ptr -obj
+    // --- end final storers
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
@@ -131,6 +136,9 @@ enum OpCode
 inline bool isUndoableLoadOp(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
 
+inline bool isFinalStorer(OpCode op)
+    { return op >= opStoreSelfVar && op <= opStoreRef; }
+
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
 
@@ -139,7 +147,6 @@ inline bool isJump(OpCode op)
 
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
-
 
 
 // --- OpCode Info
