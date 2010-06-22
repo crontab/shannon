@@ -628,11 +628,11 @@ void Compiler::otherStatement()
 {
     // TODO: assignment, call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
+    codegen->beginLValue();
     designator();
-    // TODO: see if the last op is a function call
+    str storerCode = codegen->endLValue(token == tokAssign);
     if (skipIf(tokAssign))
     {
-        str storerCode = codegen->endLValue();
         runtimeExpr();
         if (!isSep())
             error("Statement syntax");

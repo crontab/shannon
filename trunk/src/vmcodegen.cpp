@@ -6,7 +6,8 @@
 
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
-    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0)
+    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
+      designatorStkLevel(-1)
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -41,7 +42,9 @@ void CodeGen::undoLastLoad()
     if (isUndoableLoadOp(codeseg[offs]))
     {
         stkPop();
-        codeseg.resize(offs);
+        codeseg.erase(offs);
+        if (!designatorOps.empty() && designatorOps.back() == offs)
+            designatorOps.pop_back();
     }
     else
         // discard();
@@ -52,6 +55,8 @@ void CodeGen::undoLastLoad()
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
+    if (designatorStkLevel == simStack.size())
+        designatorOps.push_back(s.offs);
     Type* result = s.type;
     simStack.pop_back();
     return result;
@@ -167,7 +172,7 @@ Type* CodeGen::tryUndoTypeRef()
     {
         Type* type = codeseg.at<Type*>(offs + 1);
         stkPop();
-        codeseg.resize(offs);
+        codeseg.erase(offs);
         return type;
     }
     else
@@ -401,40 +406,6 @@ void CodeGen::initSelfVar(SelfVar* var)
     stkPop();
     assert(var->id >= 0 && var->id <= 255);
     addOp<uchar>(opInitSelfVar, var->id);
-}
-
-
-str CodeGen::endLValue()
-{
-    str s;
-    memint offs = stkTopItem().offs;
-    OpCode loader = codeseg[offs];
-    OpCode storer;
-    switch(loader)
-    {
-        // Local, self, or non-resizable object
-        case opLoadSelfVar: storer = opStoreSelfVar; break;
-        case opLoadStkVar:  storer = opStoreStkVar; break;
-        case opLoadMember:  storer = opStoreMember; break;
-        case opDeref:       storer = opStoreRef; break;
-        default:            storer = opInv; break;
-    }
-    if (storer == opInv)
-        error("Not an L-value");
-
-    codeseg.replace(offs, storer);
-    s += codeseg.cutOp(offs);
-
-    return s;
-}
-
-
-void CodeGen::assignment(const str& storerCode)
-{
-    assert(!storerCode.empty());
-    codeseg.append(storerCode);
-    stkPop();
-    stkPop();
 }
 
 
@@ -696,6 +667,63 @@ void CodeGen::dumpVar(const str& expr)
     Type* type = stkPop();
     addOp(opDump, expr.obj);
     add(type);
+}
+
+
+void CodeGen::beginLValue()
+{
+    assert(designatorStkLevel == -1 && designatorOps.empty());
+    designatorStart();
+}
+
+
+str CodeGen::endLValue(bool isAssignment)
+{
+    if (!isAssignment)
+    {
+        designatorStop();
+        return str();
+    }
+
+    // designatorOps now contains all first-level ops (actually offsets to
+    // those ops) except the last one, so add it too
+    designatorOps.push_back(stkTopItem().offs);
+    str s;
+    memint offs;
+    designatorOps.pop_back(offs);
+    OpCode loader = codeseg[offs];
+
+    // TODO: for array ops, convert to a 'push' variant of the opcode, also add a storer op
+
+    OpCode storer;
+    switch(loader)
+    {
+        // Local, self, or non-resizable object
+        case opLoadSelfVar: storer = opStoreSelfVar; break;
+        case opLoadStkVar:  storer = opStoreStkVar; break;
+        case opLoadMember:  storer = opStoreMember; break;
+        case opDeref:       storer = opStoreRef; break;
+        default:            storer = opInv; break;
+    }
+    if (storer == opInv)
+        error("Not an L-value");
+
+    codeseg.replace(offs, storer);
+    s += codeseg.cutOp(offs);
+
+    designatorStop();
+
+    return s;
+}
+
+
+void CodeGen::assignment(const str& storerCode)
+{
+    assert(!storerCode.empty());
+    implicitCast(stkTop(2), "Type mismatch in assignment");
+    codeseg.append(storerCode);
+    stkPop();
+    stkPop();
 }
 
 

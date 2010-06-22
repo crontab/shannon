@@ -34,10 +34,12 @@ enum OpCode
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
     opDeref,            // -ref +var
+    // --- begin container loaders
     opStrElem,          // -idx -str +int
     opVecElem,          // -idx -vec +var
     opDictElem,         // -var -dict +var
     opByteDictElem,     // -int -dict +var
+    // --- end container loaders
     // --- end designator loaders
 
     // --- 4. STORERS
@@ -141,8 +143,11 @@ inline bool isJump(OpCode op)
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
-inline bool isDesignatorOp(OpCode op)
-    { return op >= opLoadSelfVar && op <= opByteDictElem; }
+// inline bool isDesignatorOp(OpCode op)
+//     { return op >= opLoadSelfVar && op <= opByteDictElem; }
+
+// inline bool isContLoaderOp(OpCode op)
+//     { return op >= opStrElem && op <= opByteDictElem; }
 
 
 // --- OpCode Info
@@ -195,8 +200,8 @@ protected:
     template <class T>
         void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
     void append(const str& s)           { code.append(s); }
-    void erase(memint pos, memint len)  { code.erase(pos, len); }
-    void resize(memint s)               { code.resize(s); }
+//    void erase(memint pos, memint len)  { code.erase(pos, len); }
+    void erase(memint from)             { code.resize(from); }
     template<class T>
         T at(memint i) const            { return *(T*)code.data(i); }
     template<class T>
@@ -273,6 +278,14 @@ protected:
     static void error(const char*);
     static void error(const str&);
 
+    // Assignment analysis
+    memint designatorStkLevel;  // -1: don't record offsets
+    podvec<memint> designatorOps;
+    void designatorStart()
+        { designatorStkLevel = getStackLevel(); }
+    void designatorStop()
+        { designatorStkLevel = -1; designatorOps.clear();  }
+
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);
     ~CodeGen();
@@ -307,8 +320,6 @@ public:
     void storeRet(Type*);
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
-    str endLValue();
-    void assignment(const str& storerCode);
 
     Container* elemToVec();
     void elemCat();
@@ -335,6 +346,11 @@ public:
     void resolveJump(memint jumpOffs);
     void assertion(const str& cond, const str& file, integer line);
     void dumpVar(const str& expr);
+
+    void beginLValue();
+    str endLValue(bool isAssignment);
+    void assignment(const str& storerCode);
+
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };

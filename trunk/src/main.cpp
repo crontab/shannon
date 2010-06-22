@@ -76,6 +76,7 @@ int main()
     doneRuntime();
 
 #ifdef DEBUG
+    // TODO: make this a compiler option
     if (object::allocated != 0)
     {
         fprintf(stderr, "object::allocated: %d\n", object::allocated);
