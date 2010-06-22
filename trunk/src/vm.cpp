@@ -171,23 +171,23 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opLoadSelfVar:
             PUSH(*self->member(ADV(uchar)));
             break;
-        case opLeaSelfVar:
-            PUSH(self);
-            PUSH(self->member(ADV(uchar)));
-            break;
+        // case opLeaSelfVar:
+        //     PUSH(self);
+        //     PUSH(self->member(ADV(uchar)));
+        //     break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV(char)));
             break;
-        case opLeaStkVar:
-            PUSH((rtobject*)NULL);
-            PUSH(stack.bp + ADV(char));
-            break;
+        // case opLeaStkVar:
+        //     PUSH((rtobject*)NULL);
+        //     PUSH(stack.bp + ADV(char));
+        //     break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
             break;
-        case opLeaMember:
-            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
-            break;
+        // case opLeaMember:
+        //     PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
+        //     break;
         case opDeref:
             {
                 reference* r = stk->_ref();
@@ -195,9 +195,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
-        case opLeaRef:
-            PUSH(&stk->_ref()->var);
-            break;
+        // case opLeaRef:
+        //     PUSH(&stk->_ref()->var);
+        //     break;
 
         // --- 4. STORERS
         case opInitSelfVar:
@@ -275,6 +275,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opVecElem:
             *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
             POPPOD();
+            break;
+        case opSetStrElem:       // -char -int -obj
+            (stk - 2)->_str().replace((stk - 1)->_int(), stk->_uchar());
+            POPPOD(); POPPOD(); POP();
             break;
 
         // --- 7. SETS
@@ -421,7 +425,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 if (!stk->_int())
                     failAssertion(cond,
                         self == NULL ? str("*") :
-                            self->getType()->getParentModuleName(), linenum);
+                            self->getType()->getParentModule()->getName(), linenum);
                 POPPOD();
             }
             break;
@@ -616,9 +620,11 @@ void Context::clear()
 
 void Context::dump(const str& listingPath)
 {
-    outtext f(NULL, listingPath);
+    outtext stm(NULL, listingPath);
+    stm << "#FLAG INT_SIZE " << sizeof(integer) * 8 << endl;
+    stm << "#FLAG PTR_SIZE " << sizeof(void*) * 8 << endl;
     for (memint i = 0; i < instances.size(); i++)
-        instances[i]->module->dump(f);
+        instances[i]->module->dump(stm);
 }
 
 

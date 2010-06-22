@@ -39,6 +39,7 @@ void ut_fail(unsigned line, const char* e)
 int main()
 {
     sio << "Shannon " << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
+        << " (" << sizeof(integer) * 8 << ')'
         << ' ' << SHANNON_COPYRIGHT << endl << endl;
 
     int exitcode = 0;

@@ -766,15 +766,12 @@ void State::fqName(fifo& stm) const
 }
 
 
-str State::getParentModuleName() const
+Module* State::getParentModule() const
 {
-    if (parent == NULL)
-    {
-        assert(isModule());
-        return defName.empty() ? str('*') : defName;
-    }
-    else
-        return parent->getParentModuleName();
+    const State* m = this;
+    while (!m->isModule())
+        m = m->parent;
+    return PModule(m);
 }
 
 
