@@ -654,6 +654,7 @@ bool str::operator== (const char* s) const
 void str::operator+= (const char* s)
     { append(s, pstrlen(s)); }
 
+
 void str::insert(memint pos, const char* s)
     { bytevec::insert(pos, s, pstrlen(s)); }
 
@@ -1101,7 +1102,7 @@ memint variant::compare(const variant& v) const
         case REAL:
             return val._real < v.val._real ? -1 : (val._real > v.val._real ? 1 : 0);
         case VARPTR:
-            return val._var - v.val._var;
+            return val._ptr - v.val._ptr;
         case STR:
             return _str().compare(v._str());
         // TODO: define "deep" comparison? but is it really needed for hashing?
@@ -1127,7 +1128,7 @@ bool variant::operator== (const variant& v) const
             case VOID:      return true;
             case ORD:       return val._ord == v.val._ord;
             case REAL:      return val._real == v.val._real;
-            case VARPTR:    return val._var == v.val._var;
+            case VARPTR:    return val._ptr == v.val._ptr;
             case STR:       return _str() == v._str();
             case VEC:       return _vec() == v._vec();
             case SET:       return _set() == v._set();
@@ -1148,7 +1149,7 @@ bool variant::empty() const
         case VOID:      return true;
         case ORD:       return val._ord == 0;
         case REAL:      return val._real == 0;
-        case VARPTR:    return val._var == NULL;
+        case VARPTR:    return val._ptr == NULL;
         case STR:       return _str().empty();
         case VEC:       return _vec().empty();
         case SET:       return _set().empty();

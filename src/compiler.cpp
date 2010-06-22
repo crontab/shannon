@@ -629,7 +629,7 @@ void Compiler::dumpVar()
 
 void Compiler::otherStatement()
 {
-    // TODO: assignment, call, pipe, etc
+    // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
     codegen->beginLValue();
     designator();

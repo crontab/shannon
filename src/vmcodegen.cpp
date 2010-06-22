@@ -682,6 +682,41 @@ void CodeGen::beginLValue()
 }
 
 
+// --- ASSIGNMENT
+
+
+static OpCode loaderToStorer(OpCode op)
+{
+    // Should be in sync with loaderToLea() below, i.e. same ops should be 
+    // handled by both functions
+    switch (op)
+    {
+        case opLoadSelfVar: return opStoreSelfVar;
+        case opLoadStkVar:  return opStoreStkVar;
+        case opLoadMember:  return opStoreMember;
+        case opDeref:       return opStoreRef;
+        default:
+            throw emessage("Not an l-value");
+            return opInv;
+    }
+}
+
+
+static OpCode loaderToLea(OpCode op)
+{
+    switch (op)
+    {
+        case opLoadSelfVar: return opLeaSelfVar;
+        case opLoadStkVar:  return opLeaStkVar;
+        case opLoadMember:  return opLeaMember;
+        case opDeref:       return opLeaRef;
+        default:
+            fatal(0x6006, "loaderToLea(): invalid opcode");
+            return opInv;
+    }
+}
+
+
 str CodeGen::endLValue(bool isAssignment)
 {
     if (!isAssignment)
@@ -690,27 +725,28 @@ str CodeGen::endLValue(bool isAssignment)
         return str();
     }
 
+    designatorOps.push_back(stkTopItem().offs);
     str s;
-    memint offs = stkTopItem().offs;
-    OpCode loader = codeseg[offs];
-
-    // TODO: for array ops, convert to a 'push' variant of the opcode, also add a storer op
-
-    OpCode storer;
-    switch(loader)
+    OpCode storer = opInv;
+    memint i = designatorOps.size() - 1;
+    while (1)
     {
-        // Local, self, or non-resizable object
-        case opLoadSelfVar: storer = opStoreSelfVar; break;
-        case opLoadStkVar:  storer = opStoreStkVar; break;
-        case opLoadMember:  storer = opStoreMember; break;
-        case opDeref:       storer = opStoreRef; break;
-        default:            storer = opInv; break;
+        memint offs = designatorOps[i];
+        OpCode loader = codeseg[offs];
+        storer = loaderToStorer(loader);
+        if (isFinalStorer(storer))
+        {
+            codeseg.replace(offs, storer);
+            s += codeseg.cutOp(offs);
+            break;
+        }
+        // Intermediary (presumably container) load/store transformation
+        codeseg.replace(offs, loaderToLea(loader));
+        s += char(storer);
+        i--;
+        if (i < 0)  // shouldn't happen
+            fatal(0x6007, "endLValue(): invalid loader");
     }
-    if (storer == opInv)
-        error("Not an L-value");
-
-    codeseg.replace(offs, storer);
-    s += codeseg.cutOp(offs);
 
     designatorStop();
 

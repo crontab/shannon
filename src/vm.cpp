@@ -171,11 +171,22 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opLoadSelfVar:
             PUSH(*self->member(ADV(uchar)));
             break;
+        case opLeaSelfVar:
+            PUSH(self);
+            PUSH(self->member(ADV(uchar)));
+            break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV(char)));
             break;
+        case opLeaStkVar:
+            PUSH((rtobject*)NULL);
+            PUSH(stack.bp + ADV(char));
+            break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
+            break;
+        case opLeaMember:
+            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
             break;
         case opDeref:
             {
@@ -184,16 +195,19 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
+        case opLeaRef:
+            PUSH(&stk->_ref()->var);
+            break;
 
         // --- 4. STORERS
         case opInitSelfVar:
             INITTO(self->member(ADV(uchar)));
             break;
-        case opStoreSelfVar:
-            POPTO(self->member(ADV(uchar)));
-            break;
         case opInitStkVar:
             INITTO(stack.bp + memint(ADV(char)));
+            break;
+        case opStoreSelfVar:
+            POPTO(self->member(ADV(uchar)));
             break;
         case opStoreStkVar:
             POPTO(stack.bp + memint(ADV(char)));
@@ -206,6 +220,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POPTO(&((stk - 1)->_ref()->var));
             POP();
             break;
+        // case opStore:
+        //     notimpl();
+        //     break;
 
         // --- 5. DESIGNATOR OPS, MISC
         case opMkSubrange:

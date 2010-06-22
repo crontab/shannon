@@ -35,19 +35,24 @@ OpInfo opTable[] =
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self-idx:u8] +var
+    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +self +ptr
     OP(LoadStkVar, StkIdx),     // [stk-idx:s8] +var
+    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
+    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
     OP(Deref, None),            // -ref +var
+    OP(LeaRef, None),           // -ref +ref +ptr
     // --- end designator loaders
 
     // --- 4. STORERS
     OP(InitSelfVar, SelfIdx),   // [self-idx:u8] -var
-    OP(StoreSelfVar, SelfIdx),  // [self-idx:u8] -var
     OP(InitStkVar, StkIdx),     // [stk-idx:s8] -var
+    OP(StoreSelfVar, SelfIdx),  // [self-idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk-idx:s8] -var
     OP(StoreMember, StateIdx),  // [stateobj-idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
+    // OP(Store, None),            // -var -ptr -obj
 
     // --- 5. DESIGNATOR OPS, MISC
     OP(MkSubrange, Type),       // [Ordinal*] -int -int +type  -- compile-time only
@@ -152,6 +157,27 @@ static struct vmdebuginit
     (ip += sizeof(T), *(T*)(ip - sizeof(T)))
 
 
+static const char* varTypeStr(variant::Type type)
+{
+#define _C(t) case variant::t: return #t;
+    switch(type)
+    {
+        _C(VOID)
+        _C(ORD)
+        _C(REAL)
+        _C(VARPTR)
+        _C(STR)
+        _C(VEC)
+        _C(SET)
+        _C(ORDSET)
+        _C(DICT)
+        _C(REF)
+        _C(RTOBJ)
+    }
+    return false;
+}
+
+
 void CodeSeg::dump(fifo& stm) const
 {
     if (code.empty())
@@ -165,15 +191,45 @@ void CodeSeg::dump(fifo& stm) const
         const OpInfo& info = opTable[*ip];
         if (*ip == opLineNum)
         {
-            ip++;
             stm << "#LINENUM " << ADV(integer);
+            ip++;
         }
         else
         {
             stm << to_string(ip - beginip, 16, 6, '0') << ":\t";
             ip++;
             stm << info.name;
-            ip += ArgSizes[info.arg];
+            if (info.arg != argNone)
+            {
+                stm << '\t';
+                if (strlen(info.name) < 8)
+                    stm << '\t';
+            }
+            switch (info.arg)
+            {
+                case argNone:       break;
+                case argType:       ADV(Type*)->dumpDef(stm); break;
+                case argUInt8:      stm << to_quoted(ADV(char)); break;
+                case argInt:        stm << ADV(integer); break;
+                case argStr:        stm << ADV(str); break;
+                case argVarType8:   stm << varTypeStr(variant::Type(ADV(uchar))); break;
+                case argDefinition: stm << "const " << ADV(Definition*)->name; break;
+/*
+                case argConst16:    queenBee->defVariant->dumpValue(stm, consts[ADV<uint16_t>(ip)]); break;
+                case argIndex:      stm << '.' << integer(ADV<uchar>(ip)); break;
+                case argModIndex:   stm << ADV<Module*>(ip)->name; stm << '.' << int(ADV<uchar>(ip)); break;
+                case argLevelIndex: stm << '.' << ADV<uchar>(ip); stm << ':' << int(ADV<uchar>(ip)); break;
+                case argJump16:
+                    {
+                        mem o = ADV<joffs_t>(ip);
+                        stm << to_string(ip - saveip + o, 16, 4, '0');
+                    }
+                    break;
+                case argIntInt:     stm << ADV<integer>(ip); stm << ',' << ADV<integer>(ip); break;
+                case argFile16Line16: break;
+                case argFlag:       stm << (ADV<uchar>(ip) ? "F" : ""); break;
+*/
+            }
         }
         stm << endl;
         if (info.op == opEnd)
