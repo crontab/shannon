@@ -426,6 +426,7 @@ public:
     State(TypeId, Prototype* proto, State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
+    str getParentModuleName() const;
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
@@ -448,18 +449,20 @@ class Module: public State
 {
 protected:
     strvec constStrings;
+    objvec<CodeSeg> codeSegs;   // for dumps
     bool complete;
-    void dump(fifo&) const;
 public:
     str const filePath;
     objvec<SelfVar> uses; // used module instances are stored in static vars
     Module(const str& name, const str& filePath);
     ~Module();
+    void dump(fifo&) const;
     str getName() const         { return defName; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUses(Module*);
     void registerString(str&); // registers a string literal for use at run-time
+    void registerCodeSeg(CodeSeg* c);
 };
 
 

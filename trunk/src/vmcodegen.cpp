@@ -7,7 +7,7 @@
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
     : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      designatorStkLevel(-1)
+      lastOp(opInv), designatorStkLevel(-1)
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -652,13 +652,18 @@ void CodeGen::resolveJump(memint jumpOffs)
 }
 
 
-void CodeGen::assertion(const str& cond, const str& fileName, integer line)
+void CodeGen::linenum(integer n)
+{
+    if (lastOp != opLineNum)
+        addOp<integer>(opLineNum, n);
+}
+
+
+void CodeGen::assertion(const str& cond)
 {
     implicitCast(queenBee->defBool, "Boolean expression expected for 'assert'");
     stkPop();
     addOp(opAssert, cond.obj);
-    add(fileName.obj);
-    add(line);
 }
 
 
@@ -685,12 +690,8 @@ str CodeGen::endLValue(bool isAssignment)
         return str();
     }
 
-    // designatorOps now contains all first-level ops (actually offsets to
-    // those ops) except the last one, so add it too
-    designatorOps.push_back(stkTopItem().offs);
     str s;
-    memint offs;
-    designatorOps.pop_back(offs);
+    memint offs = stkTopItem().offs;
     OpCode loader = codeseg[offs];
 
     // TODO: for array ops, convert to a 'push' variant of the opcode, also add a storer op

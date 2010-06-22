@@ -42,12 +42,12 @@ static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
 static void doExit()                { throw eexit(); }
 
 
-static void failAssertion(const str& cond, const str& fn, integer linenum)
-    { throw emessage("Assertion failed \"" + cond + "\" at " + fn + ':' + to_string(linenum)); }
+static void failAssertion(const str& cond, const str& modname, integer linenum)
+    { throw emessage("Assertion failed \"" + cond + "\" at " + modname + '(' + to_string(linenum) + ')'); }
 
 
-static void objectGone()
-    { throw emessage("Object lost before assignment"); }
+// static void objectGone()
+//     { throw emessage("Object lost before assignment"); }
 
 
 static void dumpVar(const str& expr, const variant& var, Type* type)
@@ -81,9 +81,8 @@ static void byteDictReplace(varvec& v, integer i, const variant& val)
 }
 
 
-template<class T>
-    inline T& ADV(const char*& ip)
-        { T& t = *(T*)ip; ip += sizeof(T); return t; }
+#define ADV(T) \
+    (ip += sizeof(T), *(T*)(ip - sizeof(T)))
 
 #define PUSH(v) \
     { ::new(stk + 1) variant(v); stk++; }
@@ -106,19 +105,29 @@ template <class T>
    inline void SETPOD(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
-inline void RELEASE_OBJ(variant* v)
-    { if (v->_anyobj()->release() == 0) objectGone(); }
-
+/*
+static void MODIFY_CONT(object* o)
+{
+    // Prepare an object on the stack for modification and assignment:
+    // if the object is not unique, decrement its refcount so that when
+    // assigning it back to the original holder, no copying takes place.
+    // In case of a race condition (in a MT environment), throw an exception.
+    if (!o->isunique())
+        if (o->release() == 0)
+            objectGone();
+}
+*/
 
 #define BINARY_INT(op) { (stk - 1)->_int() op stk->_int(); POPPOD(); }
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(stateobj* self, rtstack& stack, const char* ip)
+void runRabbitRun(stateobj* self, rtstack& stack, register const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
     memint offs; // used in jump calculations
+    integer linenum = -1;
     try
     {
 loop:  // use goto's instead of while(1) {} so that compilers don't complain
@@ -131,7 +140,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 2. CONST LOADERS
         case opLoadTypeRef:
-            PUSH(ADV<Type*>(ip));
+            PUSH(ADV(Type*));
             break;
         case opLoadNull:
             PUSH(variant::null);
@@ -143,30 +152,30 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             PUSH(integer(1));
             break;
         case opLoadByte:
-            PUSH(integer(ADV<uchar>(ip)));
+            PUSH(integer(ADV(uchar)));
             break;
         case opLoadOrd:
-            PUSH(ADV<integer>(ip));
+            PUSH(ADV(integer));
             break;
         case opLoadStr:
-            PUSH(ADV<str>(ip));
+            PUSH(ADV(str));
             break;
         case opLoadEmptyVar:
-            PUSH(variant::Type(ADV<char>(ip)));
+            PUSH(variant::Type(ADV(char)));
             break;
         case opLoadConst:
-            PUSH(ADV<Definition*>(ip)->value);  // TODO: better?
+            PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
 
         // --- 3. DESIGNATOR LOADERS
         case opLoadSelfVar:
-            PUSH(*self->member(ADV<uchar>(ip)));
+            PUSH(*self->member(ADV(uchar)));
             break;
         case opLoadStkVar:
-            PUSH(*(stack.bp + ADV<char>(ip)));
+            PUSH(*(stack.bp + ADV(char)));
             break;
         case opLoadMember:
-            *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV<uchar>(ip));
+            *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
             break;
         case opDeref:
             {
@@ -175,52 +184,22 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
-        case opStrElem:
-            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
-            POPPOD();
-            break;
-        case opVecElem:
-            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
-            POPPOD();
-            break;
-        case opDictElem:
-            {
-                const variant* v = (stk - 1)->_dict().find(*stk);
-                POP();
-                if (v)
-                    *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
-                else
-                    container::keyerr();
-            }
-            break;
-        case opByteDictElem:
-            {
-                integer i = stk->_int();
-                POPPOD();
-                if (i < 0 || i >= stk->_vec().size())
-                    container::keyerr();
-                const variant& v = stk->_vec()[memint(i)];
-                if (v.is_null())
-                    container::keyerr();
-                *stk = v;  // same as for opDictElem
-            }
-            break;
 
         // --- 4. STORERS
         case opInitSelfVar:
-            INITTO(self->member(ADV<uchar>(ip)));
+            INITTO(self->member(ADV(uchar)));
             break;
         case opStoreSelfVar:
-            POPTO(self->member(ADV<uchar>(ip)));
+            POPTO(self->member(ADV(uchar)));
             break;
         case opInitStkVar:
-            INITTO(stack.bp + memint(ADV<char>(ip)));
+            INITTO(stack.bp + memint(ADV(char)));
             break;
         case opStoreStkVar:
-            POPTO(stack.bp + memint(ADV<char>(ip)));
+            POPTO(stack.bp + memint(ADV(char)));
             break;
         case opStoreMember:
-            POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV<uchar>(ip)));
+            POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV(uchar)));
             POP();
             break;
         case opStoreRef:
@@ -230,7 +209,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 5. DESIGNATOR OPS, MISC
         case opMkSubrange:
-            *(stk - 1) = ADV<Ordinal*>(ip)->createSubrange((stk - 1)->_int(), stk->_int());
+            *(stk - 1) = ADV(Ordinal*)->createSubrange((stk - 1)->_int(), stk->_int());
             POP();
             break;
         case opMkRef:
@@ -272,18 +251,13 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opVecLen:
             *stk = integer(stk->_vec().size());
             break;
-        case opReplStrElem:
-            // -int -int -str +str
-            RELEASE_OBJ(stk - 2);
-            (stk - 2)->_str().replace((stk - 1)->_int(), stk->_uchar());
-            stk -= 3; // all 3 elements are now dummy
+        case opStrElem:
+            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
+            POPPOD();
             break;
-        case opReplVecElem:
-            // -var -int -vec +vec
-            RELEASE_OBJ(stk - 2);
-            (stk - 2)->_vec().replace((stk - 1)->_int(), *stk);
-            POP();
-            stk -= 2;
+        case opVecElem:
+            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
+            POPPOD();
             break;
 
         // --- 7. SETS
@@ -334,6 +308,29 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POP();
             POPPOD();
             break;
+        case opDictElem:
+            {
+                const variant* v = (stk - 1)->_dict().find(*stk);
+                POP();
+                if (v)
+                    *stk = *v;  // potentially dangerous if dict has refcount=1, which it shouldn't
+                else
+                    container::keyerr();
+            }
+            break;
+        case opByteDictElem:
+            {
+                integer i = stk->_int();
+                POPPOD();
+                if (i < 0 || i >= stk->_vec().size())
+                    container::keyerr();
+                const variant& v = stk->_vec()[memint(i)];
+                if (v.is_null())
+                    container::keyerr();
+                *stk = v;  // same as for opDictElem
+            }
+            break;
+
 
         // --- 9. ARITHMETIC
         // TODO: range checking in debug mode
@@ -376,13 +373,13 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         // --- 11. JUMPS
         case opJump:
                 // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
-            offs = ADV<jumpoffs>(ip);
+            offs = ADV(jumpoffs);
             ip += offs;
             break;
         case opJumpFalse:
             UNARY_INT(!);
         case opJumpTrue:
-            offs = ADV<jumpoffs>(ip);
+            offs = ADV(jumpoffs);
             if (stk->_int())
                 ip += offs;
             POP();
@@ -390,7 +387,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opJumpAnd:
             UNARY_INT(!);
         case opJumpOr:
-            offs = ADV<jumpoffs>(ip);
+            offs = ADV(jumpoffs);
             if (stk->_int())
                 ip += offs;
             else
@@ -398,20 +395,23 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             break;
 
         // --- 12. DEBUGGING, DIAGNOSTICS
+        case opLineNum:
+            linenum = ADV(integer);
+            break;
         case opAssert:
             {
-                str& cond = ADV<str>(ip);
-                str& fn = ADV<str>(ip);
-                integer ln = ADV<integer>(ip);
+                str& cond = ADV(str);
                 if (!stk->_int())
-                    failAssertion(cond, fn, ln);
+                    failAssertion(cond,
+                        self == NULL ? str("*") :
+                            self->getType()->getParentModuleName(), linenum);
                 POPPOD();
             }
             break;
         case opDump:
             {
-                str& expr = ADV<str>(ip);
-                dumpVar(expr, *stk, ADV<Type*>(ip));
+                str& expr = ADV(str);
+                dumpVar(expr, *stk, ADV(Type*));
                 POP();
             }
             break;
@@ -422,9 +422,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         }
         goto loop;
 exit:
-        // while (stk >= stack.bp)
-        //     POP(stk);
-        // TODO: assertion below only for DEBUG build
+#ifndef DEBUG
+        while (stk >= stack.bp)
+            POP();
+#endif
         assert(stk == stack.bp - 1);
     }
     catch(exception&)
@@ -497,7 +498,7 @@ void ModuleInstance::finalize()
 
 
 CompilerOptions::CompilerOptions()
-  : enableDump(true), enableAssert(true), linenumInfo(true),
+  : enableDump(true), enableAssert(true), lineNumbers(true),
     vmListing(true), stackSize(8192)
         { modulePath.push_back("./"); }
 
@@ -506,7 +507,7 @@ void CompilerOptions::setDebugOpts(bool flag)
 {
     enableDump = flag;
     enableAssert = flag;
-    linenumInfo = flag;
+    lineNumbers = flag;
     vmListing = flag;
 }
 
@@ -600,7 +601,7 @@ void Context::dump(const str& listingPath)
 {
     outtext f(NULL, listingPath);
     for (memint i = 0; i < instances.size(); i++)
-        instances[i]->module->dumpAll(f);
+        instances[i]->module->dump(f);
 }
 
 
