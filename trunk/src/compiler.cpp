@@ -185,7 +185,7 @@ void Compiler::dictCtor()
 
 /*
     1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
-    2. <array-sel>  <member-sel>  <function-call>  ^
+    2. @  <array-sel>  <member-sel>  <function-call>  ^
     3. unary-  #  as  is  ?
     5. *  /  mod
     6. +  –
@@ -266,8 +266,14 @@ void Compiler::atom()
 void Compiler::designator()
 {
     // TODO: qualifiers, function calls
+    bool isAt = skipIf(tokAt);
+
     memint undoOffs = codegen->getCurrentOffs();
     atom();
+
+    if (isAt)
+        codegen->mkref();
+
     while (1)
     {
         if (skipIf(tokPeriod))
@@ -558,6 +564,7 @@ Type* Compiler::getTypeAndIdent(str& ident)
     type = getTypeValue(false);
     ident = getIdentifier();
     next();
+    type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
     expect(tokAssign, "'='");
     return type;
@@ -592,7 +599,9 @@ void Compiler::variable()
         Type* exprType = codegen->getTopType();
         // Automatic mkref is allowed only when initializing the var,
         // otherwise '^' must be used.
-        if (type->isReference() && !exprType->isReference())
+        if (!type->isReference())
+            codegen->deref();
+        else if (!exprType->isReference())
             codegen->mkref();
         codegen->implicitCast(type);
     }

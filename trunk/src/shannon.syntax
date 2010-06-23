@@ -71,6 +71,7 @@ context default
 	keyword &	yellow
 	keyword |	yellow
 	keyword ^	yellow
+	keyword @	yellow
 	keyword >	yellow
 	keyword <	yellow
 	keyword #	yellow

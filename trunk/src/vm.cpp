@@ -287,6 +287,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             (stk - 2)->_ptr()->_str().replace((stk - 1)->_int(), stk->_uchar());
             POPPOD(); POPPOD(); POPPOD(); POP();
             break;
+        case opStoreVecElem:    // -var -int -ptr -obj
+            (stk - 2)->_ptr()->_vec().replace((stk - 1)->_int(), *stk);
+            POP(); POPPOD(); POPPOD(); POP();
+            break;
 
         // --- 7. SETS
         case opElemToSet:
@@ -345,6 +349,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 else
                     container::keyerr();
             }
+            break;
+        case opStoreDictElem:  // -var -var -ptr -obj
+            (stk - 2)->_ptr()->_dict().find_replace(*(stk - 1), *stk);
+            POP(); POP(); POPPOD(); POP();
             break;
         case opByteDictElem:
             {

@@ -68,6 +68,7 @@ enum OpCode
     opStrElem,          // -idx -str +char
     opVecElem,          // -idx -vec +var
     opStoreStrElem,     // -char -int -ptr -obj
+    opStoreVecElem,     // -var -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -83,6 +84,7 @@ enum OpCode
     opPairToByteDict,   // -var -int +vec
     opByteDictAddPair,  // -var -int -vec +vec
     opDictElem,         // -var -dict +var
+    opStoreDictElem,    // -var -var -ptr -obj
     opByteDictElem,     // -int -dict +var
 
     // --- 9. ARITHMETIC

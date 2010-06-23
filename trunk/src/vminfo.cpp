@@ -75,6 +75,7 @@ OpInfo opTable[] =
     OP(StrElem, None),          // -idx -str +int
     OP(VecElem, None),          // -idx -vec +var
     OP(StoreStrElem, None),     // -char -int -ptr -obj
+    OP(StoreVecElem, None),     // -var -int -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set
@@ -90,6 +91,7 @@ OpInfo opTable[] =
     OP(PairToByteDict, None),   // -var -int +vec
     OP(ByteDictAddPair, None),  // -var -int -vec +vec
     OP(DictElem, None),         // -var -dict +var
+    OP(StoreDictElem, None),    // -var -var -ptr -obj
     OP(ByteDictElem, None),     // -int -dict +var
 
     // --- 9. ARITHMETIC

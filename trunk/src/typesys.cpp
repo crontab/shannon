@@ -464,7 +464,7 @@ void Reference::dump(fifo& stm) const
 
 
 void Reference::dumpValue(fifo& stm, const variant& v) const
-    { stm << '@'; dumpVariant(stm, v, to); }
+    { stm << '@'; dumpVariant(stm, v.as_ref()->var, to); }
 
 
 bool Reference::identicalTo(Type* t) const
