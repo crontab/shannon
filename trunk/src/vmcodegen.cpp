@@ -7,7 +7,7 @@
 
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
     : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      lastOp(opInv), designatorStkLevel(-1)
+      lastOp(opInv), prevLoaderOffs(-1)
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -43,8 +43,7 @@ void CodeGen::undoLastLoad()
     {
         stkPop();
         codeseg.erase(offs);
-        if (!designatorOps.empty() && designatorOps.back() == offs)
-            designatorOps.pop_back();
+        prevLoaderOffs = -1;
     }
     else
         // discard();
@@ -55,8 +54,7 @@ void CodeGen::undoLastLoad()
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
-    if (designatorStkLevel == simStack.size() - 1)
-        designatorOps.push_back(s.offs);
+    prevLoaderOffs = s.offs;
     Type* result = s.type;
     simStack.pop_back();
     return result;
@@ -683,14 +681,11 @@ void CodeGen::dumpVar(const str& expr)
 }
 
 
-void CodeGen::beginLValue()
-{
-    assert(designatorStkLevel == -1 && designatorOps.empty());
-    designatorStart();
-}
-
-
 // --- ASSIGNMENT
+
+
+static void errorLValue()
+    { throw emessage("Not an l-value"); }
 
 
 static OpCode loaderToStorer(OpCode op)
@@ -701,9 +696,10 @@ static OpCode loaderToStorer(OpCode op)
         case opLoadStkVar:  return opStoreStkVar;
         case opLoadMember:  return opStoreMember;
         case opDeref:       return opStoreRef;
-        // --- end final storers
+        // end grounded storers
+        case opStrElem:     return opStoreStrElem;
         default:
-            throw emessage("Not an l-value");
+            errorLValue();
             return opInv;
     }
 }
@@ -713,54 +709,36 @@ static OpCode loaderToLea(OpCode op)
 {
     switch (op)
     {
-        // case opLoadSelfVar: return opLeaSelfVar;
-        // case opLoadStkVar:  return opLeaStkVar;
-        // case opLoadMember:  return opLeaMember;
-        // case opDeref:       return opLeaRef;
-        // --- end final storers
+        case opLoadSelfVar: return opLeaSelfVar;
+        case opLoadStkVar:  return opLeaStkVar;
+        case opLoadMember:  return opLeaMember;
+        case opDeref:       return opLeaRef;
         default:
-            throw emessage("Not an l-value");
+            errorLValue();
             return opInv;
     }
 }
 
 
-str CodeGen::endLValue(bool isAssignment)
+str CodeGen::lvalue()
 {
-    if (!isAssignment)
+    memint offs = stkTopItem().offs;
+    OpCode storer = loaderToStorer(codeseg[offs]);
+    if (isGroundedStorer(storer))
     {
-        designatorStop();
-        return str();
+        // Plain assignment to a "grounded" variant: remove the loader and
+        // return the corresponding storer to be appended later at the end
+        // of the assignment statement.
     }
-
-    str s;
-
-    designatorOps.push_back(stkTopItem().offs);
-    OpCode storer = opInv;
-    memint i = designatorOps.size() - 1;
-    while (1)
+    else
     {
-        memint offs = designatorOps[i];
-        OpCode loader = codeseg[offs];
-        storer = loaderToStorer(loader);
-        if (isFinalStorer(storer))
-        {
-            codeseg.replaceOp(offs, storer);
-            s += codeseg.cutOp(offs);
-            break;
-        }
-        // Intermediary (presumably container) load/store transformation
-        OpCode op = loaderToLea(loader);
-        codeseg.replaceOp(offs, op);
-        s += char(storer);
-        i--;
-        if (i < 0)  // shouldn't happen
-            fatal(0x6007, "endLValue(): invalid loader");
+        // A more complex assignment case: look at the previous loader - it 
+        // should be a grounded one, transform it to its LEA equivalent, then
+        // transform/move the last loader like in the previous case.
+        codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
     }
-
-    designatorStop();
-
-    return s;
+    codeseg.replaceOp(offs, storer);
+    return codeseg.cutOp(offs);
 }
 
 

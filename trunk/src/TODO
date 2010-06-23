@@ -1,8 +1,6 @@
 
 * Operators 'in', 'is' and 'as'
 
-* Assignments (oh man, what am I gonna do)
-
 * Read-only variables (const) and const subexpressions.
 
 * if, while, case, break, continue, goto, exit, return
