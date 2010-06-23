@@ -95,4 +95,10 @@ assert c == 'a:$d'
 // error: 1 = 2
 // error: s0 = ''
 
+// TYPECAST
+assert 1 as char == '\x1'
+assert 'a' as int == 97
+var any v10 = 0
+assert v10 as nums == one
+
 system.__program_result = null

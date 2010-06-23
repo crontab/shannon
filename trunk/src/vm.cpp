@@ -46,6 +46,9 @@ static void failAssertion(const str& cond, const str& modname, integer linenum)
     { throw emessage("Assertion failed \"" + cond + "\" at " + modname + '(' + to_string(linenum) + ')'); }
 
 
+static void typecastError()
+    { throw evariant("Invalid typecast"); }
+
 // static void objectGone()
 //     { throw emessage("Object lost before assignment"); }
 
@@ -234,6 +237,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             break;
         case opPop:
             POP();
+            break;
+        case opCast:
+            if (!ADV(Type*)->isCompatibleWith(*stk))
+                typecastError();
             break;
 
         // --- 6. STRINGS, VECTORS
@@ -558,6 +565,8 @@ Module* Context::loadModule(const str& filePath)
     addModule(m);
     Compiler compiler(*this, *m, new intext(NULL, filePath));
     compiler.compileModule();
+    if (options.enableDump || options.vmListing)
+        dump(remove_filename_ext(filePath) + ".lst");
     return m;
 }
 
@@ -600,6 +609,8 @@ void Context::instantiateModules()
     for (memint i = 0; i < instances.size(); i++)
     {
         ModuleInstance* inst = instances[i];
+        if (!inst->module->isComplete())
+            fatal(0x5004, "Module not compiled");
         inst->obj = inst->module->newInstance();
         assert(modObjMap.find(inst->module) == NULL);
         modObjMap.find_replace(inst->module, inst->obj);
@@ -625,11 +636,9 @@ void Context::dump(const str& listingPath)
 }
 
 
-variant Context::execute(const str& filePath)
+variant Context::execute()
 {
-    loadModule(filePath);
-    if (options.enableDump || options.vmListing)
-        dump(remove_filename_ext(filePath) + ".lst");
+    // loadModule(filePath);
 
     // Now that all modules are compiled and their dataseg sizes are known, we can
     // instantiate the objects

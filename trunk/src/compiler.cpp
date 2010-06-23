@@ -40,7 +40,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         }
         else
         {
-            Type* indexType = getTypeValue();
+            Type* indexType = getTypeValue(false);
             expect(tokRSquare, "]");
             if (indexType->isVoid())
                 return getTypeDerivators(type)->deriveVec(state);
@@ -265,7 +265,6 @@ void Compiler::atom()
 void Compiler::designator()
 {
     // TODO: qualifiers, function calls
-    // TODO: assignment
     atom();
     while (1)
     {
@@ -320,7 +319,12 @@ void Compiler::factor()
         codegen->deref();
         codegen->nonEmpty();
     }
-    // TODO: as, is
+    if (skipIf(tokAs))
+    {
+        Type* type = getTypeValue(true);
+        // TODO: default value in parens?
+        codegen->explicitCast(type);
+    }
 }
 
 
@@ -506,12 +510,15 @@ ICouldHaveDoneThisWithoutGoto:
 // ------------------------------------------------------------------------- //
 
 
-Type* Compiler::getConstValue(Type* expectType, variant& result)
+Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 {
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    expression();
+    if (atomType)
+        atom();
+    else
+        expression();
     if (codegen->getTopType()->isReference())
         error("References not allowed in const expressions");
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
@@ -520,10 +527,10 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
 }
 
 
-Type* Compiler::getTypeValue()
+Type* Compiler::getTypeValue(bool atomType)
 {
     variant result;
-    getConstValue(defTypeRef, result);
+    getConstValue(defTypeRef, result, atomType);
     return state->registerType(cast<Type*>(result._rtobj()));
 }
 
@@ -539,7 +546,7 @@ Type* Compiler::getTypeAndIdent(str& ident)
         // TODO: see if the type specifier is a single ident and parse it immediately here
         undoIdent(ident);
     }
-    type = getTypeValue();
+    type = getTypeValue(false);
     ident = getIdentifier();
     next();
 ICantBelieveIUsedAGotoStatement:
@@ -553,7 +560,7 @@ void Compiler::definition()
     str ident;
     Type* type = getTypeAndIdent(ident);
     variant value;
-    Type* valueType = getConstValue(type, value);
+    Type* valueType = getConstValue(type, value, false);
     if (type == NULL)
         type = valueType;
     if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))

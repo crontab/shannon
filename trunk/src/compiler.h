@@ -34,8 +34,8 @@ protected:
         { orLevel(); }
     void expression();
     Type* getTypeDerivators(Type*);
-    Type* getConstValue(Type* resultType, variant& result);
-    Type* getTypeValue();
+    Type* getConstValue(Type* resultType, variant& result, bool atomType);
+    Type* getTypeValue(bool atomType);
     Type* getTypeAndIdent(str& ident);
     void definition();
     void variable();

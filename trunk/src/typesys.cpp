@@ -120,17 +120,6 @@ Symbol* Scope::findShallow(const str& ident) const
     return s;
 }
 
-/*
-Symbol* Scope::findDeep(const str& ident) const
-{
-    Symbol* s = find(ident);
-    if (s != NULL)
-        return s;
-    if (outer != NULL)
-        return outer->findDeep(ident);
-    throw EUnknownIdent(ident);
-}
-*/
 
 
 // --- //
@@ -222,6 +211,28 @@ bool Type::identicalTo(Type* t) const
 
 bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
+
+
+bool Type::isCompatibleWith(const variant& v)
+{
+    switch (v.getType())
+    {
+        case variant::VOID:     return isVoid();
+        case variant::ORD:      return isAnyOrd();
+        case variant::REAL:     notimpl(); return false;
+        case variant::VARPTR:   return false;
+        case variant::STR:      return isByteVec();
+        case variant::VEC:      return (isAnyVec() && !isByteVec()) || isByteDict();
+        case variant::SET:      return isAnySet() && !isByteSet();
+        case variant::ORDSET:   return isByteSet();
+        case variant::DICT:     return isAnyDict() && !isByteDict();
+        case variant::REF:      return isReference();
+        case variant::RTOBJ:
+            rtobject* o = v._rtobj();
+            return (o == NULL) || o->getType()->canAssignTo(this);
+    }
+    return false;
+}
 
 
 bool Type::empty() const
@@ -403,17 +414,17 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
     {
         switch (v.getType())
         {
-        case variant::VOID:     stm << "null"; break;
-        case variant::ORD:      stm << v._int(); break;
-        case variant::REAL:     notimpl(); break;
-        case variant::VARPTR:   stm << "@@"; if (v._ptr()) dumpVariant(stm, v._ptr()); break;
-        case variant::STR:      stm << to_quoted(v._str()); break;
-        case variant::VEC:      dumpVec(stm, v._vec(), false); break;
-        case variant::SET:      dumpVec(stm, v._set(), true); break;
-        case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
-        case variant::DICT:     dumpDict(stm, v._dict()); break;
-        case variant::REF:      stm << '@'; dumpVariant(stm, v._ref()->var); break;
-        case variant::RTOBJ:    if (v._rtobj()) v._rtobj()->dump(stm); break;
+            case variant::VOID:     stm << "null"; break;
+            case variant::ORD:      stm << v._int(); break;
+            case variant::REAL:     notimpl(); break;
+            case variant::VARPTR:   stm << "@@"; if (v._ptr()) dumpVariant(stm, v._ptr()); break;
+            case variant::STR:      stm << to_quoted(v._str()); break;
+            case variant::VEC:      dumpVec(stm, v._vec(), false); break;
+            case variant::SET:      dumpVec(stm, v._set(), true); break;
+            case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
+            case variant::DICT:     dumpDict(stm, v._dict()); break;
+            case variant::REF:      stm << '@'; dumpVariant(stm, v._ref()->var); break;
+            case variant::RTOBJ:    if (v._rtobj()) v._rtobj()->dump(stm); break;
         }
     }
 }
@@ -1000,6 +1011,8 @@ QueenBee::QueenBee()
     resultVar = addSelfVar("__program_result", defVariant);
     sioVar = addSelfVar("sio", defCharFifo);
     serrVar = addSelfVar("serr", defCharFifo);
+
+    setComplete();
 }
 
 
@@ -1015,7 +1028,6 @@ stateobj* QueenBee::newInstance()
     *inst->member(sioVar->id) = &sio;
     *inst->member(serrVar->id) = &serr;
     getCodeSeg()->close();
-    setComplete();
     return inst;
 }
 
