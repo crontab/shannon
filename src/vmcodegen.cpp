@@ -125,9 +125,16 @@ void CodeGen::explicitCast(Type* to)
 
     if (from->isAnyOrd() && to->isAnyOrd())
         stkReplaceTop(to);
-    
+
+    else if (from->isVariant())
+    {
+        stkPop();
+        addOp<Type*>(to, opCast, to);
+    }
+
     // TODO: better error message with type defs
-    error("Invalid explicit typecast");
+    else
+        error("Invalid explicit typecast");
 }
 
 
@@ -363,6 +370,7 @@ void CodeGen::loadMember(Symbol* sym)
         loadMember(PVariable(sym));
     else if (sym->isDefinition())
     {
+        // TODO: discard preceding loaders
         undoLastLoad();
         loadDefinition(PDefinition(sym));
     }

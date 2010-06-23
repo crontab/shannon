@@ -53,6 +53,7 @@ enum OpCode
     opMkRef,            // -var +ref
     opNonEmpty,         // -var +bool
     opPop,              // -var
+    opCast,             // [Type*] -var +var
 
     // --- 6. STRINGS, VECTORS
     opChrToStr,         // -char +str
@@ -279,6 +280,8 @@ protected:
         { return simStack.back(); }
     const SimStackItem& stkTopItem(memint i)
         { return simStack.back(i); }
+    void discardTail(memint from)
+        { codeseg.erase(from); prevLoaderOffs = -1; }
     static void error(const char*);
     static void error(const str&);
 
@@ -394,7 +397,6 @@ protected:
     dict<Module*, stateobj*> modObjMap;
 
     ModuleInstance* addModule(Module*);
-    Module* loadModule(const str& filePath);
     str lookupSource(const str& modName);
     void instantiateModules();
     void clear();
@@ -408,7 +410,8 @@ public:
 
     Module* getModule(const str& name);     // for use by the compiler, "uses" clause
     stateobj* getModuleObject(Module*);     // for initializing module vars in ModuleInstance::run()
-    variant execute(const str& filePath);
+    Module* loadModule(const str& filePath);
+    variant execute();                      // after compilation only (loadModule())
 };
 
 

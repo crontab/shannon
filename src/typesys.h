@@ -132,11 +132,10 @@ protected:
 public:
     Scope* const outer;
     Scope(Scope* _outer);
-    virtual ~Scope();
+    ~Scope();
     Symbol* find(const str& ident) const            // returns NULL or Symbol
         { return symbols.find(ident); }
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
-//    Symbol* findDeep(const str&) const;             // throws EUnknown
 };
 
 
@@ -224,6 +223,7 @@ public:
     virtual void dumpValue(fifo&, const variant&) const;
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
+    bool isCompatibleWith(const variant&);
 
     Reference* getRefType()     { return isReference() ? PReference(this) : refType.get(); }
     Type* getValueType();

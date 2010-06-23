@@ -645,7 +645,6 @@ void test_typesys()
         check(s->isDefinition());
         check(s->name == "def");
         state.findShallow("def");
-        state.findDeep("def");
     }
 */
     strfifo s(NULL);

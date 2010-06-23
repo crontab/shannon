@@ -48,28 +48,43 @@ int main()
     initTypeSys();
     initVm();
 
-    try
     {
         Context context;
-        // context.options.setDebugOpts(false);
-        variant result = context.execute(filePath);
-
-        if (result.is_null())
-            exitcode = 0;
-        else if (result.is(variant::ORD))
-            exitcode = int(result._int());
-        else if (result.is(variant::STR))
+        
+        try
         {
-            serr << result._str() << endl;
-            exitcode = 102;
+            // context.options.setDebugOpts(false);
+            context.loadModule(filePath);
         }
-        else
-            exitcode = 103;
-    }
-    catch (exception& e)
-    {
-        serr << "Error: " << e.what() << endl;
-        exitcode = 101;
+        catch (exception& e)
+        {
+            serr << "Error: " << e.what() << endl;
+            exitcode = 201;
+        }
+
+        if (exitcode == 0)
+        {
+            try
+            {
+                variant result = context.execute();
+                if (result.is_null())
+                    exitcode = 0;
+                else if (result.is(variant::ORD))
+                    exitcode = int(result._int());
+                else if (result.is(variant::STR))
+                {
+                    serr << result._str() << endl;
+                    exitcode = 102;
+                }
+                else
+                    exitcode = 103;
+            }
+            catch (exception& e)
+            {
+                serr << "Runtime error: " << e.what() << endl;
+                exitcode = 104;
+            }
+        }
     }
 
     doneVm();
