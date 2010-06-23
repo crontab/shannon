@@ -83,13 +83,13 @@ bool CodeGen::tryImplicitCast(Type* to)
         stkReplaceTop(to);
         return true;
     }
-    
+/*
     if (!to->isReference() && from->isReference())
     {
         deref();
         return tryImplicitCast(to);
     }
-
+*/
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
     if (to->isAnyVec() && from->identicalTo(PContainer(to)->elem))
@@ -729,6 +729,8 @@ static OpCode loaderToStorer(OpCode op)
         case opDeref:       return opStoreRef;
         // end grounded storers
         case opStrElem:     return opStoreStrElem;
+        case opVecElem:     return opStoreVecElem;
+        case opDictElem:    return opStoreDictElem;
         default:
             errorLValue();
             return opInv;
@@ -776,7 +778,10 @@ str CodeGen::lvalue()
 void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
-    implicitCast(stkTop(2), "Type mismatch in assignment");
+    Type* dest = stkTop(2);
+    if (!dest->isReference())
+        deref();
+    implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
     stkPop();
     stkPop();
