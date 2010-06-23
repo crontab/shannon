@@ -641,11 +641,10 @@ void Compiler::otherStatement()
 {
     // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    codegen->beginLValue();
     designator();
-    str storerCode = codegen->endLValue(token == tokAssign);
     if (skipIf(tokAssign))
     {
+        str storerCode = codegen->lvalue();
         runtimeExpr();
         if (!isSep())
             error("Statement syntax");
@@ -725,7 +724,7 @@ void Compiler::compileModule()
         if (!getFileName().empty())
         {
             s += getFileName() + '(' + to_string(getLineNum()) + ')';
-            if (!strValue.empty())
+            if (!strValue.empty() || token == tokStrValue)  // may be an empty string literal
                 s += " near '" + to_displayable(to_printable(strValue)) + '\'';
             s += ": ";
         }

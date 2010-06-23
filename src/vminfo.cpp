@@ -35,24 +35,25 @@ OpInfo opTable[] =
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self-idx:u8] +var
-    // OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +self +ptr
+    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +obj(0) +ptr
     OP(LoadStkVar, StkIdx),     // [stk-idx:s8] +var
-    // OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
+    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
-    // OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
+    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
     OP(Deref, None),            // -ref +var
-    // OP(LeaRef, None),           // -ref +ref +ptr
+    OP(LeaRef, None),           // -ref +ref +ptr
     // --- end designator loaders
 
     // --- 4. STORERS
     OP(InitSelfVar, SelfIdx),   // [self-idx:u8] -var
     OP(InitStkVar, StkIdx),     // [stk-idx:s8] -var
+    // --- begin grounded storers
     OP(StoreSelfVar, SelfIdx),  // [self-idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk-idx:s8] -var
     OP(StoreMember, StateIdx),  // [stateobj-idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
-    // OP(Store, None),            // -var -ptr -obj
+    // --- end grounded storers
 
     // --- 5. DESIGNATOR OPS, MISC
     OP(MkSubrange, Type),       // [Ordinal*] -int -int +type  -- compile-time only
@@ -71,7 +72,7 @@ OpInfo opTable[] =
     OP(VecLen, None),           // -str +int
     OP(StrElem, None),          // -idx -str +int
     OP(VecElem, None),          // -idx -vec +var
-    OP(SetStrElem, None),       // -int -int -ptr -obj
+    OP(StoreStrElem, None),     // -char -int -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set

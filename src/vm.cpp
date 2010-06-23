@@ -171,23 +171,23 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opLoadSelfVar:
             PUSH(*self->member(ADV(uchar)));
             break;
-        // case opLeaSelfVar:
-        //     PUSH(self);
-        //     PUSH(self->member(ADV(uchar)));
-        //     break;
+        case opLeaSelfVar:
+            PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
+            PUSH(self->member(ADV(uchar)));
+            break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV(char)));
             break;
-        // case opLeaStkVar:
-        //     PUSH((rtobject*)NULL);
-        //     PUSH(stack.bp + ADV(char));
-        //     break;
+        case opLeaStkVar:
+            PUSH((rtobject*)NULL);
+            PUSH(stack.bp + ADV(char));
+            break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
             break;
-        // case opLeaMember:
-        //     PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
-        //     break;
+        case opLeaMember:
+            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
+            break;
         case opDeref:
             {
                 reference* r = stk->_ref();
@@ -195,9 +195,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
-        // case opLeaRef:
-        //     PUSH(&stk->_ref()->var);
-        //     break;
+        case opLeaRef:
+            PUSH(&stk->_ref()->var);
+            break;
 
         // --- 4. STORERS
         case opInitSelfVar:
@@ -220,9 +220,6 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POPTO(&((stk - 1)->_ref()->var));
             POP();
             break;
-        // case opStore:
-        //     notimpl();
-        //     break;
 
         // --- 5. DESIGNATOR OPS, MISC
         case opMkSubrange:
@@ -276,9 +273,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
             POPPOD();
             break;
-        case opSetStrElem:       // -char -int -obj
-            (stk - 2)->_str().replace((stk - 1)->_int(), stk->_uchar());
-            POPPOD(); POPPOD(); POP();
+        case opStoreStrElem:    // -char -int -ptr -obj
+            (stk - 2)->_ptr()->_str().replace((stk - 1)->_int(), stk->_uchar());
+            POPPOD(); POPPOD(); POPPOD(); POP();
             break;
 
         // --- 7. SETS

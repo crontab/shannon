@@ -86,9 +86,13 @@ assert r1 == 12
 system.__program_result = 'OK'
 assert __program_result == 'OK'
 c[1] = ':'
-// assert c == 'a:cd'
+assert c == 'a:cd'
+(c[2]) = '$'
+assert c == 'a:$d'
 // d[0] = 4
 // assert d[0] == 4
-// e[0][1] = 6
+// error: e[0][1] = 6
+// error: 1 = 2
+// error: s0 = ''
 
 system.__program_result = null

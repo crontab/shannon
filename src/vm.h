@@ -29,25 +29,24 @@ enum OpCode
 
     // --- 3. DESIGNATOR LOADERS
     opLoadSelfVar,      // [self-idx:u8] +var
-    // opLeaSelfVar,       // [self-idx:u8] +self +ptr
+    opLeaSelfVar,       // [self-idx:u8] +obj(0) +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
-    // opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
+    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
-    // opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
+    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
     opDeref,            // -ref +var
-    // opLeaRef,           // -ref +ref +ptr
+    opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
     opInitSelfVar,      // [self-idx:u8] -var
     opInitStkVar,       // [stk-idx:s8] -var
-    // --- begin final storers
+    // --- begin grounded storers
     opStoreSelfVar,     // [self-idx:u8] -var
     opStoreStkVar,      // [stk-idx:s8] -var
     opStoreMember,      // [stateobj-idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
-    // opStore,            // -var -ptr -obj
-    // --- end final storers
+    // --- end grounded storers
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
@@ -66,7 +65,7 @@ enum OpCode
     opVecLen,           // -str +int
     opStrElem,          // -idx -str +char
     opVecElem,          // -idx -vec +var
-    opSetStrElem,       // -char -int -obj
+    opStoreStrElem,     // -char -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -137,7 +136,7 @@ enum OpCode
 inline bool isUndoableLoadOp(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
 
-inline bool isFinalStorer(OpCode op)
+inline bool isGroundedStorer(OpCode op)
     { return op >= opStoreSelfVar && op <= opStoreRef; }
 
 inline bool isCmpOp(OpCode op)
@@ -283,13 +282,7 @@ protected:
     static void error(const char*);
     static void error(const str&);
 
-    // Assignment analysis
-    memint designatorStkLevel;  // -1: don't record offsets
-    podvec<memint> designatorOps;
-    void designatorStart()
-        { designatorStkLevel = getStackLevel(); }
-    void designatorStop()
-        { designatorStkLevel = -1; designatorOps.clear();  }
+    memint prevLoaderOffs;
 
 public:
     CodeGen(CodeSeg&, State* treg, bool compileTime);
@@ -354,8 +347,7 @@ public:
     void assertion(const str& cond);
     void dumpVar(const str& expr);
 
-    void beginLValue();
-    str endLValue(bool isAssignment);
+    str lvalue();
     void assignment(const str& storerCode);
 
     void end();
