@@ -478,7 +478,7 @@ public:
 
     // If you keep the vector sorted, the following will provide set-like
     // functionality:
-    bool has(const T& item) const
+    bool find(const T& item) const
     {
         memint index;
         return bsearch(item, index);
@@ -711,6 +711,9 @@ public:
         else
             return NULL;
     }
+
+    bool find_key(const Tkey& k) const
+        { memint i; return _bsearch(k, i); }
 
     void find_replace(const Tkey& k, const Tval& v)
     {

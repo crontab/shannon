@@ -1,5 +1,5 @@
 
-* Operators 'in', 'is' and 'as'
+* Operator 'in'
 
 * Read-only variables (const) and const subexpressions.
 

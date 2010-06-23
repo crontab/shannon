@@ -84,6 +84,8 @@ OpInfo opTable[] =
     OP(RngToByteSet, None),     // -int -int +set
     OP(ByteSetAddElem, None),   // -int -set +set
     OP(ByteSetAddRng, None),    // -int -int -set +set
+    OP(InSet, None),            // -var -set +bool
+    OP(InByteSet, None),        // -int -set +bool
 
     // --- 8. DICTIONARIES
     OP(PairToDict, None),       // -var -var +dict
@@ -93,6 +95,8 @@ OpInfo opTable[] =
     OP(DictElem, None),         // -var -dict +var
     OP(StoreDictElem, None),    // -var -var -ptr -obj
     OP(ByteDictElem, None),     // -int -dict +var
+    OP(InDict, None),           // -var -dict +bool
+    OP(InByteDict, None),       // -int -dict +bool
 
     // --- 9. ARITHMETIC
     OP(Add, None),              // -int, +int, +int

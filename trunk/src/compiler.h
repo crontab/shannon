@@ -18,8 +18,8 @@ protected:
 
     void enumeration(const str& firstIdent);
     void identifier(const str&);
-    void vectorCtor();
-    void dictCtor();
+    void vectorCtor(Container* type);
+    void dictCtor(Container* type);
     void atom();
     void designator();
     void factor();
@@ -30,9 +30,8 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    void runtimeExpr()  // as opposed to compile-time (below)
-        { orLevel(); }
-    void expression();
+    void runtimeExpr(Type*);  // as opposed to compile-time (below)
+    void expression(Type*);
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result, bool atomType);
     Type* getTypeValue(bool atomType);

@@ -77,6 +77,8 @@ enum OpCode
     opRngToByteSet,     // -int -int +set
     opByteSetAddElem,   // -int -set +set
     opByteSetAddRng,    // -int -int -set +set
+    opInSet,            // -var -set +bool
+    opInByteSet,        // -int -set +bool
 
     // --- 8. DICTIONARIES
     opPairToDict,       // -var -var +dict
@@ -86,6 +88,8 @@ enum OpCode
     opDictElem,         // -var -dict +var
     opStoreDictElem,    // -var -var -ptr -obj
     opByteDictElem,     // -int -dict +var
+    opInDict,           // -var -dict +bool
+    opInByteDict,       // -int -dict +bool
 
     // --- 9. ARITHMETIC
     // TODO: atomic inc/dec
@@ -300,6 +304,7 @@ public:
     Type* getTopType()          { return stkTop(); }
     memint getCurrentOffs()     { return codeseg.size(); }
     Type* tryUndoTypeRef();
+    void undoLoader();
     void deinitLocalVar(Variable*);
     void popValue();
     bool tryImplicitCast(Type*);
@@ -307,7 +312,6 @@ public:
     void explicitCast(Type*);
     void isType(Type*, bool isnot, memint undoOffs);
     void createSubrangeType();
-    void undoLoader();
 
     bool deref();
     void mkref();
@@ -331,12 +335,12 @@ public:
     void cat();
     void loadContainerElem();
     void length();
-    void elemToSet();
-    void rangeToSet();
+    Container* elemToSet();
+    Container* rangeToSet();
     void setAddElem();
     void checkRangeLeft();
     void setAddRange();
-    void pairToDict();
+    Container* pairToDict();
     void checkDictKey();
     void dictAddPair();
 

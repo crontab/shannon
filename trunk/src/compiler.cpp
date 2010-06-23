@@ -109,46 +109,46 @@ void Compiler::identifier(const str& ident)
 }
 
 
-void Compiler::vectorCtor()
+void Compiler::vectorCtor(Container* type)
 {
     if (skipIf(tokRSquare))
     {
-        codegen->loadEmptyCont(queenBee->defNullCont);
+        codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
         return;
     }
-    expression();
-    codegen->elemToVec();
+    runtimeExpr(type ? type->elem : NULL);
+    type = codegen->elemToVec();
     while (skipIf(tokComma))
     {
-        expression();
+        runtimeExpr(type->elem);
         codegen->elemCat();
     }
     expect(tokRSquare, "]");
 }
 
 
-void Compiler::dictCtor()
+void Compiler::dictCtor(Container* type)
 {
     if (skipIf(tokRCurly))
     {
-        codegen->loadEmptyCont(queenBee->defNullCont);
+        codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
         return;
     }
 
-    runtimeExpr();
-    codegen->deref();  // keys are always values
+    runtimeExpr(type ? type->index : NULL);
+    // codegen->deref();  // keys are always values
 
     // Dictionary
     if (skipIf(tokAssign))
     {
-        expression();
-        codegen->pairToDict();
+        runtimeExpr(type ? type->elem : NULL);
+        type = codegen->pairToDict();
         while (skipIf(tokComma))
         {
-            expression();
+            runtimeExpr(type->index);
             codegen->checkDictKey();
             expect(tokAssign, "=");
-            expression();
+            runtimeExpr(type->elem);
             codegen->dictAddPair();
         }
     }
@@ -158,18 +158,18 @@ void Compiler::dictCtor()
     {
         if (skipIf(tokRange))
         {
-            runtimeExpr();
-            codegen->rangeToSet();
+            runtimeExpr(type ? type->index : NULL);
+            type = codegen->rangeToSet();
         }
         else
-            codegen->elemToSet();
+            type = codegen->elemToSet();
         while (skipIf(tokComma))
         {
-            runtimeExpr();
+            runtimeExpr(type->index);
             if (skipIf(tokRange))
             {
                 codegen->checkRangeLeft();
-                runtimeExpr();
+                runtimeExpr(type->index);
                 codegen->setAddRange();
             }
             else
@@ -233,15 +233,15 @@ void Compiler::atom()
 
     else if (skipIf(tokLParen))
     {
-        expression();
+        expression(NULL);
         expect(tokRParen, "')'");
     }
 
     else if (skipIf(tokLSquare))
-        vectorCtor();
+        vectorCtor(NULL);
 
     else if (skipIf(tokLCurly))
-        dictCtor();
+        dictCtor(NULL);
 /*
     // TODO: 
     else if (skipIf(tokIf))
@@ -286,7 +286,7 @@ void Compiler::designator()
         else if (skipIf(tokLSquare))
         {
             codegen->deref();
-            expression();
+            runtimeExpr(NULL);
             codegen->deref();  // keys are always values
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
@@ -494,11 +494,41 @@ void Compiler::orLevel()
 }
 
 
-void Compiler::expression()
+void Compiler::runtimeExpr(Type* expectType)
+{
+    if (expectType)
+    {
+        // If a container type is expected and the first token is either '['
+        // or '{', parse the container constructor. Not very nice formally,
+        // but very convenient.
+        Container* contType = NULL;
+        if (expectType->isAnyCont())
+            contType = PContainer(expectType);
+        else if (expectType->isReference() && PReference(expectType)->to->isAnyCont())
+            contType = PContainer(PReference(expectType)->to);
+
+        if (contType && skipIf(tokLSquare))
+            vectorCtor(contType);
+        else if (contType && skipIf(tokLCurly))
+            dictCtor(contType);
+        else
+            orLevel();
+
+        Type* exprType = codegen->getTopType();
+        if (expectType->isReference() && !exprType->isReference())
+            codegen->mkref();
+        codegen->implicitCast(expectType);
+    }
+    else
+        orLevel();
+}
+
+
+void Compiler::expression(Type* expectType)
 {
     // TODO: const expression (e.g. const [1, 2, 3] or const 0..10)
     if (!codegen->isCompileTime())
-        runtimeExpr();
+        runtimeExpr(expectType);
     else if (token == tokIdent)  // Enumeration maybe?
     {
         str ident = strValue;
@@ -512,13 +542,15 @@ void Compiler::expression()
     else
     {
 ICouldHaveDoneThisWithoutGoto:
-        runtimeExpr();
+        runtimeExpr(expectType);
         if (skipIf(tokRange))  // Subrange
         {
-            runtimeExpr();
+            runtimeExpr(NULL);
             codegen->createSubrangeType();
         }
     }
+    if (expectType)
+        codegen->implicitCast(expectType);
 }
 
 
@@ -533,7 +565,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
     if (atomType)
         atom();
     else
-        expression();
+        expression(expectType);
     if (codegen->getTopType()->isReference())
         error("References not allowed in const expressions");
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
@@ -591,20 +623,9 @@ void Compiler::variable()
     // TODO: const variables
     str ident;
     Type* type = getTypeAndIdent(ident);
-    runtimeExpr();
+    runtimeExpr(type);
     if (type == NULL)
         type = codegen->getTopType();
-    else
-    {
-        Type* exprType = codegen->getTopType();
-        // Automatic mkref is allowed only when initializing the var,
-        // otherwise '^' must be used.
-        if (!type->isReference())
-            codegen->deref();
-        else if (!exprType->isReference())
-            codegen->mkref();
-        codegen->implicitCast(type);
-    }
     if (type->isNullCont())
         error("Type undefined (null container)");
     if (blockScope != NULL)
@@ -629,7 +650,7 @@ void Compiler::assertion()
         integer ln = getLineNum();
         beginRecording();
         next();
-        expression();
+        runtimeExpr(NULL);
         str s = endRecording();
         module.registerString(s);
         if (!context.options.lineNumbers)
@@ -650,7 +671,7 @@ void Compiler::dumpVar()
         {
             beginRecording();
             next();
-            expression();
+            runtimeExpr(NULL);
             str s = endRecording();
             module.registerString(s);
             codegen->dumpVar(s);
@@ -670,7 +691,7 @@ void Compiler::otherStatement()
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();
-        runtimeExpr();
+        runtimeExpr(codegen->getTopType());
         if (!isSep())
             error("Statement syntax");
         codegen->assignment(storerCode);

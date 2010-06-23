@@ -316,6 +316,14 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POPPOD();
             POPPOD();
             break;
+        case opInSet:
+            *(stk - 1) = int((stk - 1)->_set().find(*stk));
+            POP();
+            break;
+        case opInByteSet:
+            *(stk - 1) = int((stk - 1)->_ordset().find(stk->_int()));
+            POPPOD();
+            break;
 
         // --- 8. DICTIONARIES
         case opPairToDict:
@@ -366,6 +374,18 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 *stk = v;  // same as for opDictElem
             }
             break;
+        case opInDict:
+            *(stk - 1) = int((stk - 1)->_dict().find_key(*stk));
+            POP();
+            break;
+        case opInByteDict:
+            {
+                integer i = stk->_int();
+                POPPOD();
+                const varvec& v = stk->_vec();
+                *stk = int(i >= 0 && i < v.size() && !v[memint(i)].is_null());
+            }
+            break;
 
 
         // --- 9. ARITHMETIC
@@ -380,7 +400,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opBitXor:      BINARY_INT(^=); break;
         case opBitShl:      BINARY_INT(<<=); break;
         case opBitShr:      BINARY_INT(>>=); break;
-        // case opBoolXor:     SETPOD(stk - 1, bool((stk - 1)->_int() ^ stk->_int())); POPPOD(stk); break;
+        // case opBoolXor:     SETPOD(stk - 1, int(bool((stk - 1)->_int() ^ stk->_int()))); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
         case opNot:         UNARY_INT(!); break;
