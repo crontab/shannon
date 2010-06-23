@@ -421,7 +421,9 @@ static void test_dict()
     check(d1.key(0) == "one");
     check(d1.key(1) == "two");
     check(*d1.find("one") == 1);
+    check(d1.find_key("one"));
     check(d1.find("three") == NULL);
+    check(!d1.find_key("three"));
     dict<str, int> d3;
     d3 = d2;
     check(d2 == d3);
@@ -446,6 +448,7 @@ static void test_set()
     check(s1.size() == 2);
     check(s1[0] == "ABC");
     check(s1[1] == "GHI");
+    check(s1.find("GHI"));
 }
 
 

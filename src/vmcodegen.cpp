@@ -47,7 +47,8 @@ void CodeGen::undoDesignator(memint from)
 void CodeGen::undoLoader()
 {
     memint offs = stkTopItem().offs;
-    assert(isUndoableLoadOp(codeseg[offs]));
+    if (!isUndoableLoadOp(codeseg[offs]))
+        error("Invalid type cast");
     undoDesignator(offs);
 }
 
@@ -83,13 +84,13 @@ bool CodeGen::tryImplicitCast(Type* to)
         stkReplaceTop(to);
         return true;
     }
-/*
+
     if (!to->isReference() && from->isReference())
     {
         deref();
         return tryImplicitCast(to);
     }
-*/
+
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
     if (to->isAnyVec() && from->identicalTo(PContainer(to)->elem))
@@ -489,10 +490,11 @@ void CodeGen::length()
 
 Container* CodeGen::elemToVec()
 {
-    Type* elemType = stkPop();
-    Container* contType = elemType->deriveVec(typeReg);
-    addOp(contType, contType->isByteVec() ? opChrToStr : opVarToVec);
-    return contType;
+    Type* elemType = stkTop();
+    Container* vecType = elemType->deriveVec(typeReg);
+    stkPop();
+    addOp(vecType, vecType->isByteVec() ? opChrToStr : opVarToVec);
+    return vecType;
 }
 
 
@@ -518,26 +520,30 @@ void CodeGen::cat()
 }
 
 
-void CodeGen::elemToSet()
+Container* CodeGen::elemToSet()
 {
-    Type* elemType = stkPop();
+    Type* elemType = stkTop();
     Container* setType = elemType->deriveSet(typeReg);
+    stkPop();
     addOp(setType, setType->isByteSet() ? opElemToByteSet : opElemToSet);
+    return setType;
 }
 
 
-void CodeGen::rangeToSet()
+Container* CodeGen::rangeToSet()
 {
     Type* left = stkTop(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
-    implicitCast(left, "Incompatible range bounds");
-    stkPop();
-    stkPop();
+    if (!left->canAssignTo(stkTop()))
+        error("Incompatible range bounds");
     Container* setType = left->deriveSet(typeReg);
     if (!setType->isByteSet())
         error("Invalid element type for ordinal set");
+    stkPop();
+    stkPop();
     addOp(setType, opRngToByteSet);
+    return setType;
 }
 
 
@@ -573,12 +579,15 @@ void CodeGen::setAddRange()
 }
 
 
-void CodeGen::pairToDict()
+Container* CodeGen::pairToDict()
 {
-    Type* val = stkPop();
-    Type* key = stkPop();
+    Type* val = stkTop();
+    Type* key = stkTop(2);
     Container* dictType = val->deriveContainer(typeReg, key);
+    stkPop();
+    stkPop();
     addOp(dictType, dictType->isByteDict() ? opPairToByteDict : opPairToDict);
+    return dictType;
 }
 
 
@@ -779,8 +788,8 @@ void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
     Type* dest = stkTop(2);
-    if (!dest->isReference())
-        deref();
+    // if (!dest->isReference())
+    //     deref();
     implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
     stkPop();
