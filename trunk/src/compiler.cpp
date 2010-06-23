@@ -97,8 +97,9 @@ void Compiler::identifier(const str& ident)
                 codegen->loadSymbol(sym);
             else
             {
+                memint offs = codegen->getCurrentOffs();
                 codegen->loadVariable(m);
-                codegen->loadMember(sym);
+                codegen->loadMember(sym, offs);
             }
             return;
         }
@@ -265,14 +266,14 @@ void Compiler::atom()
 void Compiler::designator()
 {
     // TODO: qualifiers, function calls
+    memint undoOffs = codegen->getCurrentOffs();
     atom();
     while (1)
     {
         if (skipIf(tokPeriod))
         {
-            // TODO: see if it's a definition and discard all preceding code
             codegen->deref();
-            codegen->loadMember(getIdentifier());
+            codegen->loadMember(getIdentifier(), undoOffs);
             next();
         }
 
@@ -302,6 +303,7 @@ void Compiler::factor()
     bool isNeg = skipIf(tokMinus);
     bool isLen = skipIf(tokSharp);
 
+    memint undoOffs = codegen->getCurrentOffs();
     designator();
 
     if (isLen)
@@ -324,6 +326,13 @@ void Compiler::factor()
         Type* type = getTypeValue(true);
         // TODO: default value in parens?
         codegen->explicitCast(type);
+    }
+    if (skipIf(tokIs))
+    {
+        bool isnot = skipIf(tokNot);
+        Type* type = getTypeValue(true);
+        // TODO: "is not..."
+        codegen->isType(type, isnot, undoOffs);
     }
 }
 
@@ -372,7 +381,7 @@ void Compiler::simpleExpr()
             codegen->deref();
             Type* top = codegen->getTopType();
             if (top->isNullCont())
-                codegen->undoLastLoad();
+                codegen->undoLoader();
             else if (contType == NULL)  // first non-null element, container type unknown yet
             {
                 if (top->isAnyVec())

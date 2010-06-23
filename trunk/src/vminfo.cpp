@@ -61,6 +61,7 @@ OpInfo opTable[] =
     OP(NonEmpty, None),         // -var +bool
     OP(Pop, None),              // -var
     OP(Cast, Type),             // [Type*] -var +var
+    OP(IsType, Type),           // [Type*] -var +bool
 
     // --- 6. STRINGS, VECTORS
     OP(ChrToStr, None),         // -int +str
