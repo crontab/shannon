@@ -242,6 +242,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             if (!ADV(Type*)->isCompatibleWith(*stk))
                 typecastError();
             break;
+        case opIsType:
+            *stk = int(ADV(Type*)->isCompatibleWith(*stk));
+            break;
 
         // --- 6. STRINGS, VECTORS
         case opChrToStr:

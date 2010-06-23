@@ -36,18 +36,19 @@ void CodeGen::addOp(Type* type, OpCode op)
 }
 
 
-void CodeGen::undoLastLoad()
+void CodeGen::undoDesignator(memint from)
+{
+    codeseg.erase(from);
+    stkPop();
+    prevLoaderOffs = -1;
+}
+
+
+void CodeGen::undoLoader()
 {
     memint offs = stkTopItem().offs;
-    if (isUndoableLoadOp(codeseg[offs]))
-    {
-        stkPop();
-        codeseg.erase(offs);
-        prevLoaderOffs = -1;
-    }
-    else
-        // discard();
-        notimpl();
+    assert(isUndoableLoadOp(codeseg[offs]));
+    undoDesignator(offs);
 }
 
 
@@ -99,7 +100,7 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     if (from->isNullCont() && to->isAnyCont())
     {
-        undoLastLoad();
+        undoLoader();
         loadEmptyCont(PContainer(to));
         return true;
     }
@@ -135,6 +136,29 @@ void CodeGen::explicitCast(Type* to)
     // TODO: better error message with type defs
     else
         error("Invalid explicit typecast");
+}
+
+
+void CodeGen::isType(Type* to, bool isnot, memint undoOffs)
+{
+    Type* from = stkTop();
+    if (from->canAssignTo(to))
+    {
+        undoDesignator(undoOffs);
+        loadConst(queenBee->defBool, int(!isnot));
+    }
+    else if (from->isAnyState() || from->isVariant())
+    {
+        stkPop();
+        addOp<Type*>(queenBee->defBool, opIsType, to);
+        if (isnot)
+            _not();
+    }
+    else
+    {
+        undoDesignator(undoOffs);
+        loadConst(queenBee->defBool, int(isnot));
+    }
 }
 
 
@@ -352,16 +376,16 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
-void CodeGen::loadMember(const str& ident)
+void CodeGen::loadMember(const str& ident, memint undoOffs)
 {
     Type* stateType = stkTop();
     if (!stateType->isAnyState())
         error("Invalid member selection");
-    loadMember(PState(stateType)->findShallow(ident));
+    loadMember(PState(stateType)->findShallow(ident), undoOffs);
 }
 
 
-void CodeGen::loadMember(Symbol* sym)
+void CodeGen::loadMember(Symbol* sym, memint undoOffs)
 {
     Type* stateType = stkTop();
     if (!stateType->isAnyState())
@@ -370,8 +394,7 @@ void CodeGen::loadMember(Symbol* sym)
         loadMember(PVariable(sym));
     else if (sym->isDefinition())
     {
-        // TODO: discard preceding loaders
-        undoLastLoad();
+        undoDesignator(undoOffs);
         loadDefinition(PDefinition(sym));
     }
     else
@@ -451,7 +474,7 @@ void CodeGen::length()
     Type* type = stkTop();
     if (type->isNullCont())
     {
-        undoLastLoad();
+        undoLoader();
         loadConst(queenBee->defInt, 0);
     }
     else if (type->isAnyVec())

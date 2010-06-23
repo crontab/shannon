@@ -54,6 +54,7 @@ enum OpCode
     opNonEmpty,         // -var +bool
     opPop,              // -var
     opCast,             // [Type*] -var +var
+    opIsType,           // [Type*] -var +bool
 
     // --- 6. STRINGS, VECTORS
     opChrToStr,         // -char +str
@@ -280,8 +281,7 @@ protected:
         { return simStack.back(); }
     const SimStackItem& stkTopItem(memint i)
         { return simStack.back(i); }
-    void discardTail(memint from)
-        { codeseg.erase(from); prevLoaderOffs = -1; }
+    void undoDesignator(memint from);
     static void error(const char*);
     static void error(const str&);
 
@@ -303,8 +303,9 @@ public:
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
     void explicitCast(Type*);
+    void isType(Type*, bool isnot, memint undoOffs);
     void createSubrangeType();
-    void undoLastLoad();
+    void undoLoader();
 
     bool deref();
     void mkref();
@@ -315,8 +316,8 @@ public:
     void loadEmptyCont(Container* type);
     void loadSymbol(Symbol*);
     void loadVariable(Variable*);
-    void loadMember(const str& ident);
-    void loadMember(Symbol* sym);
+    void loadMember(const str& ident, memint undoOffs);
+    void loadMember(Symbol* sym, memint undoOffs);
     void loadMember(Variable*);
 
     void storeRet(Type*);

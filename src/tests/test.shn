@@ -89,16 +89,21 @@ c[1] = ':'
 assert c == 'a:cd'
 (c[2]) = '$'
 assert c == 'a:$d'
-// d[0] = 4
-// assert d[0] == 4
+d[0] = 4
+assert d[0] == 4
 // error: e[0][1] = 6
 // error: 1 = 2
 // error: s0 = ''
 
-// TYPECAST
+// TYPECASTS
 assert 1 as char == '\x1'
 assert 'a' as int == 97
 var any v10 = 0
 assert v10 as nums == one
+assert 1 is int and 'abc' is str
+assert 1 is not str and 'abc' is not int
+assert v10 is int and v10 is not str
+assert v10 is any
+assert v10 as nums is nums
 
 system.__program_result = null
