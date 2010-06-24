@@ -41,7 +41,7 @@ def v6 = [5, 6]
 def vnull = []
 def int[] v7 = []
 def v8 = v7 | 10 | 11
-def v9 = vnull | [] | 12 | v4 | 13 | []
+def v9 = vnull | v7 | 12 | v4 | 13 | vnull
 def sign b0 = -1
 def t0 = {1}
 def t1 = {1, 5, 6, 7, 10}
@@ -58,7 +58,7 @@ assert v5 == v5a
 assert v1 == 'ab' and #v1 == 2
 assert v2[0] == 'a' and v2[1] == 'b' and v2[3] == 'd' and v2[6] == 'g'
 assert #v2 == 7
-assert #v4 == 0 and #[] == 0
+assert #v4 == 0 and #vnull == 0
 assert v6[0] == 5 and 6 == v6[1] and #v6 == 2
 assert v8[0] == 10 and v8[1] == 11
 assert v9[0] == 12 and v9[1] == 13
@@ -69,28 +69,34 @@ assert i0? and v5? and n0? and not one? and not false? and not s1? and v2?
 var a = 2
 var int b = 1
 assert a == 2 and b == 1
+var char ch1 = 'z'
 var c = 'abcd'
 var d = [1, 2, 3]
 var int[][] e = [[1, 2, 3], [4, 5]]
 var int[][] er = [[6, 7], [8, 9, 10], []]
 var int^ r1 = 2
-var str r2^ = 'abc'
+var int^ r2 = 3
+var str r3^ = 'abc'
+a = r1
+assert a == 2
+r1 = 12
+assert r1 == 12
+@r2 = r1
+r1 = 1
+assert r2 == 1
+
+/*
 var dic1 = {'one' = 1, 'two' = 0, 'three' = 3}
 var byte dic2[str] = {'o' = 1, 'two' = 0, 'three' = 3}
-var int ints1[]^[] = [[10, 11, 12], [13, 14], []]
+var int ints1[]^[] = [[10, 11, 12], [13, 14]]
 var int dics1[][str] = [dic1, {}]
 var int dics2[]^[str] = [dic1, {'e' = 0}]
 def ec = [1]
-var int ic^[] = @(@ec)
-var char ch1 = 'z'
+// var int ic^[] = @(@ec)
 
 a = 10 + b
 assert a == 11
 assert e[0][1] == 2 and e[1][0] == 4
-a = r1
-assert a == 2
-r1^ = 12
-assert r1 == 12
 assert dic1['one'] == 1 and dic1['two'] == 0
 system.__program_result = 'OK'
 assert __program_result == 'OK'
@@ -110,6 +116,7 @@ ints1[0][1] = 111
 assert ints1[0][1] == 111
 dics2[0]['three'] = 33
 assert dics2[0]['three'] == 33
+*/
 
 // TYPECASTS
 assert 1 as char == '\x1'

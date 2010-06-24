@@ -136,7 +136,6 @@ void Compiler::dictCtor(Container* type)
     }
 
     runtimeExpr(type ? type->index : NULL);
-    // codegen->deref();  // keys are always values
 
     // Dictionary
     if (skipIf(tokAssign))
@@ -184,8 +183,8 @@ void Compiler::dictCtor(Container* type)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    1. <nested-expr>  <ident>  <number>  <string>  <char>  <compound-ctor>  <type-spec>
-    2. @  <array-sel>  <member-sel>  <function-call>  ^
+    1. <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
+    2. <array-sel>  <member-sel>  <function-call>  ^
     3. unary-  #  as  is  ?
     5. *  /  mod
     6. +  –
@@ -194,7 +193,7 @@ void Compiler::dictCtor(Container* type)
     9. not
     10. and
     11. or  xor
-    12. (const) range, enum
+    12. range, enum
 */
 
 
@@ -233,15 +232,18 @@ void Compiler::atom()
 
     else if (skipIf(tokLParen))
     {
-        expression(NULL);
+        if (codegen->isCompileTime())
+            constExpr(NULL);
+        else
+            runtimeExpr(NULL);
         expect(tokRParen, "')'");
     }
 
-    else if (skipIf(tokLSquare))
-        vectorCtor(NULL);
+    // else if (skipIf(tokLSquare))
+    //     vectorCtor(NULL);
 
-    else if (skipIf(tokLCurly))
-        dictCtor(NULL);
+    // else if (skipIf(tokLCurly))
+    //     dictCtor(NULL);
 /*
     // TODO: 
     else if (skipIf(tokIf))
@@ -266,18 +268,17 @@ void Compiler::atom()
 void Compiler::designator()
 {
     // TODO: qualifiers, function calls
-    bool isAt = skipIf(tokAt);
-
     memint undoOffs = codegen->getCurrentOffs();
-    atom();
 
-    if (isAt)
-        codegen->mkref();
+    atom();
 
     while (1)
     {
         if (skipIf(tokPeriod))
         {
+            // undoOffs is needed when the member is a constant, in which case
+            // all previous loads should be discarded - they are not needed to
+            // load a constant
             codegen->deref();
             codegen->loadMember(getIdentifier(), undoOffs);
             next();
@@ -287,7 +288,6 @@ void Compiler::designator()
         {
             codegen->deref();
             runtimeExpr(NULL);
-            codegen->deref();  // keys are always values
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
         }
@@ -295,12 +295,22 @@ void Compiler::designator()
         else if (skipIf(tokCaret))
         {
             // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
-            if (!codegen->deref())
-                error("Dereference (^) on a non-reference value");
+            notimpl(); // makes sense only on states to create a copy
+            // if (!codegen->deref())
+            //     error("Dereference (^) on a non-reference value");
         }
         else
             break;
     }
+}
+
+
+void Compiler::lvalue()
+{
+    bool isAt = skipIf(tokAt);
+    designator();
+    if (!isAt)
+        codegen->deref();
 }
 
 
@@ -311,22 +321,14 @@ void Compiler::factor()
 
     memint undoOffs = codegen->getCurrentOffs();
     designator();
+    codegen->deref();
 
     if (isLen)
-    {
-        codegen->deref();
         codegen->length();
-    }
     if (isNeg)
-    {
-        codegen->deref();
         codegen->arithmUnary(opNeg);
-    }
     if (skipIf(tokQuestion))
-    {
-        codegen->deref();
         codegen->nonEmpty();
-    }
     if (skipIf(tokAs))
     {
         Type* type = getTypeValue(true);
@@ -348,12 +350,10 @@ void Compiler::term()
     factor();
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
-        codegen->deref();
         OpCode op = token == tokMul ? opMul
             : token == tokDiv ? opDiv : opMod;
         next();
         factor();
-        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -364,11 +364,9 @@ void Compiler::arithmExpr()
     term();
     while (token == tokPlus || token == tokMinus)
     {
-        codegen->deref();
         OpCode op = token == tokPlus ? opAdd : opSub;
         next();
         term();
-        codegen->deref();
         codegen->arithmBinary(op);
     }
 }
@@ -384,7 +382,6 @@ void Compiler::simpleExpr()
         // and correctly figure out the container type at the same time.
         while (1)
         {
-            codegen->deref();
             Type* top = codegen->getTopType();
             if (top->isNullCont())
                 codegen->undoLoader();
@@ -416,11 +413,9 @@ void Compiler::relation()
     simpleExpr();
     if (token >= tokEqual && token <= tokGreaterEq)
     {
-        codegen->deref();
         OpCode op = OpCode(opEqual + int(token - tokEqual));
         next();
         simpleExpr();
-        codegen->deref();
         codegen->cmp(op);
     }
 }
@@ -431,10 +426,7 @@ void Compiler::notLevel()
     bool isNot = skipIf(tokNot);
     relation();
     if (isNot)
-    {
-        codegen->deref();
         codegen->_not();
-    }
 }
 
 
@@ -443,13 +435,11 @@ void Compiler::andLevel()
     notLevel();
     while (token == tokShl || token == tokShr || token == tokAnd)
     {
-        codegen->deref();
         Type* type = codegen->getTopType();
         if (type->isBool() && skipIf(tokAnd))
         {
             memint offs = codegen->boolJumpForward(opJumpAnd);
             andLevel();
-            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -459,7 +449,6 @@ void Compiler::andLevel()
                     : token == tokShr ? opBitShr : opBitAnd;
             next();
             notLevel();
-            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -471,14 +460,12 @@ void Compiler::orLevel()
     andLevel();
     while (token == tokOr || token == tokXor)
     {
-        codegen->deref();
         Type* type = codegen->getTopType();
         // TODO: boolean XOR? Beautiful thing, but not absolutely necessary
         if (type->isBool() && skipIf(tokOr))
         {
             memint offs = codegen->boolJumpForward(opJumpOr);
             orLevel();
-            codegen->deref();
             codegen->resolveJump(offs);
             break;
         }
@@ -487,7 +474,6 @@ void Compiler::orLevel()
             OpCode op = token == tokOr ? opBitOr : opBitXor;
             next();
             andLevel();
-            codegen->deref();
             codegen->arithmBinary(op);
         }
     }
@@ -496,40 +482,34 @@ void Compiler::orLevel()
 
 void Compiler::runtimeExpr(Type* expectType)
 {
-    if (expectType)
+    if (expectType && expectType->isReference())
     {
-        // If a container type is expected and the first token is either '['
-        // or '{', parse the container constructor. Not very nice formally,
-        // but very convenient.
-        Container* contType = NULL;
-        if (expectType->isAnyCont())
-            contType = PContainer(expectType);
-        else if (expectType->isReference() && PReference(expectType)->to->isAnyCont())
-            contType = PContainer(PReference(expectType)->to);
-
-        if (contType && skipIf(tokLSquare))
-            vectorCtor(contType);
-        else if (contType && skipIf(tokLCurly))
-            dictCtor(contType);
+        designator();
+        codegen->mkref();
+    }
+    else if (token == tokLSquare || token == tokLCurly)
+    {
+        bool isVec = token == tokLSquare;
+        next();
+        if (expectType && !expectType->isAnyCont())
+            error("Container constructor not expected here");
+        if (isVec)
+            vectorCtor(PContainer(expectType));
         else
-            orLevel();
-
-        Type* exprType = codegen->getTopType();
-        if (expectType->isReference() && !exprType->isReference())
-            codegen->mkref();
-        codegen->implicitCast(expectType);
+            dictCtor(PContainer(expectType));
     }
     else
         orLevel();
+    if (expectType)
+        codegen->implicitCast(expectType);
 }
 
 
-void Compiler::expression(Type* expectType)
+void Compiler::constExpr(Type* expectType)
 {
     // TODO: const expression (e.g. const [1, 2, 3] or const 0..10)
-    if (!codegen->isCompileTime())
-        runtimeExpr(expectType);
-    else if (token == tokIdent)  // Enumeration maybe?
+    assert(codegen->isCompileTime());
+    if (token == tokIdent)  // Enumeration maybe?
     {
         str ident = strValue;
         if (next() != tokComma)
@@ -565,7 +545,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
     if (atomType)
         atom();
     else
-        expression(expectType);
+        constExpr(expectType);
     if (codegen->getTopType()->isReference())
         error("References not allowed in const expressions");
     Type* resultType = constCodeGen.runConstExpr(expectType, result);
@@ -687,7 +667,7 @@ void Compiler::otherStatement()
 {
     // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    designator();
+    lvalue();
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();

@@ -46,7 +46,7 @@ void CodeGen::undoDesignator(memint from)
 
 void CodeGen::undoLoader()
 {
-    memint offs = stkTopItem().offs;
+    memint offs = stkTopOffs();
     if (!isUndoableLoadOp(codeseg[offs]))
         error("Invalid type cast");
     undoDesignator(offs);
@@ -65,7 +65,7 @@ Type* CodeGen::stkPop()
 
 void CodeGen::stkReplaceTop(Type* t)
 {
-    memint offs = stkTopItem().offs;
+    memint offs = stkTopOffs();
     simStack.pop_back();
     simStack.push_back(SimStackItem(t, offs));
 }
@@ -83,12 +83,6 @@ bool CodeGen::tryImplicitCast(Type* to)
         // canAssignTo() should take care of polymorphic typecasts
         stkReplaceTop(to);
         return true;
-    }
-
-    if (!to->isReference() && from->isReference())
-    {
-        deref();
-        return tryImplicitCast(to);
     }
 
     // Vector elements are automatically converted to vectors when necessary,
@@ -197,7 +191,7 @@ void CodeGen::popValue()
 
 Type* CodeGen::tryUndoTypeRef()
 {
-    memint offs = stkTopItem().offs;
+    memint offs = stkTopOffs();
     if (codeseg[offs] == opLoadTypeRef)
     {
         Type* type = codeseg.at<Type*>(offs + 1);
@@ -234,6 +228,7 @@ void CodeGen::mkref()
     Type* type = stkTop();
     if (!type->isReference())
     {
+        assert(codeseg[stkTopOffs()] != opDeref);
         if (type->isDerefable())
         {
             stkPop();
@@ -764,7 +759,7 @@ static OpCode loaderToLea(OpCode op)
 
 str CodeGen::lvalue()
 {
-    memint offs = stkTopItem().offs;
+    memint offs = stkTopOffs();
     OpCode storer = loaderToStorer(codeseg[offs]);
     if (isGroundedStorer(storer))
     {
@@ -788,8 +783,6 @@ void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
     Type* dest = stkTop(2);
-    // if (!dest->isReference())
-    //     deref();
     implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
     stkPop();

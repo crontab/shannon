@@ -22,6 +22,7 @@ protected:
     void dictCtor(Container* type);
     void atom();
     void designator();
+    void lvalue();
     void factor();
     void term();
     void arithmExpr();
@@ -30,8 +31,8 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    void runtimeExpr(Type*);  // as opposed to compile-time (below)
-    void expression(Type*);
+    void runtimeExpr(Type*);
+    void constExpr(Type*);
     Type* getTypeDerivators(Type*);
     Type* getConstValue(Type* resultType, variant& result, bool atomType);
     Type* getTypeValue(bool atomType);

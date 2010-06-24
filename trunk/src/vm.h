@@ -283,10 +283,8 @@ protected:
         { return simStack.back().type; }
     Type* stkTop(memint i)
         { return simStack.back(i).type; }
-    const SimStackItem& stkTopItem()
-        { return simStack.back(); }
-    const SimStackItem& stkTopItem(memint i)
-        { return simStack.back(i); }
+    memint stkTopOffs()
+        { return simStack.back().offs; }
     void undoDesignator(memint from);
     static void error(const char*);
     static void error(const str&);
