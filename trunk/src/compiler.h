@@ -22,7 +22,6 @@ protected:
     void dictCtor(Container* type);
     void atom();
     void designator();
-    void lvalue();
     void factor();
     void term();
     void arithmExpr();

@@ -184,7 +184,7 @@ void Compiler::dictCtor(Container* type)
 
 /*
     1. <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
-    2. <array-sel>  <member-sel>  <function-call>  ^
+    2. @ <array-sel>  <member-sel>  <function-call>  ^
     3. unary-  #  as  is  ?
     5. *  /  mod
     6. +  –
@@ -239,11 +239,11 @@ void Compiler::atom()
         expect(tokRParen, "')'");
     }
 
-    // else if (skipIf(tokLSquare))
-    //     vectorCtor(NULL);
+    else if (skipIf(tokLSquare))
+        vectorCtor(NULL);
 
-    // else if (skipIf(tokLCurly))
-    //     dictCtor(NULL);
+    else if (skipIf(tokLCurly))
+        dictCtor(NULL);
 /*
     // TODO: 
     else if (skipIf(tokIf))
@@ -267,8 +267,9 @@ void Compiler::atom()
 
 void Compiler::designator()
 {
-    // TODO: qualifiers, function calls
+    // TODO: function calls
     memint undoOffs = codegen->getCurrentOffs();
+    bool isAt = skipIf(tokAt);
 
     atom();
 
@@ -302,14 +303,10 @@ void Compiler::designator()
         else
             break;
     }
-}
 
-
-void Compiler::lvalue()
-{
-    bool isAt = skipIf(tokAt);
-    designator();
-    if (!isAt)
+    if (isAt)
+        codegen->mkref();
+    else
         codegen->deref();
 }
 
@@ -321,7 +318,6 @@ void Compiler::factor()
 
     memint undoOffs = codegen->getCurrentOffs();
     designator();
-    codegen->deref();
 
     if (isLen)
         codegen->length();
@@ -482,24 +478,7 @@ void Compiler::orLevel()
 
 void Compiler::runtimeExpr(Type* expectType)
 {
-    if (expectType && expectType->isReference())
-    {
-        designator();
-        codegen->mkref();
-    }
-    else if (token == tokLSquare || token == tokLCurly)
-    {
-        bool isVec = token == tokLSquare;
-        next();
-        if (expectType && !expectType->isAnyCont())
-            error("Container constructor not expected here");
-        if (isVec)
-            vectorCtor(PContainer(expectType));
-        else
-            dictCtor(PContainer(expectType));
-    }
-    else
-        orLevel();
+    orLevel();
     if (expectType)
         codegen->implicitCast(expectType);
 }
@@ -667,7 +646,7 @@ void Compiler::otherStatement()
 {
     // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    lvalue();
+    designator();
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();
