@@ -89,7 +89,7 @@ bool CodeGen::tryImplicitCast(Type* to)
     // e.g. char -> str
     if (to->isAnyVec() && from->identicalTo(PContainer(to)->elem))
     {
-        elemToVec();
+        elemToVec(PContainer(to));
         return true;
     }
 
@@ -483,10 +483,17 @@ void CodeGen::length()
 }
 
 
-Container* CodeGen::elemToVec()
+Container* CodeGen::elemToVec(Container* vecType)
 {
     Type* elemType = stkTop();
-    Container* vecType = elemType->deriveVec(typeReg);
+    if (vecType)
+    {
+        if (!vecType->isAnyVec())
+            error("Vector type expected");
+        implicitCast(vecType->elem, "Vector/string element type mismatch");
+    }
+    else
+        vecType = elemType->deriveVec(typeReg);
     stkPop();
     addOp(vecType, vecType->isByteVec() ? opChrToStr : opVarToVec);
     return vecType;

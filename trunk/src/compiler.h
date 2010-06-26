@@ -18,14 +18,14 @@ protected:
 
     void enumeration(const str& firstIdent);
     void identifier(const str&);
-    void vectorCtor(Container* type);
-    void dictCtor(Container* type);
-    void atom();
-    void designator();
-    void factor();
+    void vectorCtor(Type* type);
+    void dictCtor(Type* type);
+    void atom(Type*);
+    void designator(Type*);
+    void factor(Type*);
+    void concatExpr(Container*);
     void term();
     void arithmExpr();
-    void simpleExpr();
     void relation();
     void notLevel();
     void andLevel();

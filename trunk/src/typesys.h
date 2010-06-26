@@ -481,6 +481,7 @@ public:
     Variant* const defVariant;
     Ordinal* const defInt;
     Ordinal* const defChar;
+    Ordinal* const defByte;
     Enumeration* const defBool;
     Container* const defNullCont;
     Container* const defStr;

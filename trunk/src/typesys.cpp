@@ -980,6 +980,7 @@ QueenBee::QueenBee()
       defVariant(new Variant()),
       defInt(new Ordinal(Type::INT, INTEGER_MIN, INTEGER_MAX)),
       defChar(new Ordinal(Type::CHAR, 0, 255)),
+      defByte(new Ordinal(Type::INT, 0, 255)),
       defBool(new Enumeration(Type::BOOL)),
       defNullCont(new Container(defVoid, defVoid)),
       defStr(new Container(defVoid, defChar)),
@@ -994,6 +995,7 @@ QueenBee::QueenBee()
     addTypeAlias("any", defVariant);
     addTypeAlias("int", defInt);
     addTypeAlias("char", defChar);
+    addTypeAlias("byte", defByte);
     addTypeAlias("bool", defBool);
     defBool->addValue(this, "false");
     defBool->addValue(this, "true");
