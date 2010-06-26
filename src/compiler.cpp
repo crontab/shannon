@@ -109,15 +109,18 @@ void Compiler::identifier(const str& ident)
 }
 
 
-void Compiler::vectorCtor(Container* type)
+void Compiler::vectorCtor(Type* typeHint)
 {
+    if (typeHint && !typeHint->isAnyVec())
+        error("Vector constructor not expected here");
+    Container* type = PContainer(typeHint);
     if (skipIf(tokRSquare))
     {
         codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
         return;
     }
     runtimeExpr(type ? type->elem : NULL);
-    type = codegen->elemToVec();
+    type = codegen->elemToVec(type);
     while (skipIf(tokComma))
     {
         runtimeExpr(type->elem);
@@ -127,8 +130,11 @@ void Compiler::vectorCtor(Container* type)
 }
 
 
-void Compiler::dictCtor(Container* type)
+void Compiler::dictCtor(Type* typeHint)
 {
+    if (typeHint && !typeHint->isAnySet() && !typeHint->isAnyDict())
+        error("Set/dict constructor not expected here");
+    Container* type = PContainer(typeHint);
     if (skipIf(tokRCurly))
     {
         codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
@@ -183,21 +189,21 @@ void Compiler::dictCtor(Container* type)
 // --- EXPRESSION ---------------------------------------------------------- //
 
 /*
-    1. <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
-    2. @ <array-sel>  <member-sel>  <function-call>  ^
-    3. unary-  #  as  is  ?
-    5. *  /  mod
-    6. +  –
-    7. |
-    8. ==  <>  <  >  <=  >=  in
-    9. not
-    10. and
-    11. or  xor
-    12. range, enum
+    <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
+    @ <array-sel>  <member-sel>  <function-call>  ^
+    unary-  #  as  is  ?
+    |
+    *  /  mod
+    +  –
+    ==  <>  <  >  <=  >=  in
+    not
+    and
+    or  xor
+    range, enum
 */
 
 
-void Compiler::atom()
+void Compiler::atom(Type* typeHint)
 {
     if (token == tokPrevIdent)  // from partial (typeless) definition
     {
@@ -233,17 +239,17 @@ void Compiler::atom()
     else if (skipIf(tokLParen))
     {
         if (codegen->isCompileTime())
-            constExpr(NULL);
+            constExpr(typeHint);
         else
-            runtimeExpr(NULL);
+            runtimeExpr(typeHint);
         expect(tokRParen, "')'");
     }
 
     else if (skipIf(tokLSquare))
-        vectorCtor(NULL);
+        vectorCtor(typeHint);
 
     else if (skipIf(tokLCurly))
-        dictCtor(NULL);
+        dictCtor(typeHint);
 /*
     // TODO: 
     else if (skipIf(tokIf))
@@ -265,13 +271,14 @@ void Compiler::atom()
 }
 
 
-void Compiler::designator()
+void Compiler::designator(Type* typeHint)
 {
     // TODO: function calls
     memint undoOffs = codegen->getCurrentOffs();
     bool isAt = skipIf(tokAt);
+    Type* refTypeHint = typeHint && typeHint->isReference() ? PReference(typeHint)->to : NULL;
 
-    atom();
+    atom(refTypeHint ? refTypeHint : typeHint);
 
     while (1)
     {
@@ -304,27 +311,28 @@ void Compiler::designator()
             break;
     }
 
-    if (isAt)
+    if (isAt || refTypeHint)
         codegen->mkref();
     else
         codegen->deref();
 }
 
 
-void Compiler::factor()
+void Compiler::factor(Type* typeHint)
 {
     bool isNeg = skipIf(tokMinus);
+    bool isQ = skipIf(tokQuestion);
     bool isLen = skipIf(tokSharp);
 
     memint undoOffs = codegen->getCurrentOffs();
-    designator();
+    designator(typeHint);
 
     if (isLen)
         codegen->length();
+    if (isQ)
+        codegen->nonEmpty();
     if (isNeg)
         codegen->arithmUnary(opNeg);
-    if (skipIf(tokQuestion))
-        codegen->nonEmpty();
     if (skipIf(tokAs))
     {
         Type* type = getTypeValue(true);
@@ -341,15 +349,41 @@ void Compiler::factor()
 }
 
 
+void Compiler::concatExpr(Container* contType)
+{
+    factor(contType);
+    if (skipIf(tokCat))
+    {
+        Type* top = codegen->getTopType();
+        if (top->isAnyVec())
+            if (contType)
+                codegen->implicitCast(contType);
+            else
+                contType = PContainer(top);
+        else
+            contType = codegen->elemToVec(contType);
+        do
+        {
+            factor(contType);
+            if (codegen->tryImplicitCast(contType))
+                codegen->cat();
+            else
+                codegen->elemCat();
+        }
+        while (skipIf(tokCat));
+    }
+}
+
+
 void Compiler::term()
 {
-    factor();
+    concatExpr(NULL);
     while (token == tokMul || token == tokDiv || token == tokMod)
     {
         OpCode op = token == tokMul ? opMul
             : token == tokDiv ? opDiv : opMod;
         next();
-        factor();
+        factor(NULL);
         codegen->arithmBinary(op);
     }
 }
@@ -368,50 +402,15 @@ void Compiler::arithmExpr()
 }
 
 
-void Compiler::simpleExpr()
-{
-    arithmExpr();
-    if (token == tokCat)
-    {
-        Container* contType = NULL;
-        // The trick here is to ignore any null containers in the expression,
-        // and correctly figure out the container type at the same time.
-        while (1)
-        {
-            Type* top = codegen->getTopType();
-            if (top->isNullCont())
-                codegen->undoLoader();
-            else if (contType == NULL)  // first non-null element, container type unknown yet
-            {
-                if (top->isAnyVec())
-                    contType = PContainer(top);
-                else
-                    contType = codegen->elemToVec();
-            }
-            else // non-null element, container type known
-            {
-                if (top->canAssignTo(contType))  // compatible vector? then concatenate as vector
-                    codegen->cat();
-                else
-                    codegen->elemCat();
-            }
-            if (!skipIf(tokCat))  // first iteration will return tokCat
-                break;
-            arithmExpr();
-        }
-    }
-}
-
-
 void Compiler::relation()
 {
     // TODO: operator 'in'
-    simpleExpr();
+    arithmExpr();
     if (token >= tokEqual && token <= tokGreaterEq)
     {
         OpCode op = OpCode(opEqual + int(token - tokEqual));
         next();
-        simpleExpr();
+        arithmExpr();
         codegen->cmp(op);
     }
 }
@@ -478,7 +477,15 @@ void Compiler::orLevel()
 
 void Compiler::runtimeExpr(Type* expectType)
 {
-    orLevel();
+    if (expectType == NULL || expectType->isBool())
+        orLevel();
+    else if (expectType->isAnyCont())
+        concatExpr(PContainer(expectType));
+    else if (expectType->isReference())
+        designator(expectType);
+    else
+        arithmExpr();
+        
     if (expectType)
         codegen->implicitCast(expectType);
 }
@@ -522,7 +529,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
     CodeGen constCodeGen(constCode, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     if (atomType)
-        atom();
+        atom(expectType);
     else
         constExpr(expectType);
     if (codegen->getTopType()->isReference())
@@ -535,6 +542,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 
 Type* Compiler::getTypeValue(bool atomType)
 {
+    // atomType excludes enums and subrange type definitions
     variant result;
     getConstValue(defTypeRef, result, atomType);
     return state->registerType(cast<Type*>(result._rtobj()));
@@ -646,7 +654,7 @@ void Compiler::otherStatement()
 {
     // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    designator();
+    designator(NULL);
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();

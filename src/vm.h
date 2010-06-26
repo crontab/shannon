@@ -328,7 +328,7 @@ public:
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
 
-    Container* elemToVec();
+    Container* elemToVec(Container*);
     void elemCat();
     void cat();
     void loadContainerElem();
