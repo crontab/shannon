@@ -897,8 +897,6 @@ private:
     void _init(bool);
 
 public:
-    // TODO: tinyset
-
     enum Type
         { VOID, ORD, REAL, VARPTR,
           STR, VEC, SET, ORDSET, DICT, REF, RTOBJ,

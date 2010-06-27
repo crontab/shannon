@@ -20,7 +20,6 @@ void Compiler::enumeration(const str& firstIdent)
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
-    // TODO: do this in opposite order
     if (skipIf(tokLSquare))
     {
         if (skipIf(tokRSquare))
@@ -523,7 +522,6 @@ void Compiler::expression(Type* expectType)
 
 void Compiler::constExpr(Type* expectType)
 {
-    // TODO: const expression (e.g. const [1, 2, 3] or const 0..10)
     assert(codegen->isCompileTime());
     if (token == tokIdent)  // Enumeration maybe?
     {
