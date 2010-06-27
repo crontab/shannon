@@ -605,6 +605,7 @@ ModuleInstance* Context::addModule(Module* m)
 
 Module* Context::loadModule(const str& filePath)
 {
+    // TODO: store the current file name in a named const, say __FILE__
     str modName = moduleNameFromFileName(filePath);
     objptr<Module> m = new Module(modName, filePath);
     addModule(m);

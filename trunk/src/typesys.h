@@ -435,7 +435,6 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
-    // TODO: bool identicalTo(Type*) const;
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     SelfVar* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();

@@ -299,7 +299,6 @@ restart:
     // --- Number ---
     else if (digits[c])
     {
-        // TODO: floating point
         bool e, o;
         strValue = input->token(identRest);
         str s = strValue;
