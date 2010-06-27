@@ -98,12 +98,13 @@ public:
     void error(const char*);
     bool isSep();
     void skipSep();
-    void skipEmptyLines()
+    void skipAnySeps()
         { while (skipIf(tokSep)) ; }
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
     bool skipBlockBegin();  // true: multiple block, false: single statement block
+    void skipMultiBlockBegin();
     bool isBlockEnd()
             { return token == tokRCurly || token == tokEof; }
     void skipBlockEnd();

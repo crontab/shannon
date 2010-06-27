@@ -105,22 +105,26 @@ enum OpCode
     opBitShl,           // -int, +int, +int
     opBitShr,           // -int, +int, +int
 
-    // Arithmetic unary: -int, +int
-    opNeg,              // -int, +int
-    opBitNot,           // -int, +int
-    opNot,              // -bool, +bool
+    // Arithmetic unary
+    opNeg,              // -int +int
+    opBitNot,           // -int +int
+    opNot,              // -bool +bool
 
     // --- 10. BOOLEAN
-    opCmpOrd,           // -int, -int, +{-1,0,1}
-    opCmpStr,           // -str, -str, +{-1,0,1}
-    opCmpVar,           // -var, -var, +{0,1}
+    opCmpOrd,           // -int -int +{-1,0,1}
+    opCmpStr,           // -str -str +{-1,0,1}
+    opCmpVar,           // -var -var +{0,1}
     // see isCmpOp()
-    opEqual,            // -int, +bool
-    opNotEq,            // -int, +bool
-    opLessThan,         // -int, +bool
-    opLessEq,           // -int, +bool
-    opGreaterThan,      // -int, +bool
-    opGreaterEq,        // -int, +bool
+    opEqual,            // -int +bool
+    opNotEq,            // -int +bool
+    opLessThan,         // -int +bool
+    opLessEq,           // -int +bool
+    opGreaterThan,      // -int +bool
+    opGreaterEq,        // -int +bool
+    // case label helpers
+    opCaseOrd,          // -int -int +int +bool
+    opCaseStr,          // -str -str +str +bool
+    opCaseVar,          // -var -var +var +bool
 
     // --- 11. JUMPS
     // Jumps; [dst] is a relative 16-bit offset
@@ -351,6 +355,7 @@ public:
     void arithmUnary(OpCode op);
 //    void boolXor();
     void cmp(OpCode);
+    void caseCmp();
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
     memint boolJumpForward(OpCode op);

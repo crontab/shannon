@@ -8,6 +8,16 @@
 class Compiler: protected Parser
 {
     friend class Context;
+    friend class AutoScope;
+
+    class AutoScope: public BlockScope
+    {
+        Compiler& compiler;
+    public:
+        AutoScope(Compiler& c);
+        ~AutoScope();
+    };
+
 protected:
     Context& context;
     Module& module;
@@ -50,6 +60,8 @@ protected:
     void singleStatement();
     void statementList();
     void ifBlock();
+    void caseLabel(Type*);
+    void caseBlock();
 
     void compileModule();
 

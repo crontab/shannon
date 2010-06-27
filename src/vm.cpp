@@ -420,7 +420,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 10. BOOLEAN
         case opCmpOrd:
-            SETPOD(stk - 1, (stk - 1)->_int() - stk->_int());
+            (stk - 1)->_int() -= stk->_int();
             POPPOD();
             break;
         case opCmpStr:
@@ -438,6 +438,10 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opLessEq:      stk->_int() = stk->_int() <= 0; break;
         case opGreaterThan: stk->_int() = stk->_int() > 0; break;
         case opGreaterEq:   stk->_int() = stk->_int() >= 0; break;
+
+        case opCaseOrd:     stk->_int() = int(stk->_int() == (stk - 1)->_int()); break;
+        case opCaseStr:     *stk = int(stk->_str() == (stk - 1)->_str()); break;
+        case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
         // --- 11. JUMPS
         case opJump:

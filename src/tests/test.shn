@@ -181,19 +181,28 @@ if b1 <> 0
     { assert false }
 // Hmmmm
 else
+
+// Hm?
     { assert true }
 
 if b1 == 0: assert true
 elif b1 == 1: assert false
 elif b1 == 2
-    { assert false }
+{
+    // Hm...
+    
+    assert false
+}
 else:
     assert false
 
 if b1 == 1: assert false
 elif b1 == 0: assert true
 elif b1 == 2: assert false
-else: assert false
+
+else:
+    ; ;
+    assert false
 
 if b1 == 1: assert false
 elif b1 == 2: assert false
@@ -208,4 +217,11 @@ else: assert true
 if b1 == 1: assert false
 elif b1 == 0: assert true
 elif b1 == 3: assert false
+
+case b1
+{
+    1:      assert false
+    0:      assert true
+    else:   assert false
+}
 

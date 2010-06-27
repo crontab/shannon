@@ -16,3 +16,5 @@ for i in "$SRCDIR"/*.$EXT ; do
     echo "$coeff  -  $name ($bytes/$lines)"
 done
 
+wc -l *.cpp *.h | tail -1
+
