@@ -1105,7 +1105,7 @@ memint variant::compare(const variant& v) const
             return val._ptr - v.val._ptr;
         case STR:
             return _str().compare(v._str());
-        // TODO: define "deep" comparison? but is it really needed for hashing?
+        // TODO: define "deep" comparison, at least for vectors?
         case VEC:
         case SET:
         case ORDSET:
