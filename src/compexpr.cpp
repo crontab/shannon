@@ -111,11 +111,11 @@ void Compiler::vectorCtor(Type* typeHint)
         codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
         return;
     }
-    runtimeExpr(type ? type->elem : NULL);
+    expression(type ? type->elem : NULL);
     type = codegen->elemToVec(type);
     while (skipIf(tokComma))
     {
-        runtimeExpr(type->elem);
+        expression(type->elem);
         codegen->elemCat();
     }
     expect(tokRSquare, "]");
@@ -133,19 +133,19 @@ void Compiler::dictCtor(Type* typeHint)
         return;
     }
 
-    runtimeExpr(type ? type->index : NULL);
+    expression(type ? type->index : NULL);
 
     // Dictionary
     if (skipIf(tokAssign))
     {
-        runtimeExpr(type ? type->elem : NULL);
+        expression(type ? type->elem : NULL);
         type = codegen->pairToDict();
         while (skipIf(tokComma))
         {
-            runtimeExpr(type->index);
+            expression(type->index);
             codegen->checkDictKey();
             expect(tokAssign, "=");
-            runtimeExpr(type->elem);
+            expression(type->elem);
             codegen->dictAddPair();
         }
     }
@@ -155,18 +155,18 @@ void Compiler::dictCtor(Type* typeHint)
     {
         if (skipIf(tokRange))
         {
-            runtimeExpr(type ? type->index : NULL);
+            expression(type ? type->index : NULL);
             type = codegen->rangeToSet();
         }
         else
             type = codegen->elemToSet();
         while (skipIf(tokComma))
         {
-            runtimeExpr(type->index);
+            expression(type->index);
             if (skipIf(tokRange))
             {
                 codegen->checkRangeLeft();
-                runtimeExpr(type->index);
+                expression(type->index);
                 codegen->setAddRange();
             }
             else
@@ -191,16 +191,16 @@ void Compiler::typeOf()
 void Compiler::ifFunc()
 {
     expect(tokLParen, "(");
-    runtimeExpr(queenBee->defBool);
+    expression(queenBee->defBool);
     memint jumpFalse = codegen->boolJumpForward(opJumpFalse);
     expect(tokComma, ",");
-    runtimeExpr(NULL);
+    expression(NULL);
     Type* exprType = codegen->getTopType();
     codegen->justForget(); // will get the expression type from the second branch
     memint jumpOut = codegen->jumpForward(opJump);
     codegen->resolveJump(jumpFalse);
     expect(tokComma, ",");
-    runtimeExpr(exprType);
+    expression(exprType);
     codegen->resolveJump(jumpOut);
     expect(tokRParen, ")");
 }
@@ -261,7 +261,7 @@ void Compiler::atom(Type* typeHint)
         if (codegen->isCompileTime())
             constExpr(typeHint);
         else
-            runtimeExpr(typeHint);
+            expression(typeHint);
         expect(tokRParen, "')'");
     }
 
@@ -314,7 +314,7 @@ void Compiler::designator(Type* typeHint)
         else if (skipIf(tokLSquare))
         {
             codegen->deref();
-            runtimeExpr(NULL);
+            expression(NULL);
             expect(tokRSquare, "]");
             codegen->loadContainerElem();
         }
@@ -506,7 +506,7 @@ void Compiler::orLevel()
 }
 
 
-void Compiler::runtimeExpr(Type* expectType)
+void Compiler::expression(Type* expectType)
 {
     if (expectType == NULL || expectType->isBool())
         orLevel();
@@ -539,10 +539,10 @@ void Compiler::constExpr(Type* expectType)
     else
     {
 ICouldHaveDoneThisWithoutGoto:
-        runtimeExpr(expectType);
+        expression(expectType);
         if (skipIf(tokRange))  // Subrange
         {
-            runtimeExpr(NULL);
+            expression(NULL);
             codegen->createSubrangeType();
         }
     }

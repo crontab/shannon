@@ -97,8 +97,8 @@ const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 template class symtbl<Symbol>;
 
 
-Scope::Scope(ScopeId _id, Scope* _outer)
-    : scopeId(_id), outer(_outer)  { }
+Scope::Scope(bool _local, Scope* _outer)
+    : local(_local), outer(_outer)  { }
 
 
 Scope::~Scope()
@@ -126,7 +126,7 @@ Symbol* Scope::findShallow(const str& ident) const
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
-    : Scope(LOCAL, _outer), startId(_gen->getLocals()), gen(_gen)  { }
+    : Scope(true, _outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
 BlockScope::~BlockScope()
@@ -751,7 +751,7 @@ bool Prototype::identicalTo(Prototype* t) const
 
 
 State::State(TypeId id, Prototype* proto, State* par, State* self)
-    : Type(id), Scope(STATE, par), parent(par), selfPtr(self),
+    : Type(id), Scope(false, par), parent(par), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 

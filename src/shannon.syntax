@@ -20,6 +20,7 @@ context default
 	keyword whole continue		yellow
 	keyword whole def		yellow
 	keyword whole dump		yellow
+	keyword whole elif		yellow
 	keyword whole else		yellow
 	keyword whole exit		yellow
 	keyword whole if		yellow

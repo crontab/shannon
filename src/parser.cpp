@@ -68,6 +68,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"continue", tokContinue},
         {"def", tokDef},
         {"dump", tokDump},
+        {"elif", tokElif},
         {"else", tokElse},
         {"exit", tokExit},
         {"if", tokIf},
@@ -397,7 +398,7 @@ bool Parser::skipBlockBegin()
         return false;
     else
     {
-        while (skipIf(tokSep)) ;
+        skipEmptyLines();
         expect(tokLCurly, "'{' or ':'");
         return true;
     }
@@ -407,6 +408,7 @@ bool Parser::skipBlockBegin()
 void Parser::skipBlockEnd()
 {
     expect(tokRCurly, "'}'");
+    skipEmptyLines();
 }
 
 

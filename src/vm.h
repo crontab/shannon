@@ -258,6 +258,8 @@ protected:
     State* typeReg;  // for calling registerType()
     CodeSeg& codeseg;
 
+    // TODO: keep at least ordinal consts so that some things can be evaluated
+    // at compile time or optimized
     struct SimStackItem
     {
         Type* type;
