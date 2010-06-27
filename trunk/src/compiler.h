@@ -33,7 +33,7 @@ protected:
     void notLevel();
     void andLevel();
     void orLevel();
-    void runtimeExpr(Type*);
+    void expression(Type*);
     void constExpr(Type*);
 
     // in compiler.cpp
@@ -49,6 +49,7 @@ protected:
     void block();
     void singleStatement();
     void statementList();
+    void ifBlock();
 
     void compileModule();
 

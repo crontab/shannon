@@ -12,7 +12,7 @@ enum Token
     tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
     tokConst, tokDef, tokVar,
-    tokDump, tokAssert, tokBegin, tokIf, tokElse,
+    tokDump, tokAssert, tokBegin, tokIf, tokElif, tokElse,
     tokWhile, tokBreak, tokContinue, tokCase, tokReturn, tokExit,
     tokTypeOf,
 
@@ -98,6 +98,8 @@ public:
     void error(const char*);
     bool isSep();
     void skipSep();
+    void skipEmptyLines()
+        { while (skipIf(tokSep)) ; }
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }

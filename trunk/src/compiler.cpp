@@ -78,7 +78,7 @@ void Compiler::variable()
     // TODO: const variables
     str ident;
     Type* type = getTypeAndIdent(ident);
-    runtimeExpr(type);
+    expression(type);
     if (type == NULL)
         type = codegen->getTopType();
     if (type->isNullCont())
@@ -105,7 +105,7 @@ void Compiler::assertion()
         integer ln = getLineNum();
         beginRecording();
         next();
-        runtimeExpr(NULL);
+        expression(NULL);
         str s = endRecording();
         module.registerString(s);
         if (!context.options.lineNumbers)
@@ -126,7 +126,7 @@ void Compiler::dumpVar()
         {
             beginRecording();
             next();
-            runtimeExpr(NULL);
+            expression(NULL);
             str s = endRecording();
             module.registerString(s);
             codegen->dumpVar(s);
@@ -140,7 +140,7 @@ void Compiler::dumpVar()
 
 void Compiler::programExit()
 {
-    runtimeExpr(NULL);
+    expression(NULL);
     codegen->programExit();
     skipSep();
 }
@@ -154,7 +154,7 @@ void Compiler::otherStatement()
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();
-        runtimeExpr(codegen->getTopType());
+        expression(codegen->getTopType());
         if (!isSep())
             error("Statement syntax");
         codegen->assignment(storerCode);
@@ -191,13 +191,15 @@ void Compiler::block()
 
 void Compiler::singleStatement()
 {
-    while (skipIf(tokSep)) ;
+    skipEmptyLines();
     if (context.options.lineNumbers)
         codegen->linenum(getLineNum());
     if (skipIf(tokDef))
         definition();
     else if (skipIf(tokVar))
         variable();
+    else if (skipIf(tokIf))
+        ifBlock();
     else if (skipIf(tokBegin))
         block();
     else if (token == tokAssert)
@@ -208,7 +210,7 @@ void Compiler::singleStatement()
         programExit();
     else
         otherStatement();
-    while (skipIf(tokSep)) ;
+    skipEmptyLines();
 }
 
 
@@ -216,6 +218,25 @@ void Compiler::statementList()
 {
     while (!isBlockEnd())
         singleStatement();
+}
+
+
+void Compiler::ifBlock()
+{
+    expression(queenBee->defBool);
+    memint fwd = codegen->boolJumpForward(opJumpFalse);
+    block();
+    if (token == tokElif || token == tokElse)
+    {
+        memint out = codegen->jumpForward(opJump);
+        codegen->resolveJump(fwd);
+        fwd = out;
+        if (skipIf(tokElif))
+            ifBlock();
+        else if (skipIf(tokElse))
+            block();
+    }
+    codegen->resolveJump(fwd);
 }
 
 

@@ -129,16 +129,13 @@ class Scope
 {
     friend void test_typesys();
 protected:
-    enum ScopeId { LOCAL, STATE, CONTEXT };
-    ScopeId const scopeId;
+    bool const local;
     symtbl<Symbol> symbols;         // symbol table for search
 public:
     Scope* const outer;
-    Scope(ScopeId id, Scope* outer);
-    virtual ~Scope();
-    bool isLocal() const        { return scopeId == LOCAL; }
-    bool isState() const        { return scopeId == STATE; }
-    bool isContext() const      { return scopeId == CONTEXT; }
+    Scope(bool local, Scope* outer);
+    ~Scope();
+    bool isLocal() const        { return local; }
     void addUnique(Symbol* s);
     Symbol* find(const str& ident) const            // returns NULL or Symbol
         { return symbols.find(ident); }

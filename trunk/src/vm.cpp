@@ -587,7 +587,7 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(CONTEXT, NULL), queenBeeInst(addModule(queenBee))  { }
+    : Scope(false, NULL), queenBeeInst(addModule(queenBee))  { }
 
 
 Context::~Context()
