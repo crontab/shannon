@@ -703,6 +703,20 @@ void CodeGen::cmp(OpCode op)
 }
 
 
+void CodeGen::caseCmp()
+{
+    Type* left = stkTop(2);
+    implicitCast(left, "Type mismatch in comparison");
+    Type* right = stkPop();
+    if (left->isAnyOrd() && right->isAnyOrd())
+        addOp(queenBee->defBool, opCaseOrd);
+    else if (left->isByteVec() && right->isByteVec())
+        addOp(queenBee->defBool, opCaseStr);
+    else
+        addOp(queenBee->defBool, opCmpVar);
+}
+
+
 void CodeGen::_not()
 {
     Type* type = stkTop();

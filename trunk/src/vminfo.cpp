@@ -128,6 +128,10 @@ OpInfo opTable[] =
     OP(LessEq, None),           // -int, +bool
     OP(GreaterThan, None),      // -int, +bool
     OP(GreaterEq, None),        // -int, +bool
+    // case label helpers
+    OP(CaseOrd,  None),         // -int -int +int +bool
+    OP(CaseStr, None),          // -str -str +str +bool
+    OP(CaseVar, None),          // -var -var +var +bool
 
     // --- 11. JUMPS
     // Jumps; [dst] is a relative 16-bit offset

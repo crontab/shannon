@@ -394,20 +394,32 @@ void Parser::redoIdent()
 bool Parser::skipBlockBegin()
 {
     if (skipIf(tokColon))
+    {
+        skipAnySeps();
         return false;
+    }
     else
     {
-        skipEmptyLines();
+        skipAnySeps();
         expect(tokLCurly, "'{' or ':'");
+        skipAnySeps();
         return true;
     }
+}
+
+
+void Parser::skipMultiBlockBegin()
+{
+    skipAnySeps();
+    expect(tokLCurly, "'{'");
+    skipAnySeps();
 }
 
 
 void Parser::skipBlockEnd()
 {
     expect(tokRCurly, "'}'");
-    skipEmptyLines();
+    skipAnySeps();
 }
 
 

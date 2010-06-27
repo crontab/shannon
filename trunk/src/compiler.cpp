@@ -3,6 +3,14 @@
 #include "compiler.h"
 
 
+Compiler::AutoScope::AutoScope(Compiler& c)
+    : BlockScope(c.scope, c.codegen), compiler(c)
+        { compiler.scope = this; }
+
+Compiler::AutoScope::~AutoScope()
+        { deinitLocals(); compiler.scope = outer; }
+
+
 Compiler::Compiler(Context& c, Module& mod, buffifo* f)
     : Parser(f), context(c), module(mod)  { }
 
@@ -168,20 +176,9 @@ void Compiler::block()
 {
     if (skipBlockBegin())
     {
-        BlockScope localScope(scope, codegen);
-        scope = &localScope;
-        try
-        {
-            statementList();
-            skipBlockEnd();
-            localScope.deinitLocals();
-            scope = localScope.outer;
-        }
-        catch (exception&)
-        {
-            scope = localScope.outer;
-            throw;
-        }
+        AutoScope local(*this);
+        statementList();
+        skipBlockEnd();
     }
     else
         singleStatement();
@@ -190,17 +187,18 @@ void Compiler::block()
 
 void Compiler::singleStatement()
 {
-    skipEmptyLines();
     if (context.options.lineNumbers)
         codegen->linenum(getLineNum());
     if (skipIf(tokDef))
         definition();
     else if (skipIf(tokVar))
         variable();
-    else if (skipIf(tokIf))
-        ifBlock();
     else if (skipIf(tokBegin))
         block();
+    else if (skipIf(tokIf))
+        ifBlock();
+    else if (skipIf(tokCase))
+        caseBlock();
     else if (token == tokAssert)
         assertion();
     else if (token == tokDump)
@@ -209,7 +207,7 @@ void Compiler::singleStatement()
         programExit();
     else
         otherStatement();
-    skipEmptyLines();
+    skipAnySeps();
 }
 
 
@@ -223,19 +221,54 @@ void Compiler::statementList()
 void Compiler::ifBlock()
 {
     expression(queenBee->defBool);
-    memint fwd = codegen->boolJumpForward(opJumpFalse);
+    memint out = codegen->boolJumpForward(opJumpFalse);
     block();
     if (token == tokElif || token == tokElse)
     {
-        memint out = codegen->jumpForward(opJump);
-        codegen->resolveJump(fwd);
-        fwd = out;
+        memint t = codegen->jumpForward(opJump);
+        codegen->resolveJump(out);
+        out = t;
         if (skipIf(tokElif))
             ifBlock();
         else if (skipIf(tokElse))
             block();
     }
-    codegen->resolveJump(fwd);
+    codegen->resolveJump(out);
+}
+
+
+void Compiler::caseLabel(Type* ctlType)
+{
+    // Expects that the case control variable is the top stack element
+    expression(ctlType);
+    codegen->caseCmp();
+    // TODO: comma-separated list, ranges
+    memint out = codegen->boolJumpForward(opJumpFalse);
+    block();
+    if (!isBlockEnd())
+    {
+        memint t = codegen->jumpForward(opJump);
+        codegen->resolveJump(out);
+        out = t;
+        if (skipIf(tokElse))
+            block();
+        else
+            caseLabel(ctlType);
+    }
+    codegen->resolveJump(out);
+}
+    
+
+void Compiler::caseBlock()
+{
+    AutoScope local(*this);
+    expression(NULL);
+    Type* ctlType = codegen->getTopType();
+    LocalVar* ctlVar = local.addLocalVar("__case", ctlType);
+    codegen->initLocalVar(ctlVar);
+    skipMultiBlockBegin();
+    caseLabel(ctlType);
+    skipBlockEnd();
 }
 
 
@@ -252,6 +285,7 @@ void Compiler::compileModule()
         try
         {
             next();
+            skipAnySeps();
             statementList();
             expect(tokEof, "End of file");
         }
