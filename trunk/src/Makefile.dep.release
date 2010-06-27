@@ -8,6 +8,8 @@ release/typesys.o: typesys.h runtime.h common.h version.h vm.h
 release/vm.o: vm.h common.h version.h runtime.h typesys.h compiler.h parser.h
 release/vmcodegen.o: vm.h common.h version.h runtime.h typesys.h
 release/vminfo.o: vm.h common.h version.h runtime.h typesys.h
+release/compexpr.o: vm.h common.h version.h runtime.h typesys.h compiler.h
+release/compexpr.o: parser.h
 release/compiler.o: vm.h common.h version.h runtime.h typesys.h compiler.h
 release/compiler.o: parser.h
 release/main.o: common.h version.h runtime.h parser.h typesys.h vm.h

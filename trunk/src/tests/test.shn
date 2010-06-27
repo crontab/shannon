@@ -65,6 +65,7 @@ assert v9[0] == 12 and v9[1] == 13
 assert d0['one'] == 1 and d0['two'] == 2
 assert d1['a'] == 'Letter A' and d1['b'] == 'Letter B'
 assert ?i0 and ?v5 and ?n0 and not ?one and not ?false and not ?s1 and ?v2
+assert 'a' in identChars and not '?' in identChars
 
 var a = 2
 var int b = 1
@@ -78,6 +79,7 @@ var byte ei[] = [0, 1] | 2 | 3 | [] | [4]
 var int^ r1 = 2
 var r2 = @3
 var str r3^ = @'abc'
+var typeof r1 r4 = 10
 a = r1
 assert a == 2
 r1 = 12
@@ -86,12 +88,17 @@ assert r1 == 12
 r1 = 1
 assert r2 == 1
 
+assert typeof c == str and typeof d == int[] and typeof e == byte[][] and typeof er == int[][]
 
+var str words[..] = {'as', 'is'}
 var dic1 = {'one' = 1, 'two' = 0, 'three' = 3}
 var byte dic2[str] = {'o' = 1, 'two' = 0, 'three' = 3}
 var int ints1[]^[] = [[], [10, 11, 12], @[13, 14], @[]]
 var int dics1[][str] = [dic1, {}]
 var int dics2[]^[str] = [dic1, {'e' = 0}, {}]
+var int dic3[char] = {'a' = 10, 'b' = 20}
+
+assert typeof dic1 == int[str] and typeof dic1['www'] == int and typeof ints1[100] == int[]
 
 a = 10 + b
 assert a == 11
@@ -100,6 +107,7 @@ assert #ei == 5 and ei[1] == 1
 assert dic1['one'] == 1 and dic1['two'] == 0
 system.__program_result = 'OK'
 assert __program_result == 'OK'
+__program_result = null
 c[1] = ':'
 assert c == 'a:cd'
 (c[2]) = '$'
@@ -116,18 +124,43 @@ ints1[1][2] = 111
 assert ints1[1][2] == 111
 dics2[0]['three'] = 33
 assert dics2[0]['three'] == 33
-
+assert 'as' in words and not 'kuku' in words
+assert not 'z' in dic3 and 'a' in dic3
+assert 2 in nums and 96 in char and not 256 in char
+assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
+assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'
 
 // TYPECASTS
-assert 1 as char == '\x1'
-assert 'a' as int == 97
+begin: assert 1 as char == '\x1'
+begin:
+    assert 'a' as int == 97
 var any v10 = 0
-assert v10 as nums == one
-assert 1 is int and 'abc' is str
-assert 1 is not str and 'abc' is not int
-assert v10 is int and v10 is not str
-assert v10 is any
-assert v10 as nums is nums
-assert 'a' as str == 'a' and ch1 as str == 'z'
+begin
+// huh?
+{
+    assert v10 as nums == one
+    assert 1 is int and 'abc' is str
+    assert 1 is not str and 'abc' is not int
+    assert v10 is int and v10 is not str
+    assert v10 is any
+    assert v10 as nums is nums
+    begin { assert 'a' as str == 'a' and ch1 as str == 'z' }
+}
 
-system.__program_result = null
+// exit 'Hmmmmmm'
+
+
+// LOCAL BLOCKS
+var b1 = 0
+begin {
+    var b1 = 1
+    assert b1 == 1
+}
+begin {
+    var b1 = 2
+    var b2 = 3
+    def s0 = 'xyz'
+    def nums = zero, one, two, three, four
+    assert b1 == 2 and b2 == 3 and s0 == 'xyz' and one == 1 as nums
+}
+assert b1 == 0 and s0 == 'abc' and one == 0 as nums

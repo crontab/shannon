@@ -12,7 +12,7 @@ enum OpCode
 
     // --- 1. MISC CONTROL
     opEnd,              // end execution and return
-    opNop,
+    opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
 
     // --- 2. CONST LOADERS
@@ -77,8 +77,10 @@ enum OpCode
     opRngToByteSet,     // -int -int +set
     opByteSetAddElem,   // -int -set +set
     opByteSetAddRng,    // -int -int -set +set
-    opInSet,            // -var -set +bool
-    opInByteSet,        // -int -set +bool
+    opInSet,            // -set -var +bool
+    opInByteSet,        // -set -int +bool
+    opInBounds,         // [Ordinal*] -int +bool
+    opInRange,          // -int -int -int +bool
 
     // --- 8. DICTIONARIES
     opPairToDict,       // -var -var +dict
@@ -276,7 +278,6 @@ protected:
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
     template <class T>
         void addOp(Type* t, OpCode op, const T& a)  { addOp(t, op); add<T>(a); }
-    void addJumpOffs(jumpoffs o)                    { add<jumpoffs>(o); }
     Type* stkPop();
     void stkReplaceTop(Type* t);  // only if the opcode is not changed
     Type* stkTop()
@@ -285,7 +286,6 @@ protected:
         { return simStack.back(i).type; }
     memint stkTopOffs()
         { return simStack.back().offs; }
-    void undoDesignator(memint from);
     static void error(const char*);
     static void error(const str&);
 
@@ -300,8 +300,10 @@ public:
     memint getLocals()          { return locals; }
     State* getState()           { return codeOwner; }
     Type* getTopType()          { return stkTop(); }
+    void justForget()           { stkPop(); } 
     memint getCurrentOffs()     { return codeseg.size(); }
     Type* tryUndoTypeRef();
+    void undoDesignator(memint from);
     void undoLoader();
     void deinitLocalVar(Variable*);
     void popValue();
@@ -341,6 +343,9 @@ public:
     Container* pairToDict();
     void checkDictKey();
     void dictAddPair();
+    void inCont();
+    void inBounds();
+    void inRange();
 
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
@@ -354,6 +359,7 @@ public:
     void linenum(integer);
     void assertion(const str& cond);
     void dumpVar(const str& expr);
+    void programExit();
 
     str lvalue();
     void assignment(const str& storerCode);
@@ -428,10 +434,12 @@ public:
 void runRabbitRun(stateobj* self, rtstack& stack, const char* code);
 
 
-struct eexit: public emessage
+struct eexit: public exception
 {
-    eexit() throw();
+    variant result;
+    eexit(const variant&) throw();
     ~eexit() throw();
+    const char* what() throw();
 };
 
 
