@@ -210,8 +210,9 @@ void Compiler::ifFunc()
 
 /*
     <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
+        <
     @ <array-sel>  <member-sel>  <function-call>  ^
-    unary-  #  as  is  ?
+    unary-  ?  #  as  is
     |
     *  /  mod
     +  –
@@ -359,7 +360,6 @@ void Compiler::factor(Type* typeHint)
     {
         bool isnot = skipIf(tokNot);
         Type* type = getTypeValue(true);
-        // TODO: "is not..."
         codegen->isType(type, isnot, undoOffs);
     }
 }
@@ -516,7 +516,6 @@ void Compiler::expression(Type* expectType)
         designator(expectType);
     else
         arithmExpr();
-        
     if (expectType)
         codegen->implicitCast(expectType);
 }

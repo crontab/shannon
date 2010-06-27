@@ -139,7 +139,6 @@ OpInfo opTable[] =
     OP(JumpOr, Jump16),         // [dst 16] (-)bool
 
     // Misc. builtins
-    // TODO: set filename and linenum in a separate op?
     OP(LineNum, LineNum),       // [linenum:int]
     OP(Assert, AssertCond),     // [cond:str] -bool
     OP(Dump, Dump),             // [expr:str, type:Type*] -var

@@ -94,7 +94,6 @@ enum OpCode
     opInByteDict,       // -int -dict +bool
 
     // --- 9. ARITHMETIC
-    // TODO: atomic inc/dec
     opAdd,              // -int, +int, +int
     opSub,              // -int, +int, +int
     opMul,              // -int, +int, +int
@@ -133,7 +132,6 @@ enum OpCode
     opJumpOr,           // [dst 16] (-)bool
 
     // Misc. builtins
-    // TODO: set filename and linenum in a separate op?
     opLineNum,          // [linenum:int]
     opAssert,           // [cond:str] -bool
     opDump,             // [expr:str, type:Type*] -var

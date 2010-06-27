@@ -2,9 +2,6 @@
 #include "vm.h"
 
 
-// TODO: store the current file name in a named const, say __FILE__
-
-
 CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
     : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
       lastOp(opInv), prevLoaderOffs(-1)

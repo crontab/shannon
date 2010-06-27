@@ -30,7 +30,8 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 
 Type* Compiler::getTypeValue(bool atomType)
 {
-    // atomType excludes enums and subrange type definitions
+    // atomType excludes enums and subrange type definitions but shorthens
+    // the parsing path
     variant result;
     getConstValue(defTypeRef, result, atomType);
     return state->registerType(cast<Type*>(result._rtobj()));
@@ -45,7 +46,6 @@ Type* Compiler::getTypeAndIdent(str& ident)
         ident = strValue;
         if (next() == tokAssign)
             goto ICantBelieveIUsedAGotoStatement;
-        // TODO: see if the type specifier is a single ident and parse it immediately here
         undoIdent(ident);
     }
     type = getTypeValue(false);
@@ -75,7 +75,6 @@ void Compiler::definition()
 
 void Compiler::variable()
 {
-    // TODO: const variables
     str ident;
     Type* type = getTypeAndIdent(ident);
     expression(type);

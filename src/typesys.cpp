@@ -788,11 +788,9 @@ Module* State::getParentModule() const
 
 void State::dump(fifo& stm) const
 {
-    // TODO: better dump for states?
     stm << "(state ";
     prototype->dump(stm);
     stm << ')';
-//    dumpAll(stm);
 }
 
 

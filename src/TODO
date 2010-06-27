@@ -1,18 +1,15 @@
 
-* Operator 'in'
+* while, case, break, continue, goto, return
 
-* Read-only variables (const) and const subexpressions.
+* Operator 'del' (and 'swap'?) for containers.
 
-* if, while, case, break, continue, goto, exit, return
+* Assignment operators (+=, etc) aren't very nice with the
+  boolean/bitwise and, or, etc. However, these are necessary at least:
+  |=, +=, -=, @=
 
-* Operators 'ins' and 'del' (and 'swap'?) that work on containers.
+* Tiny set implementation? Maybe
 
-* ByteByte dictionary implementation (small ordinal keys and values) -
-  useful for char translation, but not absolutely necessary.
-
-* Tiny set implementation?
-
-* Multidimensional arrays implemented as a single vector with "clever"
+* Multidimensional arrays implemented as a single vector with "flat"
   indexing?
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
@@ -27,6 +24,8 @@
   operation returns null if any one of the operands is null. (Or maybe
   var ?int i = v as int else 0). Oh man, it's patented! Any ideas?
 
+* Read-only variables (const) and const subexpressions?
+
 * 'public' and 'forward' blocks: can contain a single statement after ':' or
   multiple statements in { }.
 
@@ -39,23 +38,19 @@
 
 * "def self ..." is not nice, maybe "class ..." is better, or "state"
 
-* Tuples are almost like vectors, except element types are specified    
+* Structs are almost like vectors, except element types are specified    
   individually. Can be used for returning multiple values from functions.    
-  So a tuple descriptor is a vector of types?
+  So a struct descriptor is a vector of types?
 
 * Enqueue and dequeue operators: << and >>, like the iostream operators
   in C++. The leftmost operand is always a fifo. (Precedence compared to
   the pipe operator "||" ?)
 
-* Procedures are declared as, e.g. def (pipe char, char) convert() ...
+* Procedures are declared as, e.g. def char||char convert() ...
 
 * A special return value with 'var' indicates it's a special method
   that's called on a variable or a reference, e.g. def (var chars)
   include(int, ... Might be especially useful for builtins.
-
-* Range (e.g. A..B) is possible only: (1) in const type expressions
-  where it denotes a range type, (2) in ordinal set constructors, (3) in
-  operator 'for', (4) with operator 'in'
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
 
@@ -92,11 +87,9 @@
   work for dynamic states too (?).
 
 * Have the code generator evaluate some operations at generation time if  
-  possible. Need to store codeseg offset with each genstack element.
+  possible.
 
-* Assignment operators (+=, etc) aren't very nice with the
-  boolean/bitwise and, or, etc. However, these are necessary at least:
-  |=, +=, -=
+* Floating point type
 
 * A lot of TODO's in the source
 
