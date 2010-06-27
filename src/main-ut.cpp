@@ -641,8 +641,8 @@ void test_typesys()
         State state(Type::MODULE, NULL, NULL);
         objptr<Definition> d1 = new Definition("abc", NULL, 0);
         check(d1->name == "abc");
-        state.addDefinition("def", NULL, 1);
-        state.addDefinition("ghi", NULL, 2);
+        state.addDefinition("def", NULL, 1, &state);
+        state.addDefinition("ghi", NULL, 2, &state);
         Symbol* s = state.find("def");
         check(s != NULL);
         check(s->isDefinition());

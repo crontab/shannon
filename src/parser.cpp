@@ -333,7 +333,7 @@ restart:
         case ':': return token = tokColon;
         case '+': return token = tokPlus;
         case '-': return token = tokMinus;
-        case '/': 
+        case '/':
             if (input->get_if('/'))
             {
                 skipSinglelineComment();
@@ -388,6 +388,25 @@ void Parser::redoIdent()
     prevIdent.clear();
     token = saveToken;
     saveToken = tokUndefined;
+}
+
+
+bool Parser::skipBlockBegin()
+{
+    if (skipIf(tokColon))
+        return false;
+    else
+    {
+        while (skipIf(tokSep)) ;
+        expect(tokLCurly, "'{' or ':'");
+        return true;
+    }
+}
+
+
+void Parser::skipBlockEnd()
+{
+    expect(tokRCurly, "'}'");
 }
 
 

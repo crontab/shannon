@@ -20,7 +20,7 @@ Symbol::~Symbol()
 
 void Symbol::fqName(fifo& stm) const
 {
-    if (host)
+    if (host && host != queenBee)
     {
         host->fqName(stm);
         stm << '.';
@@ -97,8 +97,8 @@ const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 template class symtbl<Symbol>;
 
 
-Scope::Scope(Scope* _outer)
-    : outer(_outer)  { }
+Scope::Scope(ScopeId _id, Scope* _outer)
+    : scopeId(_id), outer(_outer)  { }
 
 
 Scope::~Scope()
@@ -126,7 +126,7 @@ Symbol* Scope::findShallow(const str& ident) const
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
-    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
+    : Scope(LOCAL, _outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
 BlockScope::~BlockScope()
@@ -142,10 +142,10 @@ void BlockScope::deinitLocals()
 
 LocalVar* BlockScope::addLocalVar(const str& name, Type* type)
 {
-    memint id = startId + localVars.size();
-    if (id >= 127)
+    memint varid = startId + localVars.size();
+    if (varid >= 127)
         error("Maximum number of local variables reached");
-    objptr<LocalVar> v = new LocalVar(name, type, id, gen->getState());
+    objptr<LocalVar> v = new LocalVar(name, type, varid, gen->getState());
     addUnique(v);   // may throw
     localVars.push_back(v->grab<LocalVar>());
     return v;
@@ -253,7 +253,7 @@ void Type::dumpDef(fifo& stm) const
         dump(stm);
     else
     {
-        if (host)
+        if (host && host != queenBee)
         {
             host->fqName(stm);
             stm << '.';
@@ -557,12 +557,12 @@ Ordinal* Enumeration::_createSubrange(integer l, integer r)
     { return new Enumeration(values, l, r); }
 
 
-void Enumeration::addValue(State* state, const str& ident)
+void Enumeration::addValue(State* state, Scope* scope, const str& ident)
 {
     integer n = integer(values.size());
     if (n >= 256)  // TODO: maybe this is not really necessary
         error("Maximum number of enum constants reached");
-    Definition* d = state->addDefinition(ident, this, n);
+    Definition* d = state->addDefinition(ident, this, n, scope);
     values.push_back(d);
     reassignRight(n);
 }
@@ -751,7 +751,7 @@ bool Prototype::identicalTo(Prototype* t) const
 
 
 State::State(TypeId id, Prototype* proto, State* par, State* self)
-    : Type(id), Scope(par), parent(par), selfPtr(self),
+    : Type(id), Scope(STATE, par), parent(par), selfPtr(self),
       prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
@@ -856,12 +856,12 @@ Type* State::_registerType(Type* t, Definition* d)
 }
 
 
-Definition* State::addDefinition(const str& n, Type* t, const variant& v)
+Definition* State::addDefinition(const str& n, Type* t, const variant& v, Scope* scope)
 {
     if (n.empty())
         fatal(0x3001, "Empty identifier");
     objptr<Definition> d = new Definition(n, t, v, this);
-    addUnique(d); // may throw
+    scope->addUnique(d); // may throw
     defs.push_back(d->grab<Definition>());
     if (t->isTypeRef())
     {
@@ -873,8 +873,8 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v)
 }
 
 
-Definition* State::addTypeAlias(const str& n, Type* t)
-    { return addDefinition(n, t->getType(), t); }
+void State::addTypeAlias(const str& n, Type* t)
+    { addDefinition(n, t->getType(), t, this); }
 
 
 SelfVar* State::addSelfVar(const str& n, Type* t)
@@ -991,23 +991,23 @@ QueenBee::QueenBee()
     addTypeAlias("type", defTypeRef);
     addTypeAlias("void", defVoid);
     registerType<Type>(defPrototype);
-    addDefinition("null", defVoid, variant::null);
+    addDefinition("null", defVoid, variant::null, this);
     addTypeAlias("any", defVariant);
     addTypeAlias("int", defInt);
     addTypeAlias("char", defChar);
     addTypeAlias("byte", defByte);
     addTypeAlias("bool", defBool);
-    defBool->addValue(this, "false");
-    defBool->addValue(this, "true");
+    defBool->addValue(this, this, "false");
+    defBool->addValue(this, this, "true");
     addTypeAlias("voidc", defNullCont);
     addTypeAlias("str", defStr);
     addTypeAlias("chars", defCharSet);
     addTypeAlias("charf", registerType(defCharFifo)->getRefType());
 
     // Constants
-    addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR);
-    addDefinition("__VER_MINOR", defInt, SHANNON_VERSION_MINOR);
-    addDefinition("__VER_FIX", defInt, SHANNON_VERSION_FIX);
+    addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR, this);
+    addDefinition("__VER_MINOR", defInt, SHANNON_VERSION_MINOR, this);
+    addDefinition("__VER_FIX", defInt, SHANNON_VERSION_FIX, this);
 
     // Variables
     resultVar = addSelfVar("__program_result", defVariant);

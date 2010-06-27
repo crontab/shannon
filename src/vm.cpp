@@ -38,16 +38,19 @@ void CodeSeg::close()
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-static void invOpcode()             { fatal(0x5002, "Invalid opcode"); }
-static void doExit()                { throw eexit(); }
+static void invOpcode()                 { fatal(0x5002, "Invalid opcode"); }
+static void doExit(const variant& r)    { throw eexit(r); }
 
 
 static void failAssertion(const str& cond, const str& modname, integer linenum)
     { throw emessage("Assertion failed \"" + cond + "\" at " + modname + '(' + to_string(linenum) + ')'); }
 
-
 static void typecastError()
     { throw evariant("Invalid typecast"); }
+
+static void constExprErr()
+    { throw emessage("Variable in constant expression"); }
+
 
 // static void objectGone()
 //     { throw emessage("Object lost before assignment"); }
@@ -138,8 +141,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         {
         // --- 1. MISC CONTROL
         case opEnd:             goto exit;
-        case opNop:             break;
-        case opExit:            doExit(); break;
+        case opConstExprErr:    constExprErr(); break;
+        case opExit:            doExit(*stk); break;
 
         // --- 2. CONST LOADERS
         case opLoadTypeRef:
@@ -317,12 +320,22 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POPPOD();
             break;
         case opInSet:
-            *(stk - 1) = int((stk - 1)->_set().find(*stk));
+            *(stk - 1) = int(stk->_set().find(*(stk - 1)));
             POP();
             break;
         case opInByteSet:
-            *(stk - 1) = int((stk - 1)->_ordset().find(stk->_int()));
-            POPPOD();
+            (stk - 1)->_int() = int(stk->_ordset().find((stk - 1)->_int()));
+            POP();
+            break;
+        case opInBounds:
+            stk->_int() = int(ADV(Ordinal*)->isInRange(stk->_int()));
+            break;
+        case opInRange:
+            {
+                integer i = (stk - 2)->_int();
+                (stk - 2)->_int() = int(i >= (stk - 1)->_int() && i <= stk->_int());
+                POPPOD(); POPPOD();
+            }
             break;
 
         // --- 8. DICTIONARIES
@@ -375,15 +388,15 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             }
             break;
         case opInDict:
-            *(stk - 1) = int((stk - 1)->_dict().find_key(*stk));
+            *(stk - 1) = int(stk->_dict().find_key(*(stk - 1)));
             POP();
             break;
         case opInByteDict:
             {
-                integer i = stk->_int();
-                POPPOD();
+                integer i = (stk - 1)->_int();
                 const varvec& v = stk->_vec();
-                *stk = int(i >= 0 && i < v.size() && !v[memint(i)].is_null());
+                (stk - 1)->_int() = int(i >= 0 && i < v.size() && !v[memint(i)].is_null());
+                POP();
             }
             break;
 
@@ -493,8 +506,9 @@ exit:
 }
 
 
-eexit::eexit() throw(): emessage("Exit called")  {}
+eexit::eexit(const variant& r) throw(): exception(), result(r)  {}
 eexit::~eexit() throw()  { }
+const char* eexit::what() throw()  { return "Exit called"; }
 
 
 Type* CodeGen::runConstExpr(Type* resultType, variant& result)
@@ -573,7 +587,7 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(NULL), queenBeeInst(addModule(queenBee))  { }
+    : Scope(CONTEXT, NULL), queenBeeInst(addModule(queenBee))  { }
 
 
 Context::~Context()
@@ -682,9 +696,10 @@ variant Context::execute()
         for (memint i = 0; i < instances.size(); i++)
             instances[i]->run(this, stack);
     }
-    catch (eexit&)
+    catch (eexit& e)
     {
-        // exit operator called, we are ok with it
+        // Program exit variable (not necessarily int, can be anything)
+        *queenBeeInst->obj->member(queenBee->resultVar->id) = e.result;
     }
     catch (exception&)
     {
@@ -692,7 +707,6 @@ variant Context::execute()
         throw;
     }
 
-    // Program exit variable (not necessarily int, can be anything)
     variant result = *queenBeeInst->obj->member(queenBee->resultVar->id);
     clear();
     return result;

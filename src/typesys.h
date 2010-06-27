@@ -10,6 +10,7 @@ class SelfVar;
 class LocalVar;
 class Definition;
 class Scope;
+class BlockScope;
 class Type;
 class Reference;
 class Ordinal;
@@ -24,6 +25,7 @@ typedef Symbol* PSymbol;
 typedef Variable* PVariable;
 typedef Definition* PDefinition;
 typedef Scope* PScope;
+typedef BlockScope* PBlockScope;
 typedef Type* PType;
 typedef Reference* PReference;
 typedef Ordinal* POrdinal;
@@ -127,12 +129,17 @@ class Scope
 {
     friend void test_typesys();
 protected:
+    enum ScopeId { LOCAL, STATE, CONTEXT };
+    ScopeId const scopeId;
     symtbl<Symbol> symbols;         // symbol table for search
-    void addUnique(Symbol* s);
 public:
     Scope* const outer;
-    Scope(Scope* _outer);
-    ~Scope();
+    Scope(ScopeId id, Scope* outer);
+    virtual ~Scope();
+    bool isLocal() const        { return scopeId == LOCAL; }
+    bool isState() const        { return scopeId == STATE; }
+    bool isContext() const      { return scopeId == CONTEXT; }
+    void addUnique(Symbol* s);
     Symbol* find(const str& ident) const            // returns NULL or Symbol
         { return symbols.find(ident); }
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
@@ -337,7 +344,7 @@ public:
     void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
-    void addValue(State*, const str&);
+    void addValue(State*, Scope*, const str&);
 };
 
 
@@ -411,11 +418,12 @@ class State: public Type, public Scope
 {
 protected:
     Type* _registerType(Type*, Definition* = NULL);
+    void addTypeAlias(const str&, Type*);
 
 public:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
-    objvec<SelfVar> selfVars;      // owned
+    objvec<SelfVar> selfVars;       // owned
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
 
     State* const parent;
@@ -431,8 +439,7 @@ public:
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
     // TODO: bool identicalTo(Type*) const;
-    Definition* addDefinition(const str&, Type*, const variant&);
-    Definition* addTypeAlias(const str&, Type*);
+    Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     SelfVar* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();
     template <class T>

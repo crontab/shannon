@@ -356,8 +356,8 @@ void CodeGen::loadVariable(Variable* var)
     // TODO: check outer states too!
     assert(var->host != NULL);
     if (isCompileTime())
-        error("Variables not allowed in constant expressions");
-    if (var->isSelfVar() && var->host == codeOwner->selfPtr)
+        addOp(var->type, opConstExprErr);
+    else if (var->isSelfVar() && var->host == codeOwner->selfPtr)
     {
         assert(var->id >= 0 && var->id <= 255);
         addOp<uchar>(var->type, opLoadSelfVar, var->id);
@@ -400,15 +400,18 @@ void CodeGen::loadMember(Symbol* sym, memint undoOffs)
 
 void CodeGen::loadMember(Variable* var)
 {
-    if (isCompileTime())
-        error("Variables not allowed in constant expressions");
     Type* stateType = stkPop();
-    // TODO: check parent states too
-    if (!stateType->isAnyState() || var->host != stateType
-            || !var->isSelfVar())
-        error("Invalid member selection");
-    assert(var->id >= 0 && var->id <= 255);
-    addOp<uchar>(var->type, opLoadMember, var->id);
+    if (isCompileTime())
+        addOp(var->type, opConstExprErr);
+    else
+    {
+        // TODO: check parent states too
+        if (!stateType->isAnyState() || var->host != stateType
+                || !var->isSelfVar())
+            error("Invalid member selection");
+        assert(var->id >= 0 && var->id <= 255);
+        addOp<uchar>(var->type, opLoadMember, var->id);
+    }
 }
 
 
@@ -614,6 +617,52 @@ void CodeGen::dictAddPair()
 }
 
 
+void CodeGen::inCont()
+{
+    Type* contType = stkPop();
+    Type* elemType = stkPop();
+    OpCode op = opInv;
+    if (contType->isAnySet())
+        op = contType->isByteSet() ? opInByteSet : opInSet;
+    else if (contType->isAnyDict())
+        op = contType->isByteDict() ? opInByteDict : opInDict;
+    else
+        error("Set/dict type expected");
+    if (!elemType->canAssignTo(PContainer(contType)->index))
+        error("Key type mismatch");
+    addOp(queenBee->defBool, op);
+}
+
+
+void CodeGen::inBounds()
+{
+    Type* type = tryUndoTypeRef();
+    if (type == NULL)
+        error("Const type reference expected");
+    Type* elemType = stkPop();
+    if (!elemType->isAnyOrd())
+        error("Ordinal type expected");
+    if (!type->isAnyOrd())
+        error("Ordinal type reference expected");
+    addOp<Ordinal*>(queenBee->defBool, opInBounds, POrdinal(type));
+}
+
+
+void CodeGen::inRange()
+{
+    Type* right = stkPop();
+    Type* left = stkPop();
+    Type* elem = stkPop();
+    if (!left->canAssignTo(right))
+        error("Incompatible range bounds");
+    if (!elem->canAssignTo(left))
+        error("Element type mismatch");
+    if (!elem->isAnyOrd() || !left->isAnyOrd() || !right->isAnyOrd())
+        error("Ordinal type expected");
+    addOp(queenBee->defBool, opInRange);
+}
+
+
 void CodeGen::arithmBinary(OpCode op)
 {
     assert(op >= opAdd && op <= opBitShr);
@@ -683,8 +732,7 @@ memint CodeGen::jumpForward(OpCode op)
 {
     assert(isJump(op));
     memint pos = getCurrentOffs();
-    addOp(op);
-    addJumpOffs(0);
+    addOp<jumpoffs>(op, 0);
     return pos;
 }
 
@@ -720,6 +768,13 @@ void CodeGen::dumpVar(const str& expr)
     Type* type = stkPop();
     addOp(opDump, expr.obj);
     add(type);
+}
+
+
+void CodeGen::programExit()
+{
+    stkPop();
+    addOp(opExit);
 }
 
 
