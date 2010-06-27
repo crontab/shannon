@@ -9,41 +9,93 @@
 #   any word: reference to another syntactic element
 #   glue: ## (otherwise elements are separated by whitespace or can be 
 #       distinguished by the parser)
-#   end of statement: <SEP> (end-of-line or ';')
-#   block-begin and block-end: <BEGIN> and <END> (either curly brackets or
-#   or a colon followed by a single statement).
-#
+#   <SEP> is one or more new lines or ';'
 #   Comments are like in C++ /* */ and //
 #
 
 
 # ---------- Statements
 
-statement-list ::= { ( definition | statement ) <SEP> }
+program ::= { statement } <EOF>
 
-definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr
+statement ::= definition | var-def | sub-block | if-block | builtin |
+    other-statement
+
+block ::= single-block | multi-block
+
+single-block ::= ':' [ <SEP> ] statement
+
+multi-block ::= '{' [ <SEP> ] { statement } '}' 
+
+definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr <SEP>
+
+var-def ::= 'var' [ const-expr ] ident { type-derivator } '=' expr <SEP>
+
+sub-block ::= 'begin' block
+
+if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
+
+builtin ::= assertion | dump | exit
+
+assertion ::= 'assert' expr <SEP>
+
+dump ::= 'dump' expr { ',' expr } <SEP>
+
+exit ::= 'exit' expr <SEP>
+
+other-statement ::= designator [ '=' expr ] <SEP>
 
 
 # ---------- Const Expression
 
-const-expr ::= subrange-type | enum-type | other-type
+const-expr ::= subrange-type | enum-type | type-spec | expr
 
 subrange-type ::= expr '..' expr
 
 enum-type ::= ident { ',' ident }
 
-other-type ::= ident { type-derivator }
-
-type-derivator ::= '^' | '<>' | container-derivator | func-derivator
-
-container-derivator ::= '[' [ const-expr ] ']'
-
 
 # ---------- Expression
 
-atom ::= ident | number | string-literal | sub-expr
+expr ::= and-level { ( 'or | 'xor' ) and-level }
 
-sub-expr ::= '(' expr ')'
+and-level ::= not-level { ( 'and' | 'shl' | 'shr' ) not-level }
+
+not-level ::= [ 'not' ] relation
+
+relation ::= arithm-expr [ 'in' in-expr |
+    ( '==' | '<>' | '<' | '<=' | '>' | '>=' ) arithm-expr ]
+
+in-expr ::= arithm-expr [ '..' arithm-expr ]
+
+arithm-expr ::= term { ( '+' | '-' ) term }
+
+term ::= cat-expr { ( '*' | '/' | 'mod' ) cat-expr }
+
+cat-expr ::= factor { '|' factor }
+
+factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' [ 'not' ] ) type-spec ]
+
+designator ::= [ '@' ] atom { '^' | '.' ident | '[' expr ']' }
+
+atom ::= ident | number | string-literal | vec-ctor | dict-ctor | if-func |
+    typeof | type-spec | '(' expr ')'
+
+vec-ctor ::= '[' [ expr { ',' expr } ] ']'
+
+dict-ctor ::= '{' [ dict-elem { ',' dict-elem } ] '}'
+
+dict-elem ::= expr [ '=' expr ]
+
+if-func ::= 'if' '(' expr ',' expr ',' expr ')'
+
+typeof ::= 'typeof' designator
+
+type-spec ::= ident { type-derivator }
+
+type-derivator ::= cont-derivator | '<>'
+
+cont-derivator ::= '[' [ const-expr | '..' ] ']'
 
 
 # ---------- Basic elements
