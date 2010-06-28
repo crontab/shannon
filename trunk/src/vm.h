@@ -53,6 +53,7 @@ enum OpCode
     opMkRef,            // -var +ref
     opNonEmpty,         // -var +bool
     opPop,              // -var
+    opPopPod,           // -int
     opCast,             // [Type*] -var +var
     opIsType,           // [Type*] -var +bool
 
@@ -310,6 +311,7 @@ public:
     void undoDesignator(memint from);
     void undoLoader();
     void deinitLocalVar(Variable*);
+    void deinitFrame(memint baseLevel); // doesn't change the sim stack
     void popValue();
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
@@ -360,8 +362,9 @@ public:
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
     memint boolJumpForward(OpCode op);
-    memint jumpForward(OpCode op);
-    void resolveJump(memint jumpOffs);
+    memint jumpForward(OpCode = opJump);
+    void resolveJump(memint target);
+    void jump(memint target);
     void linenum(integer);
     void assertion(const str& cond);
     void dumpVar(const str& expr);
@@ -384,6 +387,7 @@ struct CompilerOptions
     bool enableAssert;
     bool lineNumbers;
     bool vmListing;
+    bool compileOnly;
     memint stackSize;
     strvec modulePath;
 

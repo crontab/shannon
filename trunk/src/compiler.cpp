@@ -11,8 +11,29 @@ Compiler::AutoScope::~AutoScope()
         { deinitLocals(); compiler.scope = outer; }
 
 
+Compiler::LoopInfo::LoopInfo(Compiler& c)
+    : compiler(c), prevLoopInfo(c.loopInfo),
+      stackLevel(c.codegen->getStackLevel()),
+      continueTarget(c.codegen->getCurrentOffs()),
+      breakJumps()
+        { compiler.loopInfo = this; }
+
+
+Compiler::LoopInfo::~LoopInfo()
+    { compiler.loopInfo = prevLoopInfo; }
+
+
+void Compiler::LoopInfo::resolveBreakJumps()
+{
+    for (memint i = 0; i < breakJumps.size(); i++)
+        compiler.codegen->resolveJump(breakJumps[i]);
+    breakJumps.clear();
+}
+
+
 Compiler::Compiler(Context& c, Module& mod, buffifo* f)
-    : Parser(f), context(c), module(mod)  { }
+    : Parser(f), context(c), module(mod), scope(NULL),
+      state(NULL), loopInfo(NULL)  { }
 
 
 Compiler::~Compiler()
@@ -24,14 +45,23 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    if (atomType)
-        atom(expectType);
-    else
-        constExpr(expectType);
-    if (codegen->getTopType()->isReference())
-        error("References not allowed in const expressions");
-    Type* resultType = constCodeGen.runConstExpr(expectType, result);
-    codegen = prevCodeGen;
+    Type* resultType = NULL;
+    try
+    {
+        if (atomType)
+            atom(expectType);
+        else
+            constExpr(expectType);
+        if (codegen->getTopType()->isReference())
+            error("References not allowed in const expressions");
+        resultType = constCodeGen.runConstExpr(expectType, result);
+        codegen = prevCodeGen;
+    }
+    catch(exception&)
+    {
+        codegen = prevCodeGen;
+        throw;
+    }
     return resultType;
 }
 
@@ -199,6 +229,12 @@ void Compiler::singleStatement()
         ifBlock();
     else if (skipIf(tokCase))
         caseBlock();
+    else if (skipIf(tokWhile))
+        whileBlock();
+    else if (skipIf(tokContinue))
+        doContinue();
+    else if (skipIf(tokBreak))
+        doBreak();
     else if (token == tokAssert)
         assertion();
     else if (token == tokDump)
@@ -225,7 +261,7 @@ void Compiler::ifBlock()
     block();
     if (token == tokElif || token == tokElse)
     {
-        memint t = codegen->jumpForward(opJump);
+        memint t = codegen->jumpForward();
         codegen->resolveJump(out);
         out = t;
         if (skipIf(tokElif))
@@ -246,7 +282,7 @@ void Compiler::caseLabel(Type* ctlType)
     block();
     if (!isBlockEnd())
     {
-        memint t = codegen->jumpForward(opJump);
+        memint t = codegen->jumpForward();
         codegen->resolveJump(out);
         out = t;
         if (skipIf(tokElse))
@@ -256,7 +292,7 @@ void Compiler::caseLabel(Type* ctlType)
     }
     codegen->resolveJump(out);
 }
-    
+
 
 void Compiler::caseBlock()
 {
@@ -271,6 +307,36 @@ void Compiler::caseBlock()
 }
 
 
+void Compiler::whileBlock()
+{
+    LoopInfo loop(*this);
+    expression(queenBee->defBool);
+    memint out = codegen->boolJumpForward(opJumpFalse);
+    block();
+    codegen->jump(loop.continueTarget);
+    codegen->resolveJump(out);
+    loop.resolveBreakJumps();
+}
+
+
+void Compiler::doContinue()
+{
+    if (loopInfo == NULL)
+        error("'continue' not within loop");
+    codegen->deinitFrame(loopInfo->stackLevel);
+    codegen->jump(loopInfo->continueTarget);
+}
+
+
+void Compiler::doBreak()
+{
+    if (loopInfo == NULL)
+        error("'break' not within loop");
+    codegen->deinitFrame(loopInfo->stackLevel);
+    loopInfo->breakJumps.push_back(codegen->jumpForward());
+}
+
+
 void Compiler::compileModule()
 {
     // The system module is always added implicitly
@@ -279,6 +345,7 @@ void Compiler::compileModule()
     CodeGen mainCodeGen(*module.getCodeSeg(), &module, false);
     codegen = &mainCodeGen;
     scope = state = &module;
+    loopInfo = NULL;
     try
     {
         try

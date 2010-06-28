@@ -60,6 +60,7 @@ OpInfo opTable[] =
     OP(MkRef, None),            // -var +ref
     OP(NonEmpty, None),         // -var +bool
     OP(Pop, None),              // -var
+    OP(PopPod, None),           // -int
     OP(Cast, Type),             // [Type*] -var +var
     OP(IsType, Type),           // [Type*] -var +bool
 

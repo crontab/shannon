@@ -10,12 +10,25 @@ class Compiler: protected Parser
     friend class Context;
     friend class AutoScope;
 
-    class AutoScope: public BlockScope
+    struct AutoScope: public BlockScope
     {
         Compiler& compiler;
-    public:
+
         AutoScope(Compiler& c);
         ~AutoScope();
+    };
+    
+    struct LoopInfo
+    {
+        Compiler& compiler;
+        LoopInfo* prevLoopInfo;
+        memint stackLevel;
+        memint continueTarget;
+        podvec<memint> breakJumps;
+
+        LoopInfo(Compiler& c);
+        ~LoopInfo();
+        void resolveBreakJumps();
     };
 
 protected:
@@ -24,6 +37,7 @@ protected:
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols, can be local or state scope
     State* state;           // for this-vars, type objects and definitions
+    LoopInfo* loopInfo;
 
     // in compexpr.cpp
     Type* getTypeDerivators(Type*);
@@ -63,6 +77,9 @@ protected:
     void caseValue(Type*);
     void caseLabel(Type*);
     void caseBlock();
+    void whileBlock();
+    void doContinue();
+    void doBreak();
 
     void compileModule();
 

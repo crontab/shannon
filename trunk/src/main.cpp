@@ -39,7 +39,7 @@ void ut_fail(unsigned line, const char* e)
 int main()
 {
     sio << "Shannon " << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
-        << " (" << sizeof(integer) * 8 << "bit)"
+        << " (int" << sizeof(integer) * 8 << ')'
         << ' ' << SHANNON_COPYRIGHT << endl << endl;
 
     int exitcode = 0;
@@ -54,6 +54,7 @@ int main()
         try
         {
             // context.options.setDebugOpts(false);
+            // context.options.compileOnly = true;
             context.loadModule(filePath);
         }
         catch (exception& e)

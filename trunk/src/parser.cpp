@@ -358,7 +358,7 @@ restart:
             else if (input->get_if('>'))
                 return token = tokNotEq;
             else
-                return tokLAngle;
+                return token = tokLAngle;
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
         case '|': return token = tokCat;

@@ -241,6 +241,9 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opPop:
             POP();
             break;
+        case opPopPod:
+            POPPOD();
+            break;
         case opCast:
             if (!ADV(Type*)->isCompatibleWith(*stk))
                 typecastError();
@@ -452,7 +455,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 11. JUMPS
         case opJump:
-                // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
+            // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
             offs = ADV(jumpoffs);
             ip += offs;
             break;
@@ -580,7 +583,7 @@ void ModuleInstance::finalize()
 
 CompilerOptions::CompilerOptions()
   : enableDump(true), enableAssert(true), lineNumbers(true),
-    vmListing(true), stackSize(8192)
+    vmListing(true), compileOnly(false), stackSize(8192)
         { modulePath.push_back("./"); }
 
 
@@ -695,7 +698,8 @@ void Context::dump(const str& listingPath)
 
 variant Context::execute()
 {
-    // loadModule(filePath);
+    if (options.compileOnly)
+        return variant();
 
     // Now that all modules are compiled and their dataseg sizes are known, we can
     // instantiate the objects
