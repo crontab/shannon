@@ -356,11 +356,7 @@ void Compiler::factor(Type* typeHint)
         codegen->explicitCast(type);
     }
     if (skipIf(tokIs))
-    {
-        bool isnot = skipIf(tokNot);
-        Type* type = getTypeValue(true);
-        codegen->isType(type, isnot, undoOffs);
-    }
+        codegen->isType(getTypeValue(true), undoOffs);
 }
 
 
@@ -555,7 +551,7 @@ void Compiler::constExpr(Type* expectType)
     else
     {
 ICouldHaveDoneThisWithoutGoto:
-        expression(expectType);
+        expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
         if (skipIf(tokRange))  // Subrange
         {
             expression(NULL);

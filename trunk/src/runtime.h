@@ -580,7 +580,7 @@ public:
     void grow(memint extra_items)
     {
         memint extra_mem = extra_items * Tsize;
-        char* p = bytevec::_resize(parent::size() + extra_mem, cont::allocate);
+        char* p = bytevec::_resize(bytevec::size() + extra_mem, cont::allocate);
         memset(p, 0, extra_mem);
     }
 

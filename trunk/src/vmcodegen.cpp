@@ -131,31 +131,30 @@ void CodeGen::explicitCast(Type* to)
 }
 
 
-void CodeGen::isType(Type* to, bool isnot, memint undoOffs)
+void CodeGen::isType(Type* to, memint undoOffs)
 {
     Type* from = stkTop();
     if (from->canAssignTo(to))
     {
         undoDesignator(undoOffs);
-        loadConst(queenBee->defBool, int(!isnot));
+        loadConst(queenBee->defBool, 1);
     }
     else if (from->isAnyState() || from->isVariant())
     {
         stkPop();
         addOp<Type*>(queenBee->defBool, opIsType, to);
-        if (isnot)
-            _not();
     }
     else
     {
         undoDesignator(undoOffs);
-        loadConst(queenBee->defBool, int(isnot));
+        loadConst(queenBee->defBool, 0);
     }
 }
 
 
 void CodeGen::createSubrangeType()
 {
+    assert(codeOwner == NULL); // Compile-time only
     Type* left = stkTop(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
@@ -163,6 +162,7 @@ void CodeGen::createSubrangeType()
     stkPop();
     stkPop();
     addOp<Ordinal*>(defTypeRef, opMkSubrange, POrdinal(left));
+    add<State*>(typeReg);
 }
 
 

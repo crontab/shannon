@@ -49,7 +49,7 @@ enum OpCode
     // --- end grounded storers
 
     // --- 5. DESIGNATOR OPS, MISC
-    opMkSubrange,       // [Ordinal*] -int -int +type  -- compile-time only
+    opMkSubrange,       // [Ordinal*, State*] -int -int +type  -- compile-time only
     opMkRef,            // -var +ref
     opNonEmpty,         // -var +bool
     opPop,              // -var
@@ -171,6 +171,7 @@ enum ArgType
       argVarType8, argDefinition,
       argSelfIdx, argStkIdx, argStateIdx, 
       argJump16, argLineNum, argAssertCond, argDump,
+      argMkSubrange,
       argMax };
 
 
@@ -316,7 +317,7 @@ public:
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
     void explicitCast(Type*);
-    void isType(Type*, bool isnot, memint undoOffs);
+    void isType(Type*, memint undoOffs);
     void createSubrangeType();
 
     bool deref();

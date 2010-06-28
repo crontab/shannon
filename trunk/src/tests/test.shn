@@ -2,6 +2,8 @@
 assert 1 > 0
 assert system.true
 assert 1 + 2 * 2 == 5
+assert 10 % 3 == 1
+assert 10 / 3 == 3
 assert 'o' | 'ne' | ' tw' | 'o' == 'one two'
 assert 'three' | ' four' == 'three four'
 assert not true == false
@@ -46,7 +48,7 @@ def t0 = {1}
 def t1 = {1, 5, 6, 7, 10}
 def t3 = {}
 def identChars = {'A'..'Z', 'a'..'z', '0'..'9', '_'}
-// def t4 = {5..15, 17}
+def t4 = {(5 as byte)..15, 17}
 def t5 = {two..three}
 def d0 = {'one' = 1, 'two' = 2}
 def d1 = {'a' = 'Letter A', 'b' = 'Letter B'}
@@ -98,6 +100,10 @@ var int dics1[][str] = [dic1, {}]
 var int dics2[]^[str] = [dic1, {'e' = 0}, {}]
 var int dic3[char] = {'a' = 10, 'b' = 20}
 
+// Should give range check errors:
+var char dic4[0..2] = {0 = 'a', 2 = 'c', 255 = 'd'}
+var 0..2 set2[..] = {-1, 0..2, 3, 4, 10}
+
 assert typeof dic1 == int[str] and typeof dic1['www'] == int and typeof ints1[100] == int[]
 
 a = 10 + b
@@ -140,8 +146,8 @@ begin
 {
     assert v10 as nums == one
     assert 1 is int and 'abc' is str
-    assert 1 is not str and 'abc' is not int
-    assert v10 is int and v10 is not str
+    assert not 1 is str and not 'abc' is int
+    assert v10 is int and not v10 is str
     assert v10 is any
     assert v10 as nums is nums
     begin { assert 'a' as str == 'a' and ch1 as str == 'z' }

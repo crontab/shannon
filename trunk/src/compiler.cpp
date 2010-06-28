@@ -72,7 +72,7 @@ Type* Compiler::getTypeValue(bool atomType)
     // the parsing path
     variant result;
     getConstValue(defTypeRef, result, atomType);
-    return state->registerType(cast<Type*>(result._rtobj()));
+    return cast<Type*>(result._rtobj());
 }
 
 
