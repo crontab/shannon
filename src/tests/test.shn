@@ -261,3 +261,46 @@ case typeof s0
         assert false
     }
 }
+
+
+// LOOPS
+
+var wi = 0
+while wi < 3
+{
+    wi = wi + 1
+    continue
+    assert false
+}
+assert wi == 3
+
+while wi < 3
+    assert false
+
+while wi < 6
+{
+    var wl1 = 'asd'
+    begin
+    {
+        var wl2 = wi
+        wi = wi + 1
+        continue
+    }
+    assert false
+}
+
+assert wi == 6
+
+while wi < 100
+{
+    var wl1 = 'zxc'
+    if wi == 8
+    {
+        var wl2 = 'qwe'
+        break
+        assert false
+    }
+    wi = wi + 1
+}
+
+assert wi == 8

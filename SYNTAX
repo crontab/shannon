@@ -19,7 +19,7 @@
 program ::= { statement } <EOF>
 
 statement ::= definition | var-def | sub-block | builtin | other-statement |
-     if-block | case-block
+     if-block | case-block | while-block | 'break' | 'continue'
 
 block ::= single-block | multi-block
 
@@ -48,6 +48,8 @@ if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 case-block ::= 'case' expr '{' case-label { case-label } '}'
 
 case-label ::= expr [ '..' expr ] ':' block
+
+while-block ::= 'while' expr block
 
 
 # ---------- Const Expression

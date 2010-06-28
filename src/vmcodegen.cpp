@@ -179,11 +179,21 @@ void CodeGen::deinitLocalVar(Variable* var)
 }
 
 
+void CodeGen::deinitFrame(memint baseLevel)
+{
+    memint topLevel = getStackLevel();
+    for (memint i = topLevel; i > baseLevel; i--)
+    {
+        bool isPod = stkTop(topLevel - i + 1)->isPod();
+        addOp(isPod ? opPopPod : opPop);
+    }
+}
+
+
 void CodeGen::popValue()
 {
-    // TODO: use POPPOD for POD types
-    stkPop();
-    addOp(opPop);
+    bool isPod = stkPop()->isPod();
+    addOp(isPod ? opPopPod : opPop);
 }
 
 
@@ -749,14 +759,24 @@ memint CodeGen::jumpForward(OpCode op)
 }
 
 
-void CodeGen::resolveJump(memint jumpOffs)
+void CodeGen::resolveJump(memint target)
 {
-    assert(jumpOffs <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
-    assert(isJump(codeseg[jumpOffs]));
-    integer offs = integer(getCurrentOffs()) - integer(jumpOffs + 1 + sizeof(jumpoffs));
+    assert(target <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
+    assert(isJump(codeseg[target]));
+    memint offs = getCurrentOffs() - (target + 1 + memint(sizeof(jumpoffs)));
     if (offs > 32767)
         error("Jump target is too far away");
-    codeseg.atw<jumpoffs>(jumpOffs + 1) = offs;
+    codeseg.atw<jumpoffs>(target + 1) = offs;
+}
+
+
+void CodeGen::jump(memint target)
+{
+    assert(target <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
+    memint offs = target - (getCurrentOffs() + 1 + memint(sizeof(jumpoffs)));
+    if (offs < -32768)
+        error("Jump target is too far away");
+    addOp<jumpoffs>(opJump, jumpoffs(offs));
 }
 
 

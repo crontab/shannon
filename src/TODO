@@ -1,21 +1,24 @@
 
-* while, case, break, continue, goto, return
-
-* Operator 'del' (and 'swap'?) for containers.
-
 * Assignment operators (+=, etc) aren't very nice with the
   boolean/bitwise and, or, etc. However, these are necessary at least:
   |=, +=, -=, @=
 
-* Tiny set implementation? Maybe
+* Operator 'del' (and 'swap'?) for containers.
 
-* Multidimensional arrays implemented as a single vector with "flat"
-  indexing?
+* Substring/subvector using '..' e.g.: s[1..3] or s[4..]
+
+* for loop: allow types, also range as an exception can have variable  
+  boundaries. E.g. for i = a ... Iterators for all container types.
+  Iterators should lock the container to prevent modification.
+
+* Functions
+
+* return, goto
+
+* Tiny set implementation? Maybe
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
   How about containers?
-
-* Substring/subvector using '..' e.g.: s[1..3] or s[4..]
 
 * A state name is a type that describes a state, not a prototype. Now,
   what to do with prototypes and function addresses?
@@ -24,7 +27,8 @@
   operation returns null if any one of the operands is null. (Or maybe
   var ?int i = v as int else 0). Oh man, it's patented! Any ideas?
 
-* Read-only variables (const) and const subexpressions?
+* Read-only variables (const) and const subexpressions? A bit problematic:
+  const should be part of type, not var definition.
 
 * 'public' and 'forward' blocks: can contain a single statement after ':' or
   multiple statements in { }.
@@ -57,16 +61,7 @@
 * Ordinal set operations: inversion (not), union (or), intersection
   (and), subtraction (-)
 
-* Iterators for all container types. Iterators should lock the container
-  to prevent modification.
-
-* A `pair` data type, which is a dictionary iteration element. But maybe   
-  not only. Can be a built-in state with two fields (?)
-
-* for loop: allow types, also range as an exception can have variable  
-  boundaries. E.g. for i = a ...
-
-* Functions
+* Exceptions
 
 * Run-time range checking (as well as compile-time)
 
@@ -90,6 +85,9 @@
   possible.
 
 * Floating point type
+
+* Multidimensional arrays implemented as a single vector with "flat"
+  indexing?
 
 * A lot of TODO's in the source
 

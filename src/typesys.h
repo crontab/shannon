@@ -221,6 +221,8 @@ public:
     bool isModule() const       { return typeId == MODULE; }
     bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
 
+    bool isPod() const          { return isAnyOrd() || isVoid(); }
+
     bool empty() const;  // override
     void dump(fifo&) const;  // override
     void dumpDef(fifo&) const;

@@ -214,7 +214,7 @@ void Compiler::ifFunc()
     expression(NULL);
     Type* exprType = codegen->getTopType();
     codegen->justForget(); // will get the expression type from the second branch
-    memint jumpOut = codegen->jumpForward(opJump);
+    memint jumpOut = codegen->jumpForward();
     codegen->resolveJump(jumpFalse);
     expect(tokComma, ",");
     expression(exprType);
