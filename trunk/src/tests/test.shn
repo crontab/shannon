@@ -225,3 +225,35 @@ case b1
     else:   assert false
 }
 
+case b1
+{
+    1:      assert false
+    0, 2:   assert true
+    else:   assert false
+}
+
+case b1
+{
+    0..2, 5: assert true
+    1:       assert false
+}
+
+case b1
+{
+    1: assert false
+    2: assert false
+    else: assert true
+}
+
+case s0
+{
+    'abc': assert true
+    'xyz': assert false
+}
+
+case typeof s0
+{
+    str: assert true
+    int: assert false
+    else: assert false
+}

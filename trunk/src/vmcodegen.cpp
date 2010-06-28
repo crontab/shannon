@@ -181,6 +181,7 @@ void CodeGen::deinitLocalVar(Variable* var)
 
 void CodeGen::popValue()
 {
+    // TODO: use POPPOD for POD types
     stkPop();
     addOp(opPop);
 }
@@ -645,18 +646,18 @@ void CodeGen::inBounds()
 }
 
 
-void CodeGen::inRange()
+void CodeGen::inRange(bool isCaseLabel)
 {
     Type* right = stkPop();
     Type* left = stkPop();
-    Type* elem = stkPop();
+    Type* elem = isCaseLabel ? stkTop() : stkPop();
     if (!left->canAssignTo(right))
         error("Incompatible range bounds");
     if (!elem->canAssignTo(left))
         error("Element type mismatch");
     if (!elem->isAnyOrd() || !left->isAnyOrd() || !right->isAnyOrd())
         error("Ordinal type expected");
-    addOp(queenBee->defBool, opInRange);
+    addOp(queenBee->defBool, isCaseLabel ? opCaseRange : opInRange);
 }
 
 
@@ -713,7 +714,7 @@ void CodeGen::caseCmp()
     else if (left->isByteVec() && right->isByteVec())
         addOp(queenBee->defBool, opCaseStr);
     else
-        addOp(queenBee->defBool, opCmpVar);
+        addOp(queenBee->defBool, opCaseVar);
 }
 
 

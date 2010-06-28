@@ -3,6 +3,24 @@
 #include "compiler.h"
 
 
+// --- EXPRESSION ---------------------------------------------------------- //
+
+/*
+    <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
+        <vec-ctor>  <dict-ctor>  <if-func>  <typeof>
+    @ <array-sel>  <member-sel>  <function-call>  ^
+    unary-  ?  #  as  is
+    |
+    *  /  mod
+    +  –
+    ==  <>  <  >  <=  >=  in
+    not
+    and
+    or  xor
+    range, enum
+*/
+
+
 void Compiler::enumeration(const str& firstIdent)
 {
     Enumeration* enumType = state->registerType(new Enumeration());
@@ -203,24 +221,6 @@ void Compiler::ifFunc()
     codegen->resolveJump(jumpOut);
     expect(tokRParen, ")");
 }
-
-
-// --- EXPRESSION ---------------------------------------------------------- //
-
-/*
-    <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
-        <
-    @ <array-sel>  <member-sel>  <function-call>  ^
-    unary-  ?  #  as  is
-    |
-    *  /  mod
-    +  –
-    ==  <>  <  >  <=  >=  in
-    not
-    and
-    or  xor
-    range, enum
-*/
 
 
 void Compiler::atom(Type* typeHint)
@@ -501,6 +501,25 @@ void Compiler::orLevel()
             andLevel();
             codegen->arithmBinary(op);
         }
+    }
+}
+
+
+void Compiler::caseValue(Type* ctlType)
+{
+    expression(ctlType);
+    if (skipIf(tokRange))
+    {
+        expression(ctlType);
+        codegen->caseInRange();
+    }
+    else
+        codegen->caseCmp();
+    if (skipIf(tokComma))
+    {
+        memint offs = codegen->boolJumpForward(opJumpOr);
+        caseValue(ctlType);
+        codegen->resolveJump(offs);
     }
 }
 
