@@ -26,7 +26,6 @@ context default
 	keyword whole if		yellow
 	keyword whole in		yellow
 	keyword whole is		yellow
-	keyword whole mod		yellow
 	keyword whole not		yellow
 	keyword whole or		yellow
 	keyword whole return		yellow
@@ -68,6 +67,7 @@ context default
 	keyword \+	yellow
 	keyword -	yellow
 	keyword /	yellow
+	keyword %	yellow
 	keyword =	yellow
 	keyword &	yellow
 	keyword |	yellow

@@ -76,11 +76,11 @@ in-expr ::= arithm-expr [ '..' arithm-expr ]
 
 arithm-expr ::= term { ( '+' | '-' ) term }
 
-term ::= cat-expr { ( '*' | '/' | 'mod' ) cat-expr }
+term ::= cat-expr { ( '*' | '/' | '%' ) cat-expr }
 
 cat-expr ::= factor { '|' factor }
 
-factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' [ 'not' ] ) type-spec ]
+factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) type-spec ]
 
 designator ::= [ '@' ] atom { '^' | '.' ident | '[' expr ']' }
 

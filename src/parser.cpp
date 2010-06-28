@@ -74,7 +74,6 @@ Keywords::kwinfo Keywords::keywords[] =
         {"if", tokIf},
         {"in", tokIn},
         {"is", tokIs},
-        {"mod", tokMod},
         {"not", tokNot},
         {"or", tokOr},
         {"return", tokReturn},
@@ -346,6 +345,7 @@ restart:
             }
             return token = tokDiv;
         case '*': return token = tokMul;
+        case '%': return token = tokMod;
         case '[': return token = tokLSquare;
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;

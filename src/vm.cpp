@@ -229,8 +229,12 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 5. DESIGNATOR OPS, MISC
         case opMkSubrange:
-            *(stk - 1) = ADV(Ordinal*)->createSubrange((stk - 1)->_int(), stk->_int());
-            POP();
+            {
+                Ordinal* t = ADV(Ordinal*)->createSubrange((stk - 1)->_int(), stk->_int());
+                ADV(State*)->registerType(t);
+                *(stk - 1) = t;
+                POPPOD();
+            }
             break;
         case opMkRef:
             SETPOD(stk, new reference((podvar*)stk));
