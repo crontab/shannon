@@ -131,8 +131,8 @@ assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
 assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'
 
 // TYPECASTS
-begin: assert 1 as char == '\x1'
-begin:
+begin assert 1 as char == '\x1'
+begin
     assert 'a' as int == 97
 var any v10 = 0
 begin
@@ -166,17 +166,17 @@ begin {
 assert b1 == 0 and s0 == 'abc' and one == 0 as nums
 
 // BRANCHING
-if b1 == 0:
+if b1 == 0
     assert true
-if b1 <> 0: assert false
+if b1 <> 0 assert false
 if true {
     var b1 = 4
     assert b1 == 4
 }
 assert b1 == 0
 
-if b1 == 0: assert true
-else: assert false
+if b1 == 0 assert true
+else assert false
 if b1 <> 0
     { assert false }
 // Hmmmm
@@ -185,51 +185,51 @@ else
 // Hm?
     { assert true }
 
-if b1 == 0: assert true
-elif b1 == 1: assert false
+if b1 == 0 assert true
+elif b1 == 1 assert false
 elif b1 == 2
 {
     // Hm...
     
     assert false
 }
-else:
+else
     assert false
 
-if b1 == 1: assert false
-elif b1 == 0: assert true
-elif b1 == 2: assert false
+if b1 == 1 assert false
+elif b1 == 0 ; assert true
+elif b1 == 2 ; assert false
 
-else:
+else
     ; ;
     assert false
 
-if b1 == 1: assert false
-elif b1 == 2: assert false
-elif b1 == 0: assert true
-else: assert false
+if b1 == 1 assert false
+elif b1 == 2 assert false
+elif b1 == 0 assert true
+else assert false
 
-if b1 == 1: assert false
-elif b1 == 2: assert false
-elif b1 == 3: assert false
-else: assert true
+if b1 == 1 assert false
+elif b1 == 2 assert false
+elif b1 == 3 assert false
+else assert true
 
-if b1 == 1: assert false
-elif b1 == 0: assert true
-elif b1 == 3: assert false
+if b1 == 1 assert false
+elif b1 == 0 assert true
+elif b1 == 3 assert false
 
 case b1
 {
     1:      assert false
     0:      assert true
-    else:   assert false
+    else    assert false
 }
 
 case b1
 {
     1:      assert false
     0, 2:   assert true
-    else:   assert false
+    else    assert false
 }
 
 case b1
@@ -241,8 +241,9 @@ case b1
 case b1
 {
     1: assert false
-    2: assert false
-    else: assert true
+    2:
+        { assert false }
+    else assert true
 }
 
 case s0
@@ -255,5 +256,8 @@ case typeof s0
 {
     str: assert true
     int: assert false
-    else: assert false
+    else
+    {
+        assert false
+    }
 }

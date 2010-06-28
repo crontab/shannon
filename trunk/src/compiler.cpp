@@ -241,6 +241,7 @@ void Compiler::caseLabel(Type* ctlType)
 {
     // Expects the case control variable to be the top stack element
     caseValue(ctlType);
+    expect(tokColon, "':'");
     memint out = codegen->boolJumpForward(opJumpFalse);
     block();
     if (!isBlockEnd())
