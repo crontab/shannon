@@ -440,6 +440,13 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opGreaterEq:   stk->_int() = stk->_int() >= 0; break;
 
         case opCaseOrd:     stk->_int() = int(stk->_int() == (stk - 1)->_int()); break;
+        case opCaseRange:
+            {
+                integer i = (stk - 2)->_int();
+                (stk - 1)->_int() = int(i >= (stk - 1)->_int() && i <= stk->_int());
+                POPPOD();
+            }
+            break;
         case opCaseStr:     *stk = int(stk->_str() == (stk - 1)->_str()); break;
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 

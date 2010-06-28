@@ -130,6 +130,7 @@ OpInfo opTable[] =
     OP(GreaterEq, None),        // -int, +bool
     // case label helpers
     OP(CaseOrd,  None),         // -int -int +int +bool
+    OP(CaseRange, None),        // -int -int -int +int +bool
     OP(CaseStr, None),          // -str -str +str +bool
     OP(CaseVar, None),          // -var -var +var +bool
 

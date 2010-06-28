@@ -123,6 +123,7 @@ enum OpCode
     opGreaterEq,        // -int +bool
     // case label helpers
     opCaseOrd,          // -int -int +int +bool
+    opCaseRange,        // -int -int -int +int +bool
     opCaseStr,          // -str -str +str +bool
     opCaseVar,          // -var -var +var +bool
 
@@ -211,7 +212,6 @@ protected:
     template <class T>
         void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
     void append(const str& s)           { code.append(s); }
-//    void erase(memint pos, memint len)  { code.erase(pos, len); }
     void erase(memint from)             { code.resize(from); }
     void eraseOp(memint offs)           { code.erase(offs, oplen((*this)[offs])); }
     str cutOp(memint offs);
@@ -349,13 +349,14 @@ public:
     void dictAddPair();
     void inCont();
     void inBounds();
-    void inRange();
+    void inRange(bool isCaseLabel = false);
 
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
-//    void boolXor();
     void cmp(OpCode);
     void caseCmp();
+    void caseInRange()
+        { inRange(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
     memint boolJumpForward(OpCode op);
@@ -398,7 +399,6 @@ class ModuleInstance: public Symbol
 public:
     objptr<Module> module;
     objptr<stateobj> obj;
-//    variant* self;
     ModuleInstance(Module* m);
     void run(Context*, rtstack&);
     void finalize();

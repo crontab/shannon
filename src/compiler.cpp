@@ -239,10 +239,8 @@ void Compiler::ifBlock()
 
 void Compiler::caseLabel(Type* ctlType)
 {
-    // Expects that the case control variable is the top stack element
-    expression(ctlType);
-    codegen->caseCmp();
-    // TODO: comma-separated list, ranges
+    // Expects the case control variable to be the top stack element
+    caseValue(ctlType);
     memint out = codegen->boolJumpForward(opJumpFalse);
     block();
     if (!isBlockEnd())

@@ -60,6 +60,7 @@ protected:
     void singleStatement();
     void statementList();
     void ifBlock();
+    void caseValue(Type*);
     void caseLabel(Type*);
     void caseBlock();
 
