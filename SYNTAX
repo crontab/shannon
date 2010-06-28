@@ -9,7 +9,7 @@
 #   any word: reference to another syntactic element
 #   glue: ## (otherwise elements are separated by whitespace or can be 
 #       distinguished by the parser)
-#   <SEP> is one or more new lines or ';'
+#   <SEP> is one or more new lines and/or semicolons
 #   Comments are like in C++ /* */ and //
 #
 
@@ -18,12 +18,12 @@
 
 program ::= { statement } <EOF>
 
-statement ::= definition | var-def | sub-block | if-block | builtin |
-    other-statement
+statement ::= definition | var-def | sub-block | builtin | other-statement |
+     if-block | case-block
 
 block ::= single-block | multi-block
 
-single-block ::= ':' [ <SEP> ] statement
+single-block ::= [ <SEP> ] statement
 
 multi-block ::= '{' [ <SEP> ] { statement } '}' 
 
@@ -32,8 +32,6 @@ definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr <SEP
 var-def ::= 'var' [ const-expr ] ident { type-derivator } '=' expr <SEP>
 
 sub-block ::= 'begin' block
-
-if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 
 builtin ::= assertion | dump | exit
 
@@ -44,6 +42,12 @@ dump ::= 'dump' expr { ',' expr } <SEP>
 exit ::= 'exit' expr <SEP>
 
 other-statement ::= designator [ '=' expr ] <SEP>
+
+if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
+
+case-block ::= 'case' expr '{' case-label { case-label } '}'
+
+case-label ::= expr [ '..' expr ] ':' block
 
 
 # ---------- Const Expression

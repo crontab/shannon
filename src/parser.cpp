@@ -393,18 +393,14 @@ void Parser::redoIdent()
 
 bool Parser::skipBlockBegin()
 {
-    if (skipIf(tokColon))
+    skipAnySeps();
+    if (skipIf(tokLCurly))
     {
-        skipAnySeps();
-        return false;
-    }
-    else
-    {
-        skipAnySeps();
-        expect(tokLCurly, "'{' or ':'");
         skipAnySeps();
         return true;
     }
+    else
+        return false;
 }
 
 
