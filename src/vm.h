@@ -353,6 +353,7 @@ public:
     void elemCat();
     void cat();
     void loadContainerElem();
+    void loadSubvec();
     void length();
     Container* elemToSet();
     Container* rangeToSet();

@@ -315,8 +315,14 @@ void Compiler::designator(Type* typeHint)
         {
             codegen->deref();
             expression(NULL);
+            if (skipIf(tokRange))
+            {
+                expression(codegen->getTopType());
+                codegen->loadSubvec();
+            }
+            else
+                codegen->loadContainerElem();
             expect(tokRSquare, "]");
-            codegen->loadContainerElem();
         }
 
         else if (skipIf(tokCaret))

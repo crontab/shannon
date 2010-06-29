@@ -84,7 +84,7 @@ cat-expr ::= factor { '|' factor }
 
 factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) type-spec ]
 
-designator ::= [ '@' ] atom { '^' | '.' ident | '[' expr ']' }
+designator ::= [ '@' ] atom { '^' | '.' ident | '[' index-expr ']' }
 
 atom ::= ident | number | string-literal | vec-ctor | dict-ctor | if-func |
     typeof | type-spec | '(' expr ')'
@@ -104,6 +104,8 @@ type-spec ::= ident { type-derivator }
 type-derivator ::= cont-derivator | '<>'
 
 cont-derivator ::= '[' [ const-expr | '..' ] ']'
+
+index-expr ::= expr [ '..' expr ]
 
 
 # ---------- Basic elements

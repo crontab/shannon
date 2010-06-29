@@ -485,6 +485,19 @@ void CodeGen::loadContainerElem()
 }
 
 
+void CodeGen::loadSubvec()
+{
+    Type* contType = stkTop(3);
+    Type* left = stkTop(2);
+    implicitCast(left);
+    if (contType->isAnyVec())
+    {
+    }
+    else
+        error("Vector/string type expected");
+}
+
+
 void CodeGen::length()
 {
     Type* type = stkTop();
