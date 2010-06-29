@@ -80,7 +80,7 @@ var int[][] er = [[6, 7], [8, 9, 10], []]
 var byte ei[] = [0, 1] | 2 | 3 | [] | [4]
 var int^ r1 = 2
 var r2 = @3
-var str r3^ = @'abc'
+var str r3^ = 'abc'
 var typeof r1 r4 = 10
 a = r1
 assert a == 2
@@ -89,10 +89,17 @@ assert r1 == 12
 @r2 = @r1
 r1 = 1
 assert r2 == 1
+assert #d == 3
+del d[1]
+assert #d == 2 and d[0] == 1 and d[1] == 3
+// error: del d[2]
+del r3[0]
+assert r3 == 'bc'
 
 assert typeof c == str and typeof d == int[] and typeof e == byte[][] and typeof er == int[][]
 
 var str words[..] = {'as', 'is'}
+var char chars1[..] = {'a'..'z'}
 var dic1 = {'one' = 1, 'two' = 0, 'three' = 3}
 var byte dic2[str] = {'o' = 1, 'two' = 0, 'three' = 3}
 var int ints1[]^[] = [[], [10, 11, 12], @[13, 14], @[]]
@@ -111,6 +118,7 @@ assert a == 11
 assert #e[0] == 0 and e[1][1] == 2 and e[2][0] == 4
 assert #ei == 5 and ei[1] == 1
 assert dic1['one'] == 1 and dic1['two'] == 0
+
 system.__program_result = 'OK'
 assert __program_result == 'OK'
 __program_result = null
@@ -131,7 +139,25 @@ assert ints1[1][2] == 111
 dics2[0]['three'] = 33
 assert dics2[0]['three'] == 33
 assert 'as' in words and not 'kuku' in words
-assert not 'z' in dic3 and 'a' in dic3
+assert dic2['o'] == 1 and dic2['two'] == 0 and dic2['three'] == 3
+dic2['two'] = 2
+assert 'two' in dic2 and dic2['two'] == 2
+del dic2['two']
+assert not 'two' in dic2
+assert not 'z' in dic3 and 'a' in dic3 and dic3['a'] == 10
+dic3['z'] = 30
+assert 'z' in dic3 and dic3['z'] == 30 and dic3['b'] == 20
+del dic3['z']
+del dic3['a']
+assert not 'a' in dic3 and not 'z' in dic3
+assert 'as' in words and 'is' in words
+del words['is']
+assert not 'is' in words
+assert typeof words['as'] == void
+assert 'a' in chars1
+del chars1['a']
+assert not 'a' in chars1
+
 assert 2 in nums and 96 in char and not 256 in char
 assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
 assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'

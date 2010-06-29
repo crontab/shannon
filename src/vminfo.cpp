@@ -36,15 +36,15 @@ OpInfo opTable[] =
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self-idx:u8] +var
-    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +obj(0) +ptr
     OP(LoadStkVar, StkIdx),     // [stk-idx:s8] +var
-    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
-    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
     OP(Deref, None),            // -ref +var
+
+    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +obj(0) +ptr
+    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
+    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
-    // --- end designator loaders
 
     // --- 4. STORERS
     OP(InitSelfVar, SelfIdx),   // [self-idx:u8] -var
@@ -78,6 +78,8 @@ OpInfo opTable[] =
     OP(VecElem, None),          // -idx -vec +var
     OP(StoreStrElem, None),     // -char -int -ptr -obj
     OP(StoreVecElem, None),     // -var -int -ptr -obj
+    OP(DelStrElem, None),       // -int -ptr -obj
+    OP(DelVecElem, None),       // -int -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set
@@ -90,6 +92,10 @@ OpInfo opTable[] =
     OP(InByteSet, None),        // -set -int +bool
     OP(InBounds, Type),         // [Ordinal*] -int +bool
     OP(InRange, None),          // -int -int -int +bool
+    OP(SetElem, None),          // -var -set +void
+    OP(ByteSetElem, None),      // -int -set +void
+    OP(DelSetElem, None),       // -var -ptr -obj
+    OP(DelByteSetElem, None),   // -int -ptr -obj
 
     // --- 8. DICTIONARIES
     OP(PairToDict, None),       // -var -var +dict
@@ -97,10 +103,13 @@ OpInfo opTable[] =
     OP(PairToByteDict, None),   // -var -int +vec
     OP(ByteDictAddPair, None),  // -var -int -vec +vec
     OP(DictElem, None),         // -var -dict +var
-    OP(StoreDictElem, None),    // -var -var -ptr -obj
     OP(ByteDictElem, None),     // -int -dict +var
     OP(InDict, None),           // -dict -var +bool
     OP(InByteDict, None),       // -dict -int +bool
+    OP(StoreDictElem, None),    // -var -var -ptr -obj
+    OP(StoreByteDictElem, None),// -var -int -ptr -obj
+    OP(DelDictElem, None),      // -var -ptr -obj
+    OP(DelByteDictElem, None),  // -int -ptr -obj
 
     // --- 9. ARITHMETIC
     OP(Add, None),              // -int, +int, +int

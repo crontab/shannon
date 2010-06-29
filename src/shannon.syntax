@@ -19,6 +19,7 @@ context default
 	keyword whole case		yellow
 	keyword whole continue		yellow
 	keyword whole def		yellow
+	keyword whole del		yellow
 	keyword whole dump		yellow
 	keyword whole elif		yellow
 	keyword whole else		yellow

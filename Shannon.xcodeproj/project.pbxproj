@@ -53,7 +53,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3609125811CA87BB0091B8AA /* test.shn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.shn; path = src/tests/test.shn; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
+		3609125811CA87BB0091B8AA /* test.shn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.shn; path = src/tests/test.shn; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.javascript; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };

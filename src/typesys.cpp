@@ -747,6 +747,9 @@ bool Prototype::identicalTo(Prototype* t) const
 }
 
 
+// --- External (C-linked) Function ---------------------------------------- //
+
+
 // --- State --------------------------------------------------------------- //
 
 
