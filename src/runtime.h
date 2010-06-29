@@ -264,18 +264,18 @@ protected:
     bool _isunique() const              { return empty() || obj->isunique(); }
     void _dounique();
     char* mkunique()                    { if (!obj->isunique()) _dounique(); return obj->data(); }
-    char* _init(memint len);
-    void _init(memint len, char fill);
+    char* _init(memint len);  // (*)
+    void _init(memint len, char fill);  // (*)
     void _init(const char*, memint);  // (*)
     void _init(const bytevec& v)        { obj._init(v.obj); }
+    char* _init(memint pos, memint len, alloc_func);
+    void _init(const bytevec& v, memint pos, memint len, alloc_func);
 
     char* _insert(memint pos, memint len, alloc_func);
     char* _append(memint len, alloc_func);
     void _erase(memint pos, memint len);
     void _pop(memint len);
     char* _resize(memint newsize, alloc_func);
-
-    bytevec(container* c)               { _init(c); }
 
 public:
     bytevec(): obj()                    { }
@@ -302,7 +302,7 @@ public:
     const char* back() const            { return back(1); }
 
     void insert(memint pos, const char* buf, memint len);  // (*)
-    void insert(memint pos, const bytevec& s);
+    void insert(memint pos, const bytevec& s);  // (*)
     void append(const char* buf, memint len);  // (*)
     void append(const bytevec& s);
     void erase(memint pos, memint len);
@@ -450,8 +450,6 @@ protected:
     enum { Tsize = int(sizeof(T)) };
     typedef bytevec parent;
 
-    podvec(container* c): parent(c)  { }
-
 public:
     podvec(): parent()                      { }
     podvec(const podvec& v): parent(v)      { }
@@ -568,6 +566,9 @@ protected:
             { if (_size) { finalize(data(), _size); _size = 0; } }
     };
 
+    vector(const vector& v, memint pos, memint len)
+        { parent::_init(v, pos * Tsize, len * Tsize, cont::allocate); }
+
 public:
     vector(): parent()  { }
     vector(const T& t): parent()  { push_back(t); }
@@ -585,6 +586,16 @@ public:
         char* p = bytevec::_resize(bytevec::size() + extra_mem, cont::allocate);
         memset(p, 0, extra_mem);
     }
+
+    vector subvec(memint pos, memint len) const
+    {
+        if (pos == 0 && len == parent::size())
+            return *this;
+        return vector(*this, pos, len);
+    }
+
+    vector subvec(memint pos) const
+        { return subvec(pos, parent::size() - pos); }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are

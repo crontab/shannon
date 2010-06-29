@@ -162,8 +162,16 @@ assert 2 in nums and 96 in char and not 256 in char
 assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
 assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'
 
+var str1 = 'abc'
+assert str1[0..1] == 'ab' and str1[0..2] == 'abc' and str1[2..2] == 'c'
+assert str1[0..] == 'abc' and str1[1..] == 'bc' and str1[3..] == ''
+var vec1 = ['abc', 'def', 'ghi']
+assert #vec1[0..1] == 2 and vec1[0..1][0] == 'abc' and vec1[0..1][1] == 'def'
+assert #vec1[1..] == 2 and vec1[1..][1] == 'ghi'
+assert vec1[0..] == vec1
+
 // TYPECASTS
-begin assert 1 as char == '\x1'
+begin assert 1 as char == '\x01'
 begin
     assert 'a' as int == 97
 var any v10 = 0

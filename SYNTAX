@@ -105,7 +105,7 @@ type-derivator ::= cont-derivator | '<>'
 
 cont-derivator ::= '[' [ const-expr | '..' ] ']'
 
-index-expr ::= expr [ '..' expr ]
+index-expr ::= expr [ '..' [ expr ] ]
 
 
 # ---------- Basic elements

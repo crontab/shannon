@@ -489,9 +489,17 @@ void CodeGen::loadSubvec()
 {
     Type* contType = stkTop(3);
     Type* left = stkTop(2);
-    implicitCast(left);
+    Type* right = stkTop();
+    bool tail = right->isVoid();
+    if (!tail)
+        implicitCast(left);
     if (contType->isAnyVec())
     {
+        if (!left->isAnyOrd())
+            error("Non-ordinal range bounds");
+        stkPop();
+        stkPop();
+        addOp(contType->isByteVec() ? opSubstr : opSubvec);
     }
     else
         error("Vector/string type expected");

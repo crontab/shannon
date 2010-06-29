@@ -317,7 +317,10 @@ void Compiler::designator(Type* typeHint)
             expression(NULL);
             if (skipIf(tokRange))
             {
-                expression(codegen->getTopType());
+                if (token == tokRSquare)
+                    codegen->loadConst(defVoid, variant());
+                else
+                    expression(codegen->getTopType());
                 codegen->loadSubvec();
             }
             else
