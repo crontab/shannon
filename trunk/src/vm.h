@@ -69,8 +69,10 @@ enum OpCode
     opVecCat,           // -vec -vec +vec
     opStrLen,           // -str +int
     opVecLen,           // -str +int
-    opStrElem,          // -idx -str +char
-    opVecElem,          // -idx -vec +var
+    opStrElem,          // -int -str +char
+    opVecElem,          // -int -vec +var
+    opSubstr,           // -{int,void} -int -str +str
+    opSubvec,           // -{int,void} -int -vec +vec
     opStoreStrElem,     // -char -int -ptr -obj
     opStoreVecElem,     // -var -int -ptr -obj
     opDelStrElem,       // -int -ptr -obj

@@ -312,22 +312,41 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
             POPPOD();
             break;
+        case opSubstr:  // -{int,void} -int -str +str
+            {
+                memint pos = memint((stk - 1)->_int());  // *OVR
+                str& s = (stk - 2)->_str();
+                s = stk->is_null() ? s.substr(pos)
+                    : s.substr(pos, stk->_int() - pos + 1);  // *OVR
+                POPPOD(); POPPOD();
+            }
+            break;
+        case opSubvec:  // -{int,void} -int -vec +vec
+            {
+                memint pos = memint((stk - 1)->_int());  // *OVR
+                varvec& v = (stk - 2)->_vec();
+                v = stk->is_null() ? v.subvec(pos)
+                    : v.subvec(pos, stk->_int() - pos + 1);  // *OVR
+                POPPOD(); POPPOD();
+            }
+            break;
         case opStoreStrElem:    // -char -int -ptr -obj
-            (stk - 2)->_ptr()->_str().replace((stk - 1)->_int(), stk->_uchar());
+            (stk - 2)->_ptr()->_str().replace((stk - 1)->_int(), stk->_uchar());  // *OVR
             POPPOD(); POPPOD(); POPPOD(); POP();
             break;
         case opStoreVecElem:    // -var -int -ptr -obj
-            (stk - 2)->_ptr()->_vec().replace((stk - 1)->_int(), *stk);
+            (stk - 2)->_ptr()->_vec().replace((stk - 1)->_int(), *stk);  // *OVR
             POP(); POPPOD(); POPPOD(); POP();
             break;
         case opDelStrElem:      // -int -ptr -obj
-            (stk - 1)->_ptr()->_str().erase(stk->_int(), 1);
+            (stk - 1)->_ptr()->_str().erase(stk->_int(), 1);  // *OVR
             POPPOD(); POPPOD(); POP();
             break;
         case opDelVecElem:      // -int -ptr -obj
-            (stk - 1)->_ptr()->_vec().erase(stk->_int());
+            (stk - 1)->_ptr()->_vec().erase(stk->_int());  // *OVR
             POPPOD(); POPPOD(); POP();
             break;
+        // *OVR: integer type is reduced to memint in some configs
 
 
         // --- 7. SETS -------------------------------------------------------

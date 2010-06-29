@@ -146,10 +146,10 @@
 		C6859E8C029090F304C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
-				3609125811CA87BB0091B8AA /* test.shn */,
-				36510CA511C9731500071AB4 /* shannon.syntax */,
 				362E29FD0F0D6C58005E05B4 /* TODO */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
+				36510CA511C9731500071AB4 /* shannon.syntax */,
+				3609125811CA87BB0091B8AA /* test.shn */,
 			);
 			name = Documentation;
 			sourceTree = "<group>";

@@ -1,9 +1,7 @@
 
 * Assignment operators (+=, etc) aren't very nice with the
   boolean/bitwise and, or, etc. However, these are necessary at least:
-  |=, +=, -=
-
-* Substring/subvector using '..' e.g.: s[1..3] or s[4..]
+  |=, +=, -=, also append operator in the form v[] = ...
 
 * Operator 'ins' for all types of containers.
 

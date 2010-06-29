@@ -351,6 +351,17 @@ void bytevec::_init(const char* buf, memint len)
 }
 
 
+void bytevec::_init(const bytevec& v, memint pos, memint len, alloc_func alloc)
+{
+    v.chkidx(pos);
+    v.chkidxa(pos + len);
+    if (len <= 0)
+        return;
+    obj._init(alloc(len, len));
+    obj->copy(obj->data(), v.data(pos), len);
+}
+
+
 void bytevec::_dounique()
 {
     // Called only on non-empty, non-unique objects
@@ -665,7 +676,7 @@ str str::substr(memint pos, memint len) const
         return *this;
     if (len <= 0)
         return str();
-    chkidxa(pos);
+    chkidx(pos);
     chkidxa(pos + len);
     return str(data(pos), len);
 }

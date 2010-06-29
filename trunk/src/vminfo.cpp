@@ -76,6 +76,8 @@ OpInfo opTable[] =
     OP(VecLen, None),           // -str +int
     OP(StrElem, None),          // -idx -str +int
     OP(VecElem, None),          // -idx -vec +var
+    OP(Substr, None),           // -{int,void} -int -str +str
+    OP(Subvec, None),           // -{int,void} -int -vec +vec
     OP(StoreStrElem, None),     // -char -int -ptr -obj
     OP(StoreVecElem, None),     // -var -int -ptr -obj
     OP(DelStrElem, None),       // -int -ptr -obj

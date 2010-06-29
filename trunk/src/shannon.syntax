@@ -123,6 +123,7 @@ context exclusive // \n brown
 
 context ' ' green
 	spellcheck
-	keyword \\\{\\'"abtnvfr\}	brightgreen
+	keyword \\\{\\'"tnr\}	brightgreen
 	keyword \\\{0123\}\{01234567\}\{01234567\} brightgreen
+	keyword \\x\{0123456789abcdef\}\{0123456789abcdef\} brightgreen
 
