@@ -87,6 +87,18 @@ static void byteDictReplace(varvec& v, integer i, const variant& val)
 }
 
 
+static void byteDictDelete(varvec& v, integer i)
+{
+    memint size = v.size();
+    if (uinteger(i) >= umemint(size) || v[memint(i)].is_null())
+        container::keyerr();
+    if (memint(i) == size - 1)
+        v.pop_back();
+    else
+        v.replace(memint(i), variant());
+}
+
+
 #define ADV(T) \
     (ip += sizeof(T), *(T*)(ip - sizeof(T)))
 
@@ -139,12 +151,14 @@ void runRabbitRun(stateobj* self, rtstack& stack, register const char* ip)
 loop:  // use goto's instead of while(1) {} so that compilers don't complain
         switch(*ip++)
         {
-        // --- 1. MISC CONTROL
+
+        // --- 1. MISC CONTROL -----------------------------------------------
         case opEnd:             goto exit;
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
 
-        // --- 2. CONST LOADERS
+
+        // --- 2. CONST LOADERS ----------------------------------------------
         case opLoadTypeRef:
             PUSH(ADV(Type*));
             break;
@@ -173,26 +187,16 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
 
-        // --- 3. DESIGNATOR LOADERS
+
+        // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadSelfVar:
             PUSH(*self->member(ADV(uchar)));
-            break;
-        case opLeaSelfVar:
-            PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
-            PUSH(self->member(ADV(uchar)));
             break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV(char)));
             break;
-        case opLeaStkVar:
-            PUSH((rtobject*)NULL);
-            PUSH(stack.bp + ADV(char));
-            break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
-            break;
-        case opLeaMember:
-            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
             break;
         case opDeref:
             {
@@ -201,11 +205,24 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 r->release();
             }
             break;
+
+        case opLeaSelfVar:
+            PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
+            PUSH(self->member(ADV(uchar)));
+            break;
+        case opLeaStkVar:
+            PUSH((rtobject*)NULL);
+            PUSH(stack.bp + ADV(char));
+            break;
+        case opLeaMember:
+            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
+            break;
         case opLeaRef:
             PUSH(&stk->_ref()->var);
             break;
 
-        // --- 4. STORERS
+
+        // --- 4. STORERS ----------------------------------------------------
         case opInitSelfVar:
             INITTO(self->member(ADV(uchar)));
             break;
@@ -227,7 +244,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             POP();
             break;
 
-        // --- 5. DESIGNATOR OPS, MISC
+
+        // --- 5. DESIGNATOR OPS, MISC ---------------------------------------
         case opMkSubrange:
             {
                 Ordinal* t = ADV(Ordinal*)->createSubrange((stk - 1)->_int(), stk->_int());
@@ -256,7 +274,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             *stk = int(ADV(Type*)->isCompatibleWith(*stk));
             break;
 
-        // --- 6. STRINGS, VECTORS
+
+        // --- 6. STRINGS, VECTORS -------------------------------------------
         case opChrToStr:
             *stk = str(stk->_int());
             break;
@@ -301,8 +320,17 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             (stk - 2)->_ptr()->_vec().replace((stk - 1)->_int(), *stk);
             POP(); POPPOD(); POPPOD(); POP();
             break;
+        case opDelStrElem:      // -int -ptr -obj
+            (stk - 1)->_ptr()->_str().erase(stk->_int(), 1);
+            POPPOD(); POPPOD(); POP();
+            break;
+        case opDelVecElem:      // -int -ptr -obj
+            (stk - 1)->_ptr()->_vec().erase(stk->_int());
+            POPPOD(); POPPOD(); POP();
+            break;
 
-        // --- 7. SETS
+
+        // --- 7. SETS -------------------------------------------------------
         case opElemToSet:
             *stk = varset(*stk);
             break;
@@ -344,8 +372,23 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 POPPOD(); POPPOD();
             }
             break;
+        case opSetElem:
+            POP(); POP(); PUSH(); // see CodeGen::loadContainerElem()
+            break;
+        case opByteSetElem:
+            POPPOD(); POP(); PUSH();
+            break;
+        case opDelSetElem:     // -var -ptr -obj
+            (stk - 1)->_ptr()->_set().find_erase(*stk);
+            POP(); POPPOD(); POP();
+            break;
+        case opDelByteSetElem:     // -int -ptr -obj
+            (stk - 1)->_ptr()->_ordset().find_erase(stk->_int());
+            POPPOD(); POPPOD(); POP();
+            break;
 
-        // --- 8. DICTIONARIES
+
+        // --- 8. DICTIONARIES -----------------------------------------------
         case opPairToDict:
             *(stk - 1) = vardict(*(stk - 1), *stk);
             POP();
@@ -378,10 +421,6 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                     container::keyerr();
             }
             break;
-        case opStoreDictElem:  // -var -var -ptr -obj
-            (stk - 2)->_ptr()->_dict().find_replace(*(stk - 1), *stk);
-            POP(); POP(); POPPOD(); POP();
-            break;
         case opByteDictElem:
             {
                 integer i = stk->_int();
@@ -406,9 +445,25 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 POP();
             }
             break;
+        case opStoreDictElem:  // -var -var -ptr -obj
+            (stk - 2)->_ptr()->_dict().find_replace(*(stk - 1), *stk);
+            POP(); POP(); POPPOD(); POP();
+            break;
+        case opStoreByteDictElem:   // -var -int -ptr -obj
+            byteDictReplace((stk - 2)->_ptr()->_vec(), (stk - 1)->_int(), *stk);
+            POP(); POPPOD(); POPPOD(); POP();
+            break;
+        case opDelDictElem:     // -var -ptr -obj
+            (stk - 1)->_ptr()->_dict().find_erase(*stk);
+            POP(); POPPOD(); POP();
+            break;
+        case opDelByteDictElem: // -int -ptr -obj
+            byteDictDelete((stk - 1)->_ptr()->_vec(), stk->_int());
+            POPPOD(); POPPOD(); POP();
+            break;
 
 
-        // --- 9. ARITHMETIC
+        // --- 9. ARITHMETIC -------------------------------------------------
         // TODO: range checking in debug mode
         case opAdd:         BINARY_INT(+=); break;
         case opSub:         BINARY_INT(-=); break;
@@ -420,12 +475,12 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opBitXor:      BINARY_INT(^=); break;
         case opBitShl:      BINARY_INT(<<=); break;
         case opBitShr:      BINARY_INT(>>=); break;
-        // case opBoolXor:     SETPOD(stk - 1, int(bool((stk - 1)->_int() ^ stk->_int()))); POPPOD(stk); break;
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
         case opNot:         UNARY_INT(!); break;
 
-        // --- 10. BOOLEAN
+
+        // --- 10. BOOLEAN ---------------------------------------------------
         case opCmpOrd:
             (stk - 1)->_int() -= stk->_int();
             POPPOD();
@@ -457,7 +512,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opCaseStr:     *stk = int(stk->_str() == (stk - 1)->_str()); break;
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
-        // --- 11. JUMPS
+
+        // --- 11. JUMPS -----------------------------------------------------
         case opJump:
             // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
             offs = ADV(jumpoffs);
@@ -481,7 +537,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                 POP();
             break;
 
-        // --- 12. DEBUGGING, DIAGNOSTICS
+
+        // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
         case opLineNum:
             linenum = ADV(integer);
             break;
@@ -503,6 +560,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             }
             break;
 
+        case opInv:  // silence the opcode checkers (opcodes.sh in particular)
         default:
             invOpcode();
             break;

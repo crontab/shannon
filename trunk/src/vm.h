@@ -28,14 +28,17 @@ enum OpCode
     opLoadConst,        // [Definition*] +var
 
     // --- 3. DESIGNATOR LOADERS
+    // --- begin grounded loaders
     opLoadSelfVar,      // [self-idx:u8] +var
-    opLeaSelfVar,       // [self-idx:u8] +obj(0) +ptr
     opLoadStkVar,       // [stk-idx:s8] +var
-    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
     // --- end undoable loaders
     opLoadMember,       // [stateobj-idx:u8] -stateobj +var
-    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
     opDeref,            // -ref +var
+    // --- end grounded loaders
+
+    opLeaSelfVar,       // [self-idx:u8] +obj(0) +ptr
+    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
+    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
@@ -70,6 +73,8 @@ enum OpCode
     opVecElem,          // -idx -vec +var
     opStoreStrElem,     // -char -int -ptr -obj
     opStoreVecElem,     // -var -int -ptr -obj
+    opDelStrElem,       // -int -ptr -obj
+    opDelVecElem,       // -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -82,6 +87,10 @@ enum OpCode
     opInByteSet,        // -set -int +bool
     opInBounds,         // [Ordinal*] -int +bool
     opInRange,          // -int -int -int +bool
+    opSetElem,          // -var -set +void
+    opByteSetElem,      // -int -set +void
+    opDelSetElem,       // -var -ptr -obj
+    opDelByteSetElem,   // -int -ptr -obj
 
     // --- 8. DICTIONARIES
     opPairToDict,       // -var -var +dict
@@ -89,10 +98,13 @@ enum OpCode
     opPairToByteDict,   // -var -int +vec
     opByteDictAddPair,  // -var -int -vec +vec
     opDictElem,         // -var -dict +var
-    opStoreDictElem,    // -var -var -ptr -obj
     opByteDictElem,     // -int -dict +var
     opInDict,           // -var -dict +bool
     opInByteDict,       // -int -dict +bool
+    opStoreDictElem,    // -var -var -ptr -obj
+    opStoreByteDictElem,// -var -int -ptr -obj
+    opDelDictElem,      // -var -ptr -obj
+    opDelByteDictElem,  // -int -ptr -obj
 
     // --- 9. ARITHMETIC
     opAdd,              // -int, +int, +int
@@ -147,11 +159,11 @@ enum OpCode
 };
 
 
-inline bool isUndoableLoadOp(OpCode op)
+inline bool isUndoableLoader(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
 
-inline bool isGroundedStorer(OpCode op)
-    { return op >= opStoreSelfVar && op <= opStoreRef; }
+inline bool isGroundedLoader(OpCode op)
+    { return op >= opLoadSelfVar && op <= opDeref; }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
@@ -373,6 +385,7 @@ public:
 
     str lvalue();
     void assignment(const str& storerCode);
+    void deleteContainerElem();
 
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp

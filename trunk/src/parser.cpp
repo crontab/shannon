@@ -67,6 +67,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"const", tokConst},
         {"continue", tokContinue},
         {"def", tokDef},
+        {"del", tokDel},
         {"dump", tokDump},
         {"elif", tokElif},
         {"else", tokElse},

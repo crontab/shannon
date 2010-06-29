@@ -501,6 +501,8 @@ public:
         memint index;
         if (bsearch(item, index))
             erase(index);
+        else
+            container::keyerr();
     }
 
     // Internal method, but should be public for technical reasons
@@ -733,7 +735,13 @@ public:
     }
 
     void find_erase(const Tkey& k)
-        { memint i; if (_bsearch(k, i)) erase(i); }
+    {
+        memint i;
+        if (_bsearch(k, i))
+            erase(i);
+        else
+            container::keyerr();
+    }
 };
 
 

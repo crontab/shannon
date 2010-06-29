@@ -88,6 +88,9 @@ public:
 };
 
 
+typedef Variable Argument;
+
+
 class LocalVar: public Variable
 {
 public:
@@ -397,8 +400,7 @@ class Prototype: public Type
 {
 protected:
     Type* returnType;
-    // TODO: define class Argument
-    objvec<Variable> args;          // owned
+    objvec<Argument> args;          // owned
 public:
     Prototype(Type* retType);
     ~Prototype();
@@ -408,6 +410,9 @@ public:
     bool identicalTo(Type*) const; // override
     bool identicalTo(Prototype* t) const;
 };
+
+
+// --- External (C-linked) Function ---------------------------------------- //
 
 
 // --- State --------------------------------------------------------------- //

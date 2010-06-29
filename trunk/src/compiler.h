@@ -59,10 +59,10 @@ protected:
     void orLevel();
     void expression(Type*);
     void constExpr(Type*);
-
-    // in compiler.cpp
     Type* getConstValue(Type* resultType, variant& result, bool atomType);
     Type* getTypeValue(bool atomType);
+
+    // in compiler.cpp
     Type* getTypeAndIdent(str& ident);
     void definition();
     void variable();
@@ -80,6 +80,7 @@ protected:
     void whileBlock();
     void doContinue();
     void doBreak();
+    void doDel();
 
     void compileModule();
 

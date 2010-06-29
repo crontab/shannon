@@ -40,42 +40,6 @@ Compiler::~Compiler()
     { }
 
 
-Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
-{
-    CodeSeg constCode(NULL);
-    CodeGen constCodeGen(constCode, state, true);
-    CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
-    Type* resultType = NULL;
-    try
-    {
-        if (atomType)
-            atom(expectType);
-        else
-            constExpr(expectType);
-        if (codegen->getTopType()->isReference())
-            error("References not allowed in const expressions");
-        resultType = constCodeGen.runConstExpr(expectType, result);
-        codegen = prevCodeGen;
-    }
-    catch(exception&)
-    {
-        codegen = prevCodeGen;
-        throw;
-    }
-    return resultType;
-}
-
-
-Type* Compiler::getTypeValue(bool atomType)
-{
-    // atomType excludes enums and subrange type definitions but shorthens
-    // the parsing path
-    variant result;
-    getConstValue(defTypeRef, result, atomType);
-    return cast<Type*>(result._rtobj());
-}
-
-
 Type* Compiler::getTypeAndIdent(str& ident)
 {
     Type* type = NULL;
@@ -131,6 +95,60 @@ void Compiler::variable()
         codegen->initSelfVar(var);
     }
     skipSep();
+}
+
+
+void Compiler::block()
+{
+    if (skipBlockBegin())
+    {
+        AutoScope local(*this);
+        statementList();
+        skipBlockEnd();
+    }
+    else
+        singleStatement();
+}
+
+
+void Compiler::singleStatement()
+{
+    if (context.options.lineNumbers)
+        codegen->linenum(getLineNum());
+    if (skipIf(tokDef))
+        definition();
+    else if (skipIf(tokVar))
+        variable();
+    else if (skipIf(tokBegin))
+        block();
+    else if (skipIf(tokIf))
+        ifBlock();
+    else if (skipIf(tokCase))
+        caseBlock();
+    else if (skipIf(tokWhile))
+        whileBlock();
+    else if (skipIf(tokContinue))
+        doContinue();
+    else if (skipIf(tokBreak))
+        doBreak();
+    else if (skipIf(tokDel))
+        doDel();
+    else if (token == tokAssert)
+        assertion();
+    else if (token == tokDump)
+        dumpVar();
+    else if (skipIf(tokExit))
+        programExit();
+    else
+        otherStatement();
+    skipAnySeps();
+}
+
+
+void Compiler::statementList()
+{
+    while (!isBlockEnd())
+        singleStatement();
 }
 
 
@@ -199,58 +217,6 @@ void Compiler::otherStatement()
     if (isSep() && codegen->getStackLevel() != stkLevel)
         error("Unused value in statement");
     skipSep();
-}
-
-
-void Compiler::block()
-{
-    if (skipBlockBegin())
-    {
-        AutoScope local(*this);
-        statementList();
-        skipBlockEnd();
-    }
-    else
-        singleStatement();
-}
-
-
-void Compiler::singleStatement()
-{
-    if (context.options.lineNumbers)
-        codegen->linenum(getLineNum());
-    if (skipIf(tokDef))
-        definition();
-    else if (skipIf(tokVar))
-        variable();
-    else if (skipIf(tokBegin))
-        block();
-    else if (skipIf(tokIf))
-        ifBlock();
-    else if (skipIf(tokCase))
-        caseBlock();
-    else if (skipIf(tokWhile))
-        whileBlock();
-    else if (skipIf(tokContinue))
-        doContinue();
-    else if (skipIf(tokBreak))
-        doBreak();
-    else if (token == tokAssert)
-        assertion();
-    else if (token == tokDump)
-        dumpVar();
-    else if (skipIf(tokExit))
-        programExit();
-    else
-        otherStatement();
-    skipAnySeps();
-}
-
-
-void Compiler::statementList()
-{
-    while (!isBlockEnd())
-        singleStatement();
 }
 
 
@@ -334,6 +300,13 @@ void Compiler::doBreak()
         error("'break' not within loop");
     codegen->deinitFrame(loopInfo->stackLevel);
     loopInfo->breakJumps.push_back(codegen->jumpForward());
+}
+
+
+void Compiler::doDel()
+{
+    designator(NULL);
+    codegen->deleteContainerElem();
 }
 
 

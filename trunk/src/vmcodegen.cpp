@@ -44,7 +44,7 @@ void CodeGen::undoDesignator(memint from)
 void CodeGen::undoLoader()
 {
     memint offs = stkTopOffs();
-    if (!isUndoableLoadOp(codeseg[offs]))
+    if (!isUndoableLoader(codeseg[offs]))
         error("Invalid type cast");
     undoDesignator(offs);
 }
@@ -468,8 +468,17 @@ void CodeGen::loadContainerElem()
         implicitCast(PContainer(contType)->index, "Dictionary key type mismatch");
         op = contType->isByteDict() ? opByteDictElem : opDictElem;
     }
+    else if (contType->isAnySet())
+    {
+        // Selecting a set element thorugh [] returns void, because that's the
+        // element type for sets. However, [] selection is used with operator del,
+        // that's why we need the opcode opSetElem, which actually does nothing.
+        // (see CodeGen::deleteContainerElem())
+        implicitCast(PContainer(contType)->index, "Set element type mismatch");
+        op = contType->isByteSet() ? opByteSetElem : opSetElem;
+    }
     else
-        error("Vector/dictionary type expected");
+        error("Vector/dictionary/set expected");
     stkPop();
     stkPop();
     addOp(PContainer(contType)->elem, op);
@@ -816,6 +825,9 @@ void CodeGen::programExit()
 static void errorLValue()
     { throw emessage("Not an l-value"); }
 
+static void errorNotElemLoader()
+    { throw emessage("Not an addressable container element"); }
+
 
 static OpCode loaderToStorer(OpCode op)
 {
@@ -825,10 +837,11 @@ static OpCode loaderToStorer(OpCode op)
         case opLoadStkVar:  return opStoreStkVar;
         case opLoadMember:  return opStoreMember;
         case opDeref:       return opStoreRef;
-        // end grounded storers
+        // end grounded loaders
         case opStrElem:     return opStoreStrElem;
         case opVecElem:     return opStoreVecElem;
         case opDictElem:    return opStoreDictElem;
+        case opByteDictElem: return opStoreByteDictElem;
         default:
             errorLValue();
             return opInv;
@@ -851,11 +864,28 @@ static OpCode loaderToLea(OpCode op)
 }
 
 
+static OpCode loaderToDeleter(OpCode op)
+{
+    switch (op)
+    {
+        case opStrElem:       return opDelStrElem;
+        case opVecElem:       return opDelVecElem;
+        case opDictElem:      return opDelDictElem;
+        case opByteDictElem:  return opDelByteDictElem;
+        case opSetElem:       return opDelSetElem;
+        case opByteSetElem:   return opDelByteSetElem;
+        default:
+            errorNotElemLoader();
+            return opInv;
+    }
+}
+
+
 str CodeGen::lvalue()
 {
     memint offs = stkTopOffs();
-    OpCode storer = loaderToStorer(codeseg[offs]);
-    if (isGroundedStorer(storer))
+    OpCode loader = codeseg[offs];
+    if (isGroundedLoader(loader))
     {
         // Plain assignment to a "grounded" variant: remove the loader and
         // return the corresponding storer to be appended later at the end
@@ -868,7 +898,9 @@ str CodeGen::lvalue()
         // transform/move the last loader like in the previous case.
         codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
     }
+    OpCode storer = loaderToStorer(loader);
     codeseg.replaceOp(offs, storer);
+    prevLoaderOffs = -1;
     return codeseg.cutOp(offs);
 }
 
@@ -880,6 +912,16 @@ void CodeGen::assignment(const str& storerCode)
     implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
     stkPop();
+    stkPop();
+}
+
+
+void CodeGen::deleteContainerElem()
+{
+    memint offs = stkTopOffs();
+    OpCode deleter = loaderToDeleter(codeseg[offs]);
+    codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
+    codeseg.replaceOp(offs, deleter);
     stkPop();
 }
 

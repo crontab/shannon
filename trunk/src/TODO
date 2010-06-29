@@ -1,11 +1,11 @@
 
 * Assignment operators (+=, etc) aren't very nice with the
   boolean/bitwise and, or, etc. However, these are necessary at least:
-  |=, +=, -=, @=
-
-* Operator 'del' (and 'swap'?) for containers.
+  |=, +=, -=
 
 * Substring/subvector using '..' e.g.: s[1..3] or s[4..]
+
+* Operator 'ins' for all types of containers.
 
 * for loop: allow types, also range as an exception can have variable  
   boundaries. E.g. for i = a ... Iterators for all container types.
