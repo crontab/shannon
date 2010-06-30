@@ -20,7 +20,7 @@ def type nums = (one, two, three)
 def dow = Mon, Tue, Wed, Thu, Fri, Sat, Sun
 def intvec = int[]
 def numvec = int[nums]
-def charset = char^[..]
+def charset = void^[char]
 def matrix0 = int[str]^[int]
 def type charset2 = void[char]
 def CharIntMap = int[char]
@@ -98,8 +98,8 @@ assert r3 == 'bc'
 
 assert typeof c == str and typeof d == int[] and typeof e == byte[][] and typeof er == int[][]
 
-var str words[..] = {'as', 'is'}
-var char chars1[..] = {'a'..'z'}
+var void words[str] = {'as', 'is'}
+var void chars1[char] = {'a'..'z'}
 var dic1 = {'one' = 1, 'two' = 0, 'three' = 3}
 var byte dic2[str] = {'o' = 1, 'two' = 0, 'three' = 3}
 var int ints1[]^[] = [[], [10, 11, 12], @[13, 14], @[]]
@@ -109,7 +109,7 @@ var int dic3[char] = {'a' = 10, 'b' = 20}
 
 // Should give range check errors:
 var char dic4[0..2] = {0 = 'a', 2 = 'c', 255 = 'd'}
-var 0..2 set2[..] = {-1, 0..2, 3, 4, 10}
+var void set2[0..2] = {-1, 0..2, 3, 4, 10}
 
 assert typeof dic1 == int[str] and typeof dic1['www'] == int and typeof ints1[100] == int[]
 

@@ -628,18 +628,10 @@ Container::~Container()
 void Container::dump(fifo& stm) const
 {
     stm << '(';
-    if (isAnySet())
-    {
+    elem->dumpDef(stm);
+    stm << '[';
+    if (!isAnyVec())
         index->dumpDef(stm);
-        stm << "[..";
-    }
-    else
-    {
-        elem->dumpDef(stm);
-        stm << '[';
-        if (!isAnyVec())
-            index->dumpDef(stm);
-    }
     stm << "])";
 }
 

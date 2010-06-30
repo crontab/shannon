@@ -42,11 +42,6 @@ Type* Compiler::getTypeDerivators(Type* type)
     {
         if (skipIf(tokRSquare))
             return getTypeDerivators(type)->deriveVec(state);
-        else if (skipIf(tokRange))
-        {
-            expect(tokRSquare, "]");
-            return getTypeDerivators(type)->deriveSet(state);
-        }
         else
         {
             Type* indexType = getTypeValue(false);
