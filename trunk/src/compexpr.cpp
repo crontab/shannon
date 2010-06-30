@@ -275,12 +275,14 @@ void Compiler::atom(Type* typeHint)
     else
         error("Expression syntax");
 
-    if (token == tokLSquare || token == tokNotEq || token == tokWildcard
-        || token == tokCaret)
+    if (token == tokWildcard)
     {
         Type* type = codegen->tryUndoTypeRef();
         if (type != NULL)
+        {
+            next(); // *
             codegen->loadTypeRef(getTypeDerivators(type));
+        }
     }
 }
 
@@ -324,9 +326,11 @@ void Compiler::designator(Type* typeHint)
         }
 
         else if (skipIf(tokCaret))
-            // Note that ^ as a type derivator is handled earlier in getTypeDerivators()
-            // TODO: clone oepration for states
+        {
+            if (!codegen->getTopType()->isReference())
+                error("'^' has no effect");
             codegen->deref();
+        }
         else
             break;
     }
