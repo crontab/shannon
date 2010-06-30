@@ -103,7 +103,7 @@ type-spec ::= ident { type-derivator }
 
 type-derivator ::= cont-derivator | '<>'
 
-cont-derivator ::= '[' [ const-expr | '..' ] ']'
+cont-derivator ::= '[' [ const-expr ] ']'
 
 index-expr ::= expr [ '..' [ expr ] ]
 
