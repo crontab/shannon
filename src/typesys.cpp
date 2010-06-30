@@ -460,7 +460,7 @@ Reference::~Reference()
 
 
 void Reference::dump(fifo& stm) const
-    { stm << '('; to->dumpDef(stm); stm << "^)"; }
+    { stm << '('; to->dumpDef(stm); stm << " *^)"; }
 
 
 void Reference::dumpValue(fifo& stm, const variant& v) const
@@ -629,7 +629,7 @@ void Container::dump(fifo& stm) const
 {
     stm << '(';
     elem->dumpDef(stm);
-    stm << '[';
+    stm << " *[";
     if (!isAnyVec())
         index->dumpDef(stm);
     stm << "])";
@@ -688,7 +688,7 @@ Fifo::~Fifo()
 
 
 void Fifo::dump(fifo& stm) const
-    { stm << '('; elem->dumpDef(stm); stm << "<>)"; }
+    { stm << '('; elem->dumpDef(stm); stm << " *<>)"; }
 
 
 bool Fifo::identicalTo(Type* t) const
@@ -710,7 +710,7 @@ void Prototype::dump(fifo& stm) const
 {
     stm << '(';
     returnType->dumpDef(stm);
-    stm << "*(";
+    stm << " *(";
     for (int i = 0; i < args.size(); i++)
     {
         if (i)
