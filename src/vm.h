@@ -29,25 +29,28 @@ enum OpCode
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
-    opLoadSelfVar,      // [self-idx:u8] +var
-    opLoadStkVar,       // [stk-idx:s8] +var
+    opLoadSelfVar,      // [self.idx:u8] +var
+    opLoadOuterVar,     // [outer.idx:u8] +var
+    opLoadStkVar,       // [stk.idx:s8] +var
     // --- end undoable loaders
-    opLoadMember,       // [stateobj-idx:u8] -stateobj +var
+    opLoadMember,       // [stateobj.idx:u8] -stateobj +var
     opDeref,            // -ref +var
     // --- end grounded loaders
 
-    opLeaSelfVar,       // [self-idx:u8] +obj(0) +ptr
-    opLeaStkVar,        // [stk-idx:s8] +obj(0) +ptr
-    opLeaMember,        // [stateobj-idx:u8] -stateobj + stateobj +ptr
+    opLeaSelfVar,       // [self.idx:u8] +obj(0) +ptr
+    opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
+    opLeaStkVar,        // [stk.idx:s8] +obj(0) +ptr
+    opLeaMember,        // [stateobj.idx:u8] -stateobj + stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
-    opInitSelfVar,      // [self-idx:u8] -var
-    opInitStkVar,       // [stk-idx:s8] -var
+    opInitSelfVar,      // [self.idx:u8] -var
+    opInitStkVar,       // [stk.idx:s8] -var
     // --- begin grounded storers
-    opStoreSelfVar,     // [self-idx:u8] -var
-    opStoreStkVar,      // [stk-idx:s8] -var
-    opStoreMember,      // [stateobj-idx:u8] -var -stateobj
+    opStoreSelfVar,     // [self.idx:u8] -var
+    opStoreOuterVar,    // [outer.idx:u8] -var
+    opStoreStkVar,      // [stk.idx:s8] -var
+    opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
     // --- end grounded storers
 
@@ -457,7 +460,7 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(variant* self, rtstack& stack, const char* code);
+void runRabbitRun(variant* outer, variant* self, variant* bp, const char* code);
 
 
 struct eexit: public exception

@@ -47,7 +47,7 @@ class CodeGen;
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { LOCALVAR, SELFVAR, DEFINITION, MODULEINST };
+    enum SymbolId { LOCALVAR, SELFVAR, FORMALARG, DEFINITION, MODULEINST };
 
     SymbolId const symbolId;
     Type* const type;
@@ -59,9 +59,10 @@ public:
     void fqName(fifo&) const;
     void dump(fifo&) const;
 
-    bool isAnyVar() const           { return symbolId <= SELFVAR; }
+    bool isAnyVar() const           { return symbolId == LOCALVAR || symbolId == SELFVAR; }
     bool isSelfVar() const          { return symbolId == SELFVAR; }
     bool isLocalVar() const         { return symbolId == LOCALVAR; }
+    bool isFormalArg() const        { return symbolId == FORMALARG; }
     bool isDefinition() const       { return symbolId == DEFINITION; }
     bool isTypeAlias() const;
     bool isModuleInstance() const   { return symbolId == MODULEINST; }
@@ -88,9 +89,6 @@ public:
 };
 
 
-typedef Variable Argument;
-
-
 class LocalVar: public Variable
 {
 public:
@@ -104,6 +102,13 @@ public:
     SelfVar(const str&, Type*, memint, State*);
     Module* getModuleType() const
         { return cast<Module*>(type); }
+};
+
+
+class FormalArg: public Symbol
+{
+public:
+    FormalArg(const str&, Type*);
 };
 
 
@@ -397,23 +402,22 @@ class Prototype: public Type
 {
 protected:
     Type* returnType;
-    objvec<Argument> args;          // owned
+    objvec<FormalArg> formalArgs;          // owned
 public:
-    Prototype();
+    Prototype(Type* retType);
     ~Prototype();
     void dump(fifo&) const;
-    memint argCount()                   { return args.size(); }
+    memint argCount()                   { return formalArgs.size(); }
     memint retVarId()                   { return - argCount() - 1; }
     bool identicalTo(Type*) const; // override
     bool identicalTo(Prototype* t) const;
+    FormalArg* addFormalArg(const str&, Type*);
 };
-
-
-// --- External (C-linked) Function ---------------------------------------- //
 
 
 // --- State --------------------------------------------------------------- //
 
+// TODO: extern/builtin functions
 
 class State: public Type, public Scope
 {
@@ -428,17 +432,16 @@ public:
     // Local vars are stored in Scope::localVars; arguments are in prototype->args
 
     State* const parent;
-    State* const selfPtr;
     Prototype* const prototype;
     objptr<object> codeseg;
 
-    State(State* parent, State* self);
+    State(State* parent, Prototype*);
     ~State();
     void fqName(fifo&) const;
     Module* getParentModule();
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
-    memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
+    memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     SelfVar* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();

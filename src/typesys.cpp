@@ -79,6 +79,10 @@ SelfVar::SelfVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, SELFVAR, t, i, h)  { }
 
 
+FormalArg::FormalArg(const str& n, Type* t)
+    : Symbol(n, FORMALARG, t, NULL)  { }
+
+
 // --- //
 
 
@@ -698,12 +702,12 @@ bool Fifo::identicalTo(Type* t) const
 // --- Prototype ----------------------------------------------------------- //
 
 
-Prototype::Prototype()
-    : Type(PROTOTYPE), returnType(defVoid)  { }
+Prototype::Prototype(Type* r)
+    : Type(PROTOTYPE), returnType(r)  { }
 
 
 Prototype::~Prototype()
-    { args.release_all(); }
+    { formalArgs.release_all(); }
 
 
 void Prototype::dump(fifo& stm) const
@@ -711,11 +715,11 @@ void Prototype::dump(fifo& stm) const
     stm << '(';
     returnType->dumpDef(stm);
     stm << " *(";
-    for (int i = 0; i < args.size(); i++)
+    for (int i = 0; i < formalArgs.size(); i++)
     {
         if (i)
             stm << ", ";
-        args[i]->dump(stm);
+        formalArgs[i]->dump(stm);
     }
     stm << "))";
 }
@@ -730,27 +734,29 @@ bool Prototype::identicalTo(Prototype* t) const
     if (this == t)
         return true;
     if (!returnType->identicalTo(t->returnType)
-        || args.size() != t->args.size())
+        || formalArgs.size() != t->formalArgs.size())
             return false;
-    for (memint i = args.size(); i--; )
-        if (!args[i]->type->identicalTo(t->args[i]->type))
+    for (memint i = formalArgs.size(); i--; )
+        if (!formalArgs[i]->type->identicalTo(t->formalArgs[i]->type))
             return false;
     return true;
 }
 
 
-// --- External (C-linked) Function ---------------------------------------- //
+FormalArg* Prototype::addFormalArg(const str& n, Type* t)
+{
+    objptr<FormalArg> arg = new FormalArg(n, t);
+    formalArgs.push_back(arg->grab<FormalArg>());
+    return arg;
+}
 
 
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* par, State* self)
-    : Type(STATE), Scope(false, par), parent(par), selfPtr(self),
-      prototype(new Prototype()), codeseg(new CodeSeg(this))
-{
-    registerType(prototype);
-}
+State::State(State* par, Prototype* proto)
+    : Type(STATE), Scope(false, par), parent(par),
+      prototype(proto), codeseg(new CodeSeg(this))  { }
 
 
 State::~State()
@@ -921,8 +927,8 @@ Container* State::getContainerType(Type* idx, Type* elem)
 
 
 Module::Module(const str& n, const str& f)
-    : State(NULL, this), complete(false), filePath(f)
-        { defName = n; }
+    : State(NULL, new Prototype(defVoid)), complete(false), filePath(f)
+        { defName = n; registerType(prototype); }
 
 
 Module::~Module()

@@ -29,7 +29,6 @@ void Compiler::enumeration(const str& firstIdent)
     do
     {
         enumType->addValue(state, scope, getIdentifier());
-        next();
     }
     while (skipIf(tokComma));
     codegen->loadTypeRef(enumType);
@@ -38,7 +37,7 @@ void Compiler::enumeration(const str& firstIdent)
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
-    if (skipIf(tokLSquare))
+    if (skipIf(tokLSquare))  // container
     {
         if (skipIf(tokRSquare))
             return getTypeDerivators(type)->deriveVec(state);
@@ -53,11 +52,27 @@ Type* Compiler::getTypeDerivators(Type* type)
         }
     }
 
-    else if (skipIf(tokNotEq)) // <>
+    else if (skipIf(tokLessThan))  // fifo
+    {
+        expect(tokGreaterThan, "'>'");
         return getTypeDerivators(type)->deriveFifo(state);
+    }
 
-    // TODO: function derivator
-    // else if (token == tokWildcard)
+    else if (skipIf(tokLParen))  // prototype/function
+    {
+        Prototype* proto = state->registerType(new Prototype(type));
+        if (!skipIf(tokRParen))
+        {
+            do
+            {
+                Type* argType = getTypeValue(true);
+                proto->addFormalArg(getIdentifier(), argType);
+            }
+            while (skipIf(tokComma));
+            expect(tokRParen, "')'");
+        }
+        return proto;
+    }
 
     else if (skipIf(tokCaret)) // ^
     {
@@ -275,7 +290,7 @@ void Compiler::atom(Type* typeHint)
     else
         error("Expression syntax");
 
-    if (token == tokWildcard)
+    while (token == tokWildcard)
     {
         Type* type = codegen->tryUndoTypeRef();
         if (type != NULL)
@@ -283,6 +298,8 @@ void Compiler::atom(Type* typeHint)
             next(); // *
             codegen->loadTypeRef(getTypeDerivators(type));
         }
+        else
+            break;
     }
 }
 
@@ -305,7 +322,6 @@ void Compiler::designator(Type* typeHint)
             // load a constant
             codegen->deref();
             codegen->loadMember(getIdentifier(), undoOffs);
-            next();
         }
 
         else if (skipIf(tokLSquare))

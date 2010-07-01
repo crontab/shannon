@@ -35,24 +35,27 @@ OpInfo opTable[] =
 
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
-    OP(LoadSelfVar, SelfIdx),   // [self-idx:u8] +var
-    OP(LoadStkVar, StkIdx),     // [stk-idx:s8] +var
+    OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var
+    OP(LoadOuterVar, SelfIdx),  // [outer.idx:u8] +var
+    OP(LoadStkVar, StkIdx),     // [stk.idx:s8] +var
     // --- end undoable loaders
-    OP(LoadMember, StateIdx),   // [stateobj-idx:u8] -stateobj +var
+    OP(LoadMember, StateIdx),   // [stateobj.idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
 
-    OP(LeaSelfVar, SelfIdx),    // [self-idx:u8] +obj(0) +ptr
-    OP(LeaStkVar, StkIdx),      // [stk-idx:s8] +obj(0) +ptr
-    OP(LeaMember, StateIdx),    // [stateobj-idx:u8] -stateobj +stateobj +ptr
+    OP(LeaSelfVar, SelfIdx),    // [self.idx:u8] +obj(0) +ptr
+    OP(LeaOuterVar, SelfIdx),   // [outer.idx:u8] +obj(0) +ptr
+    OP(LeaStkVar, StkIdx),      // [stk.idx:s8] +obj(0) +ptr
+    OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
 
     // --- 4. STORERS
-    OP(InitSelfVar, SelfIdx),   // [self-idx:u8] -var
-    OP(InitStkVar, StkIdx),     // [stk-idx:s8] -var
+    OP(InitSelfVar, SelfIdx),   // [self.idx:u8] -var
+    OP(InitStkVar, StkIdx),     // [stk.idx:s8] -var
     // --- begin grounded storers
-    OP(StoreSelfVar, SelfIdx),  // [self-idx:u8] -var
-    OP(StoreStkVar, StkIdx),    // [stk-idx:s8] -var
-    OP(StoreMember, StateIdx),  // [stateobj-idx:u8] -var -stateobj
+    OP(StoreSelfVar, SelfIdx),  // [self.idx:u8] -var
+    OP(StoreOuterVar, SelfIdx), // [outer.idx:u8] -var
+    OP(StoreStkVar, StkIdx),    // [stk.idx:s8] -var
+    OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
     // --- end grounded storers
 
@@ -74,8 +77,8 @@ OpInfo opTable[] =
     OP(VecCat, None),           // -vec -vec +vec
     OP(StrLen, None),           // -str +int
     OP(VecLen, None),           // -str +int
-    OP(StrElem, None),          // -idx -str +int
-    OP(VecElem, None),          // -idx -vec +var
+    OP(StrElem, None),          // -int -str +int
+    OP(VecElem, None),          // -int -vec +var
     OP(Substr, None),           // -{int,void} -int -str +str
     OP(Subvec, None),           // -{int,void} -int -vec +vec
     OP(StoreStrElem, None),     // -char -int -ptr -obj

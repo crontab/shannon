@@ -7,6 +7,7 @@ Compiler::AutoScope::AutoScope(Compiler& c)
     : BlockScope(c.scope, c.codegen), compiler(c)
         { compiler.scope = this; }
 
+
 Compiler::AutoScope::~AutoScope()
         { deinitLocals(); compiler.scope = outer; }
 
@@ -52,7 +53,6 @@ Type* Compiler::getTypeAndIdent(str& ident)
     }
     type = getTypeValue(false);
     ident = getIdentifier();
-    next();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
     expect(tokAssign, "'='");
