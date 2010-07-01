@@ -181,7 +181,7 @@ begin
 // huh?
 {
     assert v10 as nums == one
-    assert 1 is int and 'abc' is str
+    assert 1 is system.int and 'abc' is str
     assert not 1 is str and not 'abc' is int
     assert v10 is int and not v10 is str
     assert v10 is any
@@ -346,3 +346,4 @@ while wi < 100
 }
 
 assert wi == 8
+

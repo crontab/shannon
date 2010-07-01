@@ -698,8 +698,8 @@ bool Fifo::identicalTo(Type* t) const
 // --- Prototype ----------------------------------------------------------- //
 
 
-Prototype::Prototype(Type* r)
-    : Type(PROTOTYPE), returnType(r)  { }
+Prototype::Prototype()
+    : Type(PROTOTYPE), returnType(defVoid)  { }
 
 
 Prototype::~Prototype()
@@ -745,9 +745,12 @@ bool Prototype::identicalTo(Prototype* t) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(TypeId id, Prototype* proto, State* par, State* self)
-    : Type(id), Scope(false, par), parent(par), selfPtr(self),
-      prototype(proto), codeseg(new CodeSeg(this))  { }
+State::State(State* par, State* self)
+    : Type(STATE), Scope(false, par), parent(par), selfPtr(self),
+      prototype(new Prototype()), codeseg(new CodeSeg(this))
+{
+    registerType(prototype);
+}
 
 
 State::~State()
@@ -772,12 +775,12 @@ void State::fqName(fifo& stm) const
 }
 
 
-Module* State::getParentModule() const
+Module* State::getParentModule()
 {
-    const State* m = this;
-    while (!m->isModule())
+    State* m = this;
+    while (m->parent)
         m = m->parent;
-    return PModule(m);
+    return cast<Module*>(m);
 }
 
 
@@ -918,7 +921,7 @@ Container* State::getContainerType(Type* idx, Type* elem)
 
 
 Module::Module(const str& n, const str& f)
-    : State(MODULE, defPrototype, NULL, this), complete(false), filePath(f)
+    : State(NULL, this), complete(false), filePath(f)
         { defName = n; }
 
 
@@ -983,7 +986,6 @@ QueenBee::QueenBee()
     // Fundamentals
     addTypeAlias("type", defTypeRef);
     addTypeAlias("void", defVoid);
-    registerType<Type>(defPrototype);
     addDefinition("null", defVoid, variant::null, this);
     addTypeAlias("any", defVariant);
     addTypeAlias("int", defInt);
@@ -1032,7 +1034,6 @@ stateobj* QueenBee::newInstance()
 
 objptr<TypeReference> defTypeRef;
 objptr<Void> defVoid;
-objptr<Prototype> defPrototype;
 objptr<QueenBee> queenBee;
 
 
@@ -1047,10 +1048,6 @@ void initTypeSys()
     // the default types are created in QueenBee
     defVoid = new Void();
 
-    // This is a function prototype with no arguments and Void return type,
-    // used as a prototype for module constructors
-    defPrototype = new Prototype(defVoid);
-
     // The "system" module that defines default types; some of them have
     // recursive definitions and other kinds of weirdness, and therefore should
     // be defined in C code rather than in Shannon code
@@ -1061,7 +1058,6 @@ void initTypeSys()
 void doneTypeSys()
 {
     queenBee = NULL;
-    defPrototype = NULL;
     defVoid = NULL;
     defTypeRef = NULL;
 }

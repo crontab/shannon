@@ -580,7 +580,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
     try
     {
         if (atomType)
-            atom(expectType);
+            designator(expectType);
         else
             constExpr(expectType);
         if (codegen->getTopType()->isReference())

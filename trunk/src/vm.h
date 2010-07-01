@@ -457,7 +457,7 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(stateobj* self, rtstack& stack, const char* code);
+void runRabbitRun(variant* self, rtstack& stack, const char* code);
 
 
 struct eexit: public exception

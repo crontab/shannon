@@ -123,28 +123,15 @@ template <class T>
    inline void SETPOD(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
-/*
-static void MODIFY_CONT(object* o)
-{
-    // Prepare an object on the stack for modification and assignment:
-    // if the object is not unique, decrement its refcount so that when
-    // assigning it back to the original holder, no copying takes place.
-    // In case of a race condition (in a MT environment), throw an exception.
-    if (!o->isunique())
-        if (o->release() == 0)
-            objectGone();
-}
-*/
 
 #define BINARY_INT(op) { (stk - 1)->_int() op stk->_int(); POPPOD(); }
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(stateobj* self, rtstack& stack, register const char* ip)
+void runRabbitRun(variant* self, rtstack& stack, register const char* ip)
 {
     // TODO: check for stack overflow
     register variant* stk = stack.bp - 1;
-    memint offs; // used in jump calculations
     integer linenum = -1;
     try
     {
@@ -190,7 +177,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadSelfVar:
-            PUSH(*self->member(ADV(uchar)));
+            PUSH(self[ADV(uchar)]);
             break;
         case opLoadStkVar:
             PUSH(*(stack.bp + ADV(char)));
@@ -208,7 +195,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         case opLeaSelfVar:
             PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
-            PUSH(self->member(ADV(uchar)));
+            PUSH(&self[ADV(uchar)]);
             break;
         case opLeaStkVar:
             PUSH((rtobject*)NULL);
@@ -224,13 +211,13 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 4. STORERS ----------------------------------------------------
         case opInitSelfVar:
-            INITTO(self->member(ADV(uchar)));
+            INITTO(&self[ADV(uchar)]);
             break;
         case opInitStkVar:
             INITTO(stack.bp + memint(ADV(char)));
             break;
         case opStoreSelfVar:
-            POPTO(self->member(ADV(uchar)));
+            POPTO(&self[ADV(uchar)]);
             break;
         case opStoreStkVar:
             POPTO(stack.bp + memint(ADV(char)));
@@ -534,26 +521,44 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 11. JUMPS -----------------------------------------------------
         case opJump:
-            // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
-            offs = ADV(jumpoffs);
-            ip += offs;
+            {
+                jumpoffs offs = ADV(jumpoffs); // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
+                ip += offs;
+            }
             break;
         case opJumpFalse:
-            UNARY_INT(!);
+            {
+                jumpoffs offs = ADV(jumpoffs);
+                if (!stk->_int())
+                    ip += offs;
+                POP();
+            }
+            break;
         case opJumpTrue:
-            offs = ADV(jumpoffs);
-            if (stk->_int())
-                ip += offs;
-            POP();
+            {
+                jumpoffs offs = ADV(jumpoffs);
+                if (stk->_int())
+                    ip += offs;
+                POP();
+            }
             break;
         case opJumpAnd:
-            UNARY_INT(!);
+            {
+                jumpoffs offs = ADV(jumpoffs);
+                if (!stk->_int())
+                    ip += offs;
+                else
+                    POP();
+            }
+            break;
         case opJumpOr:
-            offs = ADV(jumpoffs);
-            if (stk->_int())
-                ip += offs;
-            else
-                POP();
+            {
+                jumpoffs offs = ADV(jumpoffs);
+                if (stk->_int())
+                    ip += offs;
+                else
+                    POP();
+            }
             break;
 
 
@@ -565,9 +570,8 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
             {
                 str& cond = ADV(str);
                 if (!stk->_int())
-                    failAssertion(cond,
-                        self == NULL ? str("*") :
-                            self->getType()->getParentModule()->getName(), linenum);
+                    // TODO: module name
+                    failAssertion(cond, "?", linenum);
                 POPPOD();
             }
             break;
@@ -641,7 +645,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(obj, stack, module->getCodeSeg()->getCode());
+    runRabbitRun(obj->varbase(), stack, module->getCodeSeg()->getCode());
 }
 
 
