@@ -356,8 +356,8 @@ restart:
         case '<':
             if (input->get_if('='))
                 return token = tokLessEq;
-            else if (input->get_if('>'))
-                return token = tokNotEq;
+            // else if (input->get_if('>'))
+            //     return token = tokNotEq;
             else
                 return token = tokLAngle;
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
@@ -367,6 +367,7 @@ restart:
         case '@': return token = tokAt;
         case '#': return token = tokSharp;
         case '?': return token = tokQuestion;
+        case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);
         }
     }
 
@@ -429,12 +430,11 @@ void Parser::skipToSep()
 
 str Parser::getIdentifier()
 {
-    // This function doesn't call next() because in many cases we want
-    // compiler's error messages to point to this identifier rather than
-    // the next token.
     if (token != tokIdent)
         error("Identifier expected");
-    return strValue;
+    str s = strValue;
+    next();
+    return s;
 }
 
 

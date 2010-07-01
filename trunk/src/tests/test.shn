@@ -68,6 +68,7 @@ assert d0['one'] == 1 and d0['two'] == 2
 assert d1['a'] == 'Letter A' and d1['b'] == 'Letter B'
 assert ?i0 and ?v5 and ?n0 and not ?one and not ?false and not ?s1 and ?v2
 assert 'a' in identChars and not '?' in identChars
+assert (int *[] *[str]) == (intvec *[str])
 
 var a = 2
 var int b = 1
@@ -210,7 +211,7 @@ assert b1 == 0 and s0 == 'abc' and one == 0 as nums
 // BRANCHING
 if b1 == 0
     assert true
-if b1 <> 0 assert false
+if b1 != 0 assert false
 if true {
     var b1 = 4
     assert b1 == 4
@@ -219,7 +220,7 @@ assert b1 == 0
 
 if b1 == 0 assert true
 else assert false
-if b1 <> 0
+if b1 != 0
     { assert false }
 // Hmmmm
 else
@@ -346,4 +347,8 @@ while wi < 100
 }
 
 assert wi == 8
+
+// STATES
+
+def proto1 = int *(int a, int b)
 

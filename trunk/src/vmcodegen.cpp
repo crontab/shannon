@@ -364,18 +364,23 @@ void CodeGen::loadVariable(Variable* var)
     assert(var->host != NULL);
     if (isCompileTime())
         addOp(var->type, opConstExprErr);
-    else if (var->isSelfVar() && var->host == codeOwner->selfPtr)
-    {
-        assert(var->id >= 0 && var->id <= 255);
-        addOp<uchar>(var->type, opLoadSelfVar, var->id);
-    }
     else if (var->isLocalVar() && var->host == codeOwner)
     {
         assert(var->id >= -128 && var->id <= 127);
         addOp<char>(var->type, opLoadStkVar, var->id);
     }
+    else if (var->isSelfVar() && var->host == codeOwner)
+    {
+        assert(var->id >= 0 && var->id <= 255);
+        addOp<uchar>(var->type, opLoadSelfVar, var->id);
+    }
+    else if (var->isSelfVar() && var->host == codeOwner->parent)
+    {
+        assert(var->id >= 0 && var->id <= 255);
+        addOp<uchar>(var->type, opLoadOuterVar, var->id);
+    }
     else
-        notimpl();
+        error("'" + var->name  + "' is not accessible within this context");
 }
 
 
@@ -432,6 +437,8 @@ void CodeGen::storeRet(Type* type)
 
 void CodeGen::initLocalVar(LocalVar* var)
 {
+    if (var->host != codeOwner)
+        fatal(0x6005, "initLocalVar(): not my var");
     // Local var simply remains on the stack, so just check the types.
     assert(var->id >= 0 && var->id <= 127);
     if (locals != simStack.size() - 1 || var->id != locals)
@@ -853,15 +860,16 @@ static OpCode loaderToStorer(OpCode op)
 {
     switch (op)
     {
-        case opLoadSelfVar: return opStoreSelfVar;
-        case opLoadStkVar:  return opStoreStkVar;
-        case opLoadMember:  return opStoreMember;
-        case opDeref:       return opStoreRef;
+        case opLoadSelfVar:     return opStoreSelfVar;
+        case opLoadOuterVar:    return opStoreOuterVar;
+        case opLoadStkVar:      return opStoreStkVar;
+        case opLoadMember:      return opStoreMember;
+        case opDeref:           return opStoreRef;
         // end grounded loaders
-        case opStrElem:     return opStoreStrElem;
-        case opVecElem:     return opStoreVecElem;
-        case opDictElem:    return opStoreDictElem;
-        case opByteDictElem: return opStoreByteDictElem;
+        case opStrElem:         return opStoreStrElem;
+        case opVecElem:         return opStoreVecElem;
+        case opDictElem:        return opStoreDictElem;
+        case opByteDictElem:    return opStoreByteDictElem;
         default:
             errorLValue();
             return opInv;
@@ -873,10 +881,11 @@ static OpCode loaderToLea(OpCode op)
 {
     switch (op)
     {
-        case opLoadSelfVar: return opLeaSelfVar;
-        case opLoadStkVar:  return opLeaStkVar;
-        case opLoadMember:  return opLeaMember;
-        case opDeref:       return opLeaRef;
+        case opLoadSelfVar:     return opLeaSelfVar;
+        case opLoadOuterVar:    return opLeaOuterVar;
+        case opLoadStkVar:      return opLeaStkVar;
+        case opLoadMember:      return opLeaMember;
+        case opDeref:           return opLeaRef;
         default:
             errorLValue();
             return opInv;

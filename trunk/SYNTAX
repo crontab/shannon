@@ -72,7 +72,7 @@ and-level ::= not-level { ( 'and' | 'shl' | 'shr' ) not-level }
 not-level ::= [ 'not' ] relation
 
 relation ::= arithm-expr [ 'in' in-expr |
-    ( '==' | '<>' | '<' | '<=' | '>' | '>=' ) arithm-expr ]
+    ( '==' | '!=' | '<' | '<=' | '>' | '>=' ) arithm-expr ]
 
 in-expr ::= arithm-expr [ '..' arithm-expr ]
 
@@ -99,9 +99,13 @@ if-func ::= 'if' '(' expr ',' expr ',' expr ')'
 
 typeof ::= 'typeof' designator
 
-type-spec ::= ident '*' type-derivator { type-derivator }
+type-spec ::= ident { '*' type-derivator { type-derivator } }
 
-type-derivator ::= ( '[' [ const-expr ] ']' ) | '<>'
+type-derivator ::= container-derivator | state-derivator | '<>'
+
+container-derivator ::= '[' [ const-expr ] ']'
+
+state-derivator ::= formal-args [ [ <SEP> ] multi-block ]
 
 index-expr ::= expr [ '..' [ expr ] ]
 

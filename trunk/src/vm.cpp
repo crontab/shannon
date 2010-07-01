@@ -128,10 +128,10 @@ template <class T>
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(variant* self, rtstack& stack, register const char* ip)
+void runRabbitRun(variant* outer, variant* self, variant* bp, register const char* ip)
 {
-    // TODO: check for stack overflow
-    register variant* stk = stack.bp - 1;
+    // TODO: check for stack overflow (during function call?)
+    register variant* stk = bp - 1;
     integer linenum = -1;
     try
     {
@@ -177,10 +177,13 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadSelfVar:
-            PUSH(self[ADV(uchar)]);
+            PUSH(*(self + ADV(uchar)));
+            break;
+        case opLoadOuterVar:
+            PUSH(*(outer + ADV(uchar)));
             break;
         case opLoadStkVar:
-            PUSH(*(stack.bp + ADV(char)));
+            PUSH(*(bp + ADV(char)));
             break;
         case opLoadMember:
             *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
@@ -195,11 +198,15 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         case opLeaSelfVar:
             PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
-            PUSH(&self[ADV(uchar)]);
+            PUSH(self + ADV(uchar));
+            break;
+        case opLeaOuterVar:
+            PUSH((rtobject*)NULL);
+            PUSH(outer + ADV(uchar));
             break;
         case opLeaStkVar:
             PUSH((rtobject*)NULL);
-            PUSH(stack.bp + ADV(char));
+            PUSH(bp + ADV(char));
             break;
         case opLeaMember:
             PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
@@ -211,16 +218,19 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
 
         // --- 4. STORERS ----------------------------------------------------
         case opInitSelfVar:
-            INITTO(&self[ADV(uchar)]);
+            INITTO(self + ADV(uchar));
             break;
         case opInitStkVar:
-            INITTO(stack.bp + memint(ADV(char)));
+            INITTO(bp + memint(ADV(char)));
             break;
         case opStoreSelfVar:
-            POPTO(&self[ADV(uchar)]);
+            POPTO(self + ADV(uchar));
+            break;
+        case opStoreOuterVar:
+            POPTO(outer + ADV(uchar));
             break;
         case opStoreStkVar:
-            POPTO(stack.bp + memint(ADV(char)));
+            POPTO(bp + memint(ADV(char)));
             break;
         case opStoreMember:
             POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV(uchar)));
@@ -591,14 +601,14 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         goto loop;
 exit:
 #ifndef DEBUG
-        while (stk >= stack.bp)
+        while (stk >= bp)
             POP();
 #endif
-        assert(stk == stack.bp - 1);
+        assert(stk == bp - 1);
     }
     catch(exception&)
     {
-        while (stk >= stack.bp)
+        while (stk >= bp)
             POP();
         throw;
     }
@@ -618,7 +628,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
     end();
     rtstack stack(codeseg.stackSize + 1);
     stack.push(variant::null);  // storage for the return value
-    runRabbitRun(NULL, stack, codeseg.getCode());
+    runRabbitRun(NULL, NULL, stack.bp, codeseg.getCode());
     stack.popto(result);
     return resultType;
 }
@@ -645,7 +655,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(obj->varbase(), stack, module->getCodeSeg()->getCode());
+    runRabbitRun(NULL, obj->varbase(), stack.bp, module->getCodeSeg()->getCode());
 }
 
 
