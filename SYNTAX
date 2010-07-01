@@ -82,7 +82,7 @@ term ::= cat-expr { ( '*' | '/' | '%' ) cat-expr }
 
 cat-expr ::= factor { '|' factor }
 
-factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) type-spec ]
+factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) designator ]
 
 designator ::= [ '@' ] atom { '^' | '.' ident | '[' index-expr ']' }
 

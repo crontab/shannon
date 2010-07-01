@@ -176,7 +176,7 @@ public:
         TYPEREF, VOID, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
         NULLCONT, VEC, SET, DICT,
-        FIFO, PROTOTYPE, FUNC, CLASS, MODULE };
+        FIFO, PROTOTYPE, STATE };
 
 protected:
     objptr<Reference> refType;
@@ -219,10 +219,7 @@ public:
     bool isFifo() const         { return typeId == FIFO; }
 
     bool isPrototype() const    { return typeId == PROTOTYPE; }
-    bool isFunction() const     { return typeId == FUNC; }
-    bool isClass() const        { return typeId == CLASS; }
-    bool isModule() const       { return typeId == MODULE; }
-    bool isAnyState() const     { return typeId >= FUNC && typeId <= MODULE; }
+    bool isAnyState() const     { return typeId == STATE; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
 
@@ -402,7 +399,7 @@ protected:
     Type* returnType;
     objvec<Argument> args;          // owned
 public:
-    Prototype(Type* retType);
+    Prototype();
     ~Prototype();
     void dump(fifo&) const;
     memint argCount()                   { return args.size(); }
@@ -435,10 +432,10 @@ public:
     Prototype* const prototype;
     objptr<object> codeseg;
 
-    State(TypeId, Prototype* proto, State* parent, State* self);
+    State(State* parent, State* self);
     ~State();
     void fqName(fifo&) const;
-    Module* getParentModule() const;
+    Module* getParentModule();
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount() const     { return selfVars.size(); } // TODO: plus inherited
@@ -511,7 +508,6 @@ void doneTypeSys();
 
 extern objptr<TypeReference> defTypeRef;
 extern objptr<Void> defVoid;
-extern objptr<Prototype> defPrototype;
 extern objptr<QueenBee> queenBee;
 
 #endif // __TYPESYS_H

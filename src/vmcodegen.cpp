@@ -361,7 +361,6 @@ void CodeGen::loadSymbol(Symbol* sym)
 
 void CodeGen::loadVariable(Variable* var)
 {
-    // TODO: check outer states too!
     assert(var->host != NULL);
     if (isCompileTime())
         addOp(var->type, opConstExprErr);
