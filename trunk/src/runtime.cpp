@@ -1220,6 +1220,22 @@ void stateobj::collapse()
 }
 
 
+funcptr::funcptr(Prototype* p)
+    : rtobject(p), outer(NULL), state(NULL)  { }
+
+
+funcptr::funcptr(variant* o, State* s)
+    : rtobject(s->prototype), outer(o), state(s)  { }
+
+
+funcptr::funcptr(stateobj* o, State* s)
+    : rtobject(s->prototype), outer(o->varbase()), state(s)  { }
+
+
+funcptr::~funcptr()
+    { }
+
+
 rtstack::rtstack(memint maxSize)
 {
     if (maxSize)

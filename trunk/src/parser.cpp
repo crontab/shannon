@@ -393,19 +393,6 @@ void Parser::redoIdent()
 }
 
 
-bool Parser::skipBlockBegin()
-{
-    skipAnySeps();
-    if (skipIf(tokLCurly))
-    {
-        skipAnySeps();
-        return true;
-    }
-    else
-        return false;
-}
-
-
 void Parser::skipMultiBlockBegin()
 {
     skipAnySeps();
@@ -414,10 +401,10 @@ void Parser::skipMultiBlockBegin()
 }
 
 
-void Parser::skipBlockEnd()
+void Parser::skipMultiBlockEnd()
 {
-    expect(tokRCurly, "'}'");
     skipAnySeps();
+    expect(tokRCurly, "'}'");
 }
 
 

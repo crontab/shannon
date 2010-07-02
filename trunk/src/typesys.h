@@ -400,10 +400,10 @@ public:
 
 class Prototype: public Type
 {
-protected:
-    Type* returnType;
-    objvec<FormalArg> formalArgs;          // owned
 public:
+    Type* const returnType;
+    objvec<FormalArg> formalArgs;          // owned
+
     Prototype(Type* retType);
     ~Prototype();
     void dump(fifo&) const;
@@ -428,8 +428,8 @@ protected:
 public:
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
+    objvec<LocalVar> args;          // owned, copied from prototype
     objvec<SelfVar> selfVars;       // owned
-    // Local vars are stored in Scope::localVars; arguments are in prototype->args
 
     State* const parent;
     Prototype* const prototype;
@@ -442,7 +442,10 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
+    bool isModule()                 { return parent == NULL; }
+    bool isConstructor()            { return prototype->returnType == this; }
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
+    LocalVar* addArgument(const str&, Type*, memint);
     SelfVar* addSelfVar(const str&, Type*);
     virtual stateobj* newInstance();
     template <class T>

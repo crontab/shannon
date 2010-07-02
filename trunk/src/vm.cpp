@@ -128,14 +128,15 @@ template <class T>
 #define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
 
 
-void runRabbitRun(variant* outer, variant* self, variant* bp, register const char* ip)
+void runRabbitRun(variant* outer, variant* bp, register const char* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = bp - 1;
+    variant* self = outer;
     integer linenum = -1;
     try
     {
-loop:  // use goto's instead of while(1) {} so that compilers don't complain
+loop:  // use goto instead of while(1) {} so that compilers don't complain
         switch(*ip++)
         {
 
@@ -143,6 +144,17 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opEnd:             goto exit;
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
+        case opEnter:
+            self = stk;
+            stk += ADV(State*)->selfVarCount();
+            break;
+        case opLeave:
+            for (memint i = ADV(State*)->selfVarCount(); i--; )
+                POP();
+            break;
+        case opEnterCtor:
+            notimpl();
+            break;
 
 
         // --- 2. CONST LOADERS ----------------------------------------------
@@ -529,7 +541,7 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
 
-        // --- 11. JUMPS -----------------------------------------------------
+        // --- 11. JUMPS, CALLS ----------------------------------------------
         case opJump:
             {
                 jumpoffs offs = ADV(jumpoffs); // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
@@ -568,6 +580,19 @@ loop:  // use goto's instead of while(1) {} so that compilers don't complain
                     ip += offs;
                 else
                     POP();
+            }
+            break;
+
+        case opSelfCall:
+            {
+                State* state = ADV(State*);
+                runRabbitRun(self, stk + 1, state->getCodeSeg()->getCode());
+            }
+            break;
+        case opOuterCall:
+            {
+                State* state = ADV(State*);
+                runRabbitRun(outer, stk + 1, state->getCodeSeg()->getCode());
             }
             break;
 
@@ -628,7 +653,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
     end();
     rtstack stack(codeseg.stackSize + 1);
     stack.push(variant::null);  // storage for the return value
-    runRabbitRun(NULL, NULL, stack.bp, codeseg.getCode());
+    runRabbitRun(NULL, stack.bp, codeseg.getCode());
     stack.popto(result);
     return resultType;
 }
@@ -655,7 +680,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(NULL, obj->varbase(), stack.bp, module->getCodeSeg()->getCode());
+    runRabbitRun(obj->varbase(), stack.bp, module->getCodeSeg()->getCode());
 }
 
 
