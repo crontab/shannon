@@ -101,11 +101,14 @@ typeof ::= 'typeof' designator
 
 type-spec ::= ident { '*' type-derivator { type-derivator } }
 
-type-derivator ::= container-derivator | state-derivator | '<>'
+type-derivator ::= container-derivator | prototype-derivator |
+    state-derivator | '<>'
 
 container-derivator ::= '[' [ const-expr ] ']'
 
-state-derivator ::= formal-args [ [ <SEP> ] multi-block ]
+prototype-derivator ::= formal-args
+
+state-derivator ::= formal-args [ [ <SEP> ] block ]
 
 index-expr ::= expr [ '..' [ expr ] ]
 

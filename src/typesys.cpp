@@ -144,12 +144,12 @@ void BlockScope::deinitLocals()
 }
 
 
-LocalVar* BlockScope::addLocalVar(const str& name, Type* type)
+LocalVar* BlockScope::addLocalVar(const str& n, Type* t)
 {
     memint varid = startId + localVars.size();
-    if (varid >= 127)
+    if (varid <= -128 || varid >= 127)
         error("Maximum number of local variables reached");
-    objptr<LocalVar> v = new LocalVar(name, type, varid, gen->getState());
+    objptr<LocalVar> v = new LocalVar(n, t, varid, gen->getState());
     addUnique(v);   // may throw
     localVars.push_back(v->grab<LocalVar>());
     return v;
@@ -756,11 +756,24 @@ FormalArg* Prototype::addFormalArg(const str& n, Type* t)
 
 State::State(State* par, Prototype* proto)
     : Type(STATE), Scope(false, par), parent(par),
-      prototype(proto), codeseg(new CodeSeg(this))  { }
+      prototype(proto), codeseg(new CodeSeg(this))
+{
+    // Register all formal args as actual args within the local scope,
+    // including the return var
+    memint argCount = prototype->formalArgs.size();
+    if (!isModule())
+        addArgument("result", prototype->returnType, - argCount - 1);
+    for (memint i = 0; i < argCount; i++)
+    {
+        FormalArg* arg = prototype->formalArgs[i];
+        addArgument(arg->name, arg->type, - argCount + i);
+    }
+}
 
 
 State::~State()
 {
+    args.release_all();
     selfVars.release_all();
     defs.release_all();
     types.release_all();
@@ -877,6 +890,15 @@ Definition* State::addDefinition(const str& n, Type* t, const variant& v, Scope*
 
 void State::addTypeAlias(const str& n, Type* t)
     { addDefinition(n, t->getType(), t, this); }
+
+
+LocalVar* State::addArgument(const str& n, Type* t, memint varid)
+{
+    objptr<LocalVar> arg = new LocalVar(n, t, varid, this);
+    addUnique(arg);
+    args.push_back(arg->grab<LocalVar>());
+    return arg;
+}
 
 
 SelfVar* State::addSelfVar(const str& n, Type* t)

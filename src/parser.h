@@ -103,11 +103,10 @@ public:
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
-    bool skipBlockBegin();  // true: multiple block, false: single statement block
     void skipMultiBlockBegin();
+    void skipMultiBlockEnd();
     bool isBlockEnd()
             { return token == tokRCurly || token == tokEof; }
-    void skipBlockEnd();
     void skipToSep();
     str getIdentifier();
 

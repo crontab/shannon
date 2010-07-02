@@ -55,7 +55,6 @@ Type* Compiler::getTypeAndIdent(str& ident)
     ident = getIdentifier();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
-    expect(tokAssign, "'='");
     return type;
 }
 
@@ -64,14 +63,20 @@ void Compiler::definition()
 {
     str ident;
     Type* type = getTypeAndIdent(ident);
-    variant value;
-    Type* valueType = getConstValue(type, value, false);
-    if (type == NULL)
-        type = valueType;
-    if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))
-        error("Constant out of range");
-    state->addDefinition(ident, type, value, scope);
-    skipSep();
+    if (type && type->isAnyState())
+        state->addDefinition(ident, defTypeRef, PState(type), scope);
+    else
+    {
+        expect(tokAssign, "'='");
+        variant value;
+        Type* valueType = getConstValue(type, value, false);
+        if (type == NULL)
+            type = valueType;
+        if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))
+            error("Constant out of range");
+        state->addDefinition(ident, type, value, scope);
+        skipSep();
+    }
 }
 
 
@@ -79,6 +84,7 @@ void Compiler::variable()
 {
     str ident;
     Type* type = getTypeAndIdent(ident);
+    expect(tokAssign, "'='");
     expression(type);
     if (type == NULL)
         type = codegen->getTopType();
@@ -100,14 +106,16 @@ void Compiler::variable()
 
 void Compiler::block()
 {
-    if (skipBlockBegin())
+    skipAnySeps();
+    if (skipIf(tokLCurly))
     {
         AutoScope local(*this);
         statementList();
-        skipBlockEnd();
+        skipMultiBlockEnd();
     }
     else
         singleStatement();
+    skipAnySeps();
 }
 
 
@@ -141,14 +149,17 @@ void Compiler::singleStatement()
         programExit();
     else
         otherStatement();
-    skipAnySeps();
 }
 
 
 void Compiler::statementList()
 {
+    skipAnySeps();
     while (!isBlockEnd())
+    {
         singleStatement();
+        skipAnySeps();
+    }
 }
 
 
@@ -269,7 +280,7 @@ void Compiler::caseBlock()
     codegen->initLocalVar(ctlVar);
     skipMultiBlockBegin();
     caseLabel(ctlType);
-    skipBlockEnd();
+    skipMultiBlockEnd();
 }
 
 
@@ -310,6 +321,35 @@ void Compiler::doDel()
 }
 
 
+void Compiler::stateBody(State* newState)
+{
+    CodeGen newCodeGen(*newState->getCodeSeg(), newState, false);
+    CodeGen* saveCodeGen = exchange(codegen, &newCodeGen);
+    State* saveState = exchange(state, newState);
+    Scope* saveScope = exchange(scope, cast<Scope*>(newState));
+    try
+    {
+        codegen->prolog();
+        skipMultiBlockBegin();
+        statementList();
+        skipMultiBlockEnd();
+        codegen->epilog();
+        scope = saveScope;
+        state = saveState;
+        codegen = saveCodeGen;
+    }
+    catch (exception&)
+    {
+        scope = saveScope;
+        state = saveState;
+        codegen = saveCodeGen;
+        throw;
+    }
+    newCodeGen.end();
+    module.registerCodeSeg(newState->getCodeSeg());
+}
+
+
 void Compiler::compileModule()
 {
     // The system module is always added implicitly
@@ -323,10 +363,11 @@ void Compiler::compileModule()
     {
         try
         {
+            codegen->prolog();
             next();
-            skipAnySeps();
             statementList();
             expect(tokEof, "End of file");
+            codegen->epilog();
         }
         catch (EDuplicate& e)
         {

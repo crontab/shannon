@@ -93,7 +93,7 @@ bool CodeGen::tryImplicitCast(Type* to)
     if (from->isNullCont() && to->isAnyCont())
     {
         undoLoader();
-        loadEmptyCont(PContainer(to));
+        loadEmptyConst(to);
         return true;
     }
 
@@ -212,6 +212,28 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
+void CodeGen::prolog()
+{
+    if (codeOwner->isModule())
+        ;
+    else if (codeOwner->isConstructor())
+        addOp<State*>(opEnterCtor, codeOwner);
+    else
+        addOp<State*>(opEnter, codeOwner);
+}
+
+
+void CodeGen::epilog()
+{
+    if (codeOwner->isModule())
+        ;
+    else if (codeOwner->isConstructor())
+        ;
+    else
+        addOp<State*>(opLeave, codeOwner);
+}
+
+
 bool CodeGen::deref()
 {
     Type* type = stkTop();
@@ -324,28 +346,46 @@ void CodeGen::loadDefinition(Definition* def)
 }
 
 
-static variant::Type typeToVarType(Container* t)
+static variant::Type typeToVarType(Type* t)
 {
-    // Currently only works for containers
+    // TYPEREF, VOID, VARIANT, REF,
+    //    BOOL, CHAR, INT, ENUM,
+    //    NULLCONT, VEC, SET, DICT,
+    //    FIFO, PROTOTYPE, STATE
+    // VOID, ORD, REAL, VARPTR,
+    //      STR, VEC, SET, ORDSET, DICT, REF, RTOBJ
     switch (t->typeId)
     {
+    case Type::TYPEREF:
+        return variant::RTOBJ;
+    case Type::VOID:
     case Type::NULLCONT:
+    case Type::VARIANT:
         return variant::VOID;
+    case Type::REF:
+        return variant::REF;
+    case Type::BOOL:
+    case Type::CHAR:
+    case Type::INT:
+    case Type::ENUM:
+        return variant::ORD;
     case Type::VEC:
         return t->isByteVec() ? variant::STR : variant::VEC;
     case Type::SET:
         return t->isByteSet() ? variant::ORDSET : variant::SET;
     case Type::DICT:
         return t->isByteDict() ? variant::VEC : variant::DICT;
-    default:
-        notimpl();
-        return variant::VOID;
+    case Type::FIFO:
+    case Type::PROTOTYPE:
+    case Type::STATE:
+        return variant::RTOBJ;
     }
+    return variant::VOID;
 }
 
 
-void CodeGen::loadEmptyCont(Container* contType)
-    { addOp<char>(contType, opLoadEmptyVar, typeToVarType(contType)); }
+void CodeGen::loadEmptyConst(Type* type)
+    { addOp<uchar>(type, opLoadEmptyVar, typeToVarType(type)); }
 
 
 void CodeGen::loadSymbol(Symbol* sym)

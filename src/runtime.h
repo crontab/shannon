@@ -177,8 +177,8 @@ class fifo;
 
 class rtobject: public object
 {
+private:
     Type* _type;
-protected:
 public:
     rtobject(Type* t)       : _type(t)  { }
     ~rtobject();
@@ -897,6 +897,7 @@ public:
 
 class variant;
 class reference;
+class funcptr;
 class stateobj;
 struct podvar;
 
@@ -913,6 +914,7 @@ class variant
 private:
     void _init(void*);   // compiler traps
     void _init(const void*);
+    void _init(object*);
     void _init(bool);
 
 public:
@@ -1093,6 +1095,7 @@ inline void variant::_init(reference* o)  { _init(REF, o); }
 
 
 class State;  // defined in typesys.h
+class Prototype;
 
 
 class stateobj: public rtobject
@@ -1142,6 +1145,18 @@ public:
 
 
 inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
+
+
+class funcptr: public rtobject
+{
+public:
+    variant* outer;
+    State* state;
+    funcptr(Prototype* p);
+    funcptr(variant* o, State* s);
+    funcptr(stateobj* o, State* s);
+    ~funcptr();
+};
 
 
 

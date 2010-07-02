@@ -71,7 +71,11 @@ Type* Compiler::getTypeDerivators(Type* type)
             while (skipIf(tokComma));
             expect(tokRParen, "')'");
         }
-        return proto;
+        if (token == tokRParen)
+            return proto;
+        State* newState = state->registerType(new State(state, proto));
+        stateBody(newState);
+        return newState;
     }
 
     else if (skipIf(tokCaret)) // ^
@@ -135,7 +139,7 @@ void Compiler::vectorCtor(Type* typeHint)
     Container* type = PContainer(typeHint);
     if (skipIf(tokRSquare))
     {
-        codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
+        codegen->loadEmptyConst(type ? type : queenBee->defNullCont);
         return;
     }
     expression(type ? type->elem : NULL);
@@ -156,7 +160,7 @@ void Compiler::dictCtor(Type* typeHint)
     Container* type = PContainer(typeHint);
     if (skipIf(tokRCurly))
     {
-        codegen->loadEmptyCont(type ? type : queenBee->defNullCont);
+        codegen->loadEmptyConst(type ? type : queenBee->defNullCont);
         return;
     }
 
@@ -233,6 +237,25 @@ void Compiler::ifFunc()
 }
 
 
+void Compiler::actualArgs(Prototype* proto)
+{
+    // TODO: named arguments (?), default arguments
+    // TODO: ignore the void return type
+    codegen->loadEmptyConst(proto->returnType);
+    memint i = 0;
+    while (i < proto->formalArgs.size())
+    {
+        FormalArg* arg = proto->formalArgs[i];
+        expression(arg->type);
+        i++;
+        if (i == proto->formalArgs.size())
+            break;
+        expect(tokComma, "','");
+    }
+    expect(tokRParen, "')'");
+}
+
+
 void Compiler::atom(Type* typeHint)
 {
     if (token == tokPrevIdent)  // from partial (typeless) definition
@@ -306,7 +329,6 @@ void Compiler::atom(Type* typeHint)
 
 void Compiler::designator(Type* typeHint)
 {
-    // TODO: function calls
     memint undoOffs = codegen->getCurrentOffs();
     bool isAt = skipIf(tokAt);
     Type* refTypeHint = typeHint && typeHint->isReference() ? PReference(typeHint)->to : NULL;
@@ -341,12 +363,21 @@ void Compiler::designator(Type* typeHint)
             expect(tokRSquare, "]");
         }
 
+        else if (skipIf(tokLParen))
+        {
+            notimpl();
+            // State* s = codegen->preCall();
+            // actualArgs(s->prototype);
+            // codegen->call();
+        }
+
         else if (skipIf(tokCaret))
         {
             if (!codegen->getTopType()->isReference())
                 error("'^' has no effect");
             codegen->deref();
         }
+
         else
             break;
     }

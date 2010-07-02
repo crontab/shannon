@@ -14,6 +14,9 @@ enum OpCode
     opEnd,              // end execution and return
     opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
+    opEnter,            // [State*]
+    opLeave,            // [State*]
+    opEnterCtor,        // [State*]    
 
     // --- 2. CONST LOADERS
     // --- begin undoable loaders
@@ -24,7 +27,7 @@ enum OpCode
     opLoadByte,         // [int:u8] +int
     opLoadOrd,          // [int] +int
     opLoadStr,          // [str] +str
-    opLoadEmptyVar,     // [variant::Type:8] + var
+    opLoadEmptyVar,     // [variant::Type:u8] + var
     opLoadConst,        // [Definition*] +var
 
     // --- 3. DESIGNATOR LOADERS
@@ -62,6 +65,7 @@ enum OpCode
     opPopPod,           // -int
     opCast,             // [Type*] -var +var
     opIsType,           // [Type*] -var +bool
+    // opMkFuncPtr,        // -state -stateobj
 
     // --- 6. STRINGS, VECTORS
     opChrToStr,         // -char +str
@@ -145,7 +149,7 @@ enum OpCode
     opCaseStr,          // -str -str +str +bool
     opCaseVar,          // -var -var +var +bool
 
-    // --- 11. JUMPS
+    // --- 11. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
     opJump,             // [dst 16]
     opJumpFalse,        // [dst 16] -bool
@@ -153,6 +157,9 @@ enum OpCode
     // Short bool evaluation: pop if jump, leave it otherwise
     opJumpAnd,          // [dst 16] (-)bool
     opJumpOr,           // [dst 16] (-)bool
+
+    opSelfCall,         // [State*] -var -var ... +var
+    opOuterCall,        // [State*] -var -var ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -184,7 +191,7 @@ inline bool isBoolJump(OpCode op)
 
 
 enum ArgType
-    { argNone, argType, argUInt8, argInt, argStr, 
+    { argNone, argType, argState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
       argSelfIdx, argStkIdx, argStateIdx, 
       argJump16, argLineNum, argAssertCond, argDump,
@@ -337,13 +344,16 @@ public:
     void isType(Type*, memint undoOffs);
     void createSubrangeType();
 
+    void prolog();
+    void epilog();
+
     bool deref();
     void mkref();
     void nonEmpty();
     void loadTypeRef(Type*);
     void loadConst(Type* type, const variant&);
     void loadDefinition(Definition*);
-    void loadEmptyCont(Container* type);
+    void loadEmptyConst(Type* type);
     void loadSymbol(Symbol*);
     void loadVariable(Variable*);
     void loadMember(const str& ident, memint undoOffs);
@@ -460,7 +470,7 @@ public:
 // reenterant and can be launched concurrently in one process as long as
 // the arguments are thread safe.
 
-void runRabbitRun(variant* outer, variant* self, variant* bp, const char* code);
+void runRabbitRun(variant* outer, variant* bp, const char* code);
 
 
 struct eexit: public exception

@@ -47,6 +47,7 @@ protected:
     void dictCtor(Type* type);
     void typeOf();
     void ifFunc();
+    void actualArgs(Prototype*);
     void atom(Type*);
     void designator(Type*);
     void factor(Type*);
@@ -81,6 +82,7 @@ protected:
     void doContinue();
     void doBreak();
     void doDel();
+    void stateBody(State*);
 
     void compileModule();
 

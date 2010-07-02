@@ -350,5 +350,15 @@ assert wi == 8
 
 // STATES
 
-def proto1 = int *(int a, int b)
+def proto1 = (int *(int a, int b))
+
+def inc = int *(int i)
+    { result = i + 1 }
+
+def int avg(int a, int b)
+{
+    var t = 0
+    result = (a + b) / 2
+    dump a, b, result, t
+}
 
