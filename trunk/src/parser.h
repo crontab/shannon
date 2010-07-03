@@ -14,7 +14,7 @@ enum Token
     tokConst, tokDef, tokVar,
     tokDump, tokAssert, tokBegin, tokIf, tokElif, tokElse,
     tokWhile, tokBreak, tokContinue, tokCase, tokReturn, tokExit,
-    tokTypeOf, tokDel,
+    tokTypeOf, tokDel, tokThis,
 
     // Term level
     tokMul, tokDiv, tokMod,

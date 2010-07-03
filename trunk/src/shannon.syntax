@@ -32,6 +32,7 @@ context default
 	keyword whole return		yellow
 	keyword whole shl		yellow
 	keyword whole shr		yellow
+	keyword whole this		yellow
 	keyword whole typeof		yellow
 	keyword whole var		yellow
 	keyword whole while		yellow
@@ -78,6 +79,7 @@ context default
 	keyword <	yellow
 	keyword #	yellow
 	keyword ?	yellow
+	keyword !	yellow
 
 	# Separators
 	keyword {	brightcyan

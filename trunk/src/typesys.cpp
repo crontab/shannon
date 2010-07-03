@@ -758,6 +758,8 @@ State::State(State* par, Prototype* proto)
     : Type(STATE), Scope(false, par), parent(par),
       prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
 {
+    if (prototype->returnType == NULL) // state
+        prototype->returnType = this;
     // Register all formal args as actual args within the local scope,
     // including the return var
     memint argCount = prototype->formalArgs.size();

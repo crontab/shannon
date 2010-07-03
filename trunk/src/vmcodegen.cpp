@@ -284,7 +284,8 @@ void CodeGen::mkref()
     Type* type = stkTop();
     if (!type->isReference())
     {
-        assert(codeseg[stkTopOffs()] != opDeref);
+        if (codeseg[stkTopOffs()] == opDeref)
+            error("Superfluous automatic dereference");
         if (type->isDerefable())
         {
             stkPop();
@@ -491,6 +492,17 @@ void CodeGen::loadMember(Variable* var)
         assert(var->id >= 0 && var->id <= 255);
         addOp<uchar>(var->type, opLoadMember, var->id);
     }
+}
+
+
+void CodeGen::loadThis()
+{
+    if (isCompileTime())
+        error("'this' is not available in const expressions");
+    else if (codeOwner->parent && codeOwner->parent->isConstructor())
+        addOp(codeOwner->parent, opLoadThis);
+    else
+        error("'this' is not available within this context");
 }
 
 

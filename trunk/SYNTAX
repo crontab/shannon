@@ -84,7 +84,8 @@ cat-expr ::= factor { '|' factor }
 
 factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) designator ]
 
-designator ::= [ '@' ] atom { '^' | '.' ident | '[' index-expr ']' }
+designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
+    '(' [ actual-args ] ')' }
 
 atom ::= ident | number | string-literal | vec-ctor | dict-ctor | if-func |
     typeof | type-spec | '(' expr ')'
@@ -111,6 +112,8 @@ prototype-derivator ::= formal-args
 state-derivator ::= formal-args [ [ <SEP> ] block ]
 
 index-expr ::= expr [ '..' [ expr ] ]
+
+actual-args ::= expr { ',' expr }
 
 
 # ---------- Basic elements

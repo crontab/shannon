@@ -679,33 +679,6 @@ void test_typesys()
 }
 
 
-/*
-static void _codegen_load(Type* type, const variant& v)
-{
-    CodeSeg code(NULL);
-    CodeGen gen(code);
-    gen.loadConst(type, v);
-    variant result;
-    gen.runConstExpr(type, result);
-    check(result == v);
-}
-
-
-void test_codegen()
-{
-    _codegen_load(queenBee->defInt, 21);
-    _codegen_load(queenBee->defStr, "ABC");
-    {
-        CodeSeg code(NULL);
-        CodeGen gen(code);
-        gen.loadConst(queenBee->defNullCont, variant());
-        variant result;
-        gen.runConstExpr(queenBee->defStr, result);
-        check(result.is_str() && result == "");
-    }
-}
-*/
-
 int main()
 {
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)

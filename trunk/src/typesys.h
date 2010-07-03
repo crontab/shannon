@@ -401,7 +401,7 @@ public:
 class Prototype: public Type
 {
 public:
-    Type* const returnType;
+    Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
 
     Prototype(Type* retType);

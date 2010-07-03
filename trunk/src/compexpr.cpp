@@ -37,6 +37,7 @@ void Compiler::enumeration(const str& firstIdent)
 
 Type* Compiler::getTypeDerivators(Type* type)
 {
+    // TODO: anonymous functions are static, named ones are not
     if (skipIf(tokLSquare))  // container
     {
         if (skipIf(tokRSquare))
@@ -66,7 +67,9 @@ Type* Compiler::getTypeDerivators(Type* type)
             do
             {
                 Type* argType = getTypeValue(true);
-                proto->addFormalArg(getIdentifier(), argType);
+                str ident = getIdentifier();
+                argType = getTypeDerivators(argType);
+                proto->addFormalArg(ident, argType);
             }
             while (skipIf(tokComma));
             expect(tokRParen, "')'");
@@ -310,6 +313,9 @@ void Compiler::atom(Type* typeHint)
     else if (skipIf(tokTypeOf))
         typeOf();
 
+    else if (skipIf(tokThis))
+        codegen->loadThis();
+
     else
         error("Expression syntax");
 
@@ -376,14 +382,14 @@ void Compiler::designator(Type* typeHint)
             else
                 error("Not a function");
         }
-
+/*
         else if (skipIf(tokCaret))
         {
             if (!codegen->getTopType()->isReference())
                 error("'^' has no effect");
             codegen->deref();
         }
-
+*/
         else
             break;
     }

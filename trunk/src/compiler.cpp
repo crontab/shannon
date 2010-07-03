@@ -219,7 +219,7 @@ void Compiler::programExit()
 
 void Compiler::otherStatement()
 {
-    // TODO: call, pipe, etc
+    // TODO: pipes, fifo ops
     memint stkLevel = codegen->getStackLevel();
     try
     {
@@ -240,14 +240,16 @@ void Compiler::otherStatement()
         codegen->assignment(storerCode);
     }
 
-    if (isSep() && codegen->getStackLevel() != stkLevel)
+    skipSep();
+
+    if (codegen->getStackLevel() == stkLevel + 1)
     {
         if (codegen->lastWasFuncCall())
             codegen->popValue();
         else
             error("Unused value in statement");
     }
-    skipSep();
+    assert(codegen->getStackLevel() == stkLevel);
 }
 
 

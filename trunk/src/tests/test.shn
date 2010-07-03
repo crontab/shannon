@@ -80,7 +80,7 @@ var d = [1, 2, 3]
 var (byte *[][]) e = [[], [1, 2, 3], [4, 5]]
 var int *[][] er = [[6, 7], [8, 9, 10], []]
 var byte ei[] = [0, 1] | 2 | 3 | [] | [4]
-var int r1^ = 2
+var int*^ r1 = 2
 var r2 = @3
 var str r3^ = 'abc'
 var typeof r1 r4 = 10
@@ -389,4 +389,36 @@ var rr2 = avg(5, 10, 'Um')
 assert rr2 == 7
 assert str2 == 'Um'
 
+var loc2 = 1
+begin
+{
+    var loc1 = 0
+    def void vfunc() { }
+    def void vfunc2()
+    {
+        assert this.loc2 == 1
+        assert loc2 == 1
+        // error: loc1 = 1
+    }
+    vfunc2()
+    loc2 = inc(loc2)
+}
+assert loc2 == 2
 
+var int loc3^ = 3
+def void vinc(int i^) { i = i + 1 }
+vinc(loc3)
+assert loc3 == 4
+
+/*
+def this point(int _x, int _y)
+{
+    int x = _x
+    int y = _y
+    
+
+    
+}
+*/
+
+dump system.__program_result
