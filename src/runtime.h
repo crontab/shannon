@@ -1108,7 +1108,7 @@ protected:
     memint varcount;
     static void idxerr();
 #endif
-    variant vars[0];
+    // variant vars[0];
     stateobj(State* t);
 
     // Get zeroed memory so that the destructor works correctly even if the
@@ -1134,11 +1134,14 @@ public:
         if (umemint(index) >= umemint(varcount))
             idxerr();
 #endif
-        return vars + index;
+        return varbase() + index;
     }
-    
+
     variant* varbase()
-        { return vars; }
+        { return (variant*)(this + 1); }
+
+    static stateobj* objbase(variant* varbase)
+        { return ((stateobj*)varbase) - 1; }
 
     void collapse();
 };

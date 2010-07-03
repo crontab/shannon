@@ -9,7 +9,10 @@
   boundaries. E.g. for i = a ... Iterators for all container types.
   Iterators should lock the container to prevent modification.
 
-* Functions: function pointers, indirect calls, 'this', method calls
+* Functions: function pointers, indirect calls, method calls; anonymous
+  functions are always static
+
+* So what keyword 'class' or 'state'?
 
 * return, goto
 
@@ -37,8 +40,6 @@
 * finally { ... } is a nested block which is executed if the enclosing
   block reaches its end, i.e. the finally label. For states this is the
   destructor. Not the same as try ... finally construct.
-
-* "def self ..." is not nice, maybe "class ..." is better, or "state"
 
 * Structs are almost like vectors, except element types are specified    
   individually. Can be used for returning multiple values from functions.    

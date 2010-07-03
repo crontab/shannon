@@ -35,6 +35,7 @@ OpInfo opTable[] =
     OP(LoadStr, Str),           // [str] +str
     OP(LoadEmptyVar, VarType8), // [variant::Type:8] + var
     OP(LoadConst, Definition),  // [Definition*] +var
+    OP(LoadThis, None),         // +stateobj
 
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()

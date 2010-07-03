@@ -29,6 +29,7 @@ enum OpCode
     opLoadStr,          // [str] +str
     opLoadEmptyVar,     // [variant::Type:u8] + var
     opLoadConst,        // [Definition*] +var
+    opLoadThis,         // +stateobj
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -365,6 +366,7 @@ public:
     void loadMember(const str& ident, memint* undoOffs);
     void loadMember(Symbol* sym, memint* undoOffs);
     void loadMember(Variable*);
+    void loadThis();
 
     void storeRet(Type*);
     void initLocalVar(LocalVar*);

@@ -1211,7 +1211,7 @@ void stateobj::collapse()
     if (getType() != NULL)
     {
         for (memint count = getType()->selfVarCount(); count--; )
-            vars[count].clear();
+            varbase()[count].clear();
         clearType();
 #ifdef DEBUG
         varcount = 0;

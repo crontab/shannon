@@ -186,6 +186,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLoadConst:
             PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
+        case opLoadThis:
+            PUSH(stateobj::objbase(outer));
+            break;
 
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
