@@ -3,6 +3,11 @@
 #include "compiler.h"
 
 
+evoidfunc::evoidfunc() throw() { }
+evoidfunc::~evoidfunc() throw() { }
+const char* evoidfunc::what() throw() { return "Void function called"; }
+
+
 Compiler::AutoScope::AutoScope(Compiler& c)
     : BlockScope(c.scope, c.codegen), compiler(c)
         { compiler.scope = this; }
@@ -41,18 +46,18 @@ Compiler::~Compiler()
     { }
 
 
-Type* Compiler::getTypeAndIdent(str& ident)
+Type* Compiler::getTypeAndIdent(str* ident)
 {
     Type* type = NULL;
     if (token == tokIdent)
     {
-        ident = strValue;
+        *ident = strValue;
         if (next() == tokAssign)
             goto ICantBelieveIUsedAGotoStatement;
-        undoIdent(ident);
+        undoIdent(*ident);
     }
     type = getTypeValue(false);
-    ident = getIdentifier();
+    *ident = getIdentifier();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
     return type;
@@ -62,7 +67,7 @@ ICantBelieveIUsedAGotoStatement:
 void Compiler::definition()
 {
     str ident;
-    Type* type = getTypeAndIdent(ident);
+    Type* type = getTypeAndIdent(&ident);
     if (type && type->isAnyState())
         state->addDefinition(ident, defTypeRef, PState(type), scope);
     else
@@ -83,7 +88,7 @@ void Compiler::definition()
 void Compiler::variable()
 {
     str ident;
-    Type* type = getTypeAndIdent(ident);
+    Type* type = getTypeAndIdent(&ident);
     expect(tokAssign, "'='");
     expression(type);
     if (type == NULL)
@@ -216,7 +221,16 @@ void Compiler::otherStatement()
 {
     // TODO: call, pipe, etc
     memint stkLevel = codegen->getStackLevel();
-    designator(NULL);
+    try
+    {
+        designator(NULL);
+    }
+    catch (evoidfunc&)
+    {
+        skipSep();
+        return;
+    }
+
     if (skipIf(tokAssign))
     {
         str storerCode = codegen->lvalue();
@@ -225,8 +239,14 @@ void Compiler::otherStatement()
             error("Statement syntax");
         codegen->assignment(storerCode);
     }
+
     if (isSep() && codegen->getStackLevel() != stkLevel)
-        error("Unused value in statement");
+    {
+        if (codegen->lastWasFuncCall())
+            codegen->popValue();
+        else
+            error("Unused value in statement");
+    }
     skipSep();
 }
 
@@ -329,14 +349,11 @@ void Compiler::stateBody(State* newState)
     Scope* saveScope = exchange(scope, cast<Scope*>(newState));
     try
     {
-        codegen->prolog();
+        memint prologOffs = codegen->prolog();
         skipMultiBlockBegin();
         statementList();
         skipMultiBlockEnd();
-        codegen->epilog();
-        scope = saveScope;
-        state = saveState;
-        codegen = saveCodeGen;
+        codegen->epilog(prologOffs);
     }
     catch (exception&)
     {
@@ -345,6 +362,9 @@ void Compiler::stateBody(State* newState)
         codegen = saveCodeGen;
         throw;
     }
+    scope = saveScope;
+    state = saveState;
+    codegen = saveCodeGen;
     newCodeGen.end();
     module.registerCodeSeg(newState->getCodeSeg());
 }
@@ -363,11 +383,11 @@ void Compiler::compileModule()
     {
         try
         {
-            codegen->prolog();
+            memint prologOffs = codegen->prolog();
             next();
             statementList();
             expect(tokEof, "End of file");
-            codegen->epilog();
+            codegen->epilog(prologOffs);
         }
         catch (EDuplicate& e)
         {
@@ -380,7 +400,7 @@ void Compiler::compileModule()
             error("'" + e.ident + "' is unknown in this context");
         }
     }
-    catch (emessage& e)
+    catch (exception& e)
     {
         str s;
         if (!getFileName().empty())
@@ -390,7 +410,7 @@ void Compiler::compileModule()
                 s += " near '" + to_displayable(to_printable(strValue)) + '\'';
             s += ": ";
         }
-        s += e.msg;
+        s += e.what();
         error(s);
     }
 

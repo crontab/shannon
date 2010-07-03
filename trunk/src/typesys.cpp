@@ -756,18 +756,19 @@ FormalArg* Prototype::addFormalArg(const str& n, Type* t)
 
 State::State(State* par, Prototype* proto)
     : Type(STATE), Scope(false, par), parent(par),
-      prototype(proto), codeseg(new CodeSeg(this))
+      prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
 {
     // Register all formal args as actual args within the local scope,
     // including the return var
     memint argCount = prototype->formalArgs.size();
-    if (!isModule())
-        addArgument("result", prototype->returnType, - argCount - 1);
+    if (!prototype->returnType->isVoid())
+        returnVar = addArgument("result", prototype->returnType, - argCount - 1);
     for (memint i = 0; i < argCount; i++)
     {
         FormalArg* arg = prototype->formalArgs[i];
         addArgument(arg->name, arg->type, - argCount + i);
     }
+    popArgCount = args.size() - int(returnVar != NULL);
 }
 
 
@@ -949,8 +950,11 @@ Container* State::getContainerType(Type* idx, Type* elem)
 
 
 Module::Module(const str& n, const str& f)
-    : State(NULL, new Prototype(defVoid)), complete(false), filePath(f)
-        { defName = n; registerType(prototype); }
+    : State(NULL, new Prototype(this)), complete(false), filePath(f)
+{
+    defName = n;
+    registerType(prototype);
+}
 
 
 Module::~Module()

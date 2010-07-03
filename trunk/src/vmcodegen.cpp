@@ -50,6 +50,12 @@ void CodeGen::undoLoader()
 }
 
 
+bool CodeGen::lastWasFuncCall()
+{
+    return isCaller(codeseg[stkTopOffs()]);
+}
+
+
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
@@ -212,25 +218,45 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
-void CodeGen::prolog()
+memint CodeGen::prolog()
 {
-    if (codeOwner->isModule())
+    memint offs = getCurrentOffs();
+    if (isCompileTime())
         ;
-    else if (codeOwner->isConstructor())
-        addOp<State*>(opEnterCtor, codeOwner);
+    else if (codeOwner->isStatic())
+        // Static states don't need any prologs
+        ;
+    if (codeOwner->isConstructor())
+        // Constructors receive a new object in the return var, so they simply
+        // need to load the varbase into 'self'
+        addOp<char>(opEnterCtor, codeOwner->returnVar->id);
     else
-        addOp<State*>(opEnter, codeOwner);
+        // All other functions need to create their frames. The size of the frame
+        // though is not known at this point, will be resolved later in epilog()
+        addOp<uchar>(opEnter, 0);
+    return offs;
 }
 
 
-void CodeGen::epilog()
+void CodeGen::epilog(memint prologOffs)
 {
-    if (codeOwner->isModule())
+    memint selfVarCount = codeOwner->selfVarCount();
+    if (isCompileTime())
+        ;
+    else if (codeOwner->isStatic())
         ;
     else if (codeOwner->isConstructor())
         ;
     else
-        addOp<State*>(opLeave, codeOwner);
+    {
+        if (selfVarCount == 0)
+            codeseg.eraseOp(prologOffs);
+        else
+        {
+            addOp<uchar>(opLeave, selfVarCount);
+            codeseg.atw<uchar>(prologOffs + 1) = uchar(selfVarCount);
+        }
+    }
 }
 
 
@@ -424,7 +450,7 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
-void CodeGen::loadMember(const str& ident, memint undoOffs)
+void CodeGen::loadMember(const str& ident, memint* undoOffs)
 {
     Type* stateType = stkTop();
     if (!stateType->isAnyState())
@@ -433,7 +459,7 @@ void CodeGen::loadMember(const str& ident, memint undoOffs)
 }
 
 
-void CodeGen::loadMember(Symbol* sym, memint undoOffs)
+void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
 {
     Type* stateType = stkTop();
     if (!stateType->isAnyState())
@@ -442,7 +468,8 @@ void CodeGen::loadMember(Symbol* sym, memint undoOffs)
         loadMember(PVariable(sym));
     else if (sym->isDefinition())
     {
-        undoDesignator(undoOffs);
+        undoDesignator(*undoOffs);
+        *undoOffs = getCurrentOffs();
         loadDefinition(PDefinition(sym));
     }
     else
@@ -978,6 +1005,8 @@ void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
     Type* dest = stkTop(2);
+    if (dest->isVoid())
+        error("Destination is void type");
     implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
     stkPop();
@@ -992,6 +1021,32 @@ void CodeGen::deleteContainerElem()
     codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
     codeseg.replaceOp(offs, deleter);
     stkPop();
+}
+
+
+void CodeGen::call(State* callee)
+{
+    OpCode op = opInv;
+    if (callee->isStatic())
+        op = opStaticCall;
+    else if (codeOwner->parent == callee->parent)
+        op = opOuterCall;
+    else if (callee->parent == codeOwner)
+        op = opSelfCall;
+    else
+        error("Call can not be performed within this context");
+
+    for (memint i = callee->args.size(); i--; )
+    {
+        if (!stkTop()->canAssignTo(callee->args[i]->type))
+            error("Argument type mismatch");  // shouldn't happen, checked by the compiler earlier
+        stkPop();
+    }
+
+    if (callee->returnVar)
+        addOp<State*>(callee->returnVar->type, op, callee);
+    else
+        addOp<State*>(op, callee);
 }
 
 

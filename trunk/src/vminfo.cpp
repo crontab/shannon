@@ -9,7 +9,7 @@ umemint ArgSizes[argMax] =
     {
       0, sizeof(Type*), sizeof(State*), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
-      sizeof(uchar), sizeof(char), sizeof(uchar),
+      sizeof(uchar), sizeof(uchar), sizeof(char), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer), sizeof(str), sizeof(str) + sizeof(Type*),
       sizeof(Type*) + sizeof(State*),
     };
@@ -20,9 +20,9 @@ OpInfo opTable[] =
     OP(End, None),              //
     OP(ConstExprErr, None),     //
     OP(Exit, None),             //
-    OP(Enter, State),           // [State*]
-    OP(Leave, State),           // [State*]
-    OP(EnterCtor, State),       // [State*]    
+    OP(Enter, UInt8),           // [varcount:u8]
+    OP(Leave, UInt8),           // [varcount:u8]
+    OP(EnterCtor, StkIdx),      // [retvarid:8]
 
     // --- 2. CONST LOADERS
     // sync with isUndoableLoadOp()
@@ -39,14 +39,14 @@ OpInfo opTable[] =
     // --- 3. DESIGNATOR LOADERS
     // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var
-    OP(LoadOuterVar, SelfIdx),  // [outer.idx:u8] +var
+    OP(LoadOuterVar, OuterIdx), // [outer.idx:u8] +var
     OP(LoadStkVar, StkIdx),     // [stk.idx:s8] +var
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj.idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
 
     OP(LeaSelfVar, SelfIdx),    // [self.idx:u8] +obj(0) +ptr
-    OP(LeaOuterVar, SelfIdx),   // [outer.idx:u8] +obj(0) +ptr
+    OP(LeaOuterVar, OuterIdx),   // [outer.idx:u8] +obj(0) +ptr
     OP(LeaStkVar, StkIdx),      // [stk.idx:s8] +obj(0) +ptr
     OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
@@ -56,7 +56,7 @@ OpInfo opTable[] =
     OP(InitStkVar, StkIdx),     // [stk.idx:s8] -var
     // --- begin grounded storers
     OP(StoreSelfVar, SelfIdx),  // [self.idx:u8] -var
-    OP(StoreOuterVar, SelfIdx), // [outer.idx:u8] -var
+    OP(StoreOuterVar, OuterIdx), // [outer.idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk.idx:s8] -var
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
@@ -164,6 +164,7 @@ OpInfo opTable[] =
 
     OP(SelfCall, State),        // [State*] -var -var ... +var
     OP(OuterCall, State),       // [State*] -var -var ... +var
+    OP(StaticCall, State),      // [State*] -var -var ... +var
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]
@@ -253,7 +254,8 @@ void CodeSeg::dump(fifo& stm) const
                 case argStr:        stm << to_quoted(ADV(str)); break;
                 case argVarType8:   stm << varTypeStr(variant::Type(ADV(uchar))); break;
                 case argDefinition: stm << "const " << ADV(Definition*)->name; break;
-                case argSelfIdx:    stm << "self." << state->selfVars[ADV(uchar)]->name; break;
+                case argSelfIdx:    stm << "self."  << state->selfVars.at(ADV(uchar))->name; break;
+                case argOuterIdx:   stm << "outer."  << state->parent->selfVars.at(ADV(uchar))->name; break;
                 case argStkIdx:     stm << (*(char*)ip < 0 ? "arg." : "local."); stm << int(ADV(char)); break;
                 case argStateIdx:   stm << "state." << int(ADV(uchar)); break;
                 case argJump16:     stm << to_string(ip - beginip + ADV(jumpoffs), 16, 4, '0');

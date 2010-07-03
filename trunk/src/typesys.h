@@ -425,14 +425,16 @@ protected:
     Type* _registerType(Type*, Definition* = NULL);
     void addTypeAlias(const str&, Type*);
 
-public:
     objvec<Type> types;             // owned
+public:
     objvec<Definition> defs;        // owned
     objvec<LocalVar> args;          // owned, copied from prototype
     objvec<SelfVar> selfVars;       // owned
 
     State* const parent;
     Prototype* const prototype;
+    LocalVar* returnVar;
+    memint popArgCount;
     objptr<object> codeseg;
 
     State(State* parent, Prototype*);
@@ -442,7 +444,7 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
     memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
-    bool isModule()                 { return parent == NULL; }
+    bool isStatic()                 { return parent == NULL; }
     bool isConstructor()            { return prototype->returnType == this; }
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     LocalVar* addArgument(const str&, Type*, memint);
@@ -451,7 +453,8 @@ public:
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
-    CodeSeg* getCodeSeg();
+    CodeSeg* getCodeSeg() const;
+    const char* getCode() const;
 };
 
 

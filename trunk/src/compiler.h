@@ -5,6 +5,15 @@
 #include "typesys.h"
 
 
+struct evoidfunc: public exception
+{
+    evoidfunc() throw();
+    ~evoidfunc() throw();
+    const char* what() throw();
+};
+
+
+
 class Compiler: protected Parser
 {
     friend class Context;
@@ -64,7 +73,7 @@ protected:
     Type* getTypeValue(bool atomType);
 
     // in compiler.cpp
-    Type* getTypeAndIdent(str& ident);
+    Type* getTypeAndIdent(str* ident);
     void definition();
     void variable();
     void assertion();
