@@ -3,7 +3,8 @@
   boolean/bitwise and, or, etc. However, these are necessary at least:
   |=, +=, -=, also append operator in the form v[] = ...
 
-* Operator 'ins' for all types of containers.
+* Operator 'ins' for all types of containers. Also 'del' for subvectors  
+  and substrings
 
 * for loop: allow types, also range as an exception can have variable  
   boundaries. E.g. for i = a ... Iterators for all container types.
