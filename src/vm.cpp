@@ -132,8 +132,9 @@ void runRabbitRun(variant* outer, variant* bp, register const char* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = bp - 1;
-    variant* self = outer;
+    variant* self = NULL;
     integer linenum = -1;
+    variant* callOuter = NULL;
     try
     {
 loop:  // use goto instead of while(1) {} so that compilers don't complain
@@ -145,15 +146,15 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
         case opEnter:
-            self = stk;
-            stk += ADV(State*)->selfVarCount();
+            self = stk + 1;
+            stk += ADV(uchar);
             break;
         case opLeave:
-            for (memint i = ADV(State*)->selfVarCount(); i--; )
+            for (memint i = ADV(uchar); i--; )
                 POP();
-            break;
+            goto exit; // !
         case opEnterCtor:
-            notimpl();
+            self = cast<stateobj*>((bp + ADV(char))->_rtobj())->varbase();
             break;
 
 
@@ -584,17 +585,22 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
 
         case opSelfCall:
+            callOuter = self;
+doStaticCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(self, stk + 1, state->getCodeSeg()->getCode());
+                runRabbitRun(callOuter, stk + 1, state->getCode());
+                memint argCount = state->popArgCount;
+                while (argCount--)
+                    POP();
             }
             break;
         case opOuterCall:
-            {
-                State* state = ADV(State*);
-                runRabbitRun(outer, stk + 1, state->getCodeSeg()->getCode());
-            }
-            break;
+            callOuter = outer;
+            goto doStaticCall;
+        case opStaticCall:
+            callOuter = NULL;
+            goto doStaticCall;
 
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
@@ -651,9 +657,18 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
         resultType = stkTop();
     storeRet(resultType);
     end();
+
     rtstack stack(codeseg.stackSize + 1);
     stack.push(variant::null);  // storage for the return value
-    runRabbitRun(NULL, stack.bp, codeseg.getCode());
+    try
+    {
+        runRabbitRun(NULL, stack.bp, codeseg.getCode());
+    }
+    catch (exception&)
+    {
+        stack.pop();
+        throw;
+    }
     stack.popto(result);
     return resultType;
 }
@@ -680,7 +695,17 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    runRabbitRun(obj->varbase(), stack.bp, module->getCodeSeg()->getCode());
+    stack.push(obj.get());
+    try
+    {
+        runRabbitRun(obj->varbase(), stack.bp, module->getCode());
+    }
+    catch (exception&)
+    {
+        stack.pop();
+        throw;
+    }
+    stack.pop();
 }
 
 
@@ -777,10 +802,12 @@ Module* Context::getModule(const str& modName)
 
 stateobj* Context::getModuleObject(Module* m)
 {
-    stateobj* const* o = modObjMap.find(m);
-    if (o == NULL)
-        fatal(0x5003, "Module not found");
-    return *o;
+    // TODO: Linear search, can be improved later
+    for (memint i = 0; i < instances.size(); i++)
+        if (instances[i]->module == m)
+            return instances[i]->obj;
+    fatal(0x5003, "Module not found");
+    return NULL;
 }
 
 
@@ -792,8 +819,6 @@ void Context::instantiateModules()
         if (!inst->module->isComplete())
             fatal(0x5004, "Module not compiled");
         inst->obj = inst->module->newInstance();
-        assert(modObjMap.find(inst->module) == NULL);
-        modObjMap.find_replace(inst->module, inst->obj);
     }
 }
 
@@ -802,7 +827,6 @@ void Context::clear()
 {
     for (memint i = instances.size(); i--; )
         instances[i]->finalize();
-    modObjMap.clear();
 }
 
 

@@ -9,7 +9,7 @@
   boundaries. E.g. for i = a ... Iterators for all container types.
   Iterators should lock the container to prevent modification.
 
-* Functions
+* Functions: function pointers, indirect calls, 'this', method calls
 
 * return, goto
 

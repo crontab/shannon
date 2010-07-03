@@ -17,6 +17,7 @@ assert (1 or 2) == 3
 
 // DEFINITIONS
 def type nums = (one, two, three)
+// error: def nums badnum = 5 as nums
 def dow = Mon, Tue, Wed, Thu, Fri, Sat, Sun
 def intvec = int *[]
 def numvec = int *[nums]
@@ -352,13 +353,40 @@ assert wi == 8
 
 def proto1 = (int *(int a, int b))
 
-def inc = int *(int i)
-    { result = i + 1 }
+var inc_call_count = 0
 
-def int avg(int a, int b)
+def inc = int *(int i)
 {
-    var t = 0
-    result = (a + b) / 2
-    dump a, b, result, t
+    result = i + 1
+    inc_call_count = inc_call_count + 1
 }
+
+
+var str2 = ''
+
+def void vfunc(str s)
+    { str2 = s }
+
+def int avg(int a, int b, str s)
+{
+    var t = wi
+    assert t == wi
+    result = (a + b) / 2
+    str2 = s
+}
+
+var rr1 = inc(5)
+assert rr1 == 6
+assert inc_call_count == 1
+
+inc(9)
+assert inc_call_count == 2
+
+vfunc('Hey')
+assert str2 == 'Hey'
+
+var rr2 = avg(5, 10, 'Um')
+assert rr2 == 7
+assert str2 == 'Um'
+
 

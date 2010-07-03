@@ -14,9 +14,9 @@ enum OpCode
     opEnd,              // end execution and return
     opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
-    opEnter,            // [State*]
-    opLeave,            // [State*]
-    opEnterCtor,        // [State*]    
+    opEnter,            // [varcount:u8]
+    opLeave,            // [varcount:u8]
+    opEnterCtor,        // [retvarid:8]
 
     // --- 2. CONST LOADERS
     // --- begin undoable loaders
@@ -160,6 +160,7 @@ enum OpCode
 
     opSelfCall,         // [State*] -var -var ... +var
     opOuterCall,        // [State*] -var -var ... +var
+    opStaticCall,       // [State*] -var -var ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -186,6 +187,9 @@ inline bool isJump(OpCode op)
 inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
+inline bool isCaller(OpCode op)
+    { return op >= opSelfCall && op <= opStaticCall; }
+
 
 // --- OpCode Info
 
@@ -193,7 +197,7 @@ inline bool isBoolJump(OpCode op)
 enum ArgType
     { argNone, argType, argState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
-      argSelfIdx, argStkIdx, argStateIdx, 
+      argSelfIdx, argOuterIdx, argStkIdx, argStateIdx, 
       argJump16, argLineNum, argAssertCond, argDump,
       argMkSubrange,
       argMax };
@@ -273,7 +277,8 @@ template<> OpCode CodeSeg::at<OpCode>(memint i) const;
 template<> OpCode& CodeSeg::atw<OpCode>(memint i);
 
 
-inline CodeSeg* State::getCodeSeg() { return cast<CodeSeg*>(codeseg.get()); }
+inline CodeSeg* State::getCodeSeg() const { return cast<CodeSeg*>(codeseg.get()); }
+inline const char* State::getCode() const { return getCodeSeg()->getCode(); }
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -335,6 +340,7 @@ public:
     Type* tryUndoTypeRef();
     void undoDesignator(memint from);
     void undoLoader();
+    bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
     void deinitFrame(memint baseLevel); // doesn't change the sim stack
     void popValue();
@@ -344,8 +350,8 @@ public:
     void isType(Type*, memint undoOffs);
     void createSubrangeType();
 
-    void prolog();
-    void epilog();
+    memint prolog();
+    void epilog(memint prologOffs);
 
     bool deref();
     void mkref();
@@ -356,8 +362,8 @@ public:
     void loadEmptyConst(Type* type);
     void loadSymbol(Symbol*);
     void loadVariable(Variable*);
-    void loadMember(const str& ident, memint undoOffs);
-    void loadMember(Symbol* sym, memint undoOffs);
+    void loadMember(const str& ident, memint* undoOffs);
+    void loadMember(Symbol* sym, memint* undoOffs);
     void loadMember(Variable*);
 
     void storeRet(Type*);
@@ -403,6 +409,8 @@ public:
     void assignment(const str& storerCode);
     void deleteContainerElem();
 
+    void call(State*);
+
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
 };
@@ -444,7 +452,6 @@ class Context: protected Scope
 protected:
     objvec<ModuleInstance> instances;
     ModuleInstance* queenBeeInst;
-    dict<Module*, stateobj*> modObjMap;
 
     ModuleInstance* addModule(Module*);
     str lookupSource(const str& modName);

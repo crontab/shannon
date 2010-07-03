@@ -122,7 +122,7 @@ void Compiler::identifier(const str& ident)
             {
                 memint offs = codegen->getCurrentOffs();
                 codegen->loadVariable(m);
-                codegen->loadMember(sym, offs);
+                codegen->loadMember(sym, &offs);
             }
             return;
         }
@@ -240,8 +240,8 @@ void Compiler::ifFunc()
 void Compiler::actualArgs(Prototype* proto)
 {
     // TODO: named arguments (?), default arguments
-    // TODO: ignore the void return type
-    codegen->loadEmptyConst(proto->returnType);
+    if (!proto->returnType->isVoid())
+        codegen->loadEmptyConst(proto->returnType);
     memint i = 0;
     while (i < proto->formalArgs.size())
     {
@@ -343,7 +343,7 @@ void Compiler::designator(Type* typeHint)
             // all previous loads should be discarded - they are not needed to
             // load a constant
             codegen->deref();
-            codegen->loadMember(getIdentifier(), undoOffs);
+            codegen->loadMember(getIdentifier(), &undoOffs);
         }
 
         else if (skipIf(tokLSquare))
@@ -365,10 +365,16 @@ void Compiler::designator(Type* typeHint)
 
         else if (skipIf(tokLParen))
         {
-            notimpl();
-            // State* s = codegen->preCall();
-            // actualArgs(s->prototype);
-            // codegen->call();
+            Type* type = codegen->tryUndoTypeRef();
+            if (type->isAnyState())
+            {
+                actualArgs(PState(type)->prototype);
+                codegen->call(PState(type));
+                if (PState(type)->returnVar == NULL)
+                    throw evoidfunc();
+            }
+            else
+                error("Not a function");
         }
 
         else if (skipIf(tokCaret))
