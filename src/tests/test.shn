@@ -98,6 +98,9 @@ assert #d == 2 and d[0] == 1 and d[1] == 3
 del r3[0]
 assert r3 == 'bc'
 
+// var str s3 = 'xyz'
+// del s3[0..1]
+
 assert typeof c == str and typeof d == (int *[]) and typeof e == byte *[][] \
     and typeof er == int *[][]
 
