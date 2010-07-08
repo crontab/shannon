@@ -91,6 +91,7 @@ protected:
     void doContinue();
     void doBreak();
     void doDel();
+    void doIns();
     void stateBody(State*);
 
     void compileModule();

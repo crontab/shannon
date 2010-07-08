@@ -146,6 +146,8 @@ void Compiler::singleStatement()
         doBreak();
     else if (skipIf(tokDel))
         doDel();
+    else if (skipIf(tokIns))
+        doIns();
     else if (token == tokAssert)
         assertion();
     else if (token == tokDump)
@@ -340,6 +342,19 @@ void Compiler::doDel()
 {
     designator(NULL);
     codegen->deleteContainerElem();
+}
+
+
+void Compiler::doIns()
+{
+    designator(NULL);
+    expect(tokAssign, "'='");
+    str inserterCode = codegen->insLvalue();
+    expression(codegen->getTopType());
+    if (!isSep())
+        error("Statement syntax");
+    codegen->assignment(inserterCode);
+    skipSep();
 }
 
 

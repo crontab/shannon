@@ -26,6 +26,7 @@ context default
 	keyword whole exit		yellow
 	keyword whole if		yellow
 	keyword whole in		yellow
+	keyword whole ins		yellow
 	keyword whole is		yellow
 	keyword whole not		yellow
 	keyword whole or		yellow

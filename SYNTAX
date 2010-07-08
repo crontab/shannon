@@ -25,7 +25,7 @@ block ::= single-block | multi-block
 
 single-block ::= [ <SEP> ] statement
 
-multi-block ::= '{' [ <SEP> ] { statement } '}' 
+multi-block ::= [ <SEP> ] '{' [ <SEP> ] { statement } '}' 
 
 definition ::= 'def' [ const-expr ] ident { type-derivator } '=' const-expr <SEP>
 
@@ -107,9 +107,9 @@ type-derivator ::= container-derivator | prototype-derivator |
 
 container-derivator ::= '[' [ const-expr ] ']'
 
-prototype-derivator ::= formal-args
+prototype-derivator ::= formal-args     # enclose in parens to distinguish from state-derivator below
 
-state-derivator ::= formal-args [ [ <SEP> ] block ]
+state-derivator ::= formal-args multi-block
 
 index-expr ::= expr [ '..' [ expr ] ]
 

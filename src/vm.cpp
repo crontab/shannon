@@ -76,13 +76,13 @@ static void byteDictReplace(varvec& v, integer i, const variant& val)
     memint size = v.size();
     if (uinteger(i) > 255)
         container::keyerr();
-    if (memint(i) == size)
+    if (i == size)
         v.push_back(val);
     else
     {
-        if (memint(i) > size)
-            v.grow(memint(i) - size + 1);
-        v.replace(memint(i), val);
+        if (i > size)
+            v.grow(i - size + 1);
+        v.replace(i, val);
     }
 }
 
@@ -90,12 +90,12 @@ static void byteDictReplace(varvec& v, integer i, const variant& val)
 static void byteDictDelete(varvec& v, integer i)
 {
     memint size = v.size();
-    if (uinteger(i) >= umemint(size) || v[memint(i)].is_null())
+    if (uinteger(i) >= umemint(size) || v[i].is_null())
         container::keyerr();
-    if (memint(i) == size - 1)
+    if (i == size - 1)
         v.pop_back();
     else
-        v.replace(memint(i), variant());
+        v.replace(i, variant());
 }
 
 
@@ -237,7 +237,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             INITTO(self + ADV(uchar));
             break;
         case opInitStkVar:
-            INITTO(bp + memint(ADV(char)));
+            INITTO(bp + ADV(char));
             break;
         case opStoreSelfVar:
             POPTO(self + ADV(uchar));
@@ -246,7 +246,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             POPTO(outer + ADV(uchar));
             break;
         case opStoreStkVar:
-            POPTO(bp + memint(ADV(char)));
+            POPTO(bp + ADV(char));
             break;
         case opStoreMember:
             POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV(uchar)));
@@ -318,16 +318,16 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             *stk = integer(stk->_vec().size());
             break;
         case opStrElem:
-            *(stk - 1) = (stk - 1)->_str().at(memint(stk->_int()));  // *OVR
+            *(stk - 1) = (stk - 1)->_str().at(stk->_int());  // *OVR
             POPPOD();
             break;
         case opVecElem:
-            *(stk - 1) = (stk - 1)->_vec().at(memint(stk->_int()));  // *OVR
+            *(stk - 1) = (stk - 1)->_vec().at(stk->_int());  // *OVR
             POPPOD();
             break;
         case opSubstr:  // -{int,void} -int -str +str
             {
-                memint pos = memint((stk - 1)->_int());  // *OVR
+                memint pos = (stk - 1)->_int();  // *OVR
                 str& s = (stk - 2)->_str();
                 s = stk->is_null() ? s.substr(pos)
                     : s.substr(pos, stk->_int() - pos + 1);  // *OVR
@@ -336,10 +336,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opSubvec:  // -{int,void} -int -vec +vec
             {
-                memint pos = memint((stk - 1)->_int());  // *OVR
+                memint pos = (stk - 1)->_int();  // *OVR
                 varvec& v = (stk - 2)->_vec();
-                v = stk->is_null() ? v.subvec(pos)
-                    : v.subvec(pos, stk->_int() - pos + 1);  // *OVR
+                v = v.subvec(pos, stk->is_null() ? v.size() - pos
+                    : stk->_int() - pos + 1);  // *OVR
                 POPPOD(); POPPOD();
             }
             break;
@@ -358,6 +358,30 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opDelVecElem:      // -int -ptr -obj
             (stk - 1)->_ptr()->_vec().erase(stk->_int());  // *OVR
             POPPOD(); POPPOD(); POP();
+            break;
+        case opDelSubstr:       // -{int,void} -int -ptr -obj
+            {
+                memint pos = (stk - 1)->_int();  // *OVR
+                str& s = (stk - 2)->_ptr()->_str();
+                s.erase(pos, stk->is_null() ? s.size() - pos : stk->_int() - pos + 1);  // *OVR
+                POPPOD(); POPPOD(); POPPOD(); POP();
+            }
+            break;
+        case opDelSubvec:       // -{int,void} -int -ptr -obj
+            {
+                memint pos = (stk - 1)->_int();  // *OVR
+                varvec& v = (stk - 2)->_ptr()->_vec();
+                v.erase(pos, stk->is_null() ? v.size() - pos : stk->_int() - pos + 1);  // *OVR
+                POPPOD(); POPPOD(); POPPOD(); POP();
+            }
+            break;
+        case opStrIns:          // -char -int -ptr -obj
+            (stk - 2)->_ptr()->_str().insert((stk - 1)->_int(), stk->_uchar());  // *OVR
+            POPPOD(); POPPOD(); POPPOD(); POP();
+            break;
+        case opVecIns:          // -var -int -ptr -obj
+            (stk - 2)->_ptr()->_vec().insert((stk - 1)->_int(), *stk);  // *OVR
+            POP(); POPPOD(); POPPOD(); POP();
             break;
         // *OVR: integer type is reduced to memint in some configs
 
@@ -459,7 +483,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 POPPOD();
                 if (i < 0 || i >= stk->_vec().size())
                     container::keyerr();
-                const variant& v = stk->_vec()[memint(i)];
+                const variant& v = stk->_vec()[i];
                 if (v.is_null())
                     container::keyerr();
                 *stk = v;  // same as for opDictElem
@@ -473,7 +497,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             {
                 integer i = (stk - 1)->_int();
                 const varvec& v = stk->_vec();
-                (stk - 1)->_int() = int(i >= 0 && i < v.size() && !v[memint(i)].is_null());
+                (stk - 1)->_int() = int(i >= 0 && i < v.size() && !v[i].is_null());
                 POP();
             }
             break;

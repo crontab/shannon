@@ -584,7 +584,8 @@ void CodeGen::loadSubvec()
             error("Non-ordinal range bounds");
         stkPop();
         stkPop();
-        addOp(contType->isByteVec() ? opSubstr : opSubvec);
+        stkPop();
+        addOp(contType, contType->isByteVec() ? opSubstr : opSubvec);
     }
     else
         error("Vector/string type expected");
@@ -931,8 +932,11 @@ void CodeGen::programExit()
 static void errorLValue()
     { throw emessage("Not an l-value"); }
 
-static void errorNotElemLoader()
+static void errorNotAddressableElem()
     { throw emessage("Not an addressable container element"); }
+
+static void errorNotInsertableElem()
+    { throw emessage("Not an insertable location"); }
 
 
 static OpCode loaderToStorer(OpCode op)
@@ -972,18 +976,33 @@ static OpCode loaderToLea(OpCode op)
 }
 
 
+static OpCode loaderToInserter(OpCode op)
+{
+    switch (op)
+    {
+        case opStrElem:       return opStrIns;
+        case opVecElem:       return opVecIns;
+        default:
+            errorNotInsertableElem();
+            return opInv;
+    }
+}
+
+
 static OpCode loaderToDeleter(OpCode op)
 {
     switch (op)
     {
         case opStrElem:       return opDelStrElem;
         case opVecElem:       return opDelVecElem;
+        case opSubstr:        return opDelSubstr;
+        case opSubvec:        return opDelSubvec;
         case opDictElem:      return opDelDictElem;
         case opByteDictElem:  return opDelByteDictElem;
         case opSetElem:       return opDelSetElem;
         case opByteSetElem:   return opDelByteSetElem;
         default:
-            errorNotElemLoader();
+            errorNotAddressableElem();
             return opInv;
     }
 }
@@ -1008,6 +1027,17 @@ str CodeGen::lvalue()
     }
     OpCode storer = loaderToStorer(loader);
     codeseg.replaceOp(offs, storer);
+    prevLoaderOffs = -1;
+    return codeseg.cutOp(offs);
+}
+
+
+str CodeGen::insLvalue()
+{
+    memint offs = stkTopOffs();
+    OpCode inserter = loaderToInserter(codeseg[offs]);
+    codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
+    codeseg.replaceOp(offs, inserter);
     prevLoaderOffs = -1;
     return codeseg.cutOp(offs);
 }
