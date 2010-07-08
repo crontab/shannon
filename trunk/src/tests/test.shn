@@ -98,8 +98,25 @@ assert #d == 2 and d[0] == 1 and d[1] == 3
 del r3[0]
 assert r3 == 'bc'
 
-// var str s3 = 'xyz'
-// del s3[0..1]
+var str s3 = 'XYZxyz'
+del s3[0..1]
+assert s3 == 'Zxyz'
+del s3[2..]
+assert s3 == 'Zx'
+ins s3[1] = 'a'
+assert s3 == 'Zax'
+ins s3[3] = 'b'
+assert s3 == 'Zaxb'
+
+var v11 = ['abc', 'def', 'ghi', 'jkl', 'mno']
+del v11[1..2]
+assert #v11 == 3 and v11[0] == 'abc' and v11[1] == 'jkl' and v11[2] == 'mno'
+del v11[1..]
+assert #v11 == 1 and v11[0] == 'abc'
+ins v11[0] = 'pqr'
+assert #v11 == 2 and v11[0] == 'pqr' and v11[1] == 'abc'
+ins v11[#v11] = 'stu'
+assert #v11 == 3 and v11[0] == 'pqr' and v11[1] == 'abc' and v11[2] == 'stu'
 
 assert typeof c == str and typeof d == (int *[]) and typeof e == byte *[][] \
     and typeof er == int *[][]
@@ -310,7 +327,7 @@ case typeof s0
 }
 
 
-// LOOPS
+// WHILE LOOP
 
 var wi = 0
 while wi < 3
@@ -414,7 +431,7 @@ vinc(loc3)
 assert loc3 == 4
 
 /*
-def this point(int _x, int _y)
+def state point(int _x, int _y)
 {
     int x = _x
     int y = _y

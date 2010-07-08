@@ -89,6 +89,10 @@ OpInfo opTable[] =
     OP(StoreVecElem, None),     // -var -int -ptr -obj
     OP(DelStrElem, None),       // -int -ptr -obj
     OP(DelVecElem, None),       // -int -ptr -obj
+    OP(DelSubstr, None),        // -{int,void} -int -ptr -obj
+    OP(DelSubvec, None),        // -{int,void} -int -ptr -obj
+    OP(StrIns, None),           // -char -int -ptr -obj
+    OP(VecIns, None),           // -var -int -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set

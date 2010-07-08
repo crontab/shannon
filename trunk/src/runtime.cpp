@@ -551,6 +551,7 @@ void bytevec::append(const bytevec& v)
 
 void bytevec::erase(memint pos, memint len)
 {
+    chkidxa(pos);
     if (len > 0)
         _erase(pos, len);
 }

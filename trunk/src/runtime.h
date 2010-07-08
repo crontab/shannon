@@ -362,6 +362,8 @@ public:
     char at(memint i) const                 { return *bytevec::at(i); }
     char back() const                       { return *bytevec::back(); }
     void replace(memint pos, char c)        { *bytevec::atw(pos) = c; }
+    void insert(memint pos, char c)         { *_insert(pos, 1, container::allocate) = c; }
+    void insert(memint pos, const char* s);
     void operator= (const char* c);
     void operator= (char c);
 
@@ -387,7 +389,6 @@ public:
     str  operator+ (char c) const           { str r = *this; r += c; return r; }
     str  substr(memint pos, memint len) const;
     str  substr(memint pos) const;
-    void insert(memint pos, const char* s);
 };
 
 
@@ -472,6 +473,7 @@ public:
     void append(const podvec& v)            { parent::append(v); }
     void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize, container::allocate)) T(t); }  // (*)
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
+    void erase(memint pos, memint len)      { parent::_erase(pos * Tsize, len * Tsize); }
     void erase(memint pos)                  { parent::_erase(pos * Tsize, Tsize); }
 
     // If you keep the vector sorted, the following will provide set-like
@@ -593,9 +595,6 @@ public:
             return *this;
         return vector(*this, pos, len);
     }
-
-    vector subvec(memint pos) const
-        { return subvec(pos, parent::size() - pos); }
 
     // Give a chance to alternative constructors, e.g. str can be constructed
     // from (const char*). Without these templates below temp objects are

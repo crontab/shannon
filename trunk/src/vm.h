@@ -66,7 +66,6 @@ enum OpCode
     opPopPod,           // -int
     opCast,             // [Type*] -var +var
     opIsType,           // [Type*] -var +bool
-    // opMkFuncPtr,        // -state -stateobj
 
     // --- 6. STRINGS, VECTORS
     opChrToStr,         // -char +str
@@ -85,6 +84,10 @@ enum OpCode
     opStoreVecElem,     // -var -int -ptr -obj
     opDelStrElem,       // -int -ptr -obj
     opDelVecElem,       // -int -ptr -obj
+    opDelSubstr,        // -{int,void} -int -ptr -obj
+    opDelSubvec,        // -{int,void} -int -ptr -obj
+    opStrIns,           // -char -int -ptr -obj
+    opVecIns,           // -var -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -408,6 +411,7 @@ public:
     void programExit();
 
     str lvalue();
+    str insLvalue();
     void assignment(const str& storerCode);
     void deleteContainerElem();
 

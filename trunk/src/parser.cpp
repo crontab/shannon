@@ -74,6 +74,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"exit", tokExit},
         {"if", tokIf},
         {"in", tokIn},
+        {"ins", tokIns},
         {"is", tokIs},
         {"not", tokNot},
         {"or", tokOr},
