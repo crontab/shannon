@@ -38,7 +38,6 @@ OpInfo opTable[] =
     OP(LoadThis, None),         // +stateobj
 
     // --- 3. DESIGNATOR LOADERS
-    // sync with isDesignatorLoader()
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var
     OP(LoadOuterVar, OuterIdx), // [outer.idx:u8] +var
     OP(LoadStkVar, StkIdx),     // [stk.idx:s8] +var
@@ -125,45 +124,44 @@ OpInfo opTable[] =
     OP(DelByteDictElem, None),  // -int -ptr -obj
 
     // --- 9. ARITHMETIC
-    OP(Add, None),              // -int, +int, +int
-    OP(Sub, None),              // -int, +int, +int
-    OP(Mul, None),              // -int, +int, +int
-    OP(Div, None),              // -int, +int, +int
-    OP(Mod, None),              // -int, +int, +int
-    OP(BitAnd, None),           // -int, +int, +int
-    OP(BitOr, None),            // -int, +int, +int
-    OP(BitXor, None),           // -int, +int, +int
-    OP(BitShl, None),           // -int, +int, +int
-    OP(BitShr, None),           // -int, +int, +int
-
-    // Arithmetic unary: -int, +int
-    OP(Neg, None),              // -int, +int
-    OP(BitNot, None),           // -int, +int
-    OP(Not, None),              // -bool, +bool
+    OP(Add, None),              // -int -int +int
+    OP(Sub, None),              // -int -int +int
+    OP(Mul, None),              // -int -int +int
+    OP(Div, None),              // -int -int +int
+    OP(Mod, None),              // -int -int +int
+    OP(BitAnd, None),           // -int -int +int
+    OP(BitOr, None),            // -int -int +int
+    OP(BitXor, None),           // -int -int +int
+    OP(BitShl, None),           // -int -int +int
+    OP(BitShr, None),           // -int -int +int
+    OP(Neg, None),              // -int +int
+    OP(BitNot, None),           // -int +int
+    OP(Not, None),              // -bool +bool
+    OP(AddAssign, None),        // -int -ptr -obj
+    OP(SubAssign, None),        // -int -ptr -obj
+    OP(MulAssign, None),        // -int -ptr -obj
+    OP(DivAssign, None),        // -int -ptr -obj
+    OP(ModAssign, None),        // -int -ptr -obj
 
     // --- 10. BOOLEAN
     OP(CmpOrd, None),           // -int, -int, +{-1,0,1}
     OP(CmpStr, None),           // -str, -str, +{-1,0,1}
     OP(CmpVar, None),           // -var, -var, +{0,1}
-    // see isCmpOp()
     OP(Equal, None),            // -int, +bool
     OP(NotEq, None),            // -int, +bool
     OP(LessThan, None),         // -int, +bool
     OP(LessEq, None),           // -int, +bool
     OP(GreaterThan, None),      // -int, +bool
     OP(GreaterEq, None),        // -int, +bool
-    // case label helpers
     OP(CaseOrd,  None),         // -int -int +int +bool
     OP(CaseRange, None),        // -int -int -int +int +bool
     OP(CaseStr, None),          // -str -str +str +bool
     OP(CaseVar, None),          // -var -var +var +bool
 
     // --- 11. JUMPS, CALLS
-    // Jumps; [dst] is a relative 16-bit offset
     OP(Jump, Jump16),           // [dst 16]
     OP(JumpFalse, Jump16),      // [dst 16] -bool
     OP(JumpTrue, Jump16),       // [dst 16] -bool
-    // Short bool evaluation: pop if jump, leave it otherwise
     OP(JumpAnd, Jump16),        // [dst 16] (-)bool
     OP(JumpOr, Jump16),         // [dst 16] (-)bool
 

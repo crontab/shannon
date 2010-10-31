@@ -124,10 +124,6 @@ template <class T>
         { ::new(dest) variant(v); }
 
 
-#define BINARY_INT(op) { (stk - 1)->_int() op stk->_int(); POPPOD(); }
-#define UNARY_INT(op)  { stk->_int() = op stk->_int(); }
-
-
 void runRabbitRun(variant* outer, variant* bp, register const char* ip)
 {
     // TODO: check for stack overflow (during function call?)
@@ -520,6 +516,12 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
 
         // --- 9. ARITHMETIC -------------------------------------------------
+
+#define BINARY_INT(op)  { (stk - 1)->_int() op stk->_int(); POPPOD(); }
+#define UNARY_INT(op)   { stk->_int() = op stk->_int(); }
+#define INPLACE_INT(op) { (stk - 1)->_ptr()->_int() op stk->_int(); \
+            POPPOD(); POPPOD(); POP(); }
+
         // TODO: range checking in debug mode
         case opAdd:         BINARY_INT(+=); break;
         case opSub:         BINARY_INT(-=); break;
@@ -534,6 +536,11 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opNeg:         UNARY_INT(-); break;
         case opBitNot:      UNARY_INT(~); break;
         case opNot:         UNARY_INT(!); break;
+        case opAddAssign:   INPLACE_INT(+=); break;
+        case opSubAssign:   INPLACE_INT(-=); break;
+        case opMulAssign:   INPLACE_INT(*=); break;
+        case opDivAssign:   INPLACE_INT(/=); break;
+        case opModAssign:   INPLACE_INT(%=); break;
 
 
         // --- 10. BOOLEAN ---------------------------------------------------

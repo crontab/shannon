@@ -237,8 +237,14 @@ void Compiler::otherStatement()
     {
         str storerCode = codegen->lvalue();
         expression(codegen->getTopType());
-        if (!isSep())
-            error("Statement syntax");
+        codegen->assignment(storerCode);
+    }
+
+    else if (token >= tokAddAssign && token <= tokModAssign)
+    {
+        str storerCode = codegen->inplaceLvalue(token);
+        next();
+        expression(codegen->getTopType());
         codegen->assignment(storerCode);
     }
 
@@ -351,8 +357,6 @@ void Compiler::doIns()
     expect(tokAssign, "'='");
     str inserterCode = codegen->insLvalue();
     expression(codegen->getTopType());
-    if (!isSep())
-        error("Statement syntax");
     codegen->assignment(inserterCode);
     skipSep();
 }

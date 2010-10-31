@@ -71,6 +71,9 @@ assert ?i0 and ?v5 and ?n0 and not ?one and not ?false and not ?s1 and ?v2
 assert 'a' in identChars and not '?' in identChars
 assert (int *[] *[str]) == (intvec *[str])
 
+
+// ASSIGNMENTS, DEL, INS
+
 var a = 2
 var int b = 1
 assert a == 2 and b == 1
@@ -107,6 +110,18 @@ ins s3[1] = 'a'
 assert s3 == 'Zax'
 ins s3[3] = 'b'
 assert s3 == 'Zaxb'
+
+a = 3
+a += 1
+assert a == 4
+a -= 2
+assert a == 2
+a *= 6
+assert a == 12
+a /= 2
+assert a == 6
+a %= 4
+assert a == 2
 
 var v11 = ['abc', 'def', 'ghi', 'jkl', 'mno']
 del v11[1..2]

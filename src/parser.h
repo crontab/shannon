@@ -22,8 +22,9 @@ enum Token
     tokPlus, tokMinus,
     // Cat level (simple expr)
     tokCat,
-    // Rel level: the order should be in sync with comparison opcodes
+    // Rel level: the order should be in sync with comparison opcodes, except tokIn
     tokEqual, tokNotEq, tokLessThan, tokLessEq, tokGreaterThan, tokGreaterEq,
+    tokIn,
     // NOT level
     tokNot,
     // AND level
@@ -31,12 +32,15 @@ enum Token
     // OR level
     tokOr, tokXor,
 
-    tokIn, tokIs, tokAs,
-
     // Special chars and sequences
     tokComma, tokPeriod, tokRange, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
     tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
+    tokIs, tokAs,
+
     tokAssign,
+    // In-place operators, order is important, in sync with opAddAssign etc
+    tokAddAssign, tokSubAssign, tokMulAssign, tokDivAssign, tokModAssign,
+    tokCatAssign,
 
     // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,
@@ -103,6 +107,8 @@ public:
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
+    bool skipIf(Token tokMin, Token tokMax)
+            { if (token >= tokMin && token <= tokMax) { next(); return true; } return false; }
     void skipMultiBlockBegin();
     void skipMultiBlockEnd();
     bool isBlockEnd()

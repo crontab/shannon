@@ -333,8 +333,9 @@ restart:
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': return token = tokSep;
         case ':': return token = tokColon;
-        case '+': return token = tokPlus;
-        case '-': return token = tokMinus;
+        case '+': return token = (input->get_if('=') ? tokAddAssign : tokPlus);
+        case '-': return token = (input->get_if('=') ? tokSubAssign : tokMinus);
+        case '*': return token = (input->get_if('=') ? tokMulAssign : tokMul);
         case '/':
             if (input->get_if('/'))
             {
@@ -346,9 +347,8 @@ restart:
                 skipMultilineComment();
                 goto restart;
             }
-            return token = tokDiv;
-        case '*': return token = tokMul;
-        case '%': return token = tokMod;
+            return token = (input->get_if('=') ? tokDivAssign : tokDiv);
+        case '%': return token = (input->get_if('=') ? tokModAssign : tokMod);
         case '[': return token = tokLSquare;
         case ']': return token = tokRSquare;
         case '(': return token = tokLParen;
@@ -364,7 +364,7 @@ restart:
                 return token = tokLAngle;
         case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
-        case '|': return token = tokCat;
+        case '|': return token = (input->get_if('=') ? tokCatAssign : tokCat);
         case '^': return token = tokCaret;
         case '@': return token = tokAt;
         case '#': return token = tokSharp;
