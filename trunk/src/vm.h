@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "runtime.h"
+#include "parser.h"
 #include "typesys.h"
 
 
@@ -120,21 +121,26 @@ enum OpCode
     opDelByteDictElem,  // -int -ptr -obj
 
     // --- 9. ARITHMETIC
-    opAdd,              // -int, +int, +int
-    opSub,              // -int, +int, +int
-    opMul,              // -int, +int, +int
-    opDiv,              // -int, +int, +int
-    opMod,              // -int, +int, +int
-    opBitAnd,           // -int, +int, +int
-    opBitOr,            // -int, +int, +int
-    opBitXor,           // -int, +int, +int
-    opBitShl,           // -int, +int, +int
-    opBitShr,           // -int, +int, +int
-
+    opAdd,              // -int -int +int
+    opSub,              // -int -int +int
+    opMul,              // -int -int +int
+    opDiv,              // -int -int +int
+    opMod,              // -int -int +int
+    opBitAnd,           // -int -int +int
+    opBitOr,            // -int -int +int
+    opBitXor,           // -int -int +int
+    opBitShl,           // -int -int +int
+    opBitShr,           // -int -int +int
     // Arithmetic unary
     opNeg,              // -int +int
     opBitNot,           // -int +int
     opNot,              // -bool +bool
+    // Arithmetic in-place, in sync with tokAddAssign etc
+    opAddAssign,        // -int -ptr -obj
+    opSubAssign,        // -int -ptr -obj
+    opMulAssign,        // -int -ptr -obj
+    opDivAssign,        // -int -ptr -obj
+    opModAssign,        // -int -ptr -obj
 
     // --- 10. BOOLEAN
     opCmpOrd,           // -int -int +{-1,0,1}
@@ -411,6 +417,7 @@ public:
     void programExit();
 
     str lvalue();
+    str inplaceLvalue(Token);
     str insLvalue();
     void assignment(const str& storerCode);
     void deleteContainerElem();

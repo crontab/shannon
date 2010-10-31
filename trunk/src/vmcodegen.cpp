@@ -1032,6 +1032,18 @@ str CodeGen::lvalue()
 }
 
 
+str CodeGen::inplaceLvalue(Token tok)
+{
+    assert(tok >= tokAddAssign && tok <= tokModAssign);
+    OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
+    memint offs = stkTopOffs();
+    codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
+    offs = getCurrentOffs();
+    codeseg.append(op);
+    return codeseg.cutOp(offs);
+}
+
+
 str CodeGen::insLvalue()
 {
     memint offs = stkTopOffs();

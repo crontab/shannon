@@ -1,7 +1,7 @@
 
 * Assignment operators (+=, etc) aren't very nice with the
   boolean/bitwise and, or, etc. However, these are necessary at least:
-  |=, +=, -=, also append operator in the form v[] = ...
+  |=, +=, -=
 
 * Operator 'ins': implement inserting strings and vectors, not just
   chars and vec elements
