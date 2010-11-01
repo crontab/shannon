@@ -21,10 +21,10 @@
 */
 
 
-void Compiler::enumeration(const str& firstIdent)
+void Compiler::enumeration()
 {
     Enumeration* enumType = state->registerType(new Enumeration());
-    enumType->addValue(state, scope, firstIdent);
+    enumType->addValue(state, scope, getIdentifier());
     expect(tokComma, ",");
     do
     {
@@ -75,8 +75,8 @@ Type* Compiler::getTypeDerivators(Type* type)
             expect(tokRParen, "')'");
         }
         // TODO: nope, it should look up the next token and see if it's a block
-        if (token == tokRParen)
-            return proto;
+        // if (token == tokRParen)
+        //     return proto;
         State* newState = state->registerType(new State(state, proto));
         stateBody(newState);
         return newState;
@@ -606,19 +606,10 @@ void Compiler::expression(Type* expectType)
 void Compiler::constExpr(Type* expectType)
 {
     assert(codegen->isCompileTime());
-    if (token == tokIdent)  // Enumeration maybe?
-    {
-        str ident = strValue;
-        if (next() != tokComma)
-        {
-            undoIdent(ident);
-            goto ICouldHaveDoneThisWithoutGoto;
-        }
-        enumeration(ident);
-    }
+    if (skipIf(tokEnum))
+        enumeration();
     else
     {
-ICouldHaveDoneThisWithoutGoto:
         expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
         if (skipIf(tokRange))  // Subrange
         {

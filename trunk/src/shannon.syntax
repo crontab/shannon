@@ -23,6 +23,7 @@ context default
 	keyword whole dump		yellow
 	keyword whole elif		yellow
 	keyword whole else		yellow
+	keyword whole enum		yellow
 	keyword whole exit		yellow
 	keyword whole if		yellow
 	keyword whole in		yellow

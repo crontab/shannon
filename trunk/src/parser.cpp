@@ -71,6 +71,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"dump", tokDump},
         {"elif", tokElif},
         {"else", tokElse},
+        {"enum", tokEnum},
         {"exit", tokExit},
         {"if", tokIf},
         {"in", tokIn},
