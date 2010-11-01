@@ -50,7 +50,7 @@ protected:
 
     // in compexpr.cpp
     Type* getTypeDerivators(Type*);
-    void enumeration(const str& firstIdent);
+    void enumeration();
     void identifier(const str&);
     void vectorCtor(Type* type);
     void dictCtor(Type* type);
