@@ -112,7 +112,7 @@ public:
     void skipMultiBlockBegin();
     void skipMultiBlockEnd();
     bool isBlockEnd()
-            { return token == tokRCurly || token == tokEof; }
+            { return token == tokRCurly; }
     void skipToSep();
     str getIdentifier();
 
