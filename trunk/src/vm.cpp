@@ -297,7 +297,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             POP();
             break;
         case opVarToVec:
-            *stk = varvec(*stk);
+            { varvec v; v.push_back(*stk); *stk = v; }
             break;
         case opVarCat:
             (stk - 1)->_vec().push_back(*stk);
@@ -384,7 +384,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
         // --- 7. SETS -------------------------------------------------------
         case opElemToSet:
-            *stk = varset(*stk);
+            { varset s; s.push_back(*stk); *stk = s; }
             break;
         case opSetAddElem:
             (stk - 1)->_set().find_insert(*stk);
@@ -720,7 +720,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     assert(module->isComplete());
 
     // Assign module vars. This allows to generate code that accesses module
-    // static data by variable id, so that code is context-independant
+    // static data by variable id, so that code is context-independent
     for (memint i = 0; i < module->uses.size(); i++)
     {
         SelfVar* v = module->uses[i];

@@ -215,7 +215,7 @@ void object::operator delete(void* p)
 }
 
 
-object* object::dup(size_t self, memint extra)
+object* object::_dup(size_t self, memint extra)
 {
     assert(self + extra > 0);
     assert(self >= sizeof(*this));
@@ -307,11 +307,11 @@ container* container::reallocate(container* p, memint newsize)
 }
 
 
-container* container::dup(memint cap, memint siz)
+container* container::_dup(memint cap, memint siz)
 {
     assert(cap > 0);
     assert(siz > 0 && siz <= cap);
-    container* c = (container*)object::dup(sizeof(container), cap);
+    container* c = (container*)object::_dup(sizeof(container), cap);
     c->_capacity = cap;
     c->_size = siz;
     return c;
@@ -367,7 +367,7 @@ void bytevec::_dounique()
     // Called only on non-empty, non-unique objects
     assert(!_isunique());
     memint siz = obj->size();
-    container* c = obj->dup(siz, siz);
+    container* c = obj->_dup(siz, siz);
     c->copy(c->data(), obj->data(), siz);
     obj = c;
 }
@@ -457,7 +457,7 @@ void bytevec::_erase(memint pos, memint len)
         clear();
     else if (!_isunique())
     {
-        container* c = obj->dup(newsize, newsize);
+        container* c = obj->_dup(newsize, newsize);
         if (pos)
             obj->copy(c->data(), obj->data(), pos);
         if (remain)
@@ -485,7 +485,7 @@ void bytevec::_pop(memint len)
         clear();
     else if (!_isunique())
     {
-        container* c = obj->dup(newsize, newsize);
+        container* c = obj->_dup(newsize, newsize);
         c->copy(c->data(), obj->data(), newsize);
         obj = c;
     }
@@ -602,7 +602,7 @@ const char* str::c_str()
         *obj->end() = 0;
     else
     {
-        ((str*)this)->push_back(char(0));
+        push_back(char(0));
         obj->dec_size();
     }
     return data();
@@ -1046,7 +1046,7 @@ static str sysErrorStr(int code, const str& arg)
     // For some reason strerror_r() returns garbage on my 64-bit Ubuntu. That's unfortunately
     // not the only strange thing about this computer and OS. Could be me, could be hardware
     // or could be libc. Or all.
-    // Upd: so I updated both hardware and OS, still grabage on 64 bit, but OK on 32-bit.
+    // Upd: so I updated both hardware and OS, still garbage on 64 bit, but OK on 32-bit.
     // What am I doing wrong?
 //    char buf[1024];
 //    strerror_r(code, buf, sizeof(buf));

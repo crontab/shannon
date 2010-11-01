@@ -7,6 +7,7 @@
 
 // All standard library headers should go only here
 #include <sys/stat.h>
+#include <stdint.h>
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
@@ -20,7 +21,7 @@
 
 
 // SHN_64 can be enabled on 32-bit systems, and should be enabled on 64-bit 
-// systems, It affects the size of the default int (defined as `integer' 
+// systems; it affects the size of the default int (defined as `integer' 
 // below) and accordingly the size of the `variant' structure. In any case, 
 // for various reasons the `integer' type should not be smaller than 
 // sizeof(void*), otherwise initRuntime() will fail at startup.
@@ -42,22 +43,22 @@
 // Default fundamental types
 
 #ifdef SHN_64
-    typedef long long integer;
-    typedef unsigned long long uinteger;
+    typedef int64_t integer;
+    typedef uint64_t uinteger;
     typedef double real;
-#   define INTEGER_MIN LLONG_MIN
-#   define INTEGER_MAX LLONG_MAX
+#   define INTEGER_MIN INT64_MIN
+#   define INTEGER_MAX INT64_MAX
 #else
-    typedef int integer;
-    typedef unsigned int uinteger;
+    typedef int32_t integer;
+    typedef uint32_t uinteger;
     typedef float real;
-#   define INTEGER_MIN INT_MIN
-#   define INTEGER_MAX INT_MAX
+#   define INTEGER_MIN INT32_MIN
+#   define INTEGER_MAX INT32_MAX
 #endif
 
 // Equivalent of size_t, signed; used everywhere for container sizes/indexes
-typedef long memint;
-typedef unsigned long umemint;
+typedef ssize_t memint;
+typedef size_t umemint;
 typedef int16_t jumpoffs;
 #define MEMINT_MAX LONG_MAX
 
@@ -101,30 +102,6 @@ template <class T, class X>
         { return (T)x; }
 #endif
 
-/*
-// Unfortunately GCC instantiates this method much more often than needed,
-// and I don't really understand why. So instead this code is copied (just a
-// few times really) to where it's used.
-template <class Container, class Key, class Tint>
-bool bsearch(const Container& cont, Tint high, const Key& key, Tint& idx)
-{
-    idx = 0;
-    Tint low = 0;
-    while (low <= high) 
-    {
-        idx = (low + high) / 2;
-        Tint comp = cont.compare(idx, key);
-        if (comp < 0)
-            low = idx + 1;
-        else if (comp > 0)
-            high = idx - 1;
-        else
-            return true;
-    }
-    idx = low;
-    return false;
-}
-*/
 
 class noncopyable
 {

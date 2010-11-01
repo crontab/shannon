@@ -20,7 +20,7 @@ public:
     };
 
 protected:
-    typedef unsigned char uchar;
+    typedef uint8_t uchar;
 
     uchar data[BYTES];
 
@@ -97,10 +97,10 @@ public:
     void* operator new(size_t self, memint extra);
     void  operator delete(void*);
     
-    // Dirty trick that duplicates an object and (hopefully) preserves the
+    // Dirty trick that duplicates an object and hopefully preserves the
     // dynamic type (actually the VMT). Only 'self' bytes is copied; 'extra'
     // remains uninitialized.
-    object* dup(size_t self, memint extra);
+    object* _dup(size_t self, memint extra);
 
     void _assignto(object*& p);
     static object* reallocate(object* p, size_t self, memint extra);
@@ -175,6 +175,8 @@ public:
 class Type;    // defined in typesys.h
 class fifo;
 
+// rtobject: a ref-counted object with runtime type information
+
 class rtobject: public object
 {
 private:
@@ -209,8 +211,9 @@ public:
     static container* allocate(memint cap, memint siz);  // (*)
     static container* reallocate(container* p, memint newsize);
 
-    // Creates a duplicate of a given container without copying the data
-    container* dup(memint cap, memint siz);
+    // Creates a duplicate of a given container without copying the data;
+    // leaves actual copying to the virtual method copy()
+    container* _dup(memint cap, memint siz);
 
     // TODO: compact()
 
@@ -379,7 +382,6 @@ public:
     bool operator!= (const char* s) const   { return !(*this == s); }
     bool operator!= (const str& s) const    { return !(*this == s); }
     bool operator!= (char c) const          { return !(*this == c); }
-
 
     void operator+= (const char* s);
     void operator+= (const str& s)          { append(s); }
@@ -573,7 +575,6 @@ protected:
 
 public:
     vector(): parent()  { }
-    vector(const T& t): parent()  { push_back(t); }
 
     // Override stuff that requires allocation of 'vector::cont'
     void insert(memint pos, const T& t)
@@ -620,7 +621,7 @@ public:
 };
 
 
-// This a clone of vector<> but declared separately for overloaded variant
+// This is a clone of vector<> but declared separately for overloaded variant
 // constructors. (Is there a better way?)
 template <class T>
 class set: public vector<T>
@@ -632,12 +633,16 @@ protected:
     typedef Tptr& Tref;
 public:
     set(): parent()  { }
-    set(const T& i)  { parent::push_back(i); }
 };
 
 
 // --- dict ---------------------------------------------------------------- //
 
+// dict: internally a dict variable is a pointer to dictobj which in its turn
+// contains two separate vectors for keys and for values. This way we 
+// (1) re-use the existing instances of certain templates
+// (2) more importantly, we simplify methods of getting the keys or values 
+//     as vectors and reusing them on the ref-count basis
 
 template <class Tkey, class Tval>
 class dict
@@ -999,7 +1004,7 @@ public:
     bool is_null() const                { return type == VOID; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
 
-    // Fast "unsafe" access methods; checked for correctness in DEBUG mode
+    // Fast "unsafe" access methods; checked for correctness only in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
     uchar       _uchar()          const { _dbg(ORD); return (uchar)val._ord; }
     integer     _int()            const { _dbg(ORD); return val._ord; }
@@ -1079,6 +1084,10 @@ extern template class podvec<variant>;
 // --- runtime objects ----------------------------------------------------- //
 
 
+// reference: is a ref-counted object that encapsulates a variant; this way a
+// variant may be shared between multiple other variables and mimic
+// "references" as commonly defined in other languages
+
 class reference: public object
 {
 public:
@@ -1096,6 +1105,9 @@ inline void variant::_init(reference* o)  { _init(REF, o); }
 class State;  // defined in typesys.h
 class Prototype;
 
+
+// sateobj: a run-time ref-counted object, actually a structure with variant
+// member fields. The actual size is passed to operator new() defined below.
 
 class stateobj: public rtobject
 {
@@ -1136,7 +1148,7 @@ public:
         return varbase() + index;
     }
 
-    variant* varbase()
+    variant* varbase() // pointer to first member
         { return (variant*)(this + 1); }
 
     static stateobj* objbase(variant* varbase)
