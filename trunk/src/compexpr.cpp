@@ -74,6 +74,7 @@ Type* Compiler::getTypeDerivators(Type* type)
             while (skipIf(tokComma));
             expect(tokRParen, "')'");
         }
+        // TODO: nope, it should look up the next token and see if it's a block
         if (token == tokRParen)
             return proto;
         State* newState = state->registerType(new State(state, proto));

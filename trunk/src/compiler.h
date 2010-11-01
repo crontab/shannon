@@ -82,7 +82,7 @@ protected:
     void otherStatement();
     void block();
     void singleStatement();
-    void statementList();
+    void statementList(bool topLevel);
     void ifBlock();
     void caseValue(Type*);
     void caseLabel(Type*);

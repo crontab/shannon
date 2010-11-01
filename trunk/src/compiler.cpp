@@ -115,7 +115,7 @@ void Compiler::block()
     if (skipIf(tokLCurly))
     {
         AutoScope local(*this);
-        statementList();
+        statementList(false);
         skipMultiBlockEnd();
     }
     else
@@ -159,10 +159,10 @@ void Compiler::singleStatement()
 }
 
 
-void Compiler::statementList()
+void Compiler::statementList(bool topLevel)
 {
     skipAnySeps();
-    while (!isBlockEnd())
+    while (!isBlockEnd() && !(topLevel && eof()))
     {
         singleStatement();
         skipAnySeps();
@@ -372,7 +372,7 @@ void Compiler::stateBody(State* newState)
     {
         memint prologOffs = codegen->prolog();
         skipMultiBlockBegin();
-        statementList();
+        statementList(false);
         skipMultiBlockEnd();
         codegen->epilog(prologOffs);
     }
@@ -406,7 +406,7 @@ void Compiler::compileModule()
         {
             memint prologOffs = codegen->prolog();
             next();
-            statementList();
+            statementList(true);
             expect(tokEof, "End of file");
             codegen->epilog(prologOffs);
         }
