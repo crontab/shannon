@@ -1,7 +1,5 @@
 
-* Assignment operators (+=, etc) aren't very nice with the
-  boolean/bitwise and, or, etc. However, these are necessary at least:
-  |=, +=, -=
+* switch/case is more aesthetic maybe
 
 * Operator 'ins': implement inserting strings and vectors, not just
   chars and vec elements
@@ -87,6 +85,10 @@
 
 * Multidimensional arrays implemented as a single vector with "flat"
   indexing?
+
+* Assignment operators (+=, etc) aren't very nice with the
+  boolean/bitwise and, or, etc. However, these are necessary at least:
+  |=, +=, -=, *=, /=, %=
 
 * A lot of TODO's in the source
 
