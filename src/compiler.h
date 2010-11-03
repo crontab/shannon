@@ -86,7 +86,7 @@ protected:
     void ifBlock();
     void caseValue(Type*);
     void caseLabel(Type*);
-    void caseBlock();
+    void switchBlock();
     void whileBlock();
     void doContinue();
     void doBreak();
