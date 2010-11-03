@@ -1,6 +1,4 @@
 
-* switch/case is more aesthetic maybe
-
 * Operator 'ins': implement inserting strings and vectors, not just
   chars and vec elements
 

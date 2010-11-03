@@ -304,53 +304,56 @@ if b1 == 1: assert false
 elif b1 == 0: assert true
 elif b1 == 3: assert false
 
-case b1
+switch b1
 {
-    1:
+    case 1:
         assert false
-    0:
-        begin {
+    case 0
+        {
             assert true
         }
-    else:   assert false
+    else
+    {
+        assert false
+    }
 }
 
-case b1
+switch b1
 {
-    1
+    case 1
         {
             assert false
         }
-    0, 2:
+    case 0, 2:
         assert true
     else:
         assert false
 }
 
-case b1
+switch b1
 {
-    0..2, 5: assert true
-    1:       assert false
+    case 0..2, 5: assert true
+    case 1:       assert false
 }
 
-case b1
+switch b1
 {
-    1: assert false
-    2
+    case 1: assert false
+    case 2
         { assert false }
     else: assert true
 }
 
-case s0
+switch s0
 {
-    'abc': assert true
-    'xyz': assert false
+    case 'abc': assert true
+    case 'xyz': assert false
 }
 
-case typeof s0
+switch typeof s0
 {
-    str: assert true
-    int: assert false
+    case str: assert true
+    case int: assert false
     else {
         assert false
     }

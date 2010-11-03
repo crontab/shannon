@@ -139,8 +139,8 @@ void Compiler::singleStatement()
         block();
     else if (skipIf(tokIf))
         ifBlock();
-    else if (skipIf(tokCase))
-        caseBlock();
+    else if (skipIf(tokSwitch))
+        switchBlock();
     else if (skipIf(tokWhile))
         whileBlock();
     else if (skipIf(tokContinue))
@@ -286,6 +286,7 @@ void Compiler::ifBlock()
 void Compiler::caseLabel(Type* ctlType)
 {
     // Expects the case control variable to be the top stack element
+    expect(tokCase, "'case' or 'else'");
     caseValue(ctlType);
     memint out = codegen->boolJumpForward(opJumpFalse);
     block();
@@ -303,12 +304,12 @@ void Compiler::caseLabel(Type* ctlType)
 }
 
 
-void Compiler::caseBlock()
+void Compiler::switchBlock()
 {
     AutoScope local(*this);
     expression(NULL);
     Type* ctlType = codegen->getTopType();
-    LocalVar* ctlVar = local.addLocalVar("__case", ctlType);
+    LocalVar* ctlVar = local.addLocalVar("__switch", ctlType);
     codegen->initLocalVar(ctlVar);
     skipMultiBlockBegin("'{'");
     caseLabel(ctlType);
