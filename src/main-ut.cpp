@@ -1,6 +1,4 @@
 
-#define __STDC_LIMIT_MACROS
-
 #include "common.h"
 #include "runtime.h"
 #include "parser.h"

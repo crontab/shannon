@@ -5,6 +5,8 @@
 #  define NDEBUG    // to suppress assert()
 #endif
 
+#define __STDC_LIMIT_MACROS
+
 // All standard library headers should go only here
 #include <sys/stat.h>
 #include <stdint.h>
