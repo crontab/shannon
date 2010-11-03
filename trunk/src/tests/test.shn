@@ -16,9 +16,9 @@ assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
 // DEFINITIONS
-def type nums = enum one, two, three
+def type nums = (one, two, three)
 // error: def nums badnum = 5 as nums
-def dow = enum Mon, Tue, Wed, Thu, Fri, Sat, Sun
+def dow = Mon, Tue, Wed, Thu, Fri, Sat, Sun
 def intvec = int *[]
 def numvec = int *[nums]
 def charset = void *^[char]
@@ -239,7 +239,7 @@ begin {
     var b1 = 2
     var b2 = 3
     def s0 = 'xyz'
-    def nums = enum zero, one, two, three, four
+    def nums = zero, one, two, three, four
     assert b1 == 2 and b2 == 3 and s0 == 'xyz' and one == 1 as nums
 }
 assert b1 == 0 and s0 == 'abc' and one == 0 as nums
@@ -386,7 +386,7 @@ assert wi == 8
 
 // STATES
 
-// def proto1 = proto int *(int a, int b)
+// def proto1 = int *(int a, int b)
 
 var inc_call_count = 0
 

@@ -63,7 +63,7 @@ const-expr ::= subrange-type | enum-type | type-spec | expr
 
 subrange-type ::= expr '..' expr
 
-enum-type ::= 'enum' ident { ',' ident }
+enum-type ::= ident { ',' ident }
 
 
 # ---------- Expression
@@ -110,7 +110,7 @@ type-derivator ::= container-derivator | prototype-derivator |
 
 container-derivator ::= '[' [ const-expr ] ']'
 
-# ? prototype-derivator ::= 'proto' formal-args
+prototype-derivator ::= formal-args
 
 state-derivator ::= formal-args multi-block
 

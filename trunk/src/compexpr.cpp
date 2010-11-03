@@ -21,10 +21,10 @@
 */
 
 
-void Compiler::enumeration()
+void Compiler::enumeration(const str& firstIdent)
 {
     Enumeration* enumType = state->registerType(new Enumeration());
-    enumType->addValue(state, scope, getIdentifier());
+    enumType->addValue(state, scope, firstIdent);
     expect(tokComma, ",");
     do
     {
@@ -606,10 +606,19 @@ void Compiler::expression(Type* expectType)
 void Compiler::constExpr(Type* expectType)
 {
     assert(codegen->isCompileTime());
-    if (skipIf(tokEnum))
-        enumeration();
+    if (token == tokIdent)  // Enumeration maybe?
+    {
+        str ident = strValue;
+        if (next() != tokComma)
+        {
+            undoIdent(ident);
+            goto ICouldHaveDoneThisWithoutGoto;
+        }
+        enumeration(ident);
+    }
     else
     {
+ICouldHaveDoneThisWithoutGoto:
         expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
         if (skipIf(tokRange))  // Subrange
         {
@@ -650,7 +659,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 
 Type* Compiler::getTypeValue(bool atomType)
 {
-    // atomType excludes enums and subrange type definitions but shorthens
+    // atomType excludes enums and subrange type definitions and thus shorthens
     // the parsing path
     variant result;
     getConstValue(defTypeRef, result, atomType);
