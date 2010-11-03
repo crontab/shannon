@@ -109,7 +109,7 @@ public:
             { if (token == tok) { next(); return true; } return false; }
     bool skipIf(Token tokMin, Token tokMax)
             { if (token >= tokMin && token <= tokMax) { next(); return true; } return false; }
-    void skipMultiBlockBegin();
+    void skipMultiBlockBegin(const char* errmsg);
     void skipMultiBlockEnd();
     bool isBlockEnd()
             { return token == tokRCurly; }

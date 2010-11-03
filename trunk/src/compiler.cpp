@@ -111,15 +111,18 @@ void Compiler::variable()
 
 void Compiler::block()
 {
-    skipAnySeps();
-    if (skipIf(tokLCurly))
+    AutoScope local(*this);
+    if (skipIf(tokColon))
     {
-        AutoScope local(*this);
+        skipAnySeps();
+        singleStatement();
+    }
+    else
+    {
+        skipMultiBlockBegin("':' or '{'");
         statementList(false);
         skipMultiBlockEnd();
     }
-    else
-        singleStatement();
     skipAnySeps();
 }
 
@@ -284,7 +287,6 @@ void Compiler::caseLabel(Type* ctlType)
 {
     // Expects the case control variable to be the top stack element
     caseValue(ctlType);
-    expect(tokColon, "':'");
     memint out = codegen->boolJumpForward(opJumpFalse);
     block();
     if (!isBlockEnd())
@@ -308,7 +310,7 @@ void Compiler::caseBlock()
     Type* ctlType = codegen->getTopType();
     LocalVar* ctlVar = local.addLocalVar("__case", ctlType);
     codegen->initLocalVar(ctlVar);
-    skipMultiBlockBegin();
+    skipMultiBlockBegin("'{'");
     caseLabel(ctlType);
     skipMultiBlockEnd();
 }
@@ -371,7 +373,7 @@ void Compiler::stateBody(State* newState)
     try
     {
         memint prologOffs = codegen->prolog();
-        skipMultiBlockBegin();
+        skipMultiBlockBegin("'{'");
         statementList(false);
         skipMultiBlockEnd();
         codegen->epilog(prologOffs);

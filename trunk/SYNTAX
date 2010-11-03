@@ -24,7 +24,7 @@ statement ::= definition | var-def | sub-block | builtin | other-statement |
 
 block ::= single-block | multi-block
 
-single-block ::= [ <SEP> ] statement
+single-block ::= ':' [ <SEP> ] statement
 
 multi-block ::= [ <SEP> ] '{' [ <SEP> ] { statement } '}' 
 
@@ -48,7 +48,9 @@ if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 
 case-block ::= 'case' expr '{' case-label { case-label } '}'
 
-case-label ::= expr [ '..' expr ] ':' block
+case-label ::= case-range { ',' case-range } block
+
+case-range ::= expr [ '..' expr ]
 
 while-block ::= 'while' expr block
 

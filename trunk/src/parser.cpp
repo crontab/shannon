@@ -395,11 +395,11 @@ void Parser::redoIdent()
 }
 
 
-void Parser::skipMultiBlockBegin()
+void Parser::skipMultiBlockBegin(const char* errmsg)
 {
     // TODO: this should skip only newlines and comments instead
     skipAnySeps();
-    expect(tokLCurly, "'{'");
+    expect(tokLCurly, errmsg);
     skipAnySeps();
 }
 

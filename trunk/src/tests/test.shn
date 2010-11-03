@@ -210,12 +210,14 @@ assert #vec1[1..] == 2 and vec1[1..][1] == 'ghi'
 assert vec1[0..] == vec1
 
 // TYPECASTS
-begin assert 1 as char == '\x01'
-begin
+begin: assert 1 as char == '\x01'
+begin:
     assert 'a' as int == 97
 var any v10 = 0
-begin
-// huh?
+begin ;
+ ; ;
+// Hm
+; ;
 {
     assert v10 as nums == one
     assert 1 is system.int and 'abc' is str
@@ -235,7 +237,8 @@ begin {
     var b1 = 1
     assert b1 == 1
 }
-begin {
+begin
+{
     var b1 = 2
     var b2 = 3
     def s0 = 'xyz'
@@ -245,70 +248,83 @@ begin {
 assert b1 == 0 and s0 == 'abc' and one == 0 as nums
 
 // BRANCHING
-if b1 == 0
+if b1 == 0:
     assert true
-if b1 != 0 assert false
-if true {
+if b1 != 0: assert false
+if true
+{
     var b1 = 4
     assert b1 == 4
 }
 assert b1 == 0
 
-if b1 == 0 assert true
-else assert false
+if b1 == 0:
+// Huh?
+    assert true
+else: assert false
 if b1 != 0
     { assert false }
 // Hmmmm
-else
+else {
 
 // Hm?
-    { assert true }
+    assert true
+    }
 
-if b1 == 0 assert true
-elif b1 == 1 assert false
+if b1 == 0: assert true
+elif b1 == 1: assert false
 elif b1 == 2
 {
     // Hm...
     
     assert false
 }
-else
+else:
     assert false
 
-if b1 == 1 assert false
-elif b1 == 0 ; assert true
-elif b1 == 2 ; assert false
+if b1 == 1: assert false
+elif b1 == 0: ; assert true
+elif b1 == 2: assert false
 
-else
+else:
     ; ;
     assert false
 
-if b1 == 1 assert false
-elif b1 == 2 assert false
-elif b1 == 0 assert true
-else assert false
+if b1 == 1: assert false
+elif b1 == 2: assert false
+elif b1 == 0: assert true
+else: assert false
 
-if b1 == 1 assert false
-elif b1 == 2 assert false
-elif b1 == 3 assert false
-else assert true
+if b1 == 1: assert false
+elif b1 == 2: assert false
+elif b1 == 3: assert false
+else: assert true
 
-if b1 == 1 assert false
-elif b1 == 0 assert true
-elif b1 == 3 assert false
+if b1 == 1: assert false
+elif b1 == 0: assert true
+elif b1 == 3: assert false
 
 case b1
 {
-    1:      assert false
-    0:      assert true
-    else    assert false
+    1:
+        assert false
+    0:
+        begin {
+            assert true
+        }
+    else:   assert false
 }
 
 case b1
 {
-    1:      assert false
-    0, 2:   assert true
-    else    assert false
+    1
+        {
+            assert false
+        }
+    0, 2:
+        assert true
+    else:
+        assert false
 }
 
 case b1
@@ -320,9 +336,9 @@ case b1
 case b1
 {
     1: assert false
-    2:
+    2
         { assert false }
-    else assert true
+    else: assert true
 }
 
 case s0
@@ -335,8 +351,7 @@ case typeof s0
 {
     str: assert true
     int: assert false
-    else
-    {
+    else {
         assert false
     }
 }
@@ -353,7 +368,7 @@ while wi < 3
 }
 assert wi == 3
 
-while wi < 3
+while wi < 3:
     assert false
 
 while wi < 6
@@ -446,7 +461,7 @@ vinc(loc3)
 assert loc3 == 4
 
 /*
-def state point(int _x, int _y)
+def self point(int _x, int _y)
 {
     int x = _x
     int y = _y
