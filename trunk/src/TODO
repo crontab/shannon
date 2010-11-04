@@ -4,7 +4,7 @@
 
 * for loop: allow types, also range as an exception can have variable  
   boundaries. E.g. for i = a ... Iterators for all container types.
-  Iterators should lock the container to prevent modification.
+  Iterators should lock the container to prevent modification (?)
 
 * Functions: function pointers, indirect calls, method calls; anonymous
   functions are always static (?)
