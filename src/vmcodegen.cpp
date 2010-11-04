@@ -221,11 +221,13 @@ Type* CodeGen::tryUndoTypeRef()
 memint CodeGen::prolog()
 {
     memint offs = getCurrentOffs();
+/*
     if (isCompileTime())
         ;
     else if (codeOwner->isStatic())
         // Static states don't need any prologs
         ;
+*/
     if (codeOwner->isConstructor())
         // Constructors receive a new object in the return var, so they simply
         // need to load the varbase into 'self'
@@ -594,6 +596,8 @@ void CodeGen::loadSubvec()
 
 void CodeGen::length()
 {
+    // TODO: maybe # should also work for ordinal types, i.e. return the number
+    // of elements, but then what about ints? That number would overflow.
     Type* type = stkTop();
     if (type->isNullCont())
     {
