@@ -33,6 +33,7 @@ context default
 	keyword whole return		yellow
 	keyword whole shl		yellow
 	keyword whole shr		yellow
+	keyword whole switch		yellow
 	keyword whole this		yellow
 	keyword whole typeof		yellow
 	keyword whole var		yellow
