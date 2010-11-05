@@ -978,8 +978,8 @@ void Module::dump(fifo& stm) const
 }
 
 
-void Module::addUses(Module* m)
-    { uses.push_back(addSelfVar(m->getName(), m)); }
+void Module::addUsedModule(Module* m)
+    { usedModuleInsts.push_back(addSelfVar(m->getName(), m)); }
 
 
 void Module::registerString(str& s)
