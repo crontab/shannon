@@ -721,9 +721,9 @@ void ModuleInstance::run(Context* context, rtstack& stack)
 
     // Assign module vars. This allows to generate code that accesses module
     // static data by variable id, so that code is context-independent
-    for (memint i = 0; i < module->uses.size(); i++)
+    for (memint i = 0; i < module->usedModuleInsts.size(); i++)
     {
-        SelfVar* v = module->uses[i];
+        SelfVar* v = module->usedModuleInsts[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
         *obj->member(v->id) = o;
     }

@@ -138,7 +138,7 @@ class Scope
     friend void test_typesys();
 protected:
     bool const local;
-    symtbl<Symbol> symbols;         // symbol table for search
+    symtbl<Symbol> symbols;          // symbol table for search
 public:
     Scope* const outer;
     Scope(bool local, Scope* outer);
@@ -161,7 +161,7 @@ public:
     BlockScope(Scope* outer, CodeGen*);
     ~BlockScope();
     LocalVar* addLocalVar(const str&, Type*);
-    void deinitLocals();
+    void deinitLocals();    // generates POPs via CodeGen (currently used only in AutoScope)
 };
 
 
@@ -177,6 +177,11 @@ class Type: public rtobject
     friend class State;
     friend class Reference; // for access to dump()
 public:
+
+#if defined(BOOL) || defined(CHAR) || defined(INT)
+#  error "I don't like your macro names and I'm not going to change mine."
+#endif
+
     enum TypeId {
         TYPEREF, VOID, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
@@ -469,14 +474,14 @@ protected:
     bool complete;
 public:
     str const filePath;
-    objvec<SelfVar> uses; // used module instances are stored in static vars
+    objvec<SelfVar> usedModuleInsts; // used module instances are stored in static vars
     Module(const str& name, const str& filePath);
     ~Module();
     void dump(fifo&) const;
     str getName() const         { return defName; }
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
-    void addUses(Module*);
+    void addUsedModule(Module*);
     void registerString(str&); // registers a string literal for use at run-time
     void registerCodeSeg(CodeSeg* c);
 };

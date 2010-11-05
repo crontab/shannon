@@ -397,7 +397,7 @@ void Compiler::stateBody(State* newState)
 void Compiler::compileModule()
 {
     // The system module is always added implicitly
-    module.addUses(queenBee);
+    module.addUsedModule(queenBee);
     // Start parsing and code generation
     CodeGen mainCodeGen(*module.getCodeSeg(), &module, false);
     codegen = &mainCodeGen;
