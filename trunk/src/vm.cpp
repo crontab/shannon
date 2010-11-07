@@ -618,7 +618,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             }
             break;
 
-        case opSelfCall:
+        case opChildCall:
             callOuter = self;
 doStaticCall:
             {
@@ -629,11 +629,8 @@ doStaticCall:
                     POP();
             }
             break;
-        case opOuterCall:
+        case opLocalCall:
             callOuter = outer;
-            goto doStaticCall;
-        case opStaticCall:
-            callOuter = NULL;
             goto doStaticCall;
 
 

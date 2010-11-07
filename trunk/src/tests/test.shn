@@ -414,9 +414,22 @@ def inc = int *(int i)
     inc_call_count = inc_call_count + 1
 }
 
+var rr1 = inc(5)
+assert rr1 == 6
+assert inc_call_count == 1
+
+inc(9)
+assert inc_call_count == 2
+
+def void nested_inc_test()
+{
+    var t = inc(10)
+    assert t == 11
+    assert inc_call_count == 3
+}
+
 def confusing_proto = int *[]()
     { }
-
 
 var str2 = ''
 
@@ -431,12 +444,6 @@ def int avg(int a, int b, str s)
     str2 = s
 }
 
-var rr1 = inc(5)
-assert rr1 == 6
-assert inc_call_count == 1
-
-inc(9)
-assert inc_call_count == 2
 
 vfunc('Hey')
 assert str2 == 'Hey'
@@ -465,6 +472,19 @@ var int loc3^ = 3
 def void vinc(int i^) { i = i + 1 }
 vinc(loc3)
 assert loc3 == 4
+
+var vn1 = 1
+
+def void nested1(int vn2)
+{
+    var vn6 = __program_result
+    var vn3 = 3
+    def void nested2(int vn4)
+    {
+        // var vn5 = vn1
+    }
+}
+
 
 /*
 def self point(int _x, int _y)

@@ -228,8 +228,7 @@ memint CodeGen::prolog()
         // to load the varbase into 'self'
         addOp<char>(opEnterCtor, codeOwner->returnVar->id);
     else if (codeOwner->isStatic())
-        // Static functions don't need any prologs
-        ;
+        notimpl();
     else
         // All other functions need to create their frames. The size of the frame
         // though is not known at this point, will be resolved later in epilog()
@@ -246,7 +245,7 @@ void CodeGen::epilog(memint prologOffs)
     else if (codeOwner->isConstructor())
         ;
     else if (codeOwner->isStatic())
-        ;
+        notimpl();
     else
     {
         if (selfVarCount == 0)
@@ -1084,11 +1083,11 @@ void CodeGen::call(State* callee)
 {
     OpCode op = opInv;
     if (callee->isStatic())
-        op = opStaticCall;
+        notimpl();
     else if (codeOwner->parent == callee->parent)
-        op = opOuterCall;
+        op = opLocalCall;
     else if (callee->parent == codeOwner)
-        op = opSelfCall;
+        op = opChildCall;
     else
         error("Call can not be performed within this context");
 
