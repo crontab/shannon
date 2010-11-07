@@ -808,9 +808,9 @@ Module* State::getParentModule()
 
 void State::dump(fifo& stm) const
 {
-    stm << "(state ";
+    stm << '(';
     prototype->dump(stm);
-    stm << ')';
+    stm << " {...})";
 }
 
 

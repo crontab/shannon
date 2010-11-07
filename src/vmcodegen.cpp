@@ -221,17 +221,15 @@ Type* CodeGen::tryUndoTypeRef()
 memint CodeGen::prolog()
 {
     memint offs = getCurrentOffs();
-/*
     if (isCompileTime())
         ;
-    else if (codeOwner->isStatic())
-        // Static states don't need any prologs
-        ;
-*/
-    if (codeOwner->isConstructor())
-        // Constructors receive a new object in the return var, so they simply
-        // need to load the varbase into 'self'
+    else if (codeOwner->isConstructor())
+        // Constructors receive a new object in the return var, so they need
+        // to load the varbase into 'self'
         addOp<char>(opEnterCtor, codeOwner->returnVar->id);
+    else if (codeOwner->isStatic())
+        // Static functions don't need any prologs
+        ;
     else
         // All other functions need to create their frames. The size of the frame
         // though is not known at this point, will be resolved later in epilog()
@@ -245,9 +243,9 @@ void CodeGen::epilog(memint prologOffs)
     memint selfVarCount = codeOwner->selfVarCount();
     if (isCompileTime())
         ;
-    else if (codeOwner->isStatic())
-        ;
     else if (codeOwner->isConstructor())
+        ;
+    else if (codeOwner->isStatic())
         ;
     else
     {
