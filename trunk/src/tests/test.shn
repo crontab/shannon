@@ -414,6 +414,9 @@ def inc = int *(int i)
     inc_call_count = inc_call_count + 1
 }
 
+def confusing_proto = int *[]()
+    { }
+
 
 var str2 = ''
 
