@@ -218,47 +218,6 @@ Type* CodeGen::tryUndoTypeRef()
 }
 
 
-memint CodeGen::prolog()
-{
-    memint offs = getCurrentOffs();
-    if (isCompileTime())
-        ;
-    else if (codeOwner->isConstructor())
-        // Constructors receive a new object in the return var, so they need
-        // to load the varbase into 'self'
-        addOp<char>(opEnterCtor, codeOwner->returnVar->id);
-    else if (codeOwner->isStatic())
-        notimpl();
-    else
-        // All other functions need to create their frames. The size of the frame
-        // though is not known at this point, will be resolved later in epilog()
-        addOp<uchar>(opEnter, 0);
-    return offs;
-}
-
-
-void CodeGen::epilog(memint prologOffs)
-{
-    memint selfVarCount = codeOwner->selfVarCount();
-    if (isCompileTime())
-        ;
-    else if (codeOwner->isConstructor())
-        ;
-    else if (codeOwner->isStatic())
-        notimpl();
-    else
-    {
-        if (selfVarCount == 0)
-            codeseg.eraseOp(prologOffs);
-        else
-        {
-            addOp<uchar>(opLeave, selfVarCount);
-            codeseg.atw<uchar>(prologOffs + 1) = uchar(selfVarCount);
-        }
-    }
-}
-
-
 bool CodeGen::deref()
 {
     Type* type = stkTop();
@@ -1079,16 +1038,58 @@ void CodeGen::deleteContainerElem()
 }
 
 
+memint CodeGen::prolog()
+{
+    memint offs = getCurrentOffs();
+    if (isCompileTime())
+        ;
+    else if (codeOwner->isConstructor())
+        // Constructors receive a new object in the return var, so they need
+        // to load the varbase into 'self'
+        addOp<char>(opEnterCtor, codeOwner->returnVar->id);
+    else if (codeOwner->isStatic())
+        notimpl();
+    else
+        // All other functions need to create their frames. The size of the frame
+        // though is not known at this point, will be resolved later in epilog()
+        addOp<uchar>(opEnter, 0);
+    return offs;
+}
+
+
+void CodeGen::epilog(memint prologOffs)
+{
+    memint selfVarCount = codeOwner->selfVarCount();
+    if (isCompileTime())
+        ;
+    else if (codeOwner->isConstructor())
+        ;
+    else if (codeOwner->isStatic())
+        notimpl();
+    else
+    {
+        if (selfVarCount == 0)
+            codeseg.eraseOp(prologOffs);
+        else
+        {
+            addOp<uchar>(opLeave, selfVarCount);
+            codeseg.atw<uchar>(prologOffs + 1) = uchar(selfVarCount);
+        }
+    }
+}
+
+
 void CodeGen::call(State* callee)
 {
     OpCode op = opInv;
     if (callee->isStatic())
         notimpl();
     else if (codeOwner->parent == callee->parent)
-        op = opLocalCall;
+        op = opSiblingCall;
     else if (callee->parent == codeOwner)
         op = opChildCall;
     else
+        // TODO: calls from within deeply nested functions - how?
         error("Call can not be performed within this context");
 
     for (memint i = callee->args.size(); i--; )

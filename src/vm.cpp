@@ -107,6 +107,8 @@ static void byteDictDelete(varvec& v, integer i)
 
 // #define PUSHT(t,v) { ::new(++stk) variant(variant::Type(t), v); }
 
+#define PUSHN() { ::new(++stk) variant(); }
+
 #define POP() \
     { (*stk--).~variant(); }
 
@@ -124,7 +126,7 @@ template <class T>
         { ::new(dest) variant(v); }
 
 
-void runRabbitRun(variant* outer, variant* bp, register const char* ip)
+void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const char* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = bp - 1;
@@ -142,8 +144,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
         case opEnter:
-            self = stk + 1;
-            stk += ADV(uchar);
+            self = bp;
+            for (memint i = ADV(uchar); i--; )
+                PUSHN();
+            // stk += ADV(uchar);
             break;
         case opLeave:
             for (memint i = ADV(uchar); i--; )
@@ -620,18 +624,18 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
         case opChildCall:
             callOuter = self;
-doStaticCall:
+doNearCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(callOuter, stk + 1, state->getCode());
+                runRabbitRun(dataseg, callOuter, stk + 1, state->getCode());
                 memint argCount = state->popArgCount;
                 while (argCount--)
                     POP();
             }
             break;
-        case opLocalCall:
+        case opSiblingCall:
             callOuter = outer;
-            goto doStaticCall;
+            goto doNearCall;
 
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
@@ -693,7 +697,7 @@ Type* CodeGen::runConstExpr(Type* resultType, variant& result)
     stack.push(variant::null);  // storage for the return value
     try
     {
-        runRabbitRun(NULL, stack.bp, codeseg.getCode());
+        runRabbitRun(NULL, NULL, stack.bp, codeseg.getCode());
     }
     catch (exception&)
     {
@@ -729,7 +733,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     stack.push(obj.get());
     try
     {
-        runRabbitRun(obj->varbase(), stack.bp, module->getCode());
+        runRabbitRun(obj, obj->varbase(), stack.bp, module->getCode());
     }
     catch (exception&)
     {

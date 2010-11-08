@@ -170,7 +170,7 @@ enum OpCode
 
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
-    opLocalCall,        // [State*] -var -var ... +var
+    opSiblingCall,      // [State*] -var -var ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -198,7 +198,7 @@ inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
 inline bool isCaller(OpCode op)
-    { return op >= opChildCall && op <= opLocalCall; }
+    { return op >= opChildCall && op <= opSiblingCall; }
 
 
 // --- OpCode Info
@@ -488,9 +488,11 @@ public:
 // The Virtual Machine. This routine is used for both evaluating const
 // expressions at compile time and, obviously, running runtime code. It is
 // reenterant and can be launched concurrently in one process as long as
-// the arguments are thread safe.
+// the arguments are thread safe. It doesn't use any global/static data.
+// Besides, code segments never have any relocatble data elements, so that any
+// module can be reused in the multithreaded server environment too.
 
-void runRabbitRun(variant* outer, variant* bp, const char* code);
+void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, const char* code);
 
 
 struct eexit: public exception
