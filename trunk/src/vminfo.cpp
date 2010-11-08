@@ -166,7 +166,7 @@ OpInfo opTable[] =
     OP(JumpOr, Jump16),         // [dst 16] (-)bool
 
     OP(ChildCall, State),        // [State*] -var -var ... +var
-    OP(LocalCall, State),        // [State*] -var -var ... +var
+    OP(SiblingCall, State),      // [State*] -var -var ... +var
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]
