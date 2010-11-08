@@ -116,9 +116,9 @@ void Compiler::identifier(const str& ident)
     while (sc != NULL);
 
     // Look up in used modules; search backwards
-    for (memint i = module.usedModuleInsts.size(); i--; )
+    for (memint i = module->usedModuleInsts.size(); i--; )
     {
-        SelfVar* m = module.usedModuleInsts[i];
+        SelfVar* m = module->usedModuleInsts[i];
         Symbol* sym = m->getModuleType()->find(ident);
         if (sym)
         {
@@ -283,7 +283,7 @@ void Compiler::atom(Type* typeHint)
             codegen->loadConst(queenBee->defChar, value[0]);
         else
         {
-            module.registerString(value);
+            module->registerString(value);
             codegen->loadConst(queenBee->defStr, value);
         }
         next();
@@ -636,7 +636,7 @@ ICouldHaveDoneThisWithoutGoto:
 Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 {
     CodeSeg constCode(NULL);
-    CodeGen constCodeGen(constCode, state, true);
+    CodeGen constCodeGen(constCode, module, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     Type* resultType = NULL;
     try

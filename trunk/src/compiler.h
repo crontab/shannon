@@ -42,7 +42,7 @@ class Compiler: protected Parser
 
 protected:
     Context& context;
-    Module& module;
+    Module* const module;
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols, can be local or state scope
     State* state;           // for this-vars, type objects and definitions
@@ -96,7 +96,7 @@ protected:
 
     void compileModule();
 
-    Compiler(Context&, Module&, buffifo*);
+    Compiler(Context&, Module*, buffifo*);
     ~Compiler();
 };
 

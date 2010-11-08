@@ -37,7 +37,7 @@ void Compiler::LoopInfo::resolveBreakJumps()
 }
 
 
-Compiler::Compiler(Context& c, Module& mod, buffifo* f)
+Compiler::Compiler(Context& c, Module* mod, buffifo* f)
     : Parser(f), context(c), module(mod), scope(NULL),
       state(NULL), loopInfo(NULL)  { }
 
@@ -183,7 +183,7 @@ void Compiler::assertion()
         next();
         expression(NULL);
         str s = endRecording();
-        module.registerString(s);
+        module->registerString(s);
         if (!context.options.lineNumbers)
             codegen->linenum(ln);
         codegen->assertion(s);
@@ -204,7 +204,7 @@ void Compiler::dumpVar()
             next();
             expression(NULL);
             str s = endRecording();
-            module.registerString(s);
+            module->registerString(s);
             codegen->dumpVar(s);
         }
         while (token == tokComma);
@@ -367,7 +367,7 @@ void Compiler::doIns()
 
 void Compiler::stateBody(State* newState)
 {
-    CodeGen newCodeGen(*newState->getCodeSeg(), newState, false);
+    CodeGen newCodeGen(*newState->getCodeSeg(), module, newState, false);
     CodeGen* saveCodeGen = exchange(codegen, &newCodeGen);
     State* saveState = exchange(state, newState);
     Scope* saveScope = exchange(scope, cast<Scope*>(newState));
@@ -390,18 +390,18 @@ void Compiler::stateBody(State* newState)
     state = saveState;
     codegen = saveCodeGen;
     newCodeGen.end();
-    module.registerCodeSeg(newState->getCodeSeg());
+    module->registerCodeSeg(newState->getCodeSeg());
 }
 
 
 void Compiler::compileModule()
 {
     // The system module is always added implicitly
-    module.addUsedModule(queenBee);
+    module->addUsedModule(queenBee);
     // Start parsing and code generation
-    CodeGen mainCodeGen(*module.getCodeSeg(), &module, false);
+    scope = state = module;
+    CodeGen mainCodeGen(*module->getCodeSeg(), module, state, false);
     codegen = &mainCodeGen;
-    scope = state = &module;
     loopInfo = NULL;
     try
     {
@@ -439,7 +439,7 @@ void Compiler::compileModule()
     }
 
     mainCodeGen.end();
-    module.registerCodeSeg(module.getCodeSeg());
-    module.setComplete();
+    module->registerCodeSeg(module->getCodeSeg());
+    module->setComplete();
 }
 

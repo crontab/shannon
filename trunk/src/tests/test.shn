@@ -473,6 +473,9 @@ def void vinc(int i^) { i = i + 1 }
 vinc(loc3)
 assert loc3 == 4
 
+
+// Nested functions
+
 var vn1 = 1
 
 def void nested1(int vn2)
@@ -481,9 +484,14 @@ def void nested1(int vn2)
     var vn3 = 3
     def void nested2(int vn4)
     {
-        // var vn5 = vn1
+        var vn5 = vn1
+        assert vn5 == 1
+        vn1 = 2
     }
+    nested2(5)
 }
+nested1(4)
+assert vn1 == 2
 
 
 /*
