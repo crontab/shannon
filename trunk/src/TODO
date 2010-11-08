@@ -3,17 +3,21 @@
   chars and vec elements
 
 * for loop: allow types, also range as an exception can have variable  
-  boundaries. E.g. for i = a ... Iterators for all container types.
-  Iterators should lock the container to prevent modification (?)
+  boundaries. E.g. `for i = a ...` Iterators for all container types.
+  Possibly also allow `for key, value = ...`.
+
+* Alternate syntax for string keys in dictionaries: dict->key. This will
+  work for dynamic states too (?). Also, the ability to iterate over all
+  state members with the 'for' operator - how?
 
 * Functions: function pointers, indirect calls, method calls; anonymous
   functions are always static (?)
 
-* So what keyword: 'class' or 'state'?
+* So what keyword: 'class' or 'state'? Or none?
 
 * return, goto
 
-* Tiny set implementation? Maybe
+* Tiny set implementation?
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
   How about containers?
@@ -72,9 +76,6 @@
 * Abstract module and module inheritance paradigm. Modules can be loaded
   at run time, but they should be inherited from some known module type.
   Database drivers can be written this way.
-
-* Alternate syntax for string keys in dictionaries: dict->key. This will
-  work for dynamic states too (?).
 
 * Have the code generator evaluate some operations at generation time if  
   possible.
