@@ -98,7 +98,9 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::identifier(const str& ident)
 {
-    // Go up the current scope hierarchy within the module
+    // Go up the current scope hierarchy within the module. Currently not
+    // everything is accessible even if found by the code below: an error
+    // will be thrown by the CodeGen in case a symbol can not be accessed.
     Scope* sc = scope;
     do
     {
