@@ -93,7 +93,7 @@ designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
     '(' [ actual-args ] ')' }
 
 atom ::= ident | number | string-literal | vec-ctor | dict-ctor | if-func |
-    typeof | type-spec | '(' expr ')'
+    typeof | type-spec | 'this' | '(' expr ')'
 
 vec-ctor ::= '[' [ expr { ',' expr } ] ']'
 

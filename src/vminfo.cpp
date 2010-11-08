@@ -36,6 +36,7 @@ OpInfo opTable[] =
     OP(LoadEmptyVar, VarType8), // [variant::Type:8] + var
     OP(LoadConst, Definition),  // [Definition*] +var
     OP(LoadThis, None),         // +stateobj
+    OP(LoadDataSeg, None),      // +module-obj
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var

@@ -189,6 +189,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLoadThis:
             PUSH(stateobj::objbase(outer));
             break;
+        case opLoadDataSeg:
+            PUSH(dataseg);
+            break;
 
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
@@ -803,7 +806,7 @@ Module* Context::loadModule(const str& filePath)
     str modName = moduleNameFromFileName(filePath);
     objptr<Module> m = new Module(modName, filePath);
     addModule(m);
-    Compiler compiler(*this, *m, new intext(NULL, filePath));
+    Compiler compiler(*this, m, new intext(NULL, filePath));
     compiler.compileModule();
     if (options.enableDump || options.vmListing)
         dump(remove_filename_ext(filePath) + ".lst");

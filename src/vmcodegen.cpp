@@ -2,8 +2,8 @@
 #include "vm.h"
 
 
-CodeGen::CodeGen(CodeSeg& c, State* treg, bool compileTime)
-    : codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
+CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
+    : codeOwner(c.getStateType()), module(m), typeReg(treg), codeseg(c), locals(0),
       lastOp(opInv), prevLoaderOffs(-1)
 {
     assert(treg != NULL);
@@ -388,6 +388,9 @@ void CodeGen::loadVariable(Variable* var)
 {
     assert(var->host != NULL);
     if (isCompileTime())
+        // Load an error message generator in case it gets executed; however
+        // this may be useful in expressions like typeof, where the value
+        // is not needed:
         addOp(var->type, opConstExprErr);
     else if (var->isLocalVar() && var->host == codeOwner)
     {
@@ -403,6 +406,11 @@ void CodeGen::loadVariable(Variable* var)
     {
         assert(var->id >= 0 && var->id <= 255);
         addOp<uchar>(var->type, opLoadOuterVar, var->id);
+    }
+    else if (var->isSelfVar() && var->host == module)
+    {
+        loadDataSeg();
+        loadMember(var);
     }
     else
         error("'" + var->name  + "' is not accessible within this context");
@@ -444,8 +452,7 @@ void CodeGen::loadMember(Variable* var)
     else
     {
         // TODO: check parent states too
-        if (!stateType->isAnyState() || var->host != stateType
-                || !var->isSelfVar())
+        if (!stateType->isAnyState() || var->host != stateType || !var->isSelfVar())
             error("Invalid member selection");
         assert(var->id >= 0 && var->id <= 255);
         addOp<uchar>(var->type, opLoadMember, var->id);
@@ -461,6 +468,14 @@ void CodeGen::loadThis()
         addOp(codeOwner->parent, opLoadThis);
     else
         error("'this' is not available within this context");
+}
+
+
+void CodeGen::loadDataSeg()
+{
+    if (isCompileTime())
+        error("Static data can not be accessed in const expressions");
+    addOp(module, opLoadDataSeg);
 }
 
 

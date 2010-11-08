@@ -31,6 +31,7 @@ enum OpCode
     opLoadEmptyVar,     // [variant::Type:u8] + var
     opLoadConst,        // [Definition*] +var
     opLoadThis,         // +stateobj
+    opLoadDataSeg,      // +module-obj
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -297,8 +298,9 @@ inline const char* State::getCode() const { return getCodeSeg()->getCode(); }
 class CodeGen: noncopyable
 {
 protected:
-    State* codeOwner;
-    State* typeReg;  // for calling registerType()
+    Module* const module;
+    State* const codeOwner;
+    State* const typeReg;  // for calling registerType()
     CodeSeg& codeseg;
 
     // TODO: keep at least ordinal consts so that some things can be evaluated
@@ -337,7 +339,7 @@ protected:
     memint prevLoaderOffs;
 
 public:
-    CodeGen(CodeSeg&, State* treg, bool compileTime);
+    CodeGen(CodeSeg&, Module* m, State* treg, bool compileTime);
     ~CodeGen();
 
     memint getStackLevel()      { return simStack.size(); }
@@ -376,6 +378,7 @@ public:
     void loadMember(Symbol* sym, memint* undoOffs);
     void loadMember(Variable*);
     void loadThis();
+    void loadDataSeg();
 
     void storeRet(Type*);
     void initLocalVar(LocalVar*);

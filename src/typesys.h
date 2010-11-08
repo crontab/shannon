@@ -483,7 +483,7 @@ public:
     void setComplete()          { complete = true; }
     void addUsedModule(Module*);
     void registerString(str&); // registers a string literal for use at run-time
-    void registerCodeSeg(CodeSeg* c);
+    void registerCodeSeg(CodeSeg* c); // collected here for dumps
 };
 
 
