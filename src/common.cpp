@@ -3,14 +3,13 @@
 #include "common.h"
 
 
-#ifdef DEBUG
-void _fatal(int code, const char*)
+void _fatal(int code, const char* msg)
 {
+#ifdef DEBUG
+    fprintf(stderr, "\nInternal 0x%04x: %s\n", code, msg);
     // We want to see the stack backtrace in XCode debugger
     assert(code == 0);
 #else
-void _fatal(int code, const char* msg)
-{
     fprintf(stderr, "\nInternal 0x%04x: %s\n", code, msg);
 #endif
     exit(100);

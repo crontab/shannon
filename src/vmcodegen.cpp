@@ -3,7 +3,7 @@
 
 
 CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
-    : codeOwner(c.getStateType()), module(m), typeReg(treg), codeseg(c), locals(0),
+    : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
       lastOp(opInv), prevLoaderOffs(-1)
 {
     assert(treg != NULL);
@@ -511,6 +511,13 @@ void CodeGen::initSelfVar(SelfVar* var)
 }
 
 
+void CodeGen::incLocalVar(LocalVar* var)
+{
+    assert(var->id >= 0 && var->id <= 127);
+    addOp<char>(opIncStkVar, var->id);
+}
+
+
 void CodeGen::loadContainerElem()
 {
     // This is square brackets op - can be string, vector, array or dictionary.
@@ -832,6 +839,15 @@ void CodeGen::_not()
 }
 
 
+void CodeGen::localVarGreaterThan(LocalVar* var)
+{
+    implicitCast(var->type, "Type mismatch in comparison");
+    stkPop();
+    assert(var->id >= 0 && var->id <= 127);
+    addOp<char>(queenBee->defBool, opStkVarGt, var->id);
+}
+
+
 memint CodeGen::boolJumpForward(OpCode op)
 {
     assert(isBoolJump(op));
@@ -901,7 +917,7 @@ void CodeGen::programExit()
 }
 
 
-// --- ASSIGNMENT
+// --- ASSIGNMENTS --------------------------------------------------------- //
 
 
 static void errorLValue()
@@ -1051,6 +1067,9 @@ void CodeGen::deleteContainerElem()
     codeseg.replaceOp(offs, deleter);
     stkPop();
 }
+
+
+// --- FUNCTIONS, CALLS ---------------------------------------------------- //
 
 
 memint CodeGen::prolog()

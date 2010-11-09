@@ -62,6 +62,7 @@ OpInfo opTable[] =
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
     // --- end grounded storers
+    OP(IncStkVar, StkIdx),      // [stk.idx:s8]
 
     // --- 5. DESIGNATOR OPS, MISC
     OP(MkSubrange, MkSubrange), // [Ordinal*, State*] -int -int +type  -- compile-time only
@@ -143,6 +144,10 @@ OpInfo opTable[] =
     OP(MulAssign, None),        // -int -ptr -obj
     OP(DivAssign, None),        // -int -ptr -obj
     OP(ModAssign, None),        // -int -ptr -obj
+    OP(ChrCatAssign, None),     // -char -ptr -obj
+    OP(StrCatAssign, None),     // -str -ptr -obj
+    OP(VarCatAssign, None),     // -var -ptr -obj
+    OP(VecCatAssign, None),     // -vec -ptr -obj
 
     // --- 10. BOOLEAN
     OP(CmpOrd, None),           // -int, -int, +{-1,0,1}
@@ -158,6 +163,7 @@ OpInfo opTable[] =
     OP(CaseRange, None),        // -int -int -int +int +bool
     OP(CaseStr, None),          // -str -str +str +bool
     OP(CaseVar, None),          // -var -var +var +bool
+    OP(StkVarGt, StkIdx),       // [stk.idx:s8] -int +bool
 
     // --- 11. JUMPS, CALLS
     OP(Jump, Jump16),           // [dst 16]

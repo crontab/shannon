@@ -1,4 +1,7 @@
 
+* Semicolon is not equivalent of an empty line; it should be a
+  statement separator so that you can have empty statements too.
+
 * Operator 'ins': implement inserting strings and vectors, not just
   chars and vec elements
 

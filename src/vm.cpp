@@ -38,7 +38,18 @@ void CodeSeg::close()
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
-static void invOpcode()                 { fatal(0x5002, "Invalid opcode"); }
+#ifdef DEBUG
+static void invOpcode(int code)
+{
+    str s = str("Invalid opcode: ") + to_string(code);
+    _fatal(0x5002, s.c_str());
+#else
+static void invOpcode(int)
+{
+    _fatal(0x5002);
+#endif
+}
+
 static void doExit(const variant& r)    { throw eexit(r); }
 
 
@@ -126,7 +137,7 @@ template <class T>
         { ::new(dest) variant(v); }
 
 
-void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const char* ip)
+void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const uchar* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = bp - 1;
@@ -145,9 +156,8 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opExit:            doExit(*stk); break;
         case opEnter:
             self = bp;
-            for (memint i = ADV(uchar); i--; )
+            for (memint i = ADV(uchar); i--; ) // memset() maybe?
                 PUSHN();
-            // stk += ADV(uchar);
             break;
         case opLeave:
             for (memint i = ADV(uchar); i--; )
@@ -220,11 +230,11 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             PUSH(self + ADV(uchar));
             break;
         case opLeaOuterVar:
-            PUSH((rtobject*)NULL);
+            PUSH((rtobject*)NULL);  // again, an outer var is "grounded" and thus locked too
             PUSH(outer + ADV(uchar));
             break;
         case opLeaStkVar:
-            PUSH((rtobject*)NULL);
+            PUSH((rtobject*)NULL);  // same for stack-local vars
             PUSH(bp + ADV(char));
             break;
         case opLeaMember:
@@ -260,6 +270,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             POP();
             break;
 
+        case opIncStkVar:
+            ((bp + ADV(char))->_int())++;
+            break;
 
         // --- 5. DESIGNATOR OPS, MISC ---------------------------------------
         case opMkSubrange:
@@ -582,6 +595,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opCaseStr:     *stk = int(stk->_str() == (stk - 1)->_str()); break;
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
+        // TODO: taking the local var index is not really necessary, the for control
+        // variable is always just below the current stack top
+        case opStkVarGt:    *stk = int((bp + ADV(char))->_int() > stk->_int()); break;
+
 
         // --- 11. JUMPS, CALLS ----------------------------------------------
         case opJump:
@@ -664,7 +681,7 @@ doNearCall:
 
         case opInv:  // silence the opcode checkers (opcodes.sh in particular)
         default:
-            invOpcode();
+            invOpcode(uchar(*(ip - 1)));
             break;
         }
         goto loop;

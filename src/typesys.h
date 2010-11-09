@@ -459,7 +459,7 @@ public:
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
-    const char* getCode() const;
+    const uchar* getCode() const;
 };
 
 
