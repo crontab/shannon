@@ -59,6 +59,7 @@ enum OpCode
     opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
     // --- end grounded storers
+    opIncStkVar,        // [stk.idx:s8] -- for loop helper
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*, State*] -int -int +type  -- compile-time only
@@ -142,6 +143,11 @@ enum OpCode
     opMulAssign,        // -int -ptr -obj
     opDivAssign,        // -int -ptr -obj
     opModAssign,        // -int -ptr -obj
+    // In-place vector concat
+    opChrCatAssign,     // -char -ptr -obj
+    opStrCatAssign,     // -str -ptr -obj
+    opVarCatAssign,     // -var -ptr -obj
+    opVecCatAssign,     // -vec -ptr -obj
 
     // --- 10. BOOLEAN
     opCmpOrd,           // -int -int +{-1,0,1}
@@ -159,6 +165,8 @@ enum OpCode
     opCaseRange,        // -int -int -int +int +bool
     opCaseStr,          // -str -str +str +bool
     opCaseVar,          // -var -var +var +bool
+    // for loop helpers
+    opStkVarGt,         // [stk.idx:s8] -int +bool
 
     // --- 11. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
@@ -260,7 +268,7 @@ protected:
         T at(memint i) const            { return *(T*)code.data(i); }
     template<class T>
         T& atw(memint i)                { return *(T*)code.atw(i); }
-    OpCode operator[](memint i) const   { return OpCode(code.at(i)); }
+    OpCode operator[](memint i) const   { return OpCode(uchar(code.at(i))); }
     void replaceOp(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
 
     static inline memint oplen(OpCode op)
@@ -275,7 +283,7 @@ public:
     bool empty() const                  { return code.empty(); }
     void close();
 
-    const char* getCode() const         { assert(closed); return code.data(); }
+    const uchar* getCode() const        { assert(closed); return (uchar*)code.data(); }
     void dump(fifo& stm) const;  // in vminfo.cpp
 };
 
@@ -289,7 +297,7 @@ template<> OpCode& CodeSeg::atw<OpCode>(memint i);
 
 
 inline CodeSeg* State::getCodeSeg() const { return cast<CodeSeg*>(codeseg.get()); }
-inline const char* State::getCode() const { return getCodeSeg()->getCode(); }
+inline const uchar* State::getCode() const { return getCodeSeg()->getCode(); }
 
 
 // --- Code Generator ------------------------------------------------------ //
@@ -383,6 +391,7 @@ public:
     void storeRet(Type*);
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
+    void incLocalVar(LocalVar*);
 
     Container* elemToVec(Container*);
     void elemCat();
@@ -409,6 +418,7 @@ public:
     void caseInRange()
         { inRange(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
+    void localVarGreaterThan(LocalVar*);
 
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode = opJump);
@@ -495,7 +505,7 @@ public:
 // Besides, code segments never have any relocatble data elements, so that any
 // module can be reused in the multithreaded server environment too.
 
-void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, const char* code);
+void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, const uchar* code);
 
 
 struct eexit: public exception

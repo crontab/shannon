@@ -14,7 +14,7 @@ Compiler::AutoScope::AutoScope(Compiler& c)
 
 
 Compiler::AutoScope::~AutoScope()
-        { deinitLocals(); compiler.scope = outer; }
+        { compiler.scope = outer; }
 
 
 Compiler::LoopInfo::LoopInfo(Compiler& c)
@@ -123,6 +123,7 @@ void Compiler::block()
         statementList(false);
         skipMultiBlockEnd();
     }
+    local.deinitLocals();
     skipAnySeps();
 }
 
@@ -143,6 +144,8 @@ void Compiler::singleStatement()
         switchBlock();
     else if (skipIf(tokWhile))
         whileBlock();
+    else if (skipIf(tokFor))
+        forBlock();
     else if (skipIf(tokContinue))
         doContinue();
     else if (skipIf(tokBreak))
@@ -250,6 +253,7 @@ void Compiler::otherStatement()
         expression(codegen->getTopType());
         codegen->assignment(storerCode);
     }
+    // TODO: string/vector cat
 
     skipSep();
 
@@ -313,6 +317,7 @@ void Compiler::switchBlock()
     codegen->initLocalVar(ctlVar);
     skipMultiBlockBegin("'{'");
     caseLabel(ctlType);
+    local.deinitLocals();
     skipMultiBlockEnd();
 }
 
@@ -326,6 +331,37 @@ void Compiler::whileBlock()
     codegen->jump(loop.continueTarget);
     codegen->resolveJump(out);
     loop.resolveBreakJumps();
+}
+
+
+void Compiler::forBlock()
+{
+    AutoScope local(*this);
+    str ident = getIdentifier();
+    expect(tokAssign, "'='");
+    expression(NULL);
+    Type* iterType = codegen->getTopType();
+    if (iterType->isAnyOrd())
+    {
+        expect(tokRange, "'..'");
+
+        LocalVar* var = local.addLocalVar(ident, iterType);
+        codegen->initLocalVar(var);
+
+        LoopInfo loop(*this);
+        expression(iterType);
+        codegen->localVarGreaterThan(var);
+        memint out = codegen->boolJumpForward(opJumpTrue);
+        block();
+        codegen->incLocalVar(var);
+        codegen->jump(loop.continueTarget);
+        codegen->resolveJump(out);
+        loop.resolveBreakJumps();
+    }
+    else
+        // TODO: vector, dict, set iterators
+        error("Invalid iterator type in 'for' statement");
+    local.deinitLocals();
 }
 
 

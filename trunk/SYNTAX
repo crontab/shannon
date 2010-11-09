@@ -19,7 +19,7 @@
 program ::= { statement } <EOF>
 
 statement ::= definition | var-def | sub-block | builtin | other-statement |
-     if-block | case-block | while-block | 'break' | 'continue' |
+     if-block | case-block | while-block | for-block | 'break' | 'continue' |
      delete | insert
 
 block ::= single-block | multi-block
@@ -53,6 +53,8 @@ case-label ::= case-range { ',' case-range } block
 case-range ::= expr [ '..' expr ]
 
 while-block ::= 'while' expr block
+
+for-block ::= 'for' ident '=' expr [ '..' expr ] block
 
 delete ::= 'del' designator
 

@@ -402,6 +402,30 @@ while wi < 100
 
 assert wi == 8
 
+
+// FOR LOOP
+
+var fori = 10
+for i = 10..20
+{
+    assert fori == i
+    fori += 1
+}
+assert fori == 21
+
+for i = 1..1:
+    fori += 1
+assert fori == 22
+for i = 0..-1: assert false
+
+for i = one..three:
+    fori += 1
+assert fori == 25
+
+for i = 'A'..'Z':
+    fori += 1
+assert fori == 51
+
 // STATES
 
 // def proto1 = int *(int a, int b)
