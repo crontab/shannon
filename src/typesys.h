@@ -333,6 +333,8 @@ public:
         { return left == 0 && right == 1; }
     bool isFullChar() const
         { return isChar() && left == 0 && right == 255; }
+    integer getRange() const
+        { return right - left + 1; }
     Ordinal* createSubrange(integer, integer);
 };
 

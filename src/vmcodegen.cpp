@@ -864,6 +864,15 @@ void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 }
 
 
+void CodeGen::boolJump(memint target, OpCode op)
+{
+    assert(isBoolJump(op));
+    implicitCast(queenBee->defBool, "Boolean expression expected");
+    stkPop();
+    _jump(target, op);
+}
+
+
 memint CodeGen::boolJumpForward(OpCode op)
 {
     assert(isBoolJump(op));
@@ -893,13 +902,13 @@ void CodeGen::resolveJump(memint target)
 }
 
 
-void CodeGen::jump(memint target)
+void CodeGen::_jump(memint target, OpCode op)
 {
     assert(target <= getCurrentOffs() - 1 - memint(sizeof(jumpoffs)));
     memint offs = target - (getCurrentOffs() + 1 + memint(sizeof(jumpoffs)));
     if (offs < -32768)
         error("Jump target is too far away");
-    addOp<jumpoffs>(opJump, jumpoffs(offs));
+    addOp<jumpoffs>(op, jumpoffs(offs));
 }
 
 

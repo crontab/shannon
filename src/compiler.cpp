@@ -341,8 +341,10 @@ void Compiler::whileBlock()
 }
 
 
-void Compiler::forBlockTail(LocalVar* ctlVar, memint outJumpOffs)
+void Compiler::forBlockTail(LocalVar* ctlVar, memint outJumpOffs, memint incJumpOffs)
 {
+    if (incJumpOffs >= 0)
+        codegen->resolveJump(incJumpOffs);
     codegen->incLocalVar(ctlVar);
     codegen->jump(loopInfo->continueTarget);
     codegen->resolveJump(outJumpOffs);
@@ -361,6 +363,7 @@ void Compiler::forBlock()
     expression(NULL);
     Type* iterType = codegen->getTopType();
 
+    // Simple integer range iteration
     if (iterType->isAnyOrd())
     {
         if (!ident2.empty())
@@ -377,9 +380,10 @@ void Compiler::forBlock()
         }
     }
 
+    // Vector iterator
     else if (iterType->isAnyVec())
     {
-        LocalVar* vecVar = local.addInitLocalVar("__iter", iterType);
+        LocalVar* vecVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, iterType);
         codegen->loadConst(queenBee->defInt, 0);
         LocalVar* ctlVar = local.addInitLocalVar(ident, queenBee->defInt);
         {
@@ -391,6 +395,7 @@ void Compiler::forBlock()
             if (!ident2.empty())
             {
                 AutoScope inner(this);
+                // TODO: optimize this?
                 codegen->loadVariable(vecVar);
                 codegen->loadVariable(ctlVar);
                 codegen->loadContainerElem();
@@ -401,6 +406,30 @@ void Compiler::forBlock()
             else
                 block();
             forBlockTail(ctlVar, out);
+        }
+    }
+
+    else if (iterType->isByteSet())
+    {
+        if (!ident2.empty())
+            error("Key/value pair is not allowed for set loops");
+        Container* setType = PContainer(iterType);
+        Ordinal* idxType = POrdinal(setType->index);
+        LocalVar* setVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, setType);
+        codegen->loadConst(idxType, idxType->left);
+        LocalVar* idxVar = local.addInitLocalVar(ident, idxType);
+        {
+            LoopInfo loop(*this);
+            codegen->loadConst(idxType, idxType->right);
+            codegen->localVarCmp(idxVar, opGreaterThan);
+            memint out = codegen->boolJumpForward(opJumpTrue);
+            // TODO: optimize this?
+            codegen->loadVariable(idxVar);
+            codegen->loadVariable(setVar);
+            codegen->inCont();
+            memint inc = codegen->boolJumpForward(opJumpFalse);
+            block();
+            forBlockTail(idxVar, out, inc);
         }
     }
 
