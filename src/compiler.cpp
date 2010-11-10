@@ -409,26 +409,47 @@ void Compiler::forBlock()
         }
     }
 
-    else if (iterType->isByteSet())
+    else if (iterType->isByteSet() || iterType->isByteDict())
     {
-        if (!ident2.empty())
+        if (iterType->isByteSet() && !ident2.empty())
             error("Key/value pair is not allowed for set loops");
-        Container* setType = PContainer(iterType);
-        Ordinal* idxType = POrdinal(setType->index);
-        LocalVar* setVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, setType);
+        Container* contType = PContainer(iterType);
+        Ordinal* idxType = POrdinal(contType->index);
+        LocalVar* contVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, contType);
         codegen->loadConst(idxType, idxType->left);
         LocalVar* idxVar = local.addInitLocalVar(ident, idxType);
         {
             LoopInfo loop(*this);
-            codegen->loadConst(idxType, idxType->right);
-            codegen->localVarCmp(idxVar, opGreaterThan);
+            if (iterType->isByteSet())
+            {
+                codegen->loadConst(idxType, idxType->right);
+                codegen->localVarCmp(idxVar, opGreaterThan);
+            }
+            else
+            {
+                codegen->loadVariable(contVar);
+                codegen->length();
+                codegen->localVarCmp(idxVar, opGreaterEq);
+            }
             memint out = codegen->boolJumpForward(opJumpTrue);
             // TODO: optimize this?
             codegen->loadVariable(idxVar);
-            codegen->loadVariable(setVar);
+            codegen->loadVariable(contVar);
             codegen->inCont();
             memint inc = codegen->boolJumpForward(opJumpFalse);
-            block();
+            if (!ident2.empty()) // dict only
+            {
+                AutoScope inner(this);
+                // TODO: optimize this?
+                codegen->loadVariable(contVar);
+                codegen->loadVariable(idxVar);
+                codegen->loadContainerElem();
+                inner.addInitLocalVar(ident2, contType->elem);
+                block();
+                inner.deinitLocals();
+            }
+            else
+                block();
             forBlockTail(idxVar, out, inc);
         }
     }

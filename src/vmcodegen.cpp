@@ -592,7 +592,8 @@ void CodeGen::length()
         undoLoader();
         loadConst(queenBee->defInt, 0);
     }
-    else if (type->isAnyVec())
+    else if (type->isAnyVec() || type->isByteDict())
+    // NOTE: # for byte dicts is not a language feature, it's needed for 'for' loops
     {
         stkPop();
         addOp(queenBee->defInt, type->isByteVec() ? opStrLen : opVecLen);
@@ -851,7 +852,9 @@ void CodeGen::_not()
 
 void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 {
-    implicitCast(var->type, "Type mismatch in comparison");
+    // implicitCast(var->type, "Type mismatch in comparison");
+    if (!stkTop()->isAnyOrd() || !var->type->isAnyOrd())
+        fatal(0x6007, "localVarCmp(): unsupported type");
     stkPop();
     if (op == opGreaterThan)
         op = opStkVarGt;
