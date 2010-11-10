@@ -450,6 +450,18 @@ for i, j = [10, 20, 30]
 }
 assert fori == 66
 
+for i = {'A'..'C'}
+{
+    fori += 1
+}
+assert fori == 69
+
+for i = {one..three}
+{
+    fori += 1
+}
+assert fori == 72
+
 
 // STATES
 

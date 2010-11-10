@@ -89,7 +89,7 @@ protected:
     void caseLabel(Type*);
     void switchBlock();
     void whileBlock();
-    void forBlockTail(LocalVar*, memint);
+    void forBlockTail(LocalVar*, memint outJumpOffs, memint incJumpOffs = -1);
     void forBlock();
     void doContinue();
     void doBreak();
@@ -102,6 +102,9 @@ protected:
     Compiler(Context&, Module*, buffifo*);
     ~Compiler();
 };
+
+
+#define LOCAL_ITERATOR_NAME "__iter"
 
 
 #endif // __COMPILER_H

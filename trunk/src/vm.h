@@ -422,10 +422,13 @@ public:
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
     void localVarCmp(LocalVar*, OpCode);
 
+    void boolJump(memint target, OpCode op);
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode = opJump);
     void resolveJump(memint target);
-    void jump(memint target);
+    void _jump(memint target, OpCode op = opJump);
+    void jump(memint target)
+        { _jump(target, opJump); }
     void linenum(integer);
     void assertion(const str& cond);
     void dumpVar(const str& expr);
