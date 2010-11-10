@@ -463,6 +463,20 @@ for i = {one..three}
 assert fori == 72
 
 
+for i = {'A' = 10, 'B' = 20}
+{
+    fori += 1
+}
+assert fori == 74
+
+for i, j = {'A' = 10, 'B' = 20}
+{
+    fori += 1
+    if i == 'B': assert j == 20
+}
+assert fori == 76
+
+
 // STATES
 
 // def proto1 = int *(int a, int b)
