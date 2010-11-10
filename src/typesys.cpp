@@ -36,8 +36,8 @@ void Symbol::dump(fifo& stm) const
 }
 
 
-bool Symbol::isTypeAlias() const
-    { return isDefinition() && PDefinition(this)->getAliasedType() != NULL; }
+// bool Symbol::isTypeAlias() const
+//     { return isAnyDef() && PDefinition(this)->getAliasedType() != NULL; }
 
 
 // --- //

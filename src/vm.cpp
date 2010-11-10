@@ -595,9 +595,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opCaseStr:     *stk = int(stk->_str() == (stk - 1)->_str()); break;
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
-        // TODO: taking the local var index is not really necessary, the for control
-        // variable is always just below the current stack top
+        // Loop helpers
         case opStkVarGt:    *stk = int((bp + ADV(char))->_int() > stk->_int()); break;
+        case opStkVarGe:    *stk = int((bp + ADV(char))->_int() >= stk->_int()); break;
 
 
         // --- 11. JUMPS, CALLS ----------------------------------------------
