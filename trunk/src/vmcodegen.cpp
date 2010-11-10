@@ -375,7 +375,7 @@ void CodeGen::loadEmptyConst(Type* type)
 
 void CodeGen::loadSymbol(Symbol* sym)
 {
-    if (sym->isDefinition())
+    if (sym->isAnyDef())
         loadDefinition(PDefinition(sym));
     else if (sym->isAnyVar())
         loadVariable(PVariable(sym));
@@ -433,11 +433,21 @@ void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
         error("Invalid member selection");
     if (sym->isAnyVar())
         loadMember(PVariable(sym));
-    else if (sym->isDefinition())
+    else if (sym->isAnyDef())
     {
-        undoDesignator(*undoOffs);
-        *undoOffs = getCurrentOffs();
-        loadDefinition(PDefinition(sym));
+        Definition* def = PDefinition(sym);
+        Type* type = def->getAliasedType();
+        // TODO: states, should keep the owning object as this could be a method call
+        if (type && type->isAnyState())
+        {
+            notimpl();
+        }
+        else
+        {
+            undoDesignator(*undoOffs);
+            *undoOffs = getCurrentOffs();
+            loadDefinition(def);
+        }
     }
     else
         notimpl();
@@ -839,12 +849,18 @@ void CodeGen::_not()
 }
 
 
-void CodeGen::localVarGreaterThan(LocalVar* var)
+void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 {
     implicitCast(var->type, "Type mismatch in comparison");
     stkPop();
+    if (op == opGreaterThan)
+        op = opStkVarGt;
+    else if (op == opGreaterEq)
+        op = opStkVarGe;
+    else
+        fatal(0x6007, "localVarCmp(): unsupported opcode");
     assert(var->id >= 0 && var->id <= 127);
-    addOp<char>(queenBee->defBool, opStkVarGt, var->id);
+    addOp<char>(queenBee->defBool, op, var->id);
 }
 
 

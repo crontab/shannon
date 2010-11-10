@@ -983,7 +983,7 @@ void ordset::find_erase(integer v)              { if (!empty()) _getunique().exc
 void objvec_impl::release_all()
 {
     // TODO: more optimal destruction
-    for (memint i = size() - 1; i >= 0; i--)
+    for (memint i = size(); i--; )
         operator[](i)->release();
 }
 

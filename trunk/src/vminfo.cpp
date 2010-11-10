@@ -164,6 +164,7 @@ OpInfo opTable[] =
     OP(CaseStr, None),          // -str -str +str +bool
     OP(CaseVar, None),          // -var -var +var +bool
     OP(StkVarGt, StkIdx),       // [stk.idx:s8] -int +bool
+    OP(StkVarGe, StkIdx),       // [stk.idx:s8] -int +bool
 
     // --- 11. JUMPS, CALLS
     OP(Jump, Jump16),           // [dst 16]

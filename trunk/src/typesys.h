@@ -63,8 +63,8 @@ public:
     bool isSelfVar() const          { return symbolId == SELFVAR; }
     bool isLocalVar() const         { return symbolId == LOCALVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
-    bool isDefinition() const       { return symbolId == DEFINITION; }
-    bool isTypeAlias() const;
+    bool isAnyDef() const           { return symbolId == DEFINITION; }
+    // bool isTypeAlias() const;
     bool isModuleInstance() const   { return symbolId == MODULEINST; }
 };
 

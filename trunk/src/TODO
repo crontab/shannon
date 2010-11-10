@@ -13,6 +13,8 @@
   work for dynamic states too (?). Also, the ability to iterate over all
   state members with the 'for' operator - how?
 
+* Prototypes are distinguished from function defs by trailing '...'
+
 * Functions: function pointers, indirect calls, method calls; anonymous
   functions are always static (?)
 

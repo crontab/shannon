@@ -167,6 +167,7 @@ enum OpCode
     opCaseVar,          // -var -var +var +bool
     // for loop helpers
     opStkVarGt,         // [stk.idx:s8] -int +bool
+    opStkVarGe,         // [stk.idx:s8] -int +bool
 
     // --- 11. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
@@ -180,6 +181,7 @@ enum OpCode
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
+    // opMethodCall,       // [State*] -obj -var ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -418,7 +420,7 @@ public:
     void caseInRange()
         { inRange(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
-    void localVarGreaterThan(LocalVar*);
+    void localVarCmp(LocalVar*, OpCode);
 
     memint boolJumpForward(OpCode op);
     memint jumpForward(OpCode = opJump);

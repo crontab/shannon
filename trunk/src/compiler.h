@@ -21,10 +21,11 @@ class Compiler: protected Parser
 
     struct AutoScope: public BlockScope
     {
-        Compiler& compiler;
+        Compiler* compiler;
 
-        AutoScope(Compiler& c);
+        AutoScope(Compiler* c);
         ~AutoScope();
+        LocalVar* addInitLocalVar(const str&, Type*);
     };
     
     struct LoopInfo
@@ -88,6 +89,7 @@ protected:
     void caseLabel(Type*);
     void switchBlock();
     void whileBlock();
+    void forBlockTail(LocalVar*, memint);
     void forBlock();
     void doContinue();
     void doBreak();

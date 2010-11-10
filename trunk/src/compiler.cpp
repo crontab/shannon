@@ -8,13 +8,21 @@ evoidfunc::~evoidfunc() throw() { }
 const char* evoidfunc::what() throw() { return "Void function called"; }
 
 
-Compiler::AutoScope::AutoScope(Compiler& c)
-    : BlockScope(c.scope, c.codegen), compiler(c)
-        { compiler.scope = this; }
+Compiler::AutoScope::AutoScope(Compiler* c)
+    : BlockScope(c->scope, c->codegen), compiler(c)
+        { compiler->scope = this; }
 
 
 Compiler::AutoScope::~AutoScope()
-        { compiler.scope = outer; }
+        { compiler->scope = outer; }
+
+
+LocalVar* Compiler::AutoScope::addInitLocalVar(const str& name, Type* type)
+{
+    LocalVar* var = addLocalVar(name, type);
+    compiler->codegen->initLocalVar(var);
+    return var;
+}
 
 
 Compiler::LoopInfo::LoopInfo(Compiler& c)
@@ -111,7 +119,7 @@ void Compiler::variable()
 
 void Compiler::block()
 {
-    AutoScope local(*this);
+    AutoScope local(this);
     if (skipIf(tokColon))
     {
         skipAnySeps();
@@ -310,11 +318,10 @@ void Compiler::caseLabel(Type* ctlType)
 
 void Compiler::switchBlock()
 {
-    AutoScope local(*this);
+    AutoScope local(this);
     expression(NULL);
     Type* ctlType = codegen->getTopType();
-    LocalVar* ctlVar = local.addLocalVar("__switch", ctlType);
-    codegen->initLocalVar(ctlVar);
+    local.addInitLocalVar("__switch", ctlType);
     skipMultiBlockBegin("'{'");
     caseLabel(ctlType);
     local.deinitLocals();
@@ -334,32 +341,71 @@ void Compiler::whileBlock()
 }
 
 
+void Compiler::forBlockTail(LocalVar* ctlVar, memint outJumpOffs)
+{
+    codegen->incLocalVar(ctlVar);
+    codegen->jump(loopInfo->continueTarget);
+    codegen->resolveJump(outJumpOffs);
+    loopInfo->resolveBreakJumps();
+}
+
+
 void Compiler::forBlock()
 {
-    AutoScope local(*this);
+    AutoScope local(this);
     str ident = getIdentifier();
+    str ident2;
+    if (skipIf(tokComma))
+        ident2 = getIdentifier();
     expect(tokAssign, "'='");
     expression(NULL);
     Type* iterType = codegen->getTopType();
+
     if (iterType->isAnyOrd())
     {
-        expect(tokRange, "'..'");
-
-        LocalVar* var = local.addLocalVar(ident, iterType);
-        codegen->initLocalVar(var);
-
-        LoopInfo loop(*this);
-        expression(iterType);
-        codegen->localVarGreaterThan(var);
-        memint out = codegen->boolJumpForward(opJumpTrue);
-        block();
-        codegen->incLocalVar(var);
-        codegen->jump(loop.continueTarget);
-        codegen->resolveJump(out);
-        loop.resolveBreakJumps();
+        if (!ident2.empty())
+            error("Key/value pair is not allowed for range loops");
+        LocalVar* ctlVar = local.addInitLocalVar(ident, iterType);
+        {
+            LoopInfo loop(*this);
+            expect(tokRange, "'..'");
+            expression(iterType);
+            codegen->localVarCmp(ctlVar, opGreaterThan);
+            memint out = codegen->boolJumpForward(opJumpTrue);
+            block();
+            forBlockTail(ctlVar, out);
+        }
     }
+
+    else if (iterType->isAnyVec())
+    {
+        LocalVar* vecVar = local.addInitLocalVar("__iter", iterType);
+        codegen->loadConst(queenBee->defInt, 0);
+        LocalVar* ctlVar = local.addInitLocalVar(ident, queenBee->defInt);
+        {
+            LoopInfo loop(*this);
+            codegen->loadVariable(vecVar);
+            codegen->length();
+            codegen->localVarCmp(ctlVar, opGreaterEq);
+            memint out = codegen->boolJumpForward(opJumpTrue);
+            if (!ident2.empty())
+            {
+                AutoScope inner(this);
+                codegen->loadVariable(vecVar);
+                codegen->loadVariable(ctlVar);
+                codegen->loadContainerElem();
+                inner.addInitLocalVar(ident2, PContainer(iterType)->elem);
+                block();
+                inner.deinitLocals();
+            }
+            else
+                block();
+            forBlockTail(ctlVar, out);
+        }
+    }
+
     else
-        // TODO: vector, dict, set iterators
+        // TODO: dict, set iterators
         error("Invalid iterator type in 'for' statement");
     local.deinitLocals();
 }

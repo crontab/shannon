@@ -426,6 +426,31 @@ for i = 'A'..'Z':
     fori += 1
 assert fori == 51
 
+var fors = 'ABCDEF'
+for i = fors
+{
+    if i == 4: assert fors[i] == 'E'
+    elif i == 5: assert fors[i] == 'F'
+    fori += 1
+}
+assert fori == 57
+
+for i, j = 'GHIJKL'
+{
+    // TODO: collect the string and compare
+    if i == 4 { assert j == 'K' }
+    fori += 1
+}
+assert fori == 63
+
+for i, j = [10, 20, 30]
+{
+    if i == 1 { assert j == 20 }
+    fori += 1
+}
+assert fori == 66
+
+
 // STATES
 
 // def proto1 = int *(int a, int b)
@@ -513,6 +538,7 @@ def void nested1(int vn2)
         vn1 = 2
     }
     nested2(5)
+    // this.vfunc();
 }
 nested1(4)
 assert vn1 == 2

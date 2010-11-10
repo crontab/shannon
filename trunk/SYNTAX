@@ -54,7 +54,7 @@ case-range ::= expr [ '..' expr ]
 
 while-block ::= 'while' expr block
 
-for-block ::= 'for' ident '=' expr [ '..' expr ] block
+for-block ::= 'for' ident [ ',' ident ] '=' expr [ '..' expr ] block
 
 delete ::= 'del' designator
 
