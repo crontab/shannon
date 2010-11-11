@@ -110,6 +110,8 @@ OpInfo opTable[] =
     OP(ByteSetElem, None),      // -int -set +void
     OP(DelSetElem, None),       // -var -ptr -obj
     OP(DelByteSetElem, None),   // -int -ptr -obj
+    OP(SetLen, None),           // -set +int
+    OP(SetKey, None),           // -int -set +var
 
     // --- 8. DICTIONARIES
     OP(PairToDict, None),       // -var -var +dict
@@ -124,6 +126,9 @@ OpInfo opTable[] =
     OP(StoreByteDictElem, None),// -var -int -ptr -obj
     OP(DelDictElem, None),      // -var -ptr -obj
     OP(DelByteDictElem, None),  // -int -ptr -obj
+    OP(DictLen, None),          // -dict +int
+    OP(DictElemByIdx, None),    // -int -dict +var
+    OP(DictKeyByIdx, None),     // -int -dict +var
 
     // --- 9. ARITHMETIC
     OP(Add, None),              // -int -int +int

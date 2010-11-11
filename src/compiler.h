@@ -105,6 +105,7 @@ protected:
 
 
 #define LOCAL_ITERATOR_NAME "__iter"
+#define LOCAL_INDEX_NAME "__idx"
 
 
 #endif // __COMPILER_H

@@ -107,6 +107,8 @@ enum OpCode
     opByteSetElem,      // -int -set +void
     opDelSetElem,       // -var -ptr -obj
     opDelByteSetElem,   // -int -ptr -obj
+    opSetLen,           // -set +int
+    opSetKey,           // -int -set +var
 
     // --- 8. DICTIONARIES
     opPairToDict,       // -var -var +dict
@@ -121,6 +123,9 @@ enum OpCode
     opStoreByteDictElem,// -var -int -ptr -obj
     opDelDictElem,      // -var -ptr -obj
     opDelByteDictElem,  // -int -ptr -obj
+    opDictLen,          // -dict +int
+    opDictElemByIdx,    // -int -dict +var
+    opDictKeyByIdx,     // -int -dict +var
 
     // --- 9. ARITHMETIC
     opAdd,              // -int -int +int
@@ -399,6 +404,8 @@ public:
     void elemCat();
     void cat();
     void loadContainerElem();
+    void loadKeyByIndex();
+    void loadDictElemByIndex();
     void loadSubvec();
     void length();
     Container* elemToSet();
@@ -420,7 +427,9 @@ public:
     void caseInRange()
         { inRange(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
+
     void localVarCmp(LocalVar*, OpCode);
+    void localVarCmpVecLength(LocalVar* var, LocalVar* vec);
 
     void boolJump(memint target, OpCode op);
     memint boolJumpForward(OpCode op);

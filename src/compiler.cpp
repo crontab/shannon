@@ -381,25 +381,34 @@ void Compiler::forBlock()
     }
 
     // Vector iterator
-    else if (iterType->isAnyVec())
+    else if (iterType->isAnyVec() || iterType->isNullCont())
     {
         LocalVar* vecVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, iterType);
         codegen->loadConst(queenBee->defInt, 0);
         LocalVar* ctlVar = local.addInitLocalVar(ident, queenBee->defInt);
         {
             LoopInfo loop(*this);
-            codegen->loadVariable(vecVar);
-            codegen->length();
-            codegen->localVarCmp(ctlVar, opGreaterEq);
+            codegen->localVarCmpVecLength(ctlVar, vecVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             if (!ident2.empty())
             {
                 AutoScope inner(this);
-                // TODO: optimize this?
-                codegen->loadVariable(vecVar);
-                codegen->loadVariable(ctlVar);
-                codegen->loadContainerElem();
-                inner.addInitLocalVar(ident2, PContainer(iterType)->elem);
+                if (iterType->isNullCont())
+                {
+                    // For a null container we don't know the element type, neither
+                    // do we care, because this code below is never executed, however
+                    // we want the ident2 variable to exist within the block
+                    codegen->loadConst(defVoid, variant());
+                    inner.addInitLocalVar(ident2, defVoid);
+                }
+                else
+                {
+                    // TODO: optimize this?
+                    codegen->loadVariable(vecVar);
+                    codegen->loadVariable(ctlVar);
+                    codegen->loadContainerElem();
+                    inner.addInitLocalVar(ident2, PContainer(iterType)->elem);
+                }
                 block();
                 inner.deinitLocals();
             }
@@ -409,6 +418,7 @@ void Compiler::forBlock()
         }
     }
 
+    // Byte set and byte dict
     else if (iterType->isByteSet() || iterType->isByteDict())
     {
         if (iterType->isByteSet() && !ident2.empty())
@@ -417,23 +427,19 @@ void Compiler::forBlock()
         Ordinal* idxType = POrdinal(contType->index);
         LocalVar* contVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, contType);
         codegen->loadConst(idxType, idxType->left);
-        LocalVar* idxVar = local.addInitLocalVar(ident, idxType);
+        LocalVar* ctlVar = local.addInitLocalVar(ident, idxType);
         {
             LoopInfo loop(*this);
             if (iterType->isByteSet())
             {
                 codegen->loadConst(idxType, idxType->right);
-                codegen->localVarCmp(idxVar, opGreaterThan);
+                codegen->localVarCmp(ctlVar, opGreaterThan);
             }
             else
-            {
-                codegen->loadVariable(contVar);
-                codegen->length();
-                codegen->localVarCmp(idxVar, opGreaterEq);
-            }
+                codegen->localVarCmpVecLength(ctlVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             // TODO: optimize this?
-            codegen->loadVariable(idxVar);
+            codegen->loadVariable(ctlVar);
             codegen->loadVariable(contVar);
             codegen->inCont();
             memint inc = codegen->boolJumpForward(opJumpFalse);
@@ -442,7 +448,7 @@ void Compiler::forBlock()
                 AutoScope inner(this);
                 // TODO: optimize this?
                 codegen->loadVariable(contVar);
-                codegen->loadVariable(idxVar);
+                codegen->loadVariable(ctlVar);
                 codegen->loadContainerElem();
                 inner.addInitLocalVar(ident2, contType->elem);
                 block();
@@ -450,12 +456,38 @@ void Compiler::forBlock()
             }
             else
                 block();
-            forBlockTail(idxVar, out, inc);
+            forBlockTail(ctlVar, out, inc);
+        }
+    }
+
+    // Other sets and dictionaries
+    else if (iterType->isAnySet() /* || iterType->isAnyDict() */)
+    {
+        if (iterType->isAnySet() && !ident2.empty())
+            error("Key/value pair is not allowed for set loops");
+        Container* contType = PContainer(iterType);
+        LocalVar* contVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, iterType);
+        codegen->loadConst(queenBee->defInt, 0);
+        LocalVar* idxVar = local.addInitLocalVar(LOCAL_INDEX_NAME, queenBee->defInt);
+        {
+            LoopInfo loop(*this);
+            codegen->localVarCmpVecLength(idxVar, contVar);
+            memint out = codegen->boolJumpForward(opJumpTrue);
+            {
+                AutoScope inner(this);
+                // TODO: optimize this?
+                codegen->loadVariable(contVar);
+                codegen->loadVariable(idxVar);
+                codegen->loadKeyByIndex();
+                inner.addInitLocalVar(ident, contType->index);
+                block();
+                inner.deinitLocals();
+            }
+            forBlockTail(idxVar, out);
         }
     }
 
     else
-        // TODO: dict, set iterators
         error("Invalid iterator type in 'for' statement");
     local.deinitLocals();
 }
