@@ -434,6 +434,8 @@ for i = fors
     fori += 1
 }
 assert fori == 57
+for i = '': assert false
+for i = []: assert false
 
 for i, j = 'GHIJKL'
 {
@@ -442,6 +444,7 @@ for i, j = 'GHIJKL'
     fori += 1
 }
 assert fori == 63
+for i, j = '': assert false
 
 for i, j = [10, 20, 30]
 {
@@ -450,11 +453,17 @@ for i, j = [10, 20, 30]
 }
 assert fori == 66
 
+var int fornullvec[] = []
+for i, j = fornullvec: assert false
+for i, j = []: assert false
+
 for i = {'A'..'C'}
 {
     fori += 1
 }
 assert fori == 69
+for i = {}: assert false
+for i, j = {}: assert false
 
 for i = {one..three}
 {
@@ -475,6 +484,12 @@ for i, j = {'A' = 10, 'B' = 20}
     if i == 'B': assert j == 20
 }
 assert fori == 76
+
+for i = {1000, 2000, 3000}
+{
+    fori += 1
+}
+assert fori == 79
 
 
 // STATES

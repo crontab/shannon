@@ -560,6 +560,38 @@ void CodeGen::loadContainerElem()
 }
 
 
+void CodeGen::loadKeyByIndex()
+{
+    // For non-byte dicts and sets, used internally by the for loop parser
+    Type* contType = stkTop(2);
+    if (!stkTop()->isAnyOrd())
+        fatal(0x6008, "loadContainerElemByIndex(): invalid index");
+    stkPop();
+    stkPop();
+    if (contType->isAnyDict() && !contType->isByteDict())
+        addOp(PContainer(contType)->index, opDictKeyByIdx);
+    else if (contType->isAnySet() && !contType->isByteSet())
+        addOp(PContainer(contType)->index, opSetKey);
+    else
+        fatal(0x6009, "loadContainerElemByIndex(): invalid container type");
+}
+
+
+void CodeGen::loadDictElemByIndex()
+{
+    // Used internally by the for loop parser
+    Type* contType = stkTop(2);
+    if (!stkTop()->isAnyOrd())
+        fatal(0x6008, "loadContainerElemByIndex(): invalid index");
+    stkPop();
+    stkPop();
+    if (contType->isAnyDict() && !contType->isByteDict())
+        addOp(PContainer(contType)->elem, opDictElemByIdx);
+    else
+        fatal(0x6009, "loadDictKeyByIndex(): invalid container type");
+}
+
+
 void CodeGen::loadSubvec()
 {
     Type* contType = stkTop(3);
@@ -584,22 +616,33 @@ void CodeGen::loadSubvec()
 
 void CodeGen::length()
 {
-    // TODO: maybe # should also work for ordinal types, i.e. return the number
-    // of elements, but then what about ints? That number would overflow.
+    // NOTE: # for sets and dicts is not a language feature, it's needed for 'for' loops
+    // TODO: maybe then we should allow # on these only internally
     Type* type = stkTop();
     if (type->isNullCont())
     {
         undoLoader();
         loadConst(queenBee->defInt, 0);
     }
-    else if (type->isAnyVec() || type->isByteDict())
-    // NOTE: # for byte dicts is not a language feature, it's needed for 'for' loops
+    else if (type->isByteSet())
     {
-        stkPop();
-        addOp(queenBee->defInt, type->isByteVec() ? opStrLen : opVecLen);
+        undoLoader();
+        loadConst(queenBee->defInt, POrdinal(PContainer(type)->index)->getRange());
     }
     else
-        error("'#' expects vector or string");
+    {
+        OpCode op = opInv;
+        if (type->isAnySet())
+            op = opSetLen;
+        else if (type->isAnyVec() || type->isByteDict())
+            op = type->isByteVec() ? opStrLen : opVecLen;
+        else if (type->isAnyDict())
+            op = opDictLen;
+        else
+            error("'#' expects vector or string");
+        stkPop();
+        addOp(queenBee->defInt, op);
+    }
 }
 
 
@@ -864,6 +907,15 @@ void CodeGen::localVarCmp(LocalVar* var, OpCode op)
         fatal(0x6007, "localVarCmp(): unsupported opcode");
     assert(var->id >= 0 && var->id <= 127);
     addOp<char>(queenBee->defBool, op, var->id);
+}
+
+
+void CodeGen::localVarCmpVecLength(LocalVar* var, LocalVar* vec)
+{
+    // TODO: optimize (single instruction?)
+    loadVariable(vec);
+    length();
+    localVarCmp(var, opGreaterEq);
 }
 
 

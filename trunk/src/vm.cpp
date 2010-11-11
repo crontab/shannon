@@ -458,6 +458,13 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             (stk - 1)->_ptr()->_ordset().find_erase(stk->_int());
             POPPOD(); POPPOD(); POP();
             break;
+        case opSetLen:
+            *stk = integer(stk->_set().size());
+            break;
+        case opSetKey:
+            *(stk - 1) = (stk - 1)->_set().at(stk->_int());  // *OVR
+            POPPOD();
+            break;
 
 
         // --- 8. DICTIONARIES -----------------------------------------------
@@ -532,6 +539,17 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opDelByteDictElem: // -int -ptr -obj
             byteDictDelete((stk - 1)->_ptr()->_vec(), stk->_int());
             POPPOD(); POPPOD(); POP();
+            break;
+        case opDictLen:
+            *stk = integer(stk->_dict().size());
+            break;
+        case opDictElemByIdx:
+            *(stk - 1) = (stk - 1)->_dict().value(stk->_int());  // *OVR
+            POPPOD();
+            break;
+        case opDictKeyByIdx:
+            *(stk - 1) = (stk - 1)->_dict().key(stk->_int());  // *OVR
+            POPPOD();
             break;
 
 
