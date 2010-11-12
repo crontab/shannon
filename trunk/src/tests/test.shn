@@ -110,6 +110,8 @@ ins s3[1] = 'a'
 assert s3 == 'Zax'
 ins s3[3] = 'b'
 assert s3 == 'Zaxb'
+ins s3[1..] = 'so'
+assert s3 == 'Zsoaxb'
 
 a = 3
 a += 1
@@ -132,6 +134,9 @@ ins v11[0] = 'pqr'
 assert #v11 == 2 and v11[0] == 'pqr' and v11[1] == 'abc'
 ins v11[#v11] = 'stu'
 assert #v11 == 3 and v11[0] == 'pqr' and v11[1] == 'abc' and v11[2] == 'stu'
+ins v11[1..] = ['def']
+assert #v11 == 4 and v11[0] == 'pqr' and v11[1] == 'def' \
+    and v11[2] == 'abc' and v11[3] == 'stu'
 
 assert typeof c == str and typeof d == (int *[]) and typeof e == byte *[][] \
     and typeof er == int *[][]

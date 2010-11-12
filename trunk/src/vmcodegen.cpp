@@ -1051,8 +1051,10 @@ static OpCode loaderToInserter(OpCode op)
 {
     switch (op)
     {
-        case opStrElem:       return opStrIns;
-        case opVecElem:       return opVecIns;
+        case opStrElem:   return opStrIns;
+        case opVecElem:   return opVecIns;
+        case opSubstr:    return opSubstrIns;
+        case opSubvec:    return opSubvecIns;
         default:
             errorNotInsertableElem();
             return opInv;

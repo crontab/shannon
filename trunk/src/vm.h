@@ -91,6 +91,8 @@ enum OpCode
     opDelSubvec,        // -{int,void} -int -ptr -obj
     opStrIns,           // -char -int -ptr -obj
     opVecIns,           // -var -int -ptr -obj
+    opSubstrIns,        // -str -{int,void} -int -ptr -obj
+    opSubvecIns,        // -vec -{int,void} -int -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set

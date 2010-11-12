@@ -159,7 +159,7 @@ void fifo::var_enq(const variant& v)
         if (v.is(variant::STR))
             enq(v.as_str());
         else
-            enq(v.as_char());
+            enq(v.as_uchar());
     }
     else
         ::new(enq_var()) variant(v);
