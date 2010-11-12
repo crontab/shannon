@@ -8,7 +8,7 @@
 enum Token
 {
     tokUndefined = -1,
-    tokSep, tokEof,
+    tokEof, tokSep, tokSemi,
     tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
     tokConst, tokDef, tokVar,
@@ -37,7 +37,7 @@ enum Token
     tokComma, tokPeriod, tokRange, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
     tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
     tokIs, tokAs,
-
+    
     tokAssign,
     // In-place operators, order is important, in sync with opAddAssign etc
     tokAddAssign, tokSubAssign, tokMulAssign, tokDivAssign, tokModAssign,
@@ -101,9 +101,9 @@ public:
             { return prevIdent; }
     void error(const str& msg);
     void error(const char*);
-    bool isSep();
-    void skipSep();
-    void skipAnySeps()
+    void skipEos();
+    void skipToEos();
+    void skipWsSeps()
         { while (skipIf(tokSep)) ; }
     void expect(Token tok, const char* errName);
     bool skipIf(Token tok)
@@ -114,7 +114,6 @@ public:
     void skipMultiBlockEnd();
     bool isBlockEnd()
             { return token == tokRCurly; }
-    void skipToSep();
     str getIdentifier();
 
     str getFileName() const { return input->get_name(); }

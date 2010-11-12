@@ -214,10 +214,8 @@ begin: assert 1 as char == '\x01'
 begin:
     assert 'a' as int == 97
 var any v10 = 0
-begin ;
- ; ;
+begin
 // Hm
-; ;
 {
     assert v10 as nums == one
     assert 1 is system.int and 'abc' is str
@@ -230,6 +228,10 @@ begin ;
 
 // exit 'Hmmmmmm'
 
+if true:
+    ;
+else:
+    assert false
 
 // LOCAL BLOCKS
 var b1 = 0
@@ -277,17 +279,15 @@ elif b1 == 2
 {
     // Hm...
     
-    assert false
+    assert false;
 }
 else:
     assert false
 
 if b1 == 1: assert false
-elif b1 == 0: ; assert true
+elif b1 == 0: assert true
 elif b1 == 2: assert false
-
 else:
-    ; ;
     assert false
 
 if b1 == 1: assert false
