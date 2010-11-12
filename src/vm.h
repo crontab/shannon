@@ -429,7 +429,7 @@ public:
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
     void localVarCmp(LocalVar*, OpCode);
-    void localVarCmpVecLength(LocalVar* var, LocalVar* vec);
+    void localVarCmpLength(LocalVar* var, LocalVar* vec);
 
     void boolJump(memint target, OpCode op);
     memint boolJumpForward(OpCode op);
