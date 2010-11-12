@@ -333,7 +333,7 @@ restart:
         case ',': return token = tokComma;
         case '.': return token = (input->get_if('.') ? tokRange : tokPeriod);
         case '\'': parseStringLiteral(); return token = tokStrValue;
-        case ';': return token = tokSep;
+        case ';': return token = tokSemi;
         case ':': return token = tokColon;
         case '+': return token = (input->get_if('=') ? tokAddAssign : tokPlus);
         case '-': return token = (input->get_if('=') ? tokSubAssign : tokMinus);
@@ -400,23 +400,16 @@ void Parser::redoIdent()
 void Parser::skipMultiBlockBegin(const char* errmsg)
 {
     // TODO: this should skip only newlines and comments instead
-    skipAnySeps();
+    skipWsSeps();
     expect(tokLCurly, errmsg);
-    skipAnySeps();
+    skipWsSeps();
 }
 
 
 void Parser::skipMultiBlockEnd()
 {
-    skipAnySeps();
+    skipWsSeps();
     expect(tokRCurly, "'}'");
-}
-
-
-void Parser::skipToSep()
-{
-    while (!eof() && token != tokSep)
-        next();
 }
 
 
@@ -438,19 +431,22 @@ void Parser::expect(Token tok, const char* errName)
 }
 
 
-bool Parser::isSep()
+void Parser::skipEos()
 {
-    return token == tokSep || token == tokRCurly || token == tokEof;
+    if (eof() || token == tokRCurly)
+        return;
+    if (token == tokSep || token == tokSemi)
+        next();
+    else
+        error("End of statement expected");
 }
 
 
-void Parser::skipSep()
+void Parser::skipToEos()
 {
-    if (token == tokRCurly || token == tokEof)
-        return;
-    if (token != tokSep)
-        error("End of statement expected");
-    next();
+    while (!eof() && token != tokSep && token != tokSemi
+            && token != tokRCurly)
+        next();
 }
 
 

@@ -88,7 +88,7 @@ void Compiler::definition()
         if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))
             error("Constant out of range");
         state->addDefinition(ident, type, value, scope);
-        skipSep();
+        skipEos();
     }
 }
 
@@ -113,7 +113,7 @@ void Compiler::variable()
         SelfVar* var = state->addSelfVar(ident, type);
         codegen->initSelfVar(var);
     }
-    skipSep();
+    skipEos();
 }
 
 
@@ -122,7 +122,7 @@ void Compiler::block()
     AutoScope local(this);
     if (skipIf(tokColon))
     {
-        skipAnySeps();
+        skipWsSeps();
         singleStatement();
     }
     else
@@ -132,7 +132,7 @@ void Compiler::block()
         skipMultiBlockEnd();
     }
     local.deinitLocals();
-    skipAnySeps();
+    skipWsSeps();
 }
 
 
@@ -140,7 +140,9 @@ void Compiler::singleStatement()
 {
     if (context.options.lineNumbers)
         codegen->linenum(getLineNum());
-    if (skipIf(tokDef))
+    if (skipIf(tokSemi))
+        ;
+    else if (skipIf(tokDef))
         definition();
     else if (skipIf(tokVar))
         variable();
@@ -175,11 +177,11 @@ void Compiler::singleStatement()
 
 void Compiler::statementList(bool topLevel)
 {
-    skipAnySeps();
+    skipWsSeps();
     while (!isBlockEnd() && !(topLevel && eof()))
     {
         singleStatement();
-        skipAnySeps();
+        skipWsSeps();
     }
 }
 
@@ -200,8 +202,8 @@ void Compiler::assertion()
         codegen->assertion(s);
     }
     else
-        skipToSep();
-    skipSep();
+        skipToEos();
+    skipEos();
 }
 
 
@@ -220,8 +222,8 @@ void Compiler::dumpVar()
         }
         while (token == tokComma);
     else
-        skipToSep();
-    skipSep();
+        skipToEos();
+    skipEos();
 }
 
 
@@ -229,7 +231,7 @@ void Compiler::programExit()
 {
     expression(NULL);
     codegen->programExit();
-    skipSep();
+    skipEos();
 }
 
 
@@ -243,7 +245,7 @@ void Compiler::otherStatement()
     }
     catch (evoidfunc&)
     {
-        skipSep();
+        skipEos();
         return;
     }
 
@@ -263,7 +265,7 @@ void Compiler::otherStatement()
     }
     // TODO: string/vector cat
 
-    skipSep();
+    skipEos();
 
     if (codegen->getStackLevel() == stkLevel + 1)
     {
@@ -525,7 +527,7 @@ void Compiler::doIns()
     str inserterCode = codegen->insLvalue();
     expression(codegen->getTopType());
     codegen->assignment(inserterCode);
-    skipSep();
+    skipEos();
 }
 
 
