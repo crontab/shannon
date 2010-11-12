@@ -1,13 +1,6 @@
 
-* Semicolon is not equivalent of an empty line; it should be a
-  statement separator so that you can have empty statements too.
-
 * Operator 'ins': implement inserting strings and vectors, not just
   chars and vec elements
-
-* for loop: allow types, also range as an exception can have variable  
-  boundaries. E.g. `for i = a ...` Iterators for all container types.
-  Possibly also allow `for key, value = ...`.
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will
   work for dynamic states too (?). Also, the ability to iterate over all
