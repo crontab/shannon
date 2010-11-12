@@ -910,10 +910,10 @@ void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 }
 
 
-void CodeGen::localVarCmpVecLength(LocalVar* var, LocalVar* vec)
+void CodeGen::localVarCmpLength(LocalVar* var, LocalVar* contVar)
 {
     // TODO: optimize (single instruction?)
-    loadVariable(vec);
+    loadVariable(contVar);
     length();
     localVarCmp(var, opGreaterEq);
 }

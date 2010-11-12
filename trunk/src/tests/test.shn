@@ -463,7 +463,9 @@ for i = {'A'..'C'}
 }
 assert fori == 69
 for i = {}: assert false
-for i, j = {}: assert false
+
+for i, j = {}
+{ assert false; dump typeof j }
 
 for i = {one..three}
 {
@@ -490,6 +492,18 @@ for i = {1000, 2000, 3000}
     fori += 1
 }
 assert fori == 79
+
+for i = {'one' = one, 'two' = two, 'three' = three}
+{
+    fori += 1
+}
+assert fori == 82
+
+for i, j = {'one' = one, 'two' = two, 'three' = three}
+{
+    if i == 'two': assert j == two
+    fori += 1
+}
 
 
 // STATES

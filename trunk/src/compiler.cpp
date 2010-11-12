@@ -390,7 +390,7 @@ void Compiler::forBlock()
         LocalVar* ctlVar = local.addInitLocalVar(ident, queenBee->defInt);
         {
             LoopInfo loop(*this);
-            codegen->localVarCmpVecLength(ctlVar, vecVar);
+            codegen->localVarCmpLength(ctlVar, vecVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             if (!ident2.empty())
             {
@@ -438,7 +438,7 @@ void Compiler::forBlock()
                 codegen->localVarCmp(ctlVar, opGreaterThan);
             }
             else
-                codegen->localVarCmpVecLength(ctlVar, contVar);
+                codegen->localVarCmpLength(ctlVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             // TODO: optimize this?
             codegen->loadVariable(ctlVar);
@@ -463,7 +463,7 @@ void Compiler::forBlock()
     }
 
     // Other sets and dictionaries
-    else if (iterType->isAnySet() /* || iterType->isAnyDict() */)
+    else if (iterType->isAnySet() || iterType->isAnyDict())
     {
         if (iterType->isAnySet() && !ident2.empty())
             error("Key/value pair is not allowed for set loops");
@@ -473,15 +473,21 @@ void Compiler::forBlock()
         LocalVar* idxVar = local.addInitLocalVar(LOCAL_INDEX_NAME, queenBee->defInt);
         {
             LoopInfo loop(*this);
-            codegen->localVarCmpVecLength(idxVar, contVar);
+            codegen->localVarCmpLength(idxVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             {
                 AutoScope inner(this);
-                // TODO: optimize this?
                 codegen->loadVariable(contVar);
                 codegen->loadVariable(idxVar);
                 codegen->loadKeyByIndex();
                 inner.addInitLocalVar(ident, contType->index);
+                if (!ident2.empty()) // dict only
+                {
+                    codegen->loadVariable(contVar);
+                    codegen->loadVariable(idxVar);
+                    codegen->loadDictElemByIndex();
+                    inner.addInitLocalVar(ident2, contType->elem);
+                }
                 block();
                 inner.deinitLocals();
             }
