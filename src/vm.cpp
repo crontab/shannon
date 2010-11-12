@@ -399,6 +399,15 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             (stk - 2)->_ptr()->_vec().insert((stk - 1)->_int(), *stk);  // *OVR
             POP(); POPPOD(); POPPOD(); POP();
             break;
+        case opSubstrIns:       // -str -{int,void} -int -ptr -obj
+            // NOTE: the upper boundary in the range (int or void) is ignored
+            (stk - 3)->_ptr()->_str().insert((stk - 2)->_int(), stk->_str());  // *OVR
+            POP(); POPPOD(); POPPOD(); POPPOD(); POP();
+            break;
+        case opSubvecIns:       // -vec -{int,void} -int -ptr -obj
+            (stk - 3)->_ptr()->_vec().insert((stk - 2)->_int(), stk->_vec());  // *OVR
+            POP(); POPPOD(); POPPOD(); POPPOD(); POP();
+            break;
         // *OVR: integer type is reduced to memint in some configs
 
 

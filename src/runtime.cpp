@@ -419,6 +419,24 @@ char* bytevec::_insert(memint pos, memint len, alloc_func alloc)
 }
 
 
+void bytevec::_insert(memint pos, const bytevec& v, alloc_func alloc)
+{
+    if (empty())
+    {
+        if (pos)
+            container::idxerr();
+        _init(v);
+    }
+    else if (!v.empty())
+    {
+        memint len = v.size();
+        // Note: should be done in two steps so that the case (v == *this) works
+        char* p = _insert(pos, len, alloc);
+        obj->copy(p, v.data(), len);
+    }
+}
+
+
 char* bytevec::_append(memint len, alloc_func alloc)
 {
     // _insert(0, len) would do, but we want a faster function
@@ -503,24 +521,6 @@ void bytevec::insert(memint pos, const char* buf, memint len)
     {
         char* p = _insert(pos, len, container::allocate);
         obj->copy(p, buf, len);
-    }
-}
-
-
-void bytevec::insert(memint pos, const bytevec& v)
-{
-    if (empty())
-    {
-        if (pos)
-            container::idxerr();
-        _init(v);
-    }
-    else if (!v.empty())
-    {
-        memint len = v.size();
-        // Note: should be done in two steps so that the case (v == *this) works
-        char* p = _insert(pos, len, container::allocate);
-        obj->copy(p, v.data(), len);
     }
 }
 

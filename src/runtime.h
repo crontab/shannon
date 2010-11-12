@@ -275,6 +275,7 @@ protected:
     void _init(const bytevec& v, memint pos, memint len, alloc_func);
 
     char* _insert(memint pos, memint len, alloc_func);
+    void _insert(memint pos, const bytevec&, alloc_func);
     char* _append(memint len, alloc_func);
     void _erase(memint pos, memint len);
     void _pop(memint len);
@@ -305,7 +306,8 @@ public:
     const char* back() const            { return back(1); }
 
     void insert(memint pos, const char* buf, memint len);  // (*)
-    void insert(memint pos, const bytevec& s);  // (*)
+    void insert(memint pos, const bytevec& s)  // (*)
+        { _insert(pos, s, container::allocate); }
     void append(const char* buf, memint len);  // (*)
     void append(const bytevec& s);
     void erase(memint pos, memint len);
@@ -366,6 +368,7 @@ public:
     char back() const                       { return *bytevec::back(); }
     void replace(memint pos, char c)        { *bytevec::atw(pos) = c; }
     void insert(memint pos, char c)         { *_insert(pos, 1, container::allocate) = c; }
+    void insert(memint pos, const str& s)   { bytevec::insert(pos, s); }
     void insert(memint pos, const char* s);
     void operator= (const char* c);
     void operator= (char c);
@@ -473,7 +476,8 @@ public:
     void pop_back()                         { parent::pop_back<T>(); }
     void pop_back(T& t)                     { parent::pop_back<T>(t); }
     void append(const podvec& v)            { parent::append(v); }
-    void insert(memint pos, const T& t)     { new(_insert(pos * Tsize, Tsize, container::allocate)) T(t); }  // (*)
+    void insert(memint pos, const T& t)     { new(parent::_insert(pos * Tsize, Tsize, container::allocate)) T(t); }  // (*)
+    void insert(memint pos, const podvec& v) { parent::_insert(pos * Tsize, v, container::allocate); }  // (*)
     void replace(memint pos, const T& t)    { *parent::atw<T>(pos) = t; }
     void erase(memint pos, memint len)      { parent::_erase(pos * Tsize, len * Tsize); }
     void erase(memint pos)                  { parent::_erase(pos * Tsize, Tsize); }
@@ -579,6 +583,8 @@ public:
     // Override stuff that requires allocation of 'vector::cont'
     void insert(memint pos, const T& t)
         { new(bytevec::_insert(pos * Tsize, Tsize, cont::allocate)) T(t); }
+    void insert(memint pos, const vector& v)
+        { bytevec::_insert(pos * Tsize, v, cont::allocate); }
     void push_back(const T& t)
         { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
     void resize(memint); // not implemented
@@ -1026,7 +1032,7 @@ public:
 
     // Safer access methods; may throw an exception
     bool        as_bool()         const { _req(ORD); return _bool(); }
-    char        as_char()         const { _req(ORD); return _uchar(); }
+    // char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_ord()          const { _req(ORD); return _int(); }
     variant*    as_ptr()          const { _req(VARPTR); return val._ptr; }

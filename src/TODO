@@ -1,31 +1,34 @@
 
-* Operator 'ins': implement inserting strings and vectors, not just
-  chars and vec elements
+* Functions: function pointers, indirect calls, method calls
+
+* return, goto
+
+* Prototypes are distinguished from function defs by trailing '...'
+
+* So what keyword: 'class' or 'state'? Or none?
+
+* Procedures, pipes. Procedures are declared as, e.g. def <char, char>
+  convert() ...
+
+* Enqueue and dequeue operators: << and >>, like the iostream operators
+  in C++. The leftmost operand is always a fifo. (Precedence compared to
+  the pipe operator "||" ?)
+
+* Exceptions
+
+* Anonymous functions
+
+* Tiny set implementation?
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will
   work for dynamic states too (?). Also, the ability to iterate over all
   state members with the 'for' operator - how?
 
-* Prototypes are distinguished from function defs by trailing '...'
-
-* Functions: function pointers, indirect calls, method calls; anonymous
-  functions are always static (?)
-
-* So what keyword: 'class' or 'state'? Or none?
-
-* return, goto
-
-* Tiny set implementation?
-
 * Builtins are defined within states; "global" builtins are in QueenBee.
   How about containers?
 
-* A state name is a type that describes a state, not a prototype. Now,
-  what to do with prototypes and function addresses?
-
-* Nullable types: var ?int i = v as int(0)  (better syntax needed) Any 
-  operation returns null if any one of the operands is null. (Or maybe
-  var ?int i = v as int else 0). Oh man, it's patented! Any ideas?
+* Nullable types: patented by Microsoft. Instead, maybe just use 'any'
+  and operator '?', e.g. v = v ? 0 (if null then assign 0)
 
 * Read-only variables (const) and const subexpressions? A bit problematic:
   const should be part of type, not var definition.
@@ -43,12 +46,6 @@
   individually. Can be used for returning multiple values from functions.    
   So a struct descriptor is a vector of types?
 
-* Enqueue and dequeue operators: << and >>, like the iostream operators
-  in C++. The leftmost operand is always a fifo. (Precedence compared to
-  the pipe operator "||" ?)
-
-* Procedures are declared as, e.g. def char||char convert() ...
-
 * A special return value with 'var' indicates it's a special method
   that's called on a variable or a reference, e.g. def (var chars)
   include(int, ... Might be especially useful for builtins.
@@ -57,8 +54,6 @@
 
 * Ordinal set operations: inversion (not), union (or), intersection
   (and), subtraction (-)
-
-* Exceptions
 
 * Run-time range checking (as well as compile-time)
 
