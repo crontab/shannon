@@ -163,14 +163,6 @@ Type::Type(TypeId id)
     : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), // ptrType(NULL),
       host(NULL), defName(), typeId(id)
 {
-/*
-    if (id != VARPTR)
-    {
-        ptrType = new Pointer(this);
-        if (id != REF)
-            refType = new Reference(this);
-    }
-*/
     if (id != REF)
         refType = new Reference(this);
 }
@@ -751,6 +743,22 @@ FormalArg* Prototype::addFormalArg(const str& n, Type* t)
 }
 
 
+// --- SelfStub ------------------------------------------------------------ //
+
+
+SelfStub::SelfStub()
+    : Type(SELFSTUB) { }
+
+SelfStub::~SelfStub()
+    { }
+
+bool SelfStub::identicalTo(Type*) const
+    { error("'self' incomplete"); return false; }
+
+bool SelfStub::canAssignTo(Type*) const
+    { error("'self' incomplete"); return false; }
+
+
 // --- State --------------------------------------------------------------- //
 
 
@@ -758,8 +766,9 @@ State::State(State* par, Prototype* proto)
     : Type(STATE), Scope(false, par), parent(par),
       prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
 {
-    if (prototype->returnType == NULL) // state
-        prototype->returnType = this;
+    // Is this a 'self' state?
+    if (prototype->returnType->isSelfStub())
+        prototype->resolveSelfType(this);
     // Register all formal args as actual args within the local scope,
     // including the return var
     memint argCount = prototype->formalArgs.size();
@@ -987,7 +996,7 @@ void Module::registerString(str& s)
     if (s.empty())
         return;
     constStrings.push_back(s);
-    // TODO: make the below optional?
+    // TODO: make finding duplicates a compiler option?
 /*
     memint i;
     if (constStrings.bsearch(s, i))
@@ -1015,7 +1024,8 @@ QueenBee::QueenBee()
       defNullCont(new Container(defVoid, defVoid)),
       defStr(new Container(defVoid, defChar)),
       defCharSet(new Container(defChar, defVoid)),
-      defCharFifo(new Fifo(defChar))
+      defCharFifo(new Fifo(defChar)),
+      defSelfStub(new SelfStub())
 {
     // Fundamentals
     addTypeAlias("type", defTypeRef);
@@ -1032,6 +1042,7 @@ QueenBee::QueenBee()
     addTypeAlias("str", defStr);
     addTypeAlias("chars", defCharSet);
     addTypeAlias("charf", registerType(defCharFifo)->getRefType());
+    addTypeAlias("self", defSelfStub);
 
     // Constants
     addDefinition("__VER_MAJOR", defInt, SHANNON_VERSION_MAJOR, this);

@@ -22,7 +22,7 @@ OpInfo opTable[] =
     OP(Exit, None),             //
     OP(Enter, UInt8),           // [varcount:u8]
     OP(Leave, UInt8),           // [varcount:u8]
-    OP(EnterCtor, StkIdx),      // [retvarid:8]
+    OP(EnterCtor, State),       // [State*]
 
     // --- 2. CONST LOADERS
     // sync with isUndoableLoadOp()
@@ -47,7 +47,7 @@ OpInfo opTable[] =
     OP(Deref, None),            // -ref +var
 
     OP(LeaSelfVar, SelfIdx),    // [self.idx:u8] +obj(0) +ptr
-    OP(LeaOuterVar, OuterIdx),   // [outer.idx:u8] +obj(0) +ptr
+    OP(LeaOuterVar, OuterIdx),  // [outer.idx:u8] +obj(0) +ptr
     OP(LeaStkVar, StkIdx),      // [stk.idx:s8] +obj(0) +ptr
     OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
@@ -57,7 +57,7 @@ OpInfo opTable[] =
     OP(InitStkVar, StkIdx),     // [stk.idx:s8] -var
     // --- begin grounded storers
     OP(StoreSelfVar, SelfIdx),  // [self.idx:u8] -var
-    OP(StoreOuterVar, OuterIdx), // [outer.idx:u8] -var
+    OP(StoreOuterVar, OuterIdx),// [outer.idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk.idx:s8] -var
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref

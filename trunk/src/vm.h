@@ -17,7 +17,7 @@ enum OpCode
     opExit,             // throws eexit()
     opEnter,            // [varcount:u8]
     opLeave,            // [varcount:u8]
-    opEnterCtor,        // [retvarid:8]
+    opEnterCtor,        // [State*]
 
     // --- 2. CONST LOADERS
     // --- begin undoable loaders
