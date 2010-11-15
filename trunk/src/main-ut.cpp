@@ -533,10 +533,10 @@ static void test_bidir_char_fifo(fifo& fc)
     check(fc.get() == '0');
     variant v;
     fc.var_deq(v);
-    check(v.as_char() == '1');
+    check(v.as_uchar() == '1');
     v.clear();
     fc.var_preview(v);
-    check(v.as_char() == '2');
+    check(v.as_uchar() == '2');
     check(fc.deq(16) == "23456789abcdefgh");
     check(fc.deq(memfifo::CHAR_ALL) == "ijklmnopqrstuvwxyz./");
     check(fc.empty());
