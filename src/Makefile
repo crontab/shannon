@@ -4,8 +4,8 @@
 # SHBITS = -DSHN_64
 # SHTHR = -DSHN_THR
 
-CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DDEBUG -g -rdynamic
-CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DNDEBUG -O2 -rdynamic
+CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DDEBUG -g
+CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -Wno-strict-aliasing -DNDEBUG -O2
 LDLIBS = 
 
 DOBJS = debug/common.o debug/runtime.o debug/rtio.o \
@@ -68,7 +68,7 @@ debug/%.o: %.cpp Makefile
 
 shn: $(ROBJS) release/main.o
 	$(CXX) $(CXXROPTS) $(LDLIBS) $^ -o $@
-	@strip -Sx $@
+	@strip $@
 
 release/%.o: %.cpp Makefile
 	$(CXX) $(CXXROPTS) -c $< -o $@
