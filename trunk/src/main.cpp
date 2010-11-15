@@ -9,34 +9,6 @@
 
 // ------------------------------------------------------------------------- //
 
-// --- Self-tests ---------------------------------------------------------- //
-
-
-extern "C" void dynamic_test();
-
-int dynamic_test_flag = 0;
-typedef void (*dynamic_func_t)();
-void dynamic_test()
-{
-    dynamic_test_flag = 1;
-}
-
-
-static void self_test()
-{
-    void* h = dlopen(NULL, RTLD_NOW | RTLD_GLOBAL);
-    if (h == NULL)
-        fatal(0xf001, dlerror());
-    dynamic_func_t f = (dynamic_func_t)dlsym(h, "dynamic_test");
-    if (f == NULL)
-        fatal(0xf002, dlerror());
-    f();
-    if (!dynamic_test_flag)
-        fatal(0xf003, "Self-test with dynamic binding failed");
-}
-
-
-// ------------------------------------------------------------------------- //
 
 #ifdef XCODE
     const char* filePath = "../../src/tests/test.shn";
@@ -50,8 +22,6 @@ int main()
     sio << "Shannon " << SHANNON_VERSION_MAJOR << '.' << SHANNON_VERSION_MINOR << '.' << SHANNON_VERSION_FIX
         << " (int" << sizeof(integer) * 8 << ')'
         << ' ' << SHANNON_COPYRIGHT << endl << endl;
-
-    self_test();
 
     int exitcode = 0;
 
