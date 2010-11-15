@@ -6,7 +6,7 @@
 
 CXXDOPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -DDEBUG -g
 CXXROPTS = $(ARCH) $(SHBITS) $(SHTHR) -Wall -Wextra -Werror -Wno-strict-aliasing -DNDEBUG -O2
-LDLIBS = 
+LDLIBS = -ldl
 
 DOBJS = debug/common.o debug/runtime.o debug/rtio.o \
     debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o \
