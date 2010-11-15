@@ -203,7 +203,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLoadConst:
             PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
-        case opLoadThis:
+        case opLoadOuterObj:
             PUSH(stateobj::objbase(outer));
             break;
         case opLoadDataSeg:
@@ -292,6 +292,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opMkRef:
             SETPOD(stk, new reference((podvar*)stk));
+            break;
+        case opMkFuncPtr:
+            *(stk - 1) = new funcptr(stk - 1, cast<State*>(stk->_rtobj()));
+            POP();
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -682,14 +686,16 @@ doNearCall:
             {
                 State* state = ADV(State*);
                 runRabbitRun(dataseg, callOuter, stk + 1, state->getCode());
-                memint argCount = state->popArgCount;
-                while (argCount--)
+                for (memint argCount = state->popArgCount; argCount--; )
                     POP();
             }
             break;
         case opSiblingCall:
             callOuter = outer;
             goto doNearCall;
+        case opMethodCall:
+            notimpl();
+            break;
 
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------

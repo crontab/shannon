@@ -20,10 +20,12 @@ class Fifo;
 class Prototype;
 class SelfStub;
 class State;
+class FuncPtr;
 class Module;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
+typedef LocalVar* PLocalVar;
 typedef Definition* PDefinition;
 typedef Scope* PScope;
 typedef BlockScope* PBlockScope;
@@ -35,6 +37,7 @@ typedef Container* PContainer;
 typedef Fifo* PFifo;
 typedef Prototype* PPrototype;
 typedef State* PState;
+typedef FuncPtr* PFuncPtr;
 typedef Module* PModule;
 
 
@@ -186,8 +189,8 @@ public:
     enum TypeId {
         TYPEREF, VOID, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
-        NULLCONT, VEC, SET, DICT,
-        FIFO, PROTOTYPE, SELFSTUB, STATE };
+        NULLCONT, VEC, SET, DICT, FIFO,
+        PROTOTYPE, SELFSTUB, STATE, FUNCPTR };
 
 protected:
     objptr<Reference> refType;
@@ -232,6 +235,7 @@ public:
     bool isPrototype() const    { return typeId == PROTOTYPE; }
     bool isSelfStub() const     { return typeId == SELFSTUB; }
     bool isAnyState() const     { return typeId == STATE; }
+    bool isFuncPtr() const      { return typeId == FUNCPTR; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
 
@@ -239,6 +243,11 @@ public:
     void dump(fifo&) const;  // override
     void dumpDef(fifo&) const;
     virtual void dumpValue(fifo&, const variant&) const;
+
+    // NOTE: the difference between identicalTo() and canAssignTo() is very subtle.
+    // Identicality is mostly (but not only) tested for container compatibility,
+    // when testing compatibility of function prototypes, etc. What can I say, 
+    // "Careful with that axe, Eugene"
     virtual bool identicalTo(Type*) const;
     virtual bool canAssignTo(Type*) const;
     bool isCompatibleWith(const variant&);
@@ -419,6 +428,7 @@ public:
     ~Prototype();
     void dump(fifo&) const;
     bool identicalTo(Type*) const; // override
+    // TODO: canAssignTo(): allow return types be compatible?
     bool identicalTo(Prototype* t) const;
     FormalArg* addFormalArg(const str&, Type*);
     void resolveSelfType(State*);
@@ -458,7 +468,7 @@ public:
 
     State* const parent;
     Prototype* const prototype;
-    LocalVar* returnVar;
+    LocalVar* returnVar;            // may be NULL
     memint popArgCount;
     objptr<object> codeseg;
 
@@ -480,11 +490,27 @@ public:
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCode() const;
+    // TODO: identicalTo(), canAssignTo()
 };
 
 
 inline void Prototype::resolveSelfType(State* state)
     { returnType = state; }
+
+
+// --- FuncPtr ------------------------------------------------------------- //
+
+
+class FuncPtr: public Type
+{
+public:
+    State* const objType;
+    Prototype* const proto;
+    FuncPtr(State*, Prototype*);
+    ~FuncPtr();
+    bool identicalTo(Type*) const;
+    bool canAssignTo(Type*) const;
+};
 
 
 // --- Module -------------------------------------------------------------- //

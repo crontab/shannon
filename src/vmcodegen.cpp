@@ -324,6 +324,8 @@ void CodeGen::loadConst(Type* type, const variant& value)
 void CodeGen::loadDefinition(Definition* def)
 {
     Type* type = def->type;
+    if (type->isAnyState())
+        fatal(0x600b, "CodeGen::loadDefinition() can't load a state def");
     if (type->isTypeRef() || type->isVoid() || def->type->isAnyOrd() || def->type->isByteVec())
         loadConst(def->type, def->value);
     else
@@ -363,6 +365,7 @@ static variant::Type typeToVarType(Type* t)
     case Type::FIFO:
     case Type::PROTOTYPE:
     case Type::STATE:
+    case Type::FUNCPTR:
         return variant::RTOBJ;
     case Type::SELFSTUB:
         throw emessage("'self' incomplete");
@@ -386,6 +389,13 @@ void CodeGen::loadSymbol(Symbol* sym)
 }
 
 
+void CodeGen::loadLocalVar(LocalVar* var)
+{
+    assert(var->id >= -128 && var->id <= 127);
+    addOp<char>(var->type, opLoadStkVar, var->id);
+}
+
+
 void CodeGen::loadVariable(Variable* var)
 {
     assert(var->host != NULL);
@@ -396,8 +406,7 @@ void CodeGen::loadVariable(Variable* var)
         addOp(var->type, opConstExprErr);
     else if (var->isLocalVar() && var->host == codeOwner)
     {
-        assert(var->id >= -128 && var->id <= 127);
-        addOp<char>(var->type, opLoadStkVar, var->id);
+        loadLocalVar(PLocalVar(var));
     }
     else if (var->isSelfVar() && var->host == codeOwner)
     {
@@ -477,7 +486,7 @@ void CodeGen::loadThis()
     if (isCompileTime())
         error("'this' is not available in const expressions");
     else if (codeOwner->parent && codeOwner->parent->isConstructor())
-        addOp(codeOwner->parent, opLoadThis);
+        addOp(codeOwner->parent, opLoadOuterObj);
     else
         error("'this' is not available within this context");
 }
@@ -917,7 +926,7 @@ void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 void CodeGen::localVarCmpLength(LocalVar* var, LocalVar* contVar)
 {
     // TODO: optimize (single instruction?)
-    loadVariable(contVar);
+    loadLocalVar(contVar);
     length();
     localVarCmp(var, opGreaterEq);
 }
@@ -1197,18 +1206,11 @@ void CodeGen::epilog(memint prologOffs)
 }
 
 
-void CodeGen::call(State* callee)
+void CodeGen::call()
 {
+    State* callee = NULL;
     OpCode op = opInv;
-    if (callee->isStatic())
-        notimpl();
-    else if (codeOwner->parent == callee->parent)
-        op = opSiblingCall;
-    else if (callee->parent == codeOwner)
-        op = opChildCall;
-    else
-        // TODO: calls from within deeply nested functions - how?
-        error("Call can not be performed within this context");
+    notimpl();
 
     for (memint i = callee->args.size(); i--; )
     {

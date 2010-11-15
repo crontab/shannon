@@ -406,8 +406,8 @@ void Compiler::forBlock()
                 else
                 {
                     // TODO: optimize this?
-                    codegen->loadVariable(vecVar);
-                    codegen->loadVariable(ctlVar);
+                    codegen->loadLocalVar(vecVar);
+                    codegen->loadLocalVar(ctlVar);
                     codegen->loadContainerElem();
                     inner.addInitLocalVar(ident2, PContainer(iterType)->elem);
                 }
@@ -441,16 +441,16 @@ void Compiler::forBlock()
                 codegen->localVarCmpLength(ctlVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             // TODO: optimize this?
-            codegen->loadVariable(ctlVar);
-            codegen->loadVariable(contVar);
+            codegen->loadLocalVar(ctlVar);
+            codegen->loadLocalVar(contVar);
             codegen->inCont();
             memint inc = codegen->boolJumpForward(opJumpFalse);
             if (!ident2.empty()) // dict only
             {
                 AutoScope inner(this);
                 // TODO: optimize this?
-                codegen->loadVariable(contVar);
-                codegen->loadVariable(ctlVar);
+                codegen->loadLocalVar(contVar);
+                codegen->loadLocalVar(ctlVar);
                 codegen->loadContainerElem();
                 inner.addInitLocalVar(ident2, contType->elem);
                 block();
@@ -477,14 +477,14 @@ void Compiler::forBlock()
             memint out = codegen->boolJumpForward(opJumpTrue);
             {
                 AutoScope inner(this);
-                codegen->loadVariable(contVar);
-                codegen->loadVariable(idxVar);
+                codegen->loadLocalVar(contVar);
+                codegen->loadLocalVar(idxVar);
                 codegen->loadKeyByIndex();
                 inner.addInitLocalVar(ident, contType->index);
                 if (!ident2.empty()) // dict only
                 {
-                    codegen->loadVariable(contVar);
-                    codegen->loadVariable(idxVar);
+                    codegen->loadLocalVar(contVar);
+                    codegen->loadLocalVar(idxVar);
                     codegen->loadDictElemByIndex();
                     inner.addInitLocalVar(ident2, contType->elem);
                 }

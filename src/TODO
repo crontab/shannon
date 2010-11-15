@@ -79,6 +79,8 @@
 
 * Floating point type
 
+* Default function parameters, named arguments
+
 * Multidimensional arrays implemented as a single vector with "flat"
   indexing?
 

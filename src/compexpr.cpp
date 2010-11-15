@@ -96,6 +96,9 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::identifier(const str& ident)
 {
+    // TODO: REWRITE
+    notimpl();
+
     // Go up the current scope hierarchy within the module. Currently not
     // everything is accessible even if found by the code below: an error
     // will be thrown by the CodeGen in case a symbol can not be accessed.
@@ -243,7 +246,6 @@ void Compiler::ifFunc()
 
 void Compiler::actualArgs(Prototype* proto)
 {
-    // TODO: named arguments (?), default arguments
     if (!proto->returnType->isVoid())
         codegen->loadEmptyConst(proto->returnType);
     memint i = 0;
@@ -372,16 +374,12 @@ void Compiler::designator(Type* typeHint)
 
         else if (skipIf(tokLParen))
         {
-            Type* type = codegen->tryUndoTypeRef();
-            if (type->isAnyState())
-            {
-                actualArgs(PState(type)->prototype);
-                codegen->call(PState(type));
-                if (PState(type)->returnVar == NULL)
-                    throw evoidfunc();
-            }
-            else
-                error("Not a function");
+            Type* type = codegen->getTopType();
+            if (!type->isFuncPtr())
+                error("Invalid function call");
+            codegen->call();
+            if (PState(type)->returnVar == NULL)
+                throw evoidfunc();
         }
 /*
         else if (skipIf(tokCaret))

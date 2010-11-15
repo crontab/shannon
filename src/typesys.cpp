@@ -954,7 +954,22 @@ Container* State::getContainerType(Type* idx, Type* elem)
 }
 
 
-// TODO: identicalTo()
+// --- FuncPtr ------------------------------------------------------------- //
+
+
+FuncPtr::FuncPtr(State* o, Prototype* p)
+    : Type(FUNCPTR), objType(o), proto(p)  { }
+
+FuncPtr::~FuncPtr()
+    { }
+
+bool FuncPtr::identicalTo(Type* t) const
+    { return t->isFuncPtr() && objType->identicalTo(PFuncPtr(t)->objType)
+        && proto->identicalTo(PFuncPtr(t)->proto); }
+
+bool FuncPtr::canAssignTo(Type* t) const
+    { return t->isFuncPtr() && objType->canAssignTo(PFuncPtr(t)->objType)
+        && proto->canAssignTo(PFuncPtr(t)->proto); }
 
 
 // --- Module -------------------------------------------------------------- //

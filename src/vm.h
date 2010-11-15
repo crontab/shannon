@@ -30,7 +30,7 @@ enum OpCode
     opLoadStr,          // [str] +str
     opLoadEmptyVar,     // [variant::Type:u8] + var
     opLoadConst,        // [Definition*] +var
-    opLoadThis,         // +stateobj
+    opLoadOuterObj,     // +stateobj
     opLoadDataSeg,      // +module-obj
 
     // --- 3. DESIGNATOR LOADERS
@@ -64,6 +64,7 @@ enum OpCode
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*, State*] -int -int +type  -- compile-time only
     opMkRef,            // -var +ref
+    opMkFuncPtr,        // -state -obj +funcptr
     opNonEmpty,         // -var +bool
     opPop,              // -var
     opPopPod,           // -int
@@ -188,7 +189,7 @@ enum OpCode
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
-    // opMethodCall,       // [State*] -obj -var ... +var
+    opMethodCall,       // [State*] -obj -var ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -390,6 +391,7 @@ public:
     void loadDefinition(Definition*);
     void loadEmptyConst(Type* type);
     void loadSymbol(Symbol*);
+    void loadLocalVar(LocalVar*);
     void loadVariable(Variable*);
     void loadMember(const str& ident, memint* undoOffs);
     void loadMember(Symbol* sym, memint* undoOffs);
@@ -451,7 +453,7 @@ public:
     void assignment(const str& storerCode);
     void deleteContainerElem();
 
-    void call(State*);
+    void call();
 
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
