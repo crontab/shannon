@@ -1176,6 +1176,8 @@ public:
     funcptr(variant* o, State* s);
     funcptr(stateobj* o, State* s);
     ~funcptr();
+    bool empty() const;
+    void dump(fifo&) const;
 };
 
 

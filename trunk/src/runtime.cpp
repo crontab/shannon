@@ -1224,17 +1224,24 @@ void stateobj::collapse()
 funcptr::funcptr(Prototype* p)
     : rtobject(p), outer(NULL), state(NULL)  { }
 
-
 funcptr::funcptr(variant* o, State* s)
     : rtobject(s->prototype), outer(o), state(s)  { }
-
 
 funcptr::funcptr(stateobj* o, State* s)
     : rtobject(s->prototype), outer(o->varbase()), state(s)  { }
 
-
 funcptr::~funcptr()
     { }
+
+bool funcptr::empty() const
+    { return state == NULL; }
+
+
+void funcptr::dump(fifo& stm) const
+{
+    // TODO: full dump
+    stm << (empty() ? "<null-func-ptr>" : "<func-ptr>");
+}
 
 
 rtstack::rtstack(memint maxSize)
