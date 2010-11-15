@@ -111,7 +111,7 @@ static void byteDictDelete(varvec& v, integer i)
 
 
 #define ADV(T) \
-    (ip += sizeof(T), *(T*)(ip - sizeof(T)))
+    (ip += sizeof(T), *(T*)(ip - sizeof(T))) // TODO: improve this?
 
 #define PUSH(v) \
     { ::new(stk + 1) variant(v); stk++; }
@@ -162,9 +162,16 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLeave:
             for (memint i = ADV(uchar); i--; )
                 POP();
-            goto exit; // !
+            goto exit;
         case opEnterCtor:
-            self = cast<stateobj*>((bp + ADV(char))->_rtobj())->varbase();
+            {
+                State* state = ADV(State*);
+                variant* result = bp + state->returnVar->id;
+                // Instantiate the class if not already done
+                if (result->_rtobj() == NULL)
+                    SETPOD(result, state->newInstance());
+                self = cast<stateobj*>(result->_rtobj())->varbase();
+            }
             break;
 
 

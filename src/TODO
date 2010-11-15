@@ -1,9 +1,13 @@
 
 * Functions: function pointers, indirect calls, method calls
 
+* echo/print
+
 * return, goto
 
 * Prototypes are distinguished from function defs by trailing '...'
+
+* Operator 'in' for vectors? 'vin'?
 
 * So what keyword: 'class' or 'state'? Or none?
 

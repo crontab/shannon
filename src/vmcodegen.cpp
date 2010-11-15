@@ -336,7 +336,7 @@ static variant::Type typeToVarType(Type* t)
     // TYPEREF, VOID, VARIANT, REF,
     //    BOOL, CHAR, INT, ENUM,
     //    NULLCONT, VEC, SET, DICT,
-    //    FIFO, PROTOTYPE, STATE
+    //    FIFO, PROTOTYPE, SELFSTUB, STATE
     // VOID, ORD, REAL, VARPTR,
     //      STR, VEC, SET, ORDSET, DICT, REF, RTOBJ
     switch (t->typeId)
@@ -364,6 +364,8 @@ static variant::Type typeToVarType(Type* t)
     case Type::PROTOTYPE:
     case Type::STATE:
         return variant::RTOBJ;
+    case Type::SELFSTUB:
+        throw emessage("'self' incomplete");
     }
     return variant::VOID;
 }
@@ -491,9 +493,11 @@ void CodeGen::loadDataSeg()
 
 void CodeGen::storeRet(Type* type)
 {
+    if (!isCompileTime())
+        fatal(0x600a, "CodeGen::storeRet() called at run time");
     implicitCast(type);
     stkPop();
-    addOp<char>(opInitStkVar, isCompileTime() ? -1 : codeOwner->prototype->retVarId());
+    addOp<char>(opInitStkVar, -1);
 }
 
 
@@ -1160,9 +1164,7 @@ memint CodeGen::prolog()
     if (isCompileTime())
         ;
     else if (codeOwner->isConstructor())
-        // Constructors receive a new object in the return var, so they need
-        // to load the varbase into 'self'
-        addOp<char>(opEnterCtor, codeOwner->returnVar->id);
+        addOp<State*>(opEnterCtor, codeOwner);
     else if (codeOwner->isStatic())
         notimpl();
     else

@@ -18,6 +18,7 @@ class Enumeration;
 class Container;
 class Fifo;
 class Prototype;
+class SelfStub;
 class State;
 class Module;
 
@@ -186,7 +187,7 @@ public:
         TYPEREF, VOID, VARIANT, REF,
         BOOL, CHAR, INT, ENUM,
         NULLCONT, VEC, SET, DICT,
-        FIFO, PROTOTYPE, STATE };
+        FIFO, PROTOTYPE, SELFSTUB, STATE };
 
 protected:
     objptr<Reference> refType;
@@ -229,6 +230,7 @@ public:
     bool isFifo() const         { return typeId == FIFO; }
 
     bool isPrototype() const    { return typeId == PROTOTYPE; }
+    bool isSelfStub() const     { return typeId == SELFSTUB; }
     bool isAnyState() const     { return typeId == STATE; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
@@ -387,6 +389,7 @@ public:
 
 // --- Fifo ---------------------------------------------------------------- //
 
+// TODO: Fifo should be derived from State so that members can be accessed
 
 class Fifo: public Type
 {
@@ -407,6 +410,7 @@ public:
 
 class Prototype: public Type
 {
+    // TODO: allow unnamed formal args (put '?' as a name?)
 public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
@@ -414,11 +418,25 @@ public:
     Prototype(Type* retType);
     ~Prototype();
     void dump(fifo&) const;
-    memint argCount()                   { return formalArgs.size(); }
-    memint retVarId()                   { return - argCount() - 1; }
     bool identicalTo(Type*) const; // override
     bool identicalTo(Prototype* t) const;
     FormalArg* addFormalArg(const str&, Type*);
+    void resolveSelfType(State*);
+};
+
+
+// --- SelfStub ------------------------------------------------------------ //
+
+
+class SelfStub: public Type
+{
+    friend class QueenBee;
+protected:
+    SelfStub();
+    ~SelfStub();
+public:
+    bool identicalTo(Type*) const;
+    bool canAssignTo(Type*) const;
 };
 
 
@@ -463,6 +481,10 @@ public:
     CodeSeg* getCodeSeg() const;
     const uchar* getCode() const;
 };
+
+
+inline void Prototype::resolveSelfType(State* state)
+    { returnType = state; }
 
 
 // --- Module -------------------------------------------------------------- //
@@ -510,6 +532,7 @@ public:
     Container* const defStr;
     Container* const defCharSet;
     Fifo* const defCharFifo;
+    SelfStub* const defSelfStub;
     Variable* sioVar;
     Variable* serrVar;
     Variable* resultVar;
