@@ -258,12 +258,18 @@ void Compiler::otherStatement()
 
     else if (token >= tokAddAssign && token <= tokModAssign)
     {
-        str storerCode = codegen->inplaceLvalue(token);
+        str storerCode = codegen->arithmLvalue(token);
         next();
         expression(codegen->getTopType());
         codegen->assignment(storerCode);
     }
-    // TODO: string/vector cat
+    
+    else if (skipIf(tokCatAssign))
+    {
+        codegen->catLvalue();
+        expression(NULL);
+        codegen->catAssign();
+    }
 
     skipEos();
 

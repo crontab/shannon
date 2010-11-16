@@ -42,7 +42,11 @@ dump ::= 'dump' expr { ',' expr } <SEP>
 
 exit ::= 'exit' expr <SEP>
 
-other-statement ::= designator [ '=' expr ] <SEP>
+other-statement ::= assignment
+
+assignment ::= designator [ assignment-opr expr ] <SEP>
+
+assignment-opr = '=' | '+=' | '-=' | '*= ' | '/=' | '%=' | '|='
 
 if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 

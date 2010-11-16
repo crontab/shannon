@@ -419,6 +419,23 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             (stk - 3)->_ptr()->_vec().insert((stk - 2)->_int(), stk->_vec());  // *OVR
             POP(); POPPOD(); POPPOD(); POPPOD(); POP();
             break;
+        // In-place vector concat
+        case opChrCatAssign:
+            (stk - 1)->_ptr()->_str().push_back(stk->_uchar());
+            POPPOD(); POP(); POP();
+            break;
+        case opStrCatAssign:
+            (stk - 1)->_ptr()->_str().append(stk->_str());
+            POP(); POP(); POP();
+            break;
+        case opVarCatAssign:
+            (stk - 1)->_ptr()->_vec().push_back(*stk);
+            POP(); POP(); POP();
+            break;
+        case opVecCatAssign:
+            (stk - 1)->_ptr()->_vec().append(stk->_vec());
+            POP(); POP(); POP();
+            break;
         // *OVR: integer type is reduced to memint in some configs
 
 
@@ -599,7 +616,6 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opMulAssign:   INPLACE_INT(*=); break;
         case opDivAssign:   INPLACE_INT(/=); break;
         case opModAssign:   INPLACE_INT(%=); break;
-
 
         // --- 10. BOOLEAN ---------------------------------------------------
         case opCmpOrd:

@@ -1118,7 +1118,7 @@ str CodeGen::lvalue()
 }
 
 
-str CodeGen::inplaceLvalue(Token tok)
+str CodeGen::arithmLvalue(Token tok)
 {
     assert(tok >= tokAddAssign && tok <= tokModAssign);
     OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
@@ -1127,6 +1127,15 @@ str CodeGen::inplaceLvalue(Token tok)
     offs = getCurrentOffs();
     codeseg.append(op);
     return codeseg.cutOp(offs);
+}
+
+
+void CodeGen::catLvalue()
+{
+    if (!stkTop()->isAnyVec())
+        error("'|=' expects vector/string type");
+    memint offs = stkTopOffs();
+    codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
 }
 
 
@@ -1145,7 +1154,7 @@ void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
     Type* dest = stkTop(2);
-    if (dest->isVoid())
+    if (dest->isVoid())  // Don't remember why it's here. Possibly because of set elem selection
         error("Destination is void type");
     implicitCast(dest, "Type mismatch in assignment");
     codeseg.append(storerCode);
@@ -1160,6 +1169,24 @@ void CodeGen::deleteContainerElem()
     OpCode deleter = loaderToDeleter(codeseg[offs]);
     codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
     codeseg.replaceOp(offs, deleter);
+    stkPop();
+}
+
+
+void CodeGen::catAssign()
+{
+    Type* left = stkTop(2);
+    if (!left->isAnyVec())
+        error("'|=' expects vector/string type");
+    Type* right = stkTop();
+    if (right->canAssignTo(PContainer(left)->elem))
+        addOp(left->isByteVec() ? opChrCatAssign : opVarCatAssign);
+    else
+    {
+        implicitCast(left, "Type mismatch in in-place concatenation");
+        addOp(left->isByteVec() ? opStrCatAssign : opVecCatAssign);
+    }
+    stkPop();
     stkPop();
 }
 

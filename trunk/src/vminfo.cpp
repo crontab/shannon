@@ -97,6 +97,10 @@ OpInfo opTable[] =
     OP(VecIns, None),           // -var -int -ptr -obj
     OP(SubstrIns, None),        // -str -void -int -ptr -obj
     OP(SubvecIns, None),        // -vec -void -int -ptr -obj
+    OP(ChrCatAssign, None),     // -char -ptr -obj
+    OP(StrCatAssign, None),     // -str -ptr -obj
+    OP(VarCatAssign, None),     // -var -ptr -obj
+    OP(VecCatAssign, None),     // -vec -ptr -obj
 
     // --- 7. SETS
     OP(ElemToSet, None),        // -var +set
@@ -152,10 +156,6 @@ OpInfo opTable[] =
     OP(MulAssign, None),        // -int -ptr -obj
     OP(DivAssign, None),        // -int -ptr -obj
     OP(ModAssign, None),        // -int -ptr -obj
-    OP(ChrCatAssign, None),     // -char -ptr -obj
-    OP(StrCatAssign, None),     // -str -ptr -obj
-    OP(VarCatAssign, None),     // -var -ptr -obj
-    OP(VecCatAssign, None),     // -vec -ptr -obj
 
     // --- 10. BOOLEAN
     OP(CmpOrd, None),           // -int, -int, +{-1,0,1}

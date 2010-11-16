@@ -125,6 +125,17 @@ assert a == 6
 a %= 4
 assert a == 2
 
+var inpcat = 'ab'
+inpcat |= 'c'
+assert inpcat == 'abc'
+inpcat |= 'de'
+assert inpcat == 'abcde'
+var inpcat2 = [1]
+inpcat2 |= 2
+assert #inpcat2 == 2 and inpcat2[1] == 2
+inpcat2 |= [3, 4]
+assert #inpcat2 == 4 and inpcat2[3] == 4
+
 var v11 = ['abc', 'def', 'ghi', 'jkl', 'mno']
 del v11[1..2]
 assert #v11 == 3 and v11[0] == 'abc' and v11[1] == 'jkl' and v11[2] == 'mno'
@@ -522,7 +533,7 @@ def inc = int *(int i)
     result = i + 1
     inc_call_count = inc_call_count + 1
 }
-
+/*
 var rr1 = inc(5)
 assert rr1 == 6
 assert inc_call_count == 1
@@ -613,6 +624,6 @@ def self point(int _x, int _y)
 }
 
 var p = point(10, 20)
-
+*/
 
 dump system.__program_result
