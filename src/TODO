@@ -1,13 +1,11 @@
 
 * Functions: function pointers, indirect calls, method calls
 
-* echo/print
-
 * return, goto
 
 * Prototypes are distinguished from function defs by trailing '...'
 
-* Operator 'in' for vectors? 'vin'?
+* Operator 'in' for vectors? 'vin'? 'through'?
 
 * So what keyword: 'class' or 'state'? Or none?
 
@@ -29,7 +27,7 @@
   state members with the 'for' operator - how?
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
-  How about containers?
+  What about containers? Fifos?
 
 * Nullable types: patented by Microsoft. Instead, maybe just use 'any'
   and operator '?', e.g. v = v ? 0 (if null then assign 0)

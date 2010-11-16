@@ -94,6 +94,11 @@ enum OpCode
     opVecIns,           // -var -int -ptr -obj
     opSubstrIns,        // -str -{int,void} -int -ptr -obj
     opSubvecIns,        // -vec -{int,void} -int -ptr -obj
+    // In-place vector concat
+    opChrCatAssign,     // -char -ptr -obj
+    opStrCatAssign,     // -str -ptr -obj
+    opVarCatAssign,     // -var -ptr -obj
+    opVecCatAssign,     // -vec -ptr -obj
 
     // --- 7. SETS
     opElemToSet,        // -var +set
@@ -151,11 +156,6 @@ enum OpCode
     opMulAssign,        // -int -ptr -obj
     opDivAssign,        // -int -ptr -obj
     opModAssign,        // -int -ptr -obj
-    // In-place vector concat
-    opChrCatAssign,     // -char -ptr -obj
-    opStrCatAssign,     // -str -ptr -obj
-    opVarCatAssign,     // -var -ptr -obj
-    opVecCatAssign,     // -vec -ptr -obj
 
     // --- 10. BOOLEAN
     opCmpOrd,           // -int -int +{-1,0,1}
@@ -448,10 +448,12 @@ public:
     void programExit();
 
     str lvalue();
-    str inplaceLvalue(Token);
+    str arithmLvalue(Token);
+    void catLvalue();
     str insLvalue();
     void assignment(const str& storerCode);
     void deleteContainerElem();
+    void catAssign();
 
     void call();
 
