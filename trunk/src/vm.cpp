@@ -143,7 +143,6 @@ void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const
     register variant* stk = bp - 1;
     variant* self = NULL;
     integer linenum = -1;
-    variant* callOuter = NULL;
     try
     {
 loop:  // use goto instead of while(1) {} so that compilers don't complain
@@ -159,7 +158,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             for (memint i = ADV(uchar); i--; ) // memset() maybe?
                 PUSHN();
             break;
-        case opLeave:
+        case opLeave: // used only in DEBUG mode
             for (memint i = ADV(uchar); i--; )
                 POP();
             goto exit;
@@ -208,6 +207,12 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opLoadDataSeg:
             PUSH(dataseg);
+            break;
+        case opLoadOuterFuncPtr:
+            PUSH(new funcptr(stateobj::objbase(outer), ADV(State*)));
+            break;
+        case opLoadSelfFuncPtr:
+            PUSH(new funcptr(stateobj::objbase(self), ADV(State*)));
             break;
 
 
@@ -294,8 +299,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             SETPOD(stk, new reference((podvar*)stk));
             break;
         case opMkFuncPtr:
-            *(stk - 1) = new funcptr(stk - 1, cast<State*>(stk->_rtobj()));
-            POP();
+            *stk = new funcptr(cast<stateobj*>(stk->_rtobj()), ADV(State*));
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -697,20 +701,36 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
 
         case opChildCall:
-            callOuter = self;
-doNearCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, callOuter, stk + 1, state->getCode());
-                for (memint argCount = state->popArgCount; argCount--; )
+                runRabbitRun(dataseg, self, stk + 1, state->getCode());
+                for (memint i = state->popArgCount; i--; )
                     POP();
             }
             break;
         case opSiblingCall:
-            callOuter = outer;
-            goto doNearCall;
+            {
+                State* state = ADV(State*);
+                runRabbitRun(dataseg, outer, stk + 1, state->getCode());
+                for (memint i = state->popArgCount; i--; )
+                    POP();
+            }
+            break;
         case opMethodCall:
-            notimpl();
+            {
+                State* state = ADV(State*);
+                runRabbitRun(dataseg,
+                    // The object pointer is right below the result var; pass it
+                    // as an "outer" parameter
+                    cast<stateobj*>((stk - state->popArgCount - state->returns)->_rtobj())->varbase(),
+                    stk + 1, state->getCode());
+                for (memint i = state->popArgCount; i--; )
+                    POP();
+                if (state->returns)
+                    POPTO(stk - 1)
+                else
+                    POP();
+            }
             break;
 
 

@@ -1155,10 +1155,10 @@ public:
     }
 
     variant* varbase() // pointer to first member
-        { return (variant*)(this + 1); }
+        { return this ? (variant*)(this + 1) : NULL; }
 
     static stateobj* objbase(variant* varbase)
-        { return ((stateobj*)varbase) - 1; }
+        { return varbase ? ((stateobj*)varbase) - 1 : NULL; }
 
     void collapse();
 };
@@ -1170,10 +1170,8 @@ inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
 class funcptr: public rtobject
 {
 public:
-    variant* outer;
+    objptr<stateobj> outer;
     State* state;
-    funcptr(Prototype* p);
-    funcptr(variant* o, State* s);
     funcptr(stateobj* o, State* s);
     ~funcptr();
     bool empty() const;

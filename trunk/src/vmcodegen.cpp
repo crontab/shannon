@@ -2,6 +2,11 @@
 #include "vm.h"
 
 
+evoidfunc::evoidfunc() throw() { }
+evoidfunc::~evoidfunc() throw() { }
+const char* evoidfunc::what() throw() { return "Void function called"; }
+
+
 CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
     : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
       lastOp(opInv), prevLoaderOffs(-1)
@@ -174,7 +179,6 @@ void CodeGen::createSubrangeType()
 
 void CodeGen::deinitLocalVar(Variable* var)
 {
-    // This is called from BlockScope.
     // TODO: don't generate POPs if at the end of a function in RELEASE mode
     assert(var->isLocalVar());
     assert(locals == simStack.size());
@@ -211,6 +215,7 @@ Type* CodeGen::tryUndoTypeRef()
         Type* type = codeseg.at<Type*>(offs + 1);
         stkPop();
         codeseg.erase(offs);
+        prevLoaderOffs = -1;
         return type;
     }
     else
@@ -268,7 +273,20 @@ void CodeGen::nonEmpty()
 
 void CodeGen::loadTypeRef(Type* type)
 {
-    addOp<Type*>(defTypeRef, opLoadTypeRef, type);
+    if (!isCompileTime() && type->isAnyState())
+    {
+        State* stateType = PState(type);
+        OpCode op = opInv;
+        if (stateType->parent == codeOwner->parent)
+            op = opLoadOuterFuncPtr;
+        else if (stateType->parent == codeOwner)
+            op = opLoadSelfFuncPtr;
+        else
+            error("Invalid context for a function pointer");
+        addOp<State*>(stateType->getFuncPtr(), op, stateType);
+    }
+    else
+        addOp<Type*>(defTypeRef, opLoadTypeRef, type);
 }
 
 
@@ -323,10 +341,8 @@ void CodeGen::loadConst(Type* type, const variant& value)
 
 void CodeGen::loadDefinition(Definition* def)
 {
-    Type* type = def->type;
-    if (type->isAnyState())
-        fatal(0x600b, "CodeGen::loadDefinition() can't load a state def");
-    if (type->isTypeRef() || type->isVoid() || def->type->isAnyOrd() || def->type->isByteVec())
+    if (def->type->isTypeRef() || def->type->isVoid()
+            || def->type->isAnyOrd() || def->type->isByteVec())
         loadConst(def->type, def->value);
     else
         addOp<Definition*>(def->type, opLoadConst, def);
@@ -439,19 +455,23 @@ void CodeGen::loadMember(const str& ident, memint* undoOffs)
 
 void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
 {
-    Type* stateType = stkTop();
-    if (!stateType->isAnyState())
+    Type* type = stkTop();
+    // TODO: see if it's a FuncPtr, discard the whole designator and retrieve State*
+    if (!type->isAnyState())
         error("Invalid member selection");
+    if (sym->host != PState(type))  // shouldn't happen
+        fatal(0x600c, "Invalid member selection");
     if (sym->isAnyVar())
         loadMember(PVariable(sym));
     else if (sym->isAnyDef())
     {
         Definition* def = PDefinition(sym);
-        Type* type = def->getAliasedType();
-        // TODO: states, should keep the owning object as this could be a method call
-        if (type && type->isAnyState())
+        Type* stateType = def->getAliasedType();
+        if (stateType && stateType->isAnyState())
         {
-            notimpl();
+            stkPop();
+            // Most of the time opMkFuncPtr is replaced by opMethodCall
+            addOp<State*>(PState(stateType)->getFuncPtr(), opMkFuncPtr, PState(stateType));
         }
         else
         {
@@ -472,7 +492,6 @@ void CodeGen::loadMember(Variable* var)
         addOp(var->type, opConstExprErr);
     else
     {
-        // TODO: check parent states too
         if (!stateType->isAnyState() || var->host != stateType || !var->isSelfVar())
             error("Invalid member selection");
         assert(var->id >= 0 && var->id <= 255);
@@ -1249,30 +1268,54 @@ void CodeGen::epilog(memint prologOffs)
             codeseg.eraseOp(prologOffs);
         else
         {
+#ifdef DEBUG
+            // The local stack frame is cleaned up automatically anyway; in
+            // DEBUG mode we just need to verify correctness of compilation
             addOp<uchar>(opLeave, selfVarCount);
             codeseg.atw<uchar>(prologOffs + 1) = uchar(selfVarCount);
+#endif
         }
     }
 }
 
 
-void CodeGen::call()
+void CodeGen::call(FuncPtr* funcPtr)
 {
-    State* callee = NULL;
-    OpCode op = opInv;
-    notimpl();
+    // TODO: indirect call (callee == NULL)
 
-    for (memint i = callee->args.size(); i--; )
+    State* callee = funcPtr->derivedFrom;
+    Prototype* proto = callee->prototype;
+
+    for (memint i = proto->formalArgs.size(); i--; )
     {
-        if (!stkTop()->canAssignTo(callee->args[i]->type))
+#ifdef DEBUG
+        if (!stkTop()->canAssignTo(proto->formalArgs[i]->type))
             error("Argument type mismatch");  // shouldn't happen, checked by the compiler earlier
+#endif
         stkPop();
     }
+    assert(stkTop()->isFuncPtr());
 
-    if (callee->returnVar)
-        addOp<State*>(callee->returnVar->type, op, callee);
-    else
+    OpCode op = opInv;
+
+    memint offs = stkTopOffs();
+    switch (codeseg[offs])
+    {
+        case opLoadOuterFuncPtr: op = opSiblingCall; break;
+        case opLoadSelfFuncPtr: op = opChildCall; break;
+        case opMkFuncPtr: op = opMethodCall; break;
+        default: notimpl();
+    }
+
+    stkPop(); // func ptr
+
+    if (proto->returnType->isVoid())
+    {
         addOp<State*>(op, callee);
+        throw evoidfunc();
+    }
+    else
+        addOp<State*>(callee->prototype->returnType, op, callee);
 }
 
 

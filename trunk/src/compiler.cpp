@@ -3,11 +3,6 @@
 #include "compiler.h"
 
 
-evoidfunc::evoidfunc() throw() { }
-evoidfunc::~evoidfunc() throw() { }
-const char* evoidfunc::what() throw() { return "Void function called"; }
-
-
 Compiler::AutoScope::AutoScope(Compiler* c)
     : BlockScope(c->scope, c->codegen), compiler(c)
         { compiler->scope = this; }

@@ -37,6 +37,8 @@ OpInfo opTable[] =
     OP(LoadConst, Definition),  // [Definition*] +var
     OP(LoadOuterObj, None),     // +stateobj
     OP(LoadDataSeg, None),      // +module-obj
+    OP(LoadOuterFuncPtr, State),// [State*] +funcptr
+    OP(LoadSelfFuncPtr, State), // [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var
@@ -67,7 +69,7 @@ OpInfo opTable[] =
     // --- 5. DESIGNATOR OPS, MISC
     OP(MkSubrange, MkSubrange), // [Ordinal*, State*] -int -int +type  -- compile-time only
     OP(MkRef, None),            // -var +ref
-    OP(MkFuncPtr, None),        // -state -obj +funcptr
+    OP(MkFuncPtr, State),       // [State*] -obj +funcptr
     OP(NonEmpty, None),         // -var +bool
     OP(Pop, None),              // -var
     OP(PopPod, None),           // -int

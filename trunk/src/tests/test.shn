@@ -533,7 +533,7 @@ def inc = int *(int i)
     result = i + 1
     inc_call_count = inc_call_count + 1
 }
-/*
+
 var rr1 = inc(5)
 assert rr1 == 6
 assert inc_call_count == 1
@@ -616,7 +616,7 @@ assert vn1 == 2
 
 
 // OOP
-
+/*
 def self point(int _x, int _y)
 {
     var x = _x
