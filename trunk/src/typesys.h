@@ -209,7 +209,7 @@ public:
     bool isVoid() const         { return typeId == VOID; }
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
-    bool isDerefable() const    { return !isAnyState() & !isFifo(); }
+    bool isDerefable() const    { return !isAnyState() & !isAnyFifo(); }
 
     bool isBool() const         { return typeId == BOOL; }
     bool isChar() const         { return typeId == CHAR; }
@@ -230,7 +230,8 @@ public:
     bool isByteDict() const;
     bool isContainer(Type* idx, Type* elem) const;
 
-    bool isFifo() const         { return typeId == FIFO; }
+    bool isAnyFifo() const      { return typeId == FIFO; }
+    bool isCharFifo() const;
 
     bool isPrototype() const    { return typeId == PROTOTYPE; }
     bool isSelfStub() const     { return typeId == SELFSTUB; }

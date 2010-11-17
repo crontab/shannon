@@ -37,11 +37,12 @@ enum Token
     tokComma, tokPeriod, tokRange, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
     tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
     tokIs, tokAs,
-    
+
     tokAssign,
     // In-place operators, order is important, in sync with opAddAssign etc
     tokAddAssign, tokSubAssign, tokMulAssign, tokDivAssign, tokModAssign,
-    tokCatAssign,
+    // Other operators
+    tokCatAssign, tokPush, tokPull,
 
     // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,

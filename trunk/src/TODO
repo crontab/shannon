@@ -1,20 +1,22 @@
 
 * Functions: function pointers, indirect calls, method calls
 
+* Builtins are defined within states; "global" builtins are in QueenBee.
+  What about containers? Fifos?
+
+* Enqueue and dequeue operators: << and >>, almost like the iostream
+  operators in C++. The leftmost operand is always a fifo.
+
 * return, goto
 
 * Prototypes are distinguished from function defs by trailing '...'
 
-* Operator 'in' for vectors? 'vin'? 'through'?
+* Operator 'in' for vectors? 'lin'? 'through'?
 
 * So what keyword: 'class' or 'state'? Or none?
 
 * Procedures, pipes. Procedures are declared as, e.g. def <char, char>
   convert() ...
-
-* Enqueue and dequeue operators: << and >>, like the iostream operators
-  in C++. The leftmost operand is always a fifo. (Precedence compared to
-  the pipe operator "||" ?)
 
 * Exceptions
 
@@ -25,9 +27,6 @@
 * Alternate syntax for string keys in dictionaries: dict->key. This will
   work for dynamic states too (?). Also, the ability to iterate over all
   state members with the 'for' operator - how?
-
-* Builtins are defined within states; "global" builtins are in QueenBee.
-  What about containers? Fifos?
 
 * Nullable types: patented by Microsoft. Instead, maybe just use 'any'
   and operator '?', e.g. v = v ? 0 (if null then assign 0)

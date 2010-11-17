@@ -1191,6 +1191,29 @@ void CodeGen::catAssign()
 }
 
 
+void CodeGen::fifoPush()
+{
+    Type* left = stkTop(2);
+    if (!left->isAnyFifo())
+        error("'<<' expects FIFO type");
+    Type* right = stkTop();
+    // TODO: call a builtin
+    // TODO: what about conversions like in C++? probably Nah.
+    if (right->isAnyVec() && PContainer(right)->elem->identicalTo(PFifo(left)->elem))
+    {
+        notimpl();
+    }
+    else if (tryImplicitCast(PFifo(left)->elem))
+    {
+        notimpl();
+    }
+    else
+        error("FIFO element type mismatch");
+    stkPop();
+    // Leave the FIFO object
+}
+
+
 // --- FUNCTIONS, CALLS ---------------------------------------------------- //
 
 

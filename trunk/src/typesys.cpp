@@ -195,6 +195,8 @@ bool Type::isByteSet() const
 bool Type::isByteDict() const
     { return isAnyDict() && PContainer(this)->hasByteIndex(); }
 
+bool Type::isCharFifo() const
+    { return isAnyFifo() && PFifo(this)->elem->isChar(); }
 
 bool Type::isContainer(Type* idx, Type* elem) const
     { return isAnyCont() && elem->identicalTo(PContainer(this)->elem)
@@ -688,7 +690,7 @@ void Fifo::dump(fifo& stm) const
 
 
 bool Fifo::identicalTo(Type* t) const
-    { return this == t || (t->isFifo() && elem->identicalTo(PFifo(t)->elem)); }
+    { return this == t || (t->isAnyFifo() && elem->identicalTo(PFifo(t)->elem)); }
 
 
 // --- Prototype ----------------------------------------------------------- //

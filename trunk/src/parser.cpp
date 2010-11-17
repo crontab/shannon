@@ -360,11 +360,19 @@ restart:
         case '<':
             if (input->get_if('='))
                 return token = tokLessEq;
+            else if (input->get_if('<'))
+                return token = tokPush;
             // else if (input->get_if('>'))
             //     return token = tokNotEq;
             else
                 return token = tokLAngle;
-        case '>': return token = (input->get_if('=') ? tokGreaterEq : tokRAngle);
+        case '>':
+            if (input->get_if('='))
+                return token = tokGreaterEq;
+            else if (input->get_if('>'))
+                return token = tokPull;
+            else
+                return token = tokRAngle;
         case '=': return token = (input->get_if('=') ? tokEqual : tokAssign);
         case '|': return token = (input->get_if('=') ? tokCatAssign : tokCat);
         case '^': return token = tokCaret;
