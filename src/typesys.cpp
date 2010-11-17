@@ -761,6 +761,27 @@ bool SelfStub::canAssignTo(Type*) const
     { error("'self' incomplete"); return false; }
 
 
+// --- FuncPtr ------------------------------------------------------------- //
+
+
+FuncPtr::FuncPtr(State* o, Prototype* p)
+    : Type(FUNCPTR), objType(o), prototype(p), derivedFrom(NULL)  { }
+
+FuncPtr::FuncPtr(State* d)
+    : Type(FUNCPTR), objType(d->parent), prototype(d->prototype), derivedFrom(d)  { }
+
+FuncPtr::~FuncPtr()
+    { }
+
+bool FuncPtr::identicalTo(Type* t) const
+    { return t->isFuncPtr() && objType->identicalTo(PFuncPtr(t)->objType)
+        && prototype->identicalTo(PFuncPtr(t)->prototype); }
+
+bool FuncPtr::canAssignTo(Type* t) const
+    { return t->isFuncPtr() && objType->canAssignTo(PFuncPtr(t)->objType)
+        && prototype->canAssignTo(PFuncPtr(t)->prototype); }
+
+
 // --- State --------------------------------------------------------------- //
 
 
@@ -773,15 +794,16 @@ State::State(State* par, Prototype* proto)
         prototype->resolveSelfType(this);
     // Register all formal args as actual args within the local scope,
     // including the return var
-    memint argCount = prototype->formalArgs.size();
+    popArgCount = prototype->formalArgs.size();
+    returns = isVoidFunc() ? 0 : 1;
     if (!prototype->returnType->isVoid())
-        returnVar = addArgument("result", prototype->returnType, - argCount - 1);
-    for (memint i = 0; i < argCount; i++)
+        returnVar = addArgument("result", prototype->returnType, - popArgCount - 1);
+    for (memint i = 0; i < popArgCount; i++)
     {
         FormalArg* arg = prototype->formalArgs[i];
-        addArgument(arg->name, arg->type, - argCount + i);
+        addArgument(arg->name, arg->type, - popArgCount + i);
     }
-    popArgCount = args.size() - int(returnVar != NULL);
+    funcPtr = new FuncPtr(this);
 }
 
 
@@ -954,24 +976,6 @@ Container* State::getContainerType(Type* idx, Type* elem)
     }
     return registerType(new Container(idx, elem));
 }
-
-
-// --- FuncPtr ------------------------------------------------------------- //
-
-
-FuncPtr::FuncPtr(State* o, Prototype* p)
-    : Type(FUNCPTR), objType(o), proto(p)  { }
-
-FuncPtr::~FuncPtr()
-    { }
-
-bool FuncPtr::identicalTo(Type* t) const
-    { return t->isFuncPtr() && objType->identicalTo(PFuncPtr(t)->objType)
-        && proto->identicalTo(PFuncPtr(t)->proto); }
-
-bool FuncPtr::canAssignTo(Type* t) const
-    { return t->isFuncPtr() && objType->canAssignTo(PFuncPtr(t)->objType)
-        && proto->canAssignTo(PFuncPtr(t)->proto); }
 
 
 // --- Module -------------------------------------------------------------- //

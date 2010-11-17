@@ -32,6 +32,9 @@ enum OpCode
     opLoadConst,        // [Definition*] +var
     opLoadOuterObj,     // +stateobj
     opLoadDataSeg,      // +module-obj
+    // opLoadSelfObj,      // equivalent to opLoadStkVar 'result'
+    opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
+    opLoadSelfFuncPtr,  // [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -64,7 +67,7 @@ enum OpCode
     // --- 5. DESIGNATOR OPS, MISC
     opMkSubrange,       // [Ordinal*, State*] -int -int +type  -- compile-time only
     opMkRef,            // -var +ref
-    opMkFuncPtr,        // -state -obj +funcptr
+    opMkFuncPtr,        // [State*] -obj +funcptr
     opNonEmpty,         // -var +bool
     opPop,              // -var
     opPopPod,           // -int
@@ -456,10 +459,19 @@ public:
     void catAssign();
     void fifoPush();
 
-    void call();
+    State* mkFuncPtr();
+    void call(FuncPtr*);
 
     void end();
     Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
+};
+
+
+struct evoidfunc: public exception
+{
+    evoidfunc() throw();
+    ~evoidfunc() throw();
+    const char* what() throw();
 };
 
 

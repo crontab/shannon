@@ -345,7 +345,7 @@ void Compiler::designator(Type* typeHint)
     {
         if (skipIf(tokPeriod))
         {
-            // undoOffs is needed when the member is a constant, in which case
+            // undoOffs is needed when the member is a definition, in which case
             // all previous loads should be discarded - they are not needed to
             // load a constant
             codegen->deref();
@@ -374,9 +374,15 @@ void Compiler::designator(Type* typeHint)
             Type* type = codegen->getTopType();
             if (!type->isFuncPtr())
                 error("Invalid function call");
-            codegen->call();
-            if (PState(type)->returnVar == NULL)
-                throw evoidfunc();
+            Prototype* proto = PFuncPtr(type)->prototype;
+            for (memint i = 0; i < proto->formalArgs.size(); i++)
+            {
+                if (i > 0)
+                    expect(tokComma, "','");
+                expression(proto->formalArgs[i]->type);
+            }
+            expect(tokRParen, "')'");
+            codegen->call(PFuncPtr(type));    // May throw evoidfunc()
         }
 /*
         else if (skipIf(tokCaret))

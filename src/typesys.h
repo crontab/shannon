@@ -451,6 +451,25 @@ public:
 };
 
 
+// --- FuncPtr ------------------------------------------------------------- //
+
+
+class FuncPtr: public Type
+{
+    friend class State;
+    FuncPtr(State*);
+public:
+    State* const objType;
+    Prototype* const prototype;
+    State* const derivedFrom; // may be NULL
+    FuncPtr(State*, Prototype*);
+    ~FuncPtr();
+    bool identicalTo(Type*) const;
+    bool canAssignTo(Type*) const;
+    // void dump(fifo&) const;
+};
+
+
 // --- State --------------------------------------------------------------- //
 
 // TODO: extern/builtin functions
@@ -462,6 +481,7 @@ protected:
     void addTypeAlias(const str&, Type*);
 
     objvec<Type> types;             // owned
+    objptr<FuncPtr> funcPtr;
 public:
     objvec<Definition> defs;        // owned
     objvec<LocalVar> args;          // owned, copied from prototype
@@ -470,7 +490,8 @@ public:
     State* const parent;
     Prototype* const prototype;
     LocalVar* returnVar;            // may be NULL
-    memint popArgCount;
+    memint popArgCount;             // VM helper
+    int returns;                    // VM helper
     objptr<object> codeseg;
 
     State(State* parent, Prototype*);
@@ -482,6 +503,7 @@ public:
     memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
     bool isStatic()                 { return parent == NULL; }
     bool isConstructor()            { return prototype->returnType == this; }
+    bool isVoidFunc()               { return prototype->returnType->isVoid(); }
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     LocalVar* addArgument(const str&, Type*, memint);
     SelfVar* addSelfVar(const str&, Type*);
@@ -491,27 +513,13 @@ public:
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCode() const;
+    FuncPtr* getFuncPtr()           { return funcPtr; }
     // TODO: identicalTo(), canAssignTo()
 };
 
 
 inline void Prototype::resolveSelfType(State* state)
     { returnType = state; }
-
-
-// --- FuncPtr ------------------------------------------------------------- //
-
-
-class FuncPtr: public Type
-{
-public:
-    State* const objType;
-    Prototype* const proto;
-    FuncPtr(State*, Prototype*);
-    ~FuncPtr();
-    bool identicalTo(Type*) const;
-    bool canAssignTo(Type*) const;
-};
 
 
 // --- Module -------------------------------------------------------------- //

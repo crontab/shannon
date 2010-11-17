@@ -5,15 +5,6 @@
 #include "typesys.h"
 
 
-struct evoidfunc: public exception
-{
-    evoidfunc() throw();
-    ~evoidfunc() throw();
-    const char* what() throw();
-};
-
-
-
 class Compiler: protected Parser
 {
     friend class Context;
