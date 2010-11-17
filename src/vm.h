@@ -35,6 +35,7 @@ enum OpCode
     // opLoadSelfObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadSelfFuncPtr,  // [State*] +funcptr
+    opLoadNullFuncPtr,  // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -371,7 +372,7 @@ public:
     void justForget()           { stkPop(); } 
     memint getCurrentOffs()     { return codeseg.size(); }
     Type* tryUndoTypeRef();
-    void undoDesignator(memint from);
+    void undoExpr(memint from);
     void undoLoader();
     bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
