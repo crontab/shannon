@@ -237,7 +237,7 @@ void Compiler::programExit()
 
 void Compiler::otherStatement()
 {
-    // TODO: pipes, fifo ops
+    // TODO: pipes
     memint stkLevel = codegen->getStackLevel();
     try
     {
@@ -270,6 +270,20 @@ void Compiler::otherStatement()
         expression(NULL);
         codegen->catAssign();
     }
+
+    else if (skipIf(tokPush))
+    {
+        do
+        {
+            expression(NULL);
+            codegen->fifoPush();
+        }
+        while (skipIf(tokPush));
+        codegen->popValue();
+    }
+
+	// TODO: for fifoPull(): store the fifo in a local var so that designators can be
+	// parsed and assigned properly
 
     skipEos();
 

@@ -454,6 +454,7 @@ public:
     void assignment(const str& storerCode);
     void deleteContainerElem();
     void catAssign();
+    void fifoPush();
 
     void call();
 

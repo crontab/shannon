@@ -42,11 +42,15 @@ dump ::= 'dump' expr { ',' expr } <SEP>
 
 exit ::= 'exit' expr <SEP>
 
-other-statement ::= assignment
+other-statement ::= assignment | fifo-push | fifo-pull
 
 assignment ::= designator [ assignment-opr expr ] <SEP>
 
 assignment-opr = '=' | '+=' | '-=' | '*= ' | '/=' | '%=' | '|='
+
+fifo-push ::= expr '<<' expr { '<<' expr }
+
+fifo-pull ::= expr '>>' designator { '>>' designator }
 
 if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 
