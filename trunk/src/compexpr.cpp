@@ -25,7 +25,7 @@ void Compiler::enumeration(const str& firstIdent)
 {
     Enumeration* enumType = state->registerType(new Enumeration());
     enumType->addValue(state, scope, firstIdent);
-    expect(tokComma, ",");
+    expect(tokComma, "','");
     do
     {
         enumType->addValue(state, scope, getIdentifier());
@@ -216,9 +216,9 @@ void Compiler::dictCtor(Type* typeHint)
 void Compiler::typeOf()
 {
     memint undoOffs = codegen->getCurrentOffs();
-    designator(defTypeRef);
+    designator(NULL);
     Type* type = codegen->getTopType();
-    codegen->undoDesignator(undoOffs);
+    codegen->undoExpr(undoOffs);
     codegen->loadTypeRef(type);
 }
 
@@ -228,13 +228,13 @@ void Compiler::ifFunc()
     expect(tokLParen, "(");
     expression(queenBee->defBool);
     memint jumpFalse = codegen->boolJumpForward(opJumpFalse);
-    expect(tokComma, ",");
+    expect(tokComma, "','");
     expression(NULL);
     Type* exprType = codegen->getTopType();
     codegen->justForget(); // will get the expression type from the second branch
     memint jumpOut = codegen->jumpForward();
     codegen->resolveJump(jumpFalse);
-    expect(tokComma, ",");
+    expect(tokComma, "','");
     expression(exprType);
     codegen->resolveJump(jumpOut);
     expect(tokRParen, ")");
@@ -245,15 +245,12 @@ void Compiler::actualArgs(Prototype* proto)
 {
     if (!proto->returnType->isVoid())
         codegen->loadEmptyConst(proto->returnType);
-    memint i = 0;
-    while (i < proto->formalArgs.size())
+    for (memint i = 0; i < proto->formalArgs.size(); i++)
     {
+        if (i > 0)
+            expect(tokComma, "','");
         FormalArg* arg = proto->formalArgs[i];
         expression(arg->type);
-        i++;
-        if (i == proto->formalArgs.size())
-            break;
-        expect(tokComma, "','");
     }
     expect(tokRParen, "')'");
 }
@@ -374,14 +371,7 @@ void Compiler::designator(Type* typeHint)
             Type* type = codegen->getTopType();
             if (!type->isFuncPtr())
                 error("Invalid function call");
-            Prototype* proto = PFuncPtr(type)->prototype;
-            for (memint i = 0; i < proto->formalArgs.size(); i++)
-            {
-                if (i > 0)
-                    expect(tokComma, "','");
-                expression(proto->formalArgs[i]->type);
-            }
-            expect(tokRParen, "')'");
+            actualArgs(PFuncPtr(type)->prototype);
             codegen->call(PFuncPtr(type));    // May throw evoidfunc()
         }
 /*

@@ -524,7 +524,7 @@ for i, j = {'one' = one, 'two' = two, 'three' = three}
 
 // STATES
 
-// def proto1 = int *(int a, int b)
+// def proto1 = int *(int a, int b) ...
 
 var inc_call_count = 0
 
@@ -616,7 +616,7 @@ assert vn1 == 2
 
 
 // OOP
-/*
+
 def self point(int _x, int _y)
 {
     var x = _x
@@ -624,6 +624,7 @@ def self point(int _x, int _y)
 }
 
 var p = point(10, 20)
-*/
+// var point p2 = point(100, 200)
+var 0..10 tens = 0
 
 dump system.__program_result

@@ -39,6 +39,7 @@ OpInfo opTable[] =
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadSelfFuncPtr, State), // [State*] +funcptr
+    OP(LoadNullFuncPtr, State), // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var

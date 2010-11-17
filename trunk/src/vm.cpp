@@ -60,11 +60,7 @@ static void typecastError()
     { throw evariant("Invalid typecast"); }
 
 static void constExprErr()
-    { throw emessage("Variable in constant expression"); }
-
-
-// static void objectGone()
-//     { throw emessage("Object lost before assignment"); }
+    { throw emessage("Invalid constant expression"); }
 
 
 static void dumpVar(const str& expr, const variant& var, Type* type)
@@ -213,6 +209,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opLoadSelfFuncPtr:
             PUSH(new funcptr(stateobj::objbase(self), ADV(State*)));
+            break;
+        case opLoadNullFuncPtr:
+            PUSH(new funcptr(NULL, ADV(State*)));
             break;
 
 

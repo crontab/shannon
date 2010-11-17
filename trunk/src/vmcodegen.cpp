@@ -38,7 +38,7 @@ void CodeGen::addOp(Type* type, OpCode op)
 }
 
 
-void CodeGen::undoDesignator(memint from)
+void CodeGen::undoExpr(memint from)
 {
     codeseg.erase(from);
     stkPop();
@@ -51,7 +51,7 @@ void CodeGen::undoLoader()
     memint offs = stkTopOffs();
     if (!isUndoableLoader(codeseg[offs]))
         error("Invalid type cast");
-    undoDesignator(offs);
+    undoExpr(offs);
 }
 
 
@@ -147,7 +147,7 @@ void CodeGen::isType(Type* to, memint undoOffs)
     Type* from = stkTop();
     if (from->canAssignTo(to))
     {
-        undoDesignator(undoOffs);
+        undoExpr(undoOffs);
         loadConst(queenBee->defBool, 1);
     }
     else if (from->isAnyState() || from->isVariant())
@@ -157,7 +157,7 @@ void CodeGen::isType(Type* to, memint undoOffs)
     }
     else
     {
-        undoDesignator(undoOffs);
+        undoExpr(undoOffs);
         loadConst(queenBee->defBool, 0);
     }
 }
@@ -273,20 +273,7 @@ void CodeGen::nonEmpty()
 
 void CodeGen::loadTypeRef(Type* type)
 {
-    if (!isCompileTime() && type->isAnyState())
-    {
-        State* stateType = PState(type);
-        OpCode op = opInv;
-        if (stateType->parent == codeOwner->parent)
-            op = opLoadOuterFuncPtr;
-        else if (stateType->parent == codeOwner)
-            op = opLoadSelfFuncPtr;
-        else
-            error("Invalid context for a function pointer");
-        addOp<State*>(stateType->getFuncPtr(), op, stateType);
-    }
-    else
-        addOp<Type*>(defTypeRef, opLoadTypeRef, type);
+    addOp<Type*>(defTypeRef, opLoadTypeRef, type);
 }
 
 
@@ -341,7 +328,22 @@ void CodeGen::loadConst(Type* type, const variant& value)
 
 void CodeGen::loadDefinition(Definition* def)
 {
-    if (def->type->isTypeRef() || def->type->isVoid()
+    Type* aliasedType = def->getAliasedType();
+    if (aliasedType && aliasedType->isAnyState())
+    {
+        State* stateType = PState(aliasedType);
+        OpCode op = opInv;
+        if (isCompileTime())
+            op = opLoadNullFuncPtr;
+        else if (stateType->parent == codeOwner->parent)
+            op = opLoadOuterFuncPtr;
+        else if (stateType->parent == codeOwner)
+            op = opLoadSelfFuncPtr;
+        else
+            error("Invalid context for a function pointer");
+        addOp<State*>(stateType->getFuncPtr(), op, stateType);
+    }
+    else if (aliasedType || def->type->isVoid()
             || def->type->isAnyOrd() || def->type->isByteVec())
         loadConst(def->type, def->value);
     else
@@ -475,7 +477,7 @@ void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
         }
         else
         {
-            undoDesignator(*undoOffs);
+            undoExpr(*undoOffs);
             *undoOffs = getCurrentOffs();
             loadDefinition(def);
         }
@@ -1294,6 +1296,8 @@ void CodeGen::call(FuncPtr* funcPtr)
 #endif
         stkPop();
     }
+    if (!proto->returnType->isVoid())
+        stkPop();
     assert(stkTop()->isFuncPtr());
 
     OpCode op = opInv;
@@ -1306,8 +1310,8 @@ void CodeGen::call(FuncPtr* funcPtr)
         case opMkFuncPtr: op = opMethodCall; break;
         default: notimpl();
     }
-
-    stkPop(); // func ptr
+    stkPop(); // funcptr
+    codeseg.eraseOp(offs); // erase funcptr loader
 
     if (proto->returnType->isVoid())
     {
