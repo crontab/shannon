@@ -165,7 +165,8 @@ void CodeGen::isType(Type* to, memint undoOffs)
 
 void CodeGen::createSubrangeType()
 {
-    assert(codeOwner == NULL); // Compile-time only
+    if (!isCompileTime())
+        error("Deriving subrange type not allowed at run-time");
     Type* left = stkTop(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
@@ -308,6 +309,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
         assert(type->isByteVec());
         addOp<object*>(type, opLoadStr, value._str().obj);
         return;
+    case variant::RANGE:
     case variant::VEC:
     case variant::SET:
     case variant::ORDSET:
