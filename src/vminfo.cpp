@@ -11,7 +11,6 @@ umemint ArgSizes[argMax] =
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(char), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer), sizeof(str), sizeof(str) + sizeof(Type*),
-      sizeof(Type*) + sizeof(State*),
     };
 
 
@@ -68,7 +67,7 @@ OpInfo opTable[] =
     OP(IncStkVar, StkIdx),      // [stk.idx:s8]
 
     // --- 5. DESIGNATOR OPS, MISC
-    OP(MkSubrange, MkSubrange), // [Ordinal*, State*] -int -int +type  -- compile-time only
+    OP(MkRange, None),          // -int -int +range
     OP(MkRef, None),            // -var +ref
     OP(MkFuncPtr, State),       // [State*] -obj +funcptr
     OP(NonEmpty, None),         // -var +bool
@@ -285,7 +284,6 @@ void CodeSeg::dump(fifo& stm) const
                 case argLineNum:    break; // handled above
                 case argAssertCond: stm << '"' << ADV(str) << '"'; break;
                 case argDump:       stm << ADV(str) << ": "; ADV(Type*)->dumpDef(stm); break;
-                case argMkSubrange: notimpl();
                 case argMax:        break;
             }
         }

@@ -21,7 +21,7 @@
 */
 
 
-void Compiler::enumeration(const str& firstIdent)
+Type* Compiler::getEnumeration(const str& firstIdent)
 {
     Enumeration* enumType = state->registerType(new Enumeration());
     enumType->addValue(state, scope, firstIdent);
@@ -31,7 +31,7 @@ void Compiler::enumeration(const str& firstIdent)
         enumType->addValue(state, scope, getIdentifier());
     }
     while (skipIf(tokComma));
-    codegen->loadTypeRef(enumType);
+    return enumType;
 }
 
 
@@ -44,7 +44,7 @@ Type* Compiler::getTypeDerivators(Type* type)
             return getTypeDerivators(type)->deriveVec(state);
         else
         {
-            Type* indexType = getTypeValue(false);
+            Type* indexType = getTypeValue();
             expect(tokRSquare, "]");
             if (indexType->isVoid())
                 return getTypeDerivators(type)->deriveVec(state);
@@ -66,7 +66,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         {
             do
             {
-                Type* argType = getTypeValue(true);
+                Type* argType = getTypeValue();
                 str ident = getIdentifier();
                 argType = getTypeDerivators(argType);
                 proto->addFormalArg(ident, argType);
@@ -291,10 +291,7 @@ void Compiler::atom(Type* typeHint)
 
     else if (skipIf(tokLParen))
     {
-        if (codegen->isCompileTime())
-            constExpr(typeHint);
-        else
-            expression(typeHint);
+        expression(typeHint);
         expect(tokRParen, "')'");
     }
 
@@ -410,12 +407,12 @@ void Compiler::factor(Type* typeHint)
         codegen->arithmUnary(opNeg);
     if (skipIf(tokAs))
     {
-        Type* type = getTypeValue(true);
+        Type* type = getTypeValue();
         // TODO: default value in parens?
         codegen->explicitCast(type);
     }
     if (skipIf(tokIs))
-        codegen->isType(getTypeValue(true), undoOffs);
+        codegen->isType(getTypeValue(), undoOffs);
 }
 
 
@@ -581,61 +578,59 @@ void Compiler::caseValue(Type* ctlType)
 
 void Compiler::expression(Type* expectType)
 {
+    // Some tricks to shorten the path whenever possible:
     if (expectType == NULL || expectType->isBool())
         orLevel();
     else if (expectType->isAnyCont())
+        // expectType will propagate all the way down to vectorCtor()/dictCtor():
         concatExpr(PContainer(expectType));
     else if (expectType->isReference())
         designator(expectType);
     else
         arithmExpr();
-    if (codegen->isCompileTime() && skipIf(tokRange))
+
+    Type* resultType = codegen->getTopType();
+    if (resultType->isAnyOrd() && !resultType->isBool() && skipIf(tokRange))
     {
         arithmExpr();
-        codegen->createSubrangeType();
+        codegen->mkRange();
     }
+
     if (expectType)
         codegen->implicitCast(expectType);
 }
 
 
-void Compiler::constExpr(Type* expectType)
+Type* Compiler::getConstValue(Type* expectType, variant& result)
 {
-    assert(codegen->isCompileTime());
-    if (token == tokIdent)  // Enumeration maybe?
+    if (token == tokIdent)  // Enumeration?
     {
         str ident = strValue;
-        if (next() != tokComma)
+        if (next() == tokComma)
         {
-            undoIdent(ident);
-            expression(expectType);
+            result = getEnumeration(ident);
+            return defTypeRef;
         }
-        else
-            enumeration(ident);
+        undoIdent(ident);
     }
-    else
-        expression(expectType);
-    if (expectType)
-        codegen->implicitCast(expectType);
-}
 
-
-Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
-{
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode, module, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     Type* resultType = NULL;
     try
     {
-        if (atomType)
-            designator(expectType);
-        else
-            constExpr(expectType);
+        expression(expectType);
         if (codegen->getTopType()->isReference())
             error("References not allowed in const expressions");
-        resultType = constCodeGen.runConstExpr(expectType, result);
+        resultType = constCodeGen.runConstExpr(result);
         codegen = prevCodeGen;
+        
+        if (resultType->isRange())
+        {
+            result = state->registerType(PRange(resultType)->elem->createSubrange(result._range()));
+            resultType = defTypeRef;
+        }
     }
     catch(exception&)
     {
@@ -646,12 +641,10 @@ Type* Compiler::getConstValue(Type* expectType, variant& result, bool atomType)
 }
 
 
-Type* Compiler::getTypeValue(bool atomType)
+Type* Compiler::getTypeValue()
 {
-    // atomType excludes enums and subrange type definitions and thus shorthens
-    // the parsing path
     variant result;
-    getConstValue(defTypeRef, result, atomType);
+    getConstValue(defTypeRef, result);
     return cast<Type*>(result._rtobj());
 }
 

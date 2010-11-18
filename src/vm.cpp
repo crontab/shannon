@@ -132,6 +132,9 @@ template <class T>
    inline void SETPOD(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
+inline void SETPOD(variant* dest, integer l, integer r)
+    { ::new(dest) variant(l, r); }
+
 
 void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const uchar* ip)
 {
@@ -286,11 +289,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
 
         // --- 5. DESIGNATOR OPS, MISC ---------------------------------------
-        case opMkSubrange:
+        case opMkRange:
             {
-                Ordinal* t = ADV(Ordinal*)->createSubrange((stk - 1)->_int(), stk->_int());
-                ADV(State*)->registerType(t);
-                *(stk - 1) = t;
+                SETPOD(stk - 1, (stk - 1)->_int(), stk->_int());
                 POPPOD();
             }
             break;
@@ -781,11 +782,10 @@ eexit::~eexit() throw()  { }
 const char* eexit::what() throw()  { return "Exit called"; }
 
 
-Type* CodeGen::runConstExpr(Type* resultType, variant& result)
+Type* CodeGen::runConstExpr(variant& result)
 {
-    if (resultType == NULL)
-        resultType = stkTop();
-    storeRet(resultType);
+    Type* resultType = stkPop();
+    addOp<char>(opInitStkVar, -1);
     end();
 
     rtstack stack(codeseg.stackSize + 1);

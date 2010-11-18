@@ -980,8 +980,6 @@ protected:
         rtobject*   _rtobj;     // runtime objects with the "type" field
     } val;
 
-    static void _type_err();
-    static void _range_err();
     void _req(Type t) const             { if (type != t) _type_err(); }
     void _req_anyobj() const            { if (!is_anyobj()) _type_err(); }
 #ifdef DEBUG
@@ -1068,7 +1066,6 @@ public:
 
     // Safer access methods; may throw an exception
     bool        as_bool()         const { _req(ORD); return _bool(); }
-    // char        as_char()         const { _req(ORD); return _uchar(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_ord()          const { _req(ORD); return _int(); }
     variant*    as_ptr()          const { _req(VARPTR); return val._ptr; }
@@ -1088,6 +1085,9 @@ public:
     varset&     as_set()                { _req(SET); return _set(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
     vardict&    as_dict()               { _req(DICT); return _dict(); }
+
+    static void _type_err();
+    static void _range_err();
 };
 
 

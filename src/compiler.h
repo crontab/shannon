@@ -42,7 +42,7 @@ protected:
 
     // in compexpr.cpp
     Type* getTypeDerivators(Type*);
-    void enumeration(const str& firstIdent);
+    Type* getEnumeration(const str& firstIdent);
     void identifier(const str&);
     void vectorCtor(Type* type);
     void dictCtor(Type* type);
@@ -60,9 +60,8 @@ protected:
     void andLevel();
     void orLevel();
     void expression(Type*);
-    void constExpr(Type*);
-    Type* getConstValue(Type* resultType, variant& result, bool atomType);
-    Type* getTypeValue(bool atomType);
+    Type* getConstValue(Type* resultType, variant& result);
+    Type* getTypeValue();
 
     // in compiler.cpp
     Type* getTypeAndIdent(str* ident);

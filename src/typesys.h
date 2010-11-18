@@ -15,6 +15,7 @@ class Type;
 class Reference;
 class Ordinal;
 class Enumeration;
+class Range;
 class Container;
 class Fifo;
 class Prototype;
@@ -33,6 +34,7 @@ typedef Type* PType;
 typedef Reference* PReference;
 typedef Ordinal* POrdinal;
 typedef Enumeration* PEnumeration;
+typedef Range* PRange;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
 typedef Prototype* PPrototype;
@@ -187,9 +189,10 @@ public:
 #endif
 
     enum TypeId {
-        TYPEREF, VOID, VARIANT, REF,
-        BOOL, CHAR, INT, ENUM,
-        NULLCONT, VEC, SET, DICT, FIFO,
+        TYPEREF, VOID, VARIANT, REF, RANGE,
+        BOOL, CHAR, INT, ENUM,      // ordinal types; see isAnyOrd()
+        NULLCONT, VEC, SET, DICT,   // containers; see isAnyCont()
+        FIFO,
         PROTOTYPE, SELFSTUB, STATE, FUNCPTR };
 
 protected:
@@ -210,6 +213,7 @@ public:
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
     bool isDerefable() const    { return !isAnyState() & !isAnyFifo(); }
+    bool isRange() const        { return typeId == RANGE; }
 
     bool isBool() const         { return typeId == BOOL; }
     bool isChar() const         { return typeId == CHAR; }
@@ -219,7 +223,6 @@ public:
     bool isByte() const;
     bool isBit() const;
     bool isFullChar() const;
-    bool isRange() const;
 
     bool isNullCont() const     { return typeId == NULLCONT; }
     bool isAnyVec() const       { return typeId == VEC; }
@@ -330,6 +333,8 @@ protected:
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
 
+    objptr<Range> rangeType;
+
 public:
     integer const left;
     integer const right;
@@ -349,6 +354,10 @@ public:
     integer getRange() const
         { return right - left + 1; }
     Ordinal* createSubrange(integer, integer);
+    Ordinal* createSubrange(const range& r)
+        { return createSubrange(r.left(), r.right()); }
+    Range* getRangeType()
+        { return rangeType; }
 };
 
 
@@ -369,6 +378,21 @@ public:
     bool identicalTo(Type* t) const;
     bool canAssignTo(Type*) const;
     void addValue(State*, Scope*, const str&);
+};
+
+
+class Range: public Type
+{
+    friend class Ordinal;
+protected:
+    Range(Ordinal*);
+    ~Range();
+public:
+    Ordinal* const elem;
+    void dump(fifo&) const;
+    void dumpValue(fifo&, const variant&) const;
+    bool identicalTo(Type* t) const;
+    bool canAssignTo(Type*) const;
 };
 
 
