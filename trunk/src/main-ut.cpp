@@ -520,6 +520,15 @@ void test_variant()
     {
         variant v1 = vardict(); check(v1.is(variant::DICT));
     }
+    {
+        variant v1 = range(0, 10);
+        variant v2 = range(0, 20);
+        check(v1.as_range().left() == 0);
+        check(v1.as_range().right() == 10);
+        check(v2.as_range().left() == 0);
+        check(v2.as_range().right() == 20);
+        check(v1.compare(v2) == -1);
+    }
 }
 
 

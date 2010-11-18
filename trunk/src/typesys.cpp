@@ -481,7 +481,7 @@ bool Reference::canAssignTo(Type* t) const
 
 
 Ordinal::Ordinal(TypeId id, integer l, integer r)
-    : Type(id), left(l), right(r)
+    : Type(id), rangeType(new Range(this)), left(l), right(r)
         { assert(isAnyOrd()); }
 
 
@@ -598,6 +598,39 @@ bool Enumeration::identicalTo(Type* t) const
 
 bool Enumeration::canAssignTo(Type* t) const
     { return t->typeId == typeId && values == PEnumeration(t)->values; }
+
+
+// --- //
+
+
+Range::Range(Ordinal* e)
+    : Type(RANGE), elem(e)  { }
+
+Range::~Range()
+    { }
+
+
+void Range::dump(fifo& stm) const
+{
+    stm << '(';
+    elem->dumpDef(stm);
+    stm << " *[..])";
+}
+
+
+void Range::dumpValue(fifo& stm, const variant& v) const
+{
+    elem->dumpValue(stm, v.as_range().left());
+    stm << "..";
+    elem->dumpValue(stm, v.as_range().right());
+}
+
+
+bool Range::identicalTo(Type* t) const
+    { return t->isRange() && elem->identicalTo(PRange(t)->elem); }
+
+bool Range::canAssignTo(Type* t) const
+    { return t->isRange() && elem->canAssignTo(PRange(t)->elem); }
 
 
 // --- Containers ---------------------------------------------------------- //

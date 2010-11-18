@@ -66,7 +66,7 @@ enum OpCode
     opIncStkVar,        // [stk.idx:s8] -- for loop helper
 
     // --- 5. DESIGNATOR OPS, MISC
-    opMkSubrange,       // [Ordinal*, State*] -int -int +type  -- compile-time only
+    opMkRange,          // -int -int +range
     opMkRef,            // -var +ref
     opMkFuncPtr,        // [State*] -obj +funcptr
     opNonEmpty,         // -var +bool
@@ -232,7 +232,6 @@ enum ArgType
       argVarType8, argDefinition,
       argSelfIdx, argOuterIdx, argStkIdx, argStateIdx, 
       argJump16, argLineNum, argAssertCond, argDump,
-      argMkSubrange,
       argMax };
 
 
@@ -382,7 +381,7 @@ public:
     void implicitCast(Type*, const char* errmsg = NULL);
     void explicitCast(Type*);
     void isType(Type*, memint undoOffs);
-    void createSubrangeType();
+    void mkRange();
 
     memint prolog();
     void epilog(memint prologOffs);
@@ -403,7 +402,6 @@ public:
     void loadThis();
     void loadDataSeg();
 
-    void storeRet(Type*);
     void initLocalVar(LocalVar*);
     void initSelfVar(SelfVar*);
     void incLocalVar(LocalVar*);
@@ -464,7 +462,7 @@ public:
     void call(FuncPtr*);
 
     void end();
-    Type* runConstExpr(Type* expectType, variant& result); // defined in vm.cpp
+    Type* runConstExpr(variant& result); // defined in vm.cpp
 };
 
 

@@ -163,18 +163,15 @@ void CodeGen::isType(Type* to, memint undoOffs)
 }
 
 
-void CodeGen::createSubrangeType()
+void CodeGen::mkRange()
 {
-    if (!isCompileTime())
-        error("Deriving subrange type not allowed at run-time");
     Type* left = stkTop(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
-    implicitCast(left, "Incompatible subrange bounds");
+    implicitCast(left, "Incompatible range bounds");
     stkPop();
     stkPop();
-    addOp<Ordinal*>(defTypeRef, opMkSubrange, POrdinal(left));
-    add<State*>(typeReg);
+    addOp(POrdinal(left)->getRangeType(), opMkRange);
 }
 
 
@@ -371,6 +368,8 @@ static variant::Type typeToVarType(Type* t)
         return variant::VOID;
     case Type::REF:
         return variant::REF;
+    case Type::RANGE:
+        return variant::RANGE;
     case Type::BOOL:
     case Type::CHAR:
     case Type::INT:
@@ -520,16 +519,6 @@ void CodeGen::loadDataSeg()
     if (isCompileTime())
         error("Static data can not be accessed in const expressions");
     addOp(module, opLoadDataSeg);
-}
-
-
-void CodeGen::storeRet(Type* type)
-{
-    if (!isCompileTime())
-        fatal(0x600a, "CodeGen::storeRet() called at run time");
-    implicitCast(type);
-    stkPop();
-    addOp<char>(opInitStkVar, -1);
 }
 
 

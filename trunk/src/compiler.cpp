@@ -59,7 +59,7 @@ Type* Compiler::getTypeAndIdent(str* ident)
             goto ICantBelieveIUsedAGotoStatement;
         undoIdent(*ident);
     }
-    type = getTypeValue(true);
+    type = getTypeValue();
     *ident = getIdentifier();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:
@@ -77,7 +77,7 @@ void Compiler::definition()
     {
         expect(tokAssign, "'='");
         variant value;
-        Type* valueType = getConstValue(type, value, false);
+        Type* valueType = getConstValue(type, value);
         if (type == NULL)
             type = valueType;
         if (type->isAnyOrd() && !POrdinal(type)->isInRange(value.as_ord()))

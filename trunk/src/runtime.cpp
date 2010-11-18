@@ -974,6 +974,31 @@ void ordset::find_insert(integer l, integer h)  { _getunique().include(int(l), i
 void ordset::find_erase(integer v)              { if (!empty()) _getunique().exclude(int(v)); }
 
 
+// --- range --------------------------------------------------------------- //
+
+
+range::range(integer l, integer r)
+    : obj(new rangeobj(l, r))  { }
+
+range::~range()
+    { }
+
+
+memint range::compare(const range& r) const
+{
+    integer d = left() - r.left();
+    if (d < 0)
+        return -1;
+    else if (d > 0)
+        return 1;
+    else
+    {
+        d = right() - r.right();
+        return d < 0 ? -1 : d > 0 ? 1 : 0;
+    }
+}
+
+
 // --- object collections -------------------------------------------------- //
 
 
