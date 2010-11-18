@@ -589,6 +589,11 @@ void Compiler::expression(Type* expectType)
         designator(expectType);
     else
         arithmExpr();
+    if (codegen->isCompileTime() && skipIf(tokRange))
+    {
+        arithmExpr();
+        codegen->createSubrangeType();
+    }
     if (expectType)
         codegen->implicitCast(expectType);
 }
@@ -603,20 +608,13 @@ void Compiler::constExpr(Type* expectType)
         if (next() != tokComma)
         {
             undoIdent(ident);
-            goto ICouldHaveDoneThisWithoutGoto;
+            expression(expectType);
         }
-        enumeration(ident);
+        else
+            enumeration(ident);
     }
     else
-    {
-ICouldHaveDoneThisWithoutGoto:
-        expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
-        if (skipIf(tokRange))  // Subrange
-        {
-            expression(NULL);
-            codegen->createSubrangeType();
-        }
-    }
+        expression(expectType);
     if (expectType)
         codegen->implicitCast(expectType);
 }

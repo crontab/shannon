@@ -219,6 +219,7 @@ public:
     bool isByte() const;
     bool isBit() const;
     bool isFullChar() const;
+    bool isRange() const;
 
     bool isNullCont() const     { return typeId == NULLCONT; }
     bool isAnyVec() const       { return typeId == VEC; }

@@ -1117,6 +1117,8 @@ memint variant::compare(const variant& v) const
             return val._ptr - v.val._ptr;
         case STR:
             return _str().compare(v._str());
+        case RANGE:
+            return _range().compare(v._range());
         // TODO: define "deep" comparison, at least for vectors?
         case VEC:
         case SET:
@@ -1142,6 +1144,7 @@ bool variant::operator== (const variant& v) const
             case REAL:      return val._real == v.val._real;
             case VARPTR:    return val._ptr == v.val._ptr;
             case STR:       return _str() == v._str();
+            case RANGE:     return _range() == v._range();
             case VEC:       return _vec() == v._vec();
             case SET:       return _set() == v._set();
             case ORDSET:    return _ordset() == v._ordset();
@@ -1163,6 +1166,7 @@ bool variant::empty() const
         case REAL:      return val._real == 0;
         case VARPTR:    return val._ptr == NULL;
         case STR:       return _str().empty();
+        case RANGE:     return _range().empty();
         case VEC:       return _vec().empty();
         case SET:       return _set().empty();
         case ORDSET:    return _ordset().empty();

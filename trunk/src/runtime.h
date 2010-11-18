@@ -800,6 +800,37 @@ public:
 };
 
 
+// --- range --------------------------------------------------------------- //
+
+
+class range
+{
+    friend class variant;
+protected:
+    struct rangeobj: public object
+    {
+        integer left;
+        integer right;
+        rangeobj(integer l, integer r): left(l), right(r)  { }
+    };
+    objptr<rangeobj> obj;
+public:
+    range(integer, integer);
+    ~range();
+    integer left() const
+        { return obj->left; }
+    integer right() const
+        { return obj->right; }
+    bool contains(integer v)
+        { return v >= obj->left && v <= obj->right; }
+    bool empty() const
+        { return obj->left > obj->right; }
+    memint compare(const range& r) const;
+    bool operator ==(const range& r) const
+        { return obj->left == r.obj->left && obj->right == r.obj->right; }
+};
+
+
 // --- object collections -------------------------------------------------- //
 
 
@@ -930,7 +961,7 @@ private:
 public:
     enum Type
         { VOID, ORD, REAL, VARPTR,
-          STR, VEC, SET, ORDSET, DICT, REF, RTOBJ,
+          STR, RANGE, VEC, SET, ORDSET, DICT, REF, RTOBJ,
           ANYOBJ = STR };
 
     struct _Void { int dummy; }; 
@@ -974,6 +1005,8 @@ protected:
     void _init(Type t, object* o)       { type = t; val._obj = o; if (o) o->grab(); }
     void _init(const str& v)            { _init(STR, v.obj); }
     void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
+    void _init(const range& v)          { _init(RANGE, v.obj); }
+    void _init(integer l, integer r)    { type = RANGE; ::new(&val._obj) range(l, r); }
     void _init(const varvec& v)         { _init(VEC, v.obj); }
     void _init(const varset& v)         { _init(SET, v.obj); }
     void _init(const ordset& v)         { _init(ORDSET, v.obj); }
@@ -989,6 +1022,7 @@ protected:
 public:
     variant()                           { _init(); }
     variant(Type t)                     { _init(t); }
+    variant(integer l, integer r)       { _init(l, r); }
     variant(const variant& v)           { _init(v); }
     template <class T>
         variant(const T& v)             { _init(v); }
@@ -1016,6 +1050,7 @@ public:
     integer     _int()            const { _dbg(ORD); return val._ord; }
     variant*    _ptr()            const { _dbg(VARPTR); return val._ptr; }
     const str&  _str()            const { _dbg(STR); return *(str*)&val._obj; }
+    const range& _range()         const { _dbg(RANGE); return *(range*)&val._obj; }
     const varvec& _vec()          const { _dbg(VEC); return *(varvec*)&val._obj; }
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
@@ -1025,6 +1060,7 @@ public:
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
+    range&      _range()                { _dbg(RANGE); return *(range*)&val._obj; }
     varvec&     _vec()                  { _dbg(VEC); return *(varvec*)&val._obj; }
     varset&     _set()                  { _dbg(SET); return *(varset*)&val._obj; }
     ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
@@ -1037,6 +1073,7 @@ public:
     integer     as_ord()          const { _req(ORD); return _int(); }
     variant*    as_ptr()          const { _req(VARPTR); return val._ptr; }
     const str&  as_str()          const { _req(STR); return _str(); }
+    const range&  as_range()      const { _req(RANGE); return _range(); }
     const varvec& as_vec()        const { _req(VEC); return _vec(); }
     const varset& as_set()        const { _req(SET); return _set(); }
     const ordset& as_ordset()     const { _req(ORDSET); return _ordset(); }
@@ -1046,6 +1083,7 @@ public:
     object*     as_anyobj()       const { _req_anyobj(); return val._obj; }
     integer&    as_ord()                { _req(ORD); return _int(); }
     str&        as_str()                { _req(STR); return _str(); }
+    range&      as_range()              { _req(RANGE); return _range(); }
     varvec&     as_vec()                { _req(VEC); return _vec(); }
     varset&     as_set()                { _req(SET); return _set(); }
     ordset&     as_ordset()             { _req(ORDSET); return _ordset(); }
@@ -1177,7 +1215,6 @@ public:
     bool empty() const;
     void dump(fifo&) const;
 };
-
 
 
 // TODO: Runtime stack is a fixed, uninitialized and unmanaged array of

@@ -220,6 +220,7 @@ bool Type::isCompatibleWith(const variant& v)
         case variant::REAL:     notimpl(); return false;
         case variant::VARPTR:   return false;
         case variant::STR:      return isByteVec();
+        case variant::RANGE:    return isRange();
         case variant::VEC:      return (isAnyVec() && !isByteVec()) || isByteDict();
         case variant::SET:      return isAnySet() && !isByteSet();
         case variant::ORDSET:   return isByteSet();
@@ -417,6 +418,7 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
             case variant::REAL:     notimpl(); break;
             case variant::VARPTR:   stm << "@@"; if (v._ptr()) dumpVariant(stm, v._ptr()); break;
             case variant::STR:      stm << to_quoted(v._str()); break;
+            case variant::RANGE:    stm << v._range().left() << ".." << v._range().right(); break;
             case variant::VEC:      dumpVec(stm, v._vec(), false); break;
             case variant::SET:      dumpVec(stm, v._set(), true); break;
             case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
