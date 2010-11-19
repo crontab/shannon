@@ -9,7 +9,7 @@ const char* evoidfunc::what() throw() { return "Void function called"; }
 
 CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
     : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      lastOp(opInv), prevLoaderOffs(-1)
+      lastOp(opInv), saveLoaderOffs(-1)
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -31,7 +31,7 @@ void CodeGen::error(const str& msg)
 
 void CodeGen::addOp(Type* type, OpCode op)
 {
-    simStack.push_back(SimStackItem(type, getCurrentOffs()));
+    simStack.push_back(SimStackItem(type, getCurrentOffs(), saveLoaderOffs));
     if (simStack.size() > codeseg.stackSize)
         codeseg.stackSize = simStack.size();
     addOp(op);
@@ -42,13 +42,13 @@ void CodeGen::undoExpr(memint from)
 {
     codeseg.erase(from);
     stkPop();
-    prevLoaderOffs = -1;
+    saveLoaderOffs = -1;
 }
 
 
 void CodeGen::undoLoader()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     if (!isUndoableLoader(codeseg[offs]))
         error("Invalid type cast");
     undoExpr(offs);
@@ -57,31 +57,29 @@ void CodeGen::undoLoader()
 
 bool CodeGen::lastWasFuncCall()
 {
-    return isCaller(codeseg[stkTopOffs()]);
+    return isCaller(codeseg[stkLoaderOffs()]);
 }
 
 
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
-    prevLoaderOffs = s.offs;
+    saveLoaderOffs = getStackLevel() > locals ? s.loaderOffs : -1;
     Type* result = s.type;
     simStack.pop_back();
     return result;
 }
 
 
-void CodeGen::stkReplaceTop(Type* t)
+void CodeGen::stkReplaceType(Type* t)
 {
-    memint offs = stkTopOffs();
-    simStack.pop_back();
-    simStack.push_back(SimStackItem(t, offs));
+    simStack.backw().type = t;
 }
 
 
 bool CodeGen::tryImplicitCast(Type* to)
 {
-    Type* from = stkTop();
+    Type* from = stkType();
 
     if (from == to)
         return true;
@@ -89,7 +87,7 @@ bool CodeGen::tryImplicitCast(Type* to)
     if (to->isVariant() || from->canAssignTo(to))
     {
         // canAssignTo() should take care of polymorphic typecasts
-        stkReplaceTop(to);
+        stkReplaceType(to);
         return true;
     }
 
@@ -125,10 +123,10 @@ void CodeGen::explicitCast(Type* to)
     if (tryImplicitCast(to))
         return;
 
-    Type* from = stkTop();
+    Type* from = stkType();
 
     if (from->isAnyOrd() && to->isAnyOrd())
-        stkReplaceTop(to);
+        stkReplaceType(to);
 
     else if (from->isVariant())
     {
@@ -144,7 +142,7 @@ void CodeGen::explicitCast(Type* to)
 
 void CodeGen::isType(Type* to, memint undoOffs)
 {
-    Type* from = stkTop();
+    Type* from = stkType();
     if (from->canAssignTo(to))
     {
         undoExpr(undoOffs);
@@ -165,7 +163,7 @@ void CodeGen::isType(Type* to, memint undoOffs)
 
 void CodeGen::mkRange()
 {
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
     implicitCast(left, "Incompatible range bounds");
@@ -182,8 +180,8 @@ void CodeGen::deinitLocalVar(Variable* var)
     assert(locals == simStack.size());
     if (var->id != locals - 1)
         fatal(0x6002, "Invalid local var id");
-    locals--;
     popValue();
+    locals--;
 }
 
 
@@ -192,7 +190,7 @@ void CodeGen::deinitFrame(memint baseLevel)
     memint topLevel = getStackLevel();
     for (memint i = topLevel; i > baseLevel; i--)
     {
-        bool isPod = stkTop(topLevel - i + 1)->isPod();
+        bool isPod = stkType(topLevel - i + 1)->isPod();
         addOp(isPod ? opPopPod : opPop);
     }
 }
@@ -207,7 +205,7 @@ void CodeGen::popValue()
 
 Type* CodeGen::tryUndoTypeRef()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     if (codeseg[offs] == opLoadTypeRef)
     {
         Type* type = codeseg.at<Type*>(offs + 1);
@@ -221,7 +219,7 @@ Type* CodeGen::tryUndoTypeRef()
 
 bool CodeGen::deref()
 {
-    Type* type = stkTop();
+    Type* type = stkType();
     if (type->isReference())
     {
         type = type->getValueType();
@@ -240,10 +238,10 @@ bool CodeGen::deref()
 
 void CodeGen::mkref()
 {
-    Type* type = stkTop();
+    Type* type = stkType();
     if (!type->isReference())
     {
-        if (codeseg[stkTopOffs()] == opDeref)
+        if (codeseg[stkLoaderOffs()] == opDeref)
             error("Superfluous automatic dereference");
         if (type->isDerefable())
         {
@@ -258,7 +256,7 @@ void CodeGen::mkref()
 
 void CodeGen::nonEmpty()
 {
-    Type* type = stkTop();
+    Type* type = stkType();
     if (!type->isBool())
     {
         stkPop();
@@ -447,7 +445,7 @@ void CodeGen::loadVariable(Variable* var)
 
 void CodeGen::loadMember(const str& ident, memint* undoOffs)
 {
-    Type* stateType = stkTop();
+    Type* stateType = stkType();
     if (!stateType->isAnyState())
         error("Invalid member selection");
     loadMember(PState(stateType)->findShallow(ident), undoOffs);
@@ -456,7 +454,7 @@ void CodeGen::loadMember(const str& ident, memint* undoOffs)
 
 void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
 {
-    Type* type = stkTop();
+    Type* type = stkType();
     // TODO: see if it's a FuncPtr, discard the whole designator and retrieve State*
     if (!type->isAnyState())
         error("Invalid member selection");
@@ -555,7 +553,7 @@ void CodeGen::loadContainerElem()
 {
     // This is square brackets op - can be string, vector, array or dictionary.
     OpCode op = opInv;
-    Type* contType = stkTop(2);
+    Type* contType = stkType(2);
     if (contType->isAnyVec())
     {
         implicitCast(queenBee->defInt, "Vector index must be integer");
@@ -586,8 +584,8 @@ void CodeGen::loadContainerElem()
 void CodeGen::loadKeyByIndex()
 {
     // For non-byte dicts and sets, used internally by the for loop parser
-    Type* contType = stkTop(2);
-    if (!stkTop()->isAnyOrd())
+    Type* contType = stkType(2);
+    if (!stkType()->isAnyOrd())
         fatal(0x6008, "loadContainerElemByIndex(): invalid index");
     stkPop();
     stkPop();
@@ -603,8 +601,8 @@ void CodeGen::loadKeyByIndex()
 void CodeGen::loadDictElemByIndex()
 {
     // Used internally by the for loop parser
-    Type* contType = stkTop(2);
-    if (!stkTop()->isAnyOrd())
+    Type* contType = stkType(2);
+    if (!stkType()->isAnyOrd())
         fatal(0x6008, "loadContainerElemByIndex(): invalid index");
     stkPop();
     stkPop();
@@ -617,9 +615,9 @@ void CodeGen::loadDictElemByIndex()
 
 void CodeGen::loadSubvec()
 {
-    Type* contType = stkTop(3);
-    Type* left = stkTop(2);
-    Type* right = stkTop();
+    Type* contType = stkType(3);
+    Type* left = stkType(2);
+    Type* right = stkType();
     bool tail = right->isVoid();
     if (!tail)
         implicitCast(left);
@@ -641,7 +639,7 @@ void CodeGen::length()
 {
     // NOTE: # for sets and dicts is not a language feature, it's needed for 'for' loops
     // TODO: maybe then we should allow # on these only internally
-    Type* type = stkTop();
+    Type* type = stkType();
     if (type->isNullCont())
     {
         undoLoader();
@@ -671,7 +669,7 @@ void CodeGen::length()
 
 Container* CodeGen::elemToVec(Container* vecType)
 {
-    Type* elemType = stkTop();
+    Type* elemType = stkType();
     if (vecType)
     {
         if (!vecType->isAnyVec())
@@ -688,7 +686,7 @@ Container* CodeGen::elemToVec(Container* vecType)
 
 void CodeGen::elemCat()
 {
-    Type* vecType = stkTop(2);
+    Type* vecType = stkType(2);
     if (!vecType->isAnyVec())
         error("Vector/string type expected");
     implicitCast(PContainer(vecType)->elem, "Vector/string element type mismatch");
@@ -699,7 +697,7 @@ void CodeGen::elemCat()
 
 void CodeGen::cat()
 {
-    Type* vecType = stkTop(2);
+    Type* vecType = stkType(2);
     if (!vecType->isAnyVec())
         error("Left operand is not a vector");
     implicitCast(vecType, "Vector/string types do not match");
@@ -710,7 +708,7 @@ void CodeGen::cat()
 
 Container* CodeGen::elemToSet()
 {
-    Type* elemType = stkTop();
+    Type* elemType = stkType();
     Container* setType = elemType->deriveSet(typeReg);
     stkPop();
     addOp(setType, setType->isByteSet() ? opElemToByteSet : opElemToSet);
@@ -720,10 +718,10 @@ Container* CodeGen::elemToSet()
 
 Container* CodeGen::rangeToSet()
 {
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     if (!left->isAnyOrd())
         error("Non-ordinal range bounds");
-    if (!left->canAssignTo(stkTop()))
+    if (!left->canAssignTo(stkType()))
         error("Incompatible range bounds");
     Container* setType = left->deriveSet(typeReg);
     if (!setType->isByteSet())
@@ -737,7 +735,7 @@ Container* CodeGen::rangeToSet()
 
 void CodeGen::setAddElem()
 {
-    Type* setType = stkTop(2);
+    Type* setType = stkType(2);
     if (!setType->isAnySet())
         error("Set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
@@ -748,7 +746,7 @@ void CodeGen::setAddElem()
 
 void CodeGen::checkRangeLeft()
 {
-    Type* setType = stkTop(2);
+    Type* setType = stkType(2);
     if (!setType->isByteSet())
         error("Byte set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
@@ -757,7 +755,7 @@ void CodeGen::checkRangeLeft()
 
 void CodeGen::setAddRange()
 {
-    Type* setType = stkTop(3);
+    Type* setType = stkType(3);
     if (!setType->isByteSet())
         error("Byte set type expected");
     implicitCast(PContainer(setType)->index, "Set element type mismatch");
@@ -769,8 +767,8 @@ void CodeGen::setAddRange()
 
 Container* CodeGen::pairToDict()
 {
-    Type* val = stkTop();
-    Type* key = stkTop(2);
+    Type* val = stkType();
+    Type* key = stkType(2);
     Container* dictType = val->deriveContainer(typeReg, key);
     stkPop();
     stkPop();
@@ -781,7 +779,7 @@ Container* CodeGen::pairToDict()
 
 void CodeGen::checkDictKey()
 {
-    Type* dictType = stkTop(2);
+    Type* dictType = stkType(2);
     if (!dictType->isAnyDict())
         error("Dictionary type expected");
     implicitCast(PContainer(dictType)->index, "Dictionary key type mismatch");
@@ -790,7 +788,7 @@ void CodeGen::checkDictKey()
 
 void CodeGen::dictAddPair()
 {
-    Type* dictType = stkTop(3);
+    Type* dictType = stkType(3);
     if (!dictType->isAnyDict())
         error("Dictionary type expected");
     implicitCast(PContainer(dictType)->elem, "Dictionary element type mismatch");
@@ -847,7 +845,7 @@ void CodeGen::inRange2(bool isCaseLabel)
 {
     Type* right = stkPop();
     Type* left = stkPop();
-    Type* elem = isCaseLabel ? stkTop() : stkPop();
+    Type* elem = isCaseLabel ? stkType() : stkPop();
     if (!left->canAssignTo(right))
         error("Incompatible range bounds");
     if (!elem->canAssignTo(left))
@@ -872,7 +870,7 @@ void CodeGen::arithmBinary(OpCode op)
 void CodeGen::arithmUnary(OpCode op)
 {
     assert(op >= opNeg && op <= opNot);
-    Type* type = stkTop();
+    Type* type = stkType();
     if (!type->isInt())
         error("Operand type doesn't match unary operator");
     addOp(op);
@@ -882,9 +880,9 @@ void CodeGen::arithmUnary(OpCode op)
 void CodeGen::cmp(OpCode op)
 {
     assert(isCmpOp(op));
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     implicitCast(left, "Type mismatch in comparison");
-    Type* right = stkTop();
+    Type* right = stkType();
     if (left->isAnyOrd() && right->isAnyOrd())
         addOp(opCmpOrd);
     else if (left->isByteVec() && right->isByteVec())
@@ -903,7 +901,7 @@ void CodeGen::cmp(OpCode op)
 
 void CodeGen::caseCmp()
 {
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     implicitCast(left, "Type mismatch in comparison");
     Type* right = stkPop();
     if (left->isAnyOrd() && right->isAnyOrd())
@@ -917,7 +915,7 @@ void CodeGen::caseCmp()
 
 void CodeGen::_not()
 {
-    Type* type = stkTop();
+    Type* type = stkType();
     if (type->isInt())
         addOp(opBitNot);
     else
@@ -931,7 +929,7 @@ void CodeGen::_not()
 void CodeGen::localVarCmp(LocalVar* var, OpCode op)
 {
     // implicitCast(var->type, "Type mismatch in comparison");
-    if (!stkTop()->isAnyOrd() || !var->type->isAnyOrd())
+    if (!stkType()->isAnyOrd() || !var->type->isAnyOrd())
         fatal(0x6007, "localVarCmp(): unsupported type");
     stkPop();
     if (op == opGreaterThan)
@@ -1118,7 +1116,7 @@ static OpCode loaderToDeleter(OpCode op)
 
 str CodeGen::lvalue()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     OpCode loader = codeseg[offs];
     if (isGroundedLoader(loader))
     {
@@ -1131,11 +1129,11 @@ str CodeGen::lvalue()
         // A more complex assignment case: look at the previous loader - it 
         // should be a grounded one, transform it to its LEA equivalent, then
         // transform/move the last loader like in the previous case.
-        codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
+        memint prev = stkPrevLoaderOffs();
+        codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
     }
     OpCode storer = loaderToStorer(loader);
     codeseg.replaceOp(offs, storer);
-    prevLoaderOffs = -1;
     return codeseg.cutOp(offs);
 }
 
@@ -1144,7 +1142,7 @@ str CodeGen::arithmLvalue(Token tok)
 {
     assert(tok >= tokAddAssign && tok <= tokModAssign);
     OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
     offs = getCurrentOffs();
     codeseg.append(op);
@@ -1154,18 +1152,19 @@ str CodeGen::arithmLvalue(Token tok)
 
 void CodeGen::catLvalue()
 {
-    if (!stkTop()->isAnyVec())
+    if (!stkType()->isAnyVec())
         error("'|=' expects vector/string type");
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
 }
 
 
 str CodeGen::insLvalue()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     OpCode inserter = loaderToInserter(codeseg[offs]);
-    codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
+    memint prev = stkPrevLoaderOffs();
+    codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
     codeseg.replaceOp(offs, inserter);
     return codeseg.cutOp(offs);
 }
@@ -1174,7 +1173,7 @@ str CodeGen::insLvalue()
 void CodeGen::assignment(const str& storerCode)
 {
     assert(!storerCode.empty());
-    Type* dest = stkTop(2);
+    Type* dest = stkType(2);
     if (dest->isVoid())  // Don't remember why it's here. Possibly because of set elem selection
         error("Destination is void type");
     implicitCast(dest, "Type mismatch in assignment");
@@ -1186,9 +1185,10 @@ void CodeGen::assignment(const str& storerCode)
 
 void CodeGen::deleteContainerElem()
 {
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     OpCode deleter = loaderToDeleter(codeseg[offs]);
-    codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
+    memint prev = stkPrevLoaderOffs();
+    codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
     codeseg.replaceOp(offs, deleter);
     stkPop();
 }
@@ -1196,10 +1196,10 @@ void CodeGen::deleteContainerElem()
 
 void CodeGen::catAssign()
 {
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     if (!left->isAnyVec())
         error("'|=' expects vector/string type");
-    Type* right = stkTop();
+    Type* right = stkType();
     if (right->canAssignTo(PContainer(left)->elem))
         addOp(left->isByteVec() ? opChrCatAssign : opVarCatAssign);
     else
@@ -1214,10 +1214,10 @@ void CodeGen::catAssign()
 
 void CodeGen::fifoPush()
 {
-    Type* left = stkTop(2);
+    Type* left = stkType(2);
     if (!left->isAnyFifo())
         error("'<<' expects FIFO type");
-    Type* right = stkTop();
+    Type* right = stkType();
     // TODO: call a builtin
     // TODO: what about conversions like in C++? probably Nah.
     if (right->isAnyVec() && PContainer(right)->elem->identicalTo(PFifo(left)->elem))
@@ -1292,7 +1292,7 @@ void CodeGen::call(FuncPtr* funcPtr)
     for (memint i = proto->formalArgs.size(); i--; )
     {
 #ifdef DEBUG
-        if (!stkTop()->canAssignTo(proto->formalArgs[i]->type))
+        if (!stkType()->canAssignTo(proto->formalArgs[i]->type))
             error("Argument type mismatch");  // shouldn't happen, checked by the compiler earlier
 #endif
         stkPop();
@@ -1301,9 +1301,9 @@ void CodeGen::call(FuncPtr* funcPtr)
         stkPop();
 
     // Remove the opMk*FuncPtr and append a corresponding caller
-    assert(stkTop()->isFuncPtr());
+    assert(stkType()->isFuncPtr());
     OpCode op = opInv;
-    memint offs = stkTopOffs();
+    memint offs = stkLoaderOffs();
     switch (codeseg[offs])
     {
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
