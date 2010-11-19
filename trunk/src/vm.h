@@ -20,7 +20,8 @@ enum OpCode
     opEnterCtor,        // [State*]
 
     // --- 2. CONST LOADERS
-    // --- begin undoable loaders
+    // --- begin undoable loaders (it's important that all this kind of loaders
+    //     be grouped together or at least recognized by isUndoableLoader())
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +int
@@ -330,9 +331,10 @@ protected:
     struct SimStackItem
     {
         Type* type;
-        memint offs;
-        SimStackItem(Type* t, memint o)
-            : type(t), offs(o)  { }
+        memint loaderOffs;
+        memint prevLoaderOffs;
+        SimStackItem(Type* t, memint o, memint p)
+            : type(t), loaderOffs(o), prevLoaderOffs(p)  { }
     };
 
     podvec<SimStackItem> simStack;  // exec simulation stack
@@ -348,17 +350,19 @@ protected:
     template <class T>
         void addOp(Type* t, OpCode op, const T& a)  { addOp(t, op); add<T>(a); }
     Type* stkPop();
-    void stkReplaceTop(Type* t);  // only if the opcode is not changed
-    Type* stkTop()
+    void stkReplaceType(Type* t);  // only if the opcode is not changed
+    Type* stkType()
         { return simStack.back().type; }
-    Type* stkTop(memint i)
+    Type* stkType(memint i)
         { return simStack.back(i).type; }
-    memint stkTopOffs()
-        { return simStack.back().offs; }
+    memint stkLoaderOffs()
+        { return simStack.back().loaderOffs; }
+    memint stkPrevLoaderOffs()
+        { return simStack.back().prevLoaderOffs; }
     static void error(const char*);
     static void error(const str&);
 
-    memint prevLoaderOffs;
+    memint saveLoaderOffs; // internal, used in stkPop()/addOp()
 
 public:
     CodeGen(CodeSeg&, Module* m, State* treg, bool compileTime);
@@ -368,7 +372,7 @@ public:
     bool isCompileTime()        { return codeOwner == NULL; }
     memint getLocals()          { return locals; }
     State* getState()           { return codeOwner; }
-    Type* getTopType()          { return stkTop(); }
+    Type* getTopType()          { return stkType(); }
     void justForget()           { stkPop(); } 
     memint getCurrentOffs()     { return codeseg.size(); }
     Type* tryUndoTypeRef();

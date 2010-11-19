@@ -304,6 +304,8 @@ public:
     const char* end() const             { return empty() ? NULL : obj->end(); }
     const char* back(memint i) const    { chkidxa(i); return obj->end() - i; }
     const char* back() const            { return back(1); }
+    char* backw(memint i)               { chkidxa(i); return obj->end() - i; }
+    char* backw()                       { return backw(1); }
 
     void insert(memint pos, const char* buf, memint len);  // (*)
     void insert(memint pos, const bytevec& s)  // (*)
@@ -330,6 +332,10 @@ public:
         const T* back() const           { return (T*)back(sizeof(T)); }
     template <class T>
         const T* back(memint i) const   { return (T*)back(sizeof(T) * i); }
+    template <class T>
+        T* backw()                      { return (T*)backw(sizeof(T)); }
+    template <class T>
+        T* backw(memint i)              { return (T*)backw(sizeof(T) * i); }
     template <class T>
         void pop_back()                 { pop(sizeof(T)); }
     template <class T>
@@ -468,6 +474,8 @@ public:
     T& atw(memint i)                        { return *parent::atw<T>(i); }
     const T& back() const                   { return *parent::back<T>(); }
     const T& back(memint i) const           { return *parent::back<T>(i); }
+    T& backw()                              { return *parent::backw<T>(); }
+    T& backw(memint i)                      { return *parent::backw<T>(i); }
     const T* begin() const                  { return parent::begin<T>(); }
     const T* end() const                    { return parent::end<T>(); }
     void clear()                            { parent::clear(); }
