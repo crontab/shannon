@@ -217,6 +217,12 @@ assert 2 in nums and 96 in char and not 256 in char
 assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
 assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'
 
+var rng1 = [0..999]
+assert 1 in rng1 and not -1 in rng1 and not 1000 in rng1
+assert 1 in 0..10 and 1 in [0..10]
+assert not -1 in 0..10 and not -1 in [0..10]
+assert rng1 == [0..999]
+
 var str1 = 'abc'
 assert str1[0..1] == 'ab' and str1[0..2] == 'abc' and str1[2..2] == 'c'
 assert str1[0..] == 'abc' and str1[1..] == 'bc' and str1[3..] == ''
@@ -625,6 +631,6 @@ def self point(int _x, int _y)
 
 var p = point(10, 20)
 // var point p2 = point(100, 200)
-var 0..10 tens = 0
+// var 0..10 tens = 0
 
 dump system.__program_result

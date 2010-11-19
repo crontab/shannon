@@ -1287,12 +1287,12 @@ void initRuntime()
     if (
             // Make sure all containers occupy exactly one pointer statically
             sizeof(str) == sizeof(void*) && sizeof(symtbl_impl) == sizeof(void*)
-            && sizeof(vardict) == sizeof(void*)
+            && sizeof(vardict) == sizeof(void*) && sizeof(range) == sizeof(void*)
             // memint is equivalent of ssize_t
             && sizeof(memint) == sizeof(void*)
             // Container indexes are memint, we keep them in integer vars, thus:
             && sizeof(memint) <= sizeof(integer)
-            // the following is needed because we initialize the variant to 0 via val._ord
+            // the following is needed because we initialize the variant to 0 via `integer _all`
             && sizeof(variant::_val_union) == sizeof(integer))
         ;
     else

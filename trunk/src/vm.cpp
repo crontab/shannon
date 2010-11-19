@@ -479,6 +479,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             stk->_int() = int(ADV(Ordinal*)->isInRange(stk->_int()));
             break;
         case opInRange:
+            (stk - 1)->_int() = stk->_range().contains((stk - 1)->_int());
+            POP();
+            break;
+        case opInRange2:
             {
                 integer i = (stk - 2)->_int();
                 (stk - 2)->_int() = int(i >= (stk - 1)->_int() && i <= stk->_int());
@@ -661,7 +665,8 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         // --- 11. JUMPS, CALLS ----------------------------------------------
         case opJump:
             {
-                jumpoffs offs = ADV(jumpoffs); // beware of strange behavior of the GCC optimizer: this should be done in 2 steps
+                // Beware of strange behavior of the GCC optimizer: this should be done in 2 steps
+                jumpoffs offs = ADV(jumpoffs);
                 ip += offs;
             }
             break;

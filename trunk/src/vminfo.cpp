@@ -114,7 +114,8 @@ OpInfo opTable[] =
     OP(InSet, None),            // -set -var +bool
     OP(InByteSet, None),        // -set -int +bool
     OP(InBounds, Type),         // [Ordinal*] -int +bool
-    OP(InRange, None),          // -int -int -int +bool
+    OP(InRange, None),          // -range -int +bool
+    OP(InRange2, None),         // -int -int -int +bool
     OP(SetElem, None),          // -var -set +void
     OP(ByteSetElem, None),      // -int -set +void
     OP(DelSetElem, None),       // -var -ptr -obj
