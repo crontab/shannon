@@ -18,7 +18,7 @@ class Compiler: protected Parser
         ~AutoScope();
         LocalVar* addInitLocalVar(const str&, Type*);
     };
-    
+
     struct LoopInfo
     {
         Compiler& compiler;
@@ -61,7 +61,7 @@ protected:
     void orLevel();
     void expression(Type*);
     Type* getConstValue(Type* resultType, variant& result);
-    Type* getTypeValue();
+    Type* getTypeValue(bool atomic);
 
     // in compiler.cpp
     Type* getTypeAndIdent(str* ident);

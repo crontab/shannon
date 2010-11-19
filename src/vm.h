@@ -114,7 +114,8 @@ enum OpCode
     opInSet,            // -set -var +bool
     opInByteSet,        // -set -int +bool
     opInBounds,         // [Ordinal*] -int +bool
-    opInRange,          // -int -int -int +bool
+    opInRange,          // -range -int +bool
+    opInRange2,         // -int -int -int +bool
     opSetElem,          // -var -set +void
     opByteSetElem,      // -int -set +void
     opDelSetElem,       // -var -ptr -obj
@@ -424,14 +425,15 @@ public:
     void dictAddPair();
     void inCont();
     void inBounds();
-    void inRange(bool isCaseLabel = false);
+    void inRange();
+    void inRange2(bool isCaseLabel = false);
 
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
     void cmp(OpCode);
     void caseCmp();
     void caseInRange()
-        { inRange(true); }
+        { inRange2(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
     void localVarCmp(LocalVar*, OpCode);

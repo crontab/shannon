@@ -96,7 +96,7 @@ public:
     void* operator new(size_t self);
     void* operator new(size_t self, memint extra);
     void  operator delete(void*);
-    
+
     // Dirty trick that duplicates an object and hopefully preserves the
     // dynamic type (actually the VMT). Only 'self' bytes is copied; 'extra'
     // remains uninitialized.
@@ -1129,7 +1129,7 @@ extern template class podvec<variant>;
 
 
 // reference: is a ref-counted object that encapsulates a variant; this way a
-// variant may be shared between multiple other variables and mimic
+// variant can be shared between multiple other variables and mimic
 // "references" as commonly defined in other languages
 
 class reference: public object

@@ -833,7 +833,19 @@ void CodeGen::inBounds()
 }
 
 
-void CodeGen::inRange(bool isCaseLabel)
+void CodeGen::inRange()
+{
+    Type* right = stkPop();
+    Type* left = stkPop();
+    if (!right->isRange())
+        error("Range type expected");
+    if (!left->canAssignTo(PRange(right)->elem))
+        error("Range element type mismatch");
+    addOp(queenBee->defBool, opInRange);
+}
+
+
+void CodeGen::inRange2(bool isCaseLabel)
 {
     Type* right = stkPop();
     Type* left = stkPop();
@@ -844,7 +856,7 @@ void CodeGen::inRange(bool isCaseLabel)
         error("Element type mismatch");
     if (!elem->isAnyOrd() || !left->isAnyOrd() || !right->isAnyOrd())
         error("Ordinal type expected");
-    addOp(queenBee->defBool, isCaseLabel ? opCaseRange : opInRange);
+    addOp(queenBee->defBool, isCaseLabel ? opCaseRange : opInRange2);
 }
 
 

@@ -59,7 +59,7 @@ Type* Compiler::getTypeAndIdent(str* ident)
             goto ICantBelieveIUsedAGotoStatement;
         undoIdent(*ident);
     }
-    type = getTypeValue();
+    type = getTypeValue(true);
     *ident = getIdentifier();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:

@@ -17,6 +17,7 @@ context default
 	keyword whole begin		yellow
 	keyword whole break		yellow
 	keyword whole case		yellow
+	keyword whole const		yellow
 	keyword whole continue		yellow
 	keyword whole def		yellow
 	keyword whole del		yellow
@@ -24,6 +25,7 @@ context default
 	keyword whole elif		yellow
 	keyword whole else		yellow
 	keyword whole exit		yellow
+	keyword whole for		yellow
 	keyword whole if		yellow
 	keyword whole in		yellow
 	keyword whole ins		yellow

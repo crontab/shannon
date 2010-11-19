@@ -44,7 +44,7 @@ Type* Compiler::getTypeDerivators(Type* type)
             return getTypeDerivators(type)->deriveVec(state);
         else
         {
-            Type* indexType = getTypeValue();
+            Type* indexType = getTypeValue(false);
             expect(tokRSquare, "]");
             if (indexType->isVoid())
                 return getTypeDerivators(type)->deriveVec(state);
@@ -66,7 +66,7 @@ Type* Compiler::getTypeDerivators(Type* type)
         {
             do
             {
-                Type* argType = getTypeValue();
+                Type* argType = getTypeValue(false);
                 str ident = getIdentifier();
                 argType = getTypeDerivators(argType);
                 proto->addFormalArg(ident, argType);
@@ -138,20 +138,43 @@ void Compiler::identifier(const str& ident)
 
 void Compiler::vectorCtor(Type* typeHint)
 {
-    if (typeHint && !typeHint->isAnyVec())
-        error("Vector constructor not expected here");
-    Container* type = PContainer(typeHint);
+    // if (typeHint && !typeHint->isAnyVec())
+    //     error("Vector constructor not expected here");
+
+    Type* elemType = NULL;
+    if (typeHint)
+    {
+        if (typeHint->isAnyCont())
+            elemType = PContainer(typeHint)->elem;
+        else if (typeHint->isRange())
+            elemType = PRange(typeHint)->elem;
+    }
+
     if (skipIf(tokRSquare))
     {
-        codegen->loadEmptyConst(type ? type : queenBee->defNullCont);
+        // Since typeHint can be anything, empty vector [] can actually be an
+        // empty constant for any type:
+        codegen->loadEmptyConst(typeHint ? typeHint : queenBee->defNullCont);
         return;
     }
-    expression(type ? type->elem : NULL);
-    type = codegen->elemToVec(type);
-    while (skipIf(tokComma))
+
+    expression(elemType);
+
+    if (skipIf(tokRange))
     {
-        expression(type->elem);
-        codegen->elemCat();
+        expression(elemType);
+        codegen->mkRange();
+    }
+
+    else
+    {
+        Container* contType = codegen->elemToVec(
+            typeHint && typeHint->isAnyCont() ? PContainer(typeHint) : NULL);
+        while (skipIf(tokComma))
+        {
+            expression(contType->elem);
+            codegen->elemCat();
+        }
     }
     expect(tokRSquare, "]");
 }
@@ -407,12 +430,12 @@ void Compiler::factor(Type* typeHint)
         codegen->arithmUnary(opNeg);
     if (skipIf(tokAs))
     {
-        Type* type = getTypeValue();
+        Type* type = getTypeValue(true);
         // TODO: default value in parens?
         codegen->explicitCast(type);
     }
     if (skipIf(tokIs))
-        codegen->isType(getTypeValue(), undoOffs);
+        codegen->isType(getTypeValue(true), undoOffs);
 }
 
 
@@ -480,10 +503,12 @@ void Compiler::relation()
             codegen->inBounds();
         else if (right->isAnyCont())
             codegen->inCont();
+        else if (right->isRange())
+            codegen->inRange();
         else if (right->isAnyOrd() && skipIf(tokRange))
         {
             arithmExpr();
-            codegen->inRange();
+            codegen->inRange2();
         }
         else
             error("Operator 'in' expects container, numeric range, or ordinal type ref");
@@ -589,13 +614,6 @@ void Compiler::expression(Type* expectType)
     else
         arithmExpr();
 
-    Type* resultType = codegen->getTopType();
-    if (resultType->isAnyOrd() && !resultType->isBool() && skipIf(tokRange))
-    {
-        arithmExpr();
-        codegen->mkRange();
-    }
-
     if (expectType)
         codegen->implicitCast(expectType);
 }
@@ -620,17 +638,27 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
     Type* resultType = NULL;
     try
     {
-        expression(expectType);
+        expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
+
+        if (skipIf(tokRange))
+        {
+            expression(codegen->getTopType());
+            codegen->mkRange();
+        }
+
         if (codegen->getTopType()->isReference())
             error("References not allowed in const expressions");
         resultType = constCodeGen.runConstExpr(result);
         codegen = prevCodeGen;
-        
+
         if (resultType->isRange())
         {
             result = state->registerType(PRange(resultType)->elem->createSubrange(result._range()));
             resultType = defTypeRef;
         }
+
+        if (expectType && expectType->isTypeRef() && !resultType->isTypeRef())
+            error("Type reference expected");
     }
     catch(exception&)
     {
@@ -641,10 +669,21 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
 }
 
 
-Type* Compiler::getTypeValue()
+Type* Compiler::getTypeValue(bool atomic)
 {
-    variant result;
-    getConstValue(defTypeRef, result);
-    return cast<Type*>(result._rtobj());
+    if (atomic)
+    {
+        designator(defTypeRef);
+        Type* result = codegen->tryUndoTypeRef();
+        if (result == NULL)
+            error("Atomic type reference expected");
+        return result;
+    }
+    else
+    {
+        variant result;
+        getConstValue(defTypeRef, result);
+        return cast<Type*>(result._rtobj());
+    }
 }
 
