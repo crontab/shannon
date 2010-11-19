@@ -194,7 +194,7 @@ enum OpCode
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
-    opMethodCall,       // [State*] -obj -var ... +var
+    opMethodCall,       // [State*] -var -var -obj ... +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]

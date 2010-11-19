@@ -186,7 +186,7 @@ OpInfo opTable[] =
 
     OP(ChildCall, State),        // [State*] -var -var ... +var
     OP(SiblingCall, State),      // [State*] -var -var ... +var
-    OP(MethodCall, State),       // [State*] -var -var ... +var
+    OP(MethodCall, State),       // [State*] -var -var -obj ... +var
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]
