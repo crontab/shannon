@@ -631,6 +631,5 @@ def self point(int _x, int _y)
 
 var p = point(10, 20)
 // var point p2 = point(100, 200)
-// var 0..10 tens = 0
 
 dump system.__program_result

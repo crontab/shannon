@@ -211,9 +211,7 @@ Type* CodeGen::tryUndoTypeRef()
     if (codeseg[offs] == opLoadTypeRef)
     {
         Type* type = codeseg.at<Type*>(offs + 1);
-        stkPop();
-        codeseg.erase(offs);
-        prevLoaderOffs = -1;
+        undoExpr(offs);
         return type;
     }
     else
@@ -1169,7 +1167,6 @@ str CodeGen::insLvalue()
     OpCode inserter = loaderToInserter(codeseg[offs]);
     codeseg.replaceOp(prevLoaderOffs, loaderToLea(codeseg[prevLoaderOffs]));
     codeseg.replaceOp(offs, inserter);
-    prevLoaderOffs = -1;
     return codeseg.cutOp(offs);
 }
 
@@ -1291,6 +1288,7 @@ void CodeGen::call(FuncPtr* funcPtr)
     State* callee = funcPtr->derivedFrom;
     Prototype* proto = callee->prototype;
 
+    // Pop arguments and the return value off the simulation stack
     for (memint i = proto->formalArgs.size(); i--; )
     {
 #ifdef DEBUG
@@ -1301,10 +1299,10 @@ void CodeGen::call(FuncPtr* funcPtr)
     }
     if (!proto->returnType->isVoid())
         stkPop();
+
+    // Remove the opMk*FuncPtr and append a corresponding caller
     assert(stkTop()->isFuncPtr());
-
     OpCode op = opInv;
-
     memint offs = stkTopOffs();
     switch (codeseg[offs])
     {
@@ -1316,6 +1314,11 @@ void CodeGen::call(FuncPtr* funcPtr)
     stkPop(); // funcptr
     codeseg.eraseOp(offs); // erase funcptr loader
 
+    // Finally, leave the return value (if any) on the simulation stack. At
+    // run-time, however, in case of opMethodCall we have the 'this' object
+    // for which the method was called and only then on top of it the return
+    // value. The VM discards the object pointer and puts the ret value instead
+    // so that everything looks like the method call has just returned a value.
     if (proto->returnType->isVoid())
     {
         addOp<State*>(op, callee);
