@@ -55,7 +55,7 @@ Type* Compiler::getTypeAndIdent(str* ident)
     if (token == tokIdent)
     {
         *ident = strValue;
-        if (next() == tokAssign)
+        if (next() == tokAssign || isEos())
             goto ICantBelieveIUsedAGotoStatement;
         undoIdent(*ident);
     }
@@ -88,25 +88,54 @@ void Compiler::definition()
 }
 
 
+void Compiler::classDef()
+{
+    str ident = getIdentifier();
+    expect(tokLParen, "'('");
+    State* type = getStateDerivator(queenBee->defSelfStub, false);
+    state->addDefinition(ident, defTypeRef, type, scope);
+}
+
+
 void Compiler::variable()
 {
     str ident;
     Type* type = getTypeAndIdent(&ident);
-    expect(tokAssign, "'='");
-    expression(type);
-    if (type == NULL)
-        type = codegen->getTopType();
-    if (type->isNullCont())
-        error("Type undefined (null container)");
-    if (scope->isLocal())
+    if (isEos())
     {
-        LocalVar* var = PBlockScope(scope)->addLocalVar(ident, type);
-        codegen->initLocalVar(var);
+        // Argument reclamation
+        if (!scope->isStateScope())
+            error("Argument reclamation not allowed here");
+        Symbol* sym = state->findShallow(ident);
+        if (!sym->isLocalVar() || !PLocalVar(sym)->isArgument())
+            error("Only function arguments can be reclaimed");
+        LocalVar* arg = PLocalVar(sym);
+        if (type == NULL)
+            type = arg->type;
+        codegen->loadLocalVar(arg);
+        SelfVar* var = state->reclaimArg(arg, type);
+        codegen->initSelfVar(var);
     }
     else
     {
-        SelfVar* var = state->addSelfVar(ident, type);
-        codegen->initSelfVar(var);
+        expect(tokAssign, "'='");
+        expression(type);
+        if (type == NULL)
+            type = codegen->getTopType();
+        if (type->isNullCont())
+            error("Type undefined (null container)");
+        if (scope->isLocal())
+        {
+            LocalVar* var = PBlockScope(scope)->addLocalVar(ident, type);
+            codegen->initLocalVar(var);
+        }
+        else if (scope->isStateScope())
+        {
+            SelfVar* var = state->addSelfVar(ident, type);
+            codegen->initSelfVar(var);
+        }
+        else
+            notimpl();
     }
     skipEos();
 }
@@ -139,6 +168,8 @@ void Compiler::singleStatement()
         ;
     else if (skipIf(tokDef))
         definition();
+    else if (skipIf(tokClass))
+        classDef();
     else if (skipIf(tokVar))
         variable();
     else if (skipIf(tokBegin))
@@ -316,7 +347,7 @@ void Compiler::ifBlock()
 void Compiler::caseLabel(Type* ctlType)
 {
     // Expects the case control variable to be the top stack element
-    expect(tokCase, "'case' or 'else'");
+    expect(tokCase, "'case' or 'default'");
     caseValue(ctlType);
     memint out = codegen->boolJumpForward(opJumpFalse);
     block();
@@ -325,7 +356,7 @@ void Compiler::caseLabel(Type* ctlType)
         memint t = codegen->jumpForward();
         codegen->resolveJump(out);
         out = t;
-        if (skipIf(tokElse))
+        if (skipIf(tokDefault))
             block();
         else
             caseLabel(ctlType);

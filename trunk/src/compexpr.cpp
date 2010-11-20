@@ -35,6 +35,28 @@ Type* Compiler::getEnumeration(const str& firstIdent)
 }
 
 
+State* Compiler::getStateDerivator(Type* retType, bool)
+{
+    Prototype* proto = state->registerType(new Prototype(retType));
+    if (!skipIf(tokRParen))
+    {
+        do
+        {
+            Type* argType = getTypeValue(true);
+            str ident = getIdentifier();
+            argType = getTypeDerivators(argType);
+            proto->addFormalArg(ident, argType);
+        }
+        while (skipIf(tokComma));
+        expect(tokRParen, "')'");
+    }
+    // TODO: distinguish a prototype somehow ('...' maybe?)
+    State* newState = state->registerType(new State(state, proto));
+    stateBody(newState);
+    return newState;
+}
+
+
 Type* Compiler::getTypeDerivators(Type* type)
 {
     // TODO: anonymous functions are static, named ones are not
@@ -69,25 +91,7 @@ Type* Compiler::getTypeDerivators(Type* type)
     }
 
     else if (skipIf(tokLParen))  // prototype/function
-    {
-        Prototype* proto = state->registerType(new Prototype(type));
-        if (!skipIf(tokRParen))
-        {
-            do
-            {
-                Type* argType = getTypeValue(false);
-                str ident = getIdentifier();
-                argType = getTypeDerivators(argType);
-                proto->addFormalArg(ident, argType);
-            }
-            while (skipIf(tokComma));
-            expect(tokRParen, "')'");
-        }
-        // TODO: distinguish a prototype somehow ('...' maybe?)
-        State* newState = state->registerType(new State(state, proto));
-        stateBody(newState);
-        return newState;
-    }
+        return getStateDerivator(type, true);
 
     else if (skipIf(tokCaret)) // ^
     {
@@ -364,18 +368,7 @@ void Compiler::designator(Type* typeHint)
         if (skipIf(tokPeriod))
         {
             codegen->deref();
-            // See if it's a scope resolution, i.e. we have a state name followed
-            // by '.'; but because state names are by default transformed to
-            // function pointers, we need to roll it back:
-            if (codegen->getTopType()->isFuncPtr())
-            {
-                Type* type = codegen->undoTypeRef();
-                if (!type->isAnyState())
-                    error("Invalid member selection");
-                codegen->loadMember(PState(type), getIdentifier());
-            }
-            else
-                codegen->loadMember(getIdentifier());
+            codegen->loadMember(getIdentifier());
         }
 
         else if (skipIf(tokLSquare))
@@ -610,7 +603,7 @@ void Compiler::expression(Type* expectType)
     else if (expectType->isAnyCont())
         // expectType will propagate all the way down to vectorCtor()/dictCtor():
         concatExpr(PContainer(expectType));
-    else if (expectType->isReference())
+    else if (expectType->isReference() || expectType->isAnyState())
         designator(expectType);
     else
         arithmExpr();

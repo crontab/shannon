@@ -868,8 +868,9 @@ public:
     T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
     T* back() const                         { return cast<T*>(parent::back()); }
     T* back(memint i) const                 { return cast<T*>(parent::back(i)); }
-    void push_back(T* t)                    { parent::push_back(t); }
+    T* push_back(T* t)                      { parent::push_back(t); return t; }
     void insert(memint pos, T* t)           { parent::insert(pos, t); }
+    void replace(memint pos, T* t)          { parent::replace(pos, t); }
 };
 
 
@@ -887,17 +888,18 @@ class symtbl_impl: public objvec<symbol>
 {
 protected:
     typedef objvec<symbol> parent;
+    bool bsearch(const str& key, memint& index) const;
 public:
     symtbl_impl(): parent()  { }
     symtbl_impl(const symtbl_impl& s); // : parent(s)  { }
     symbol* find(const str& name) const; // NULL or symbol*
     bool add(symbol*);
-    bool bsearch(const str& key, memint& index) const;
+    bool replace(symbol*);
 };
 
 
 template <class T>
-class symtbl: protected symtbl_impl
+class symtbl: public symtbl_impl
 {
 protected:
     typedef symtbl_impl parent;
@@ -906,6 +908,7 @@ public:
     memint size() const                 { return parent::size(); }
     T* find(const str& name) const      { return cast<T*>(parent::find(name)); }
     bool add(T* t)                      { return parent::add(t); }
+    bool replace(T* t)                  { return parent::replace(t); }
     void release_all()                  { parent::release_all(); }
 };
 

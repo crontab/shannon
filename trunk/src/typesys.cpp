@@ -116,6 +116,13 @@ void Scope::addUnique(Symbol* s)
 }
 
 
+void Scope::replaceSymbol(Symbol* s)
+{
+    if (!symbols.replace(s))
+        throw EUnknownIdent(s->name);
+}
+
+
 Symbol* Scope::findShallow(const str& ident) const
 {
     Symbol* s = find(ident);
@@ -424,7 +431,7 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
             case variant::ORDSET:   dumpOrdSet(stm, v._ordset()); break;
             case variant::DICT:     dumpDict(stm, v._dict()); break;
             case variant::REF:      stm << '@'; dumpVariant(stm, v._ref()->var); break;
-            case variant::RTOBJ:    if (v._rtobj()) v._rtobj()->dump(stm); break;
+            case variant::RTOBJ:    if (v._rtobj()) v._rtobj()->dump(stm); else stm << "{}"; break;
         }
     }
 }
@@ -972,17 +979,29 @@ LocalVar* State::addArgument(const str& n, Type* t, memint varid)
 }
 
 
+SelfVar* State::addSelfVar(SelfVar* var)
+{
+    if (var->id >= 255)
+        error("Too many variables");
+    return selfVars.push_back(var->grab<SelfVar>());
+}
+
+
 SelfVar* State::addSelfVar(const str& n, Type* t)
 {
     if (n.empty())
         fatal(0x3002, "Empty identifier");
-    memint id = selfVarCount();
-    if (id >= 127)
-        error("Too many variables");
-    objptr<SelfVar> v = new SelfVar(n, t, id, this);
+    objptr<SelfVar> v = new SelfVar(n, t, selfVarCount(), this);
     addUnique(v);
-    selfVars.push_back(v->grab<SelfVar>());
-    return v;
+    return addSelfVar(v);
+}
+
+
+SelfVar* State::reclaimArg(LocalVar* arg, Type* t)
+{
+    objptr<SelfVar> v = new SelfVar(arg->name, t, selfVarCount(), this);
+    replaceSymbol(v);
+    return addSelfVar(v);
 }
 
 

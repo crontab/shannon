@@ -458,10 +458,6 @@ static void test_symtbl()
     check(s1[0] == p1.get());
     check(s1.at(0) == p1.get());
     check(s1.back() == p1.get());
-    memint i;
-    check(s1.bsearch("abc", i));
-    check(i == 0);
-    check(!s1.bsearch("def", i));
 }
 
 

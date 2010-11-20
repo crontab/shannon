@@ -41,6 +41,7 @@ protected:
     LoopInfo* loopInfo;
 
     // in compexpr.cpp
+    State* getStateDerivator(Type*, bool allowProto);
     Type* getTypeDerivators(Type*);
     Type* getEnumeration(const str& firstIdent);
     void identifier(const str&);
@@ -66,6 +67,7 @@ protected:
     // in compiler.cpp
     Type* getTypeAndIdent(str* ident);
     void definition();
+    void classDef();
     void variable();
     void assertion();
     void dumpVar();

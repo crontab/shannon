@@ -17,9 +17,11 @@ context default
 	keyword whole begin		yellow
 	keyword whole break		yellow
 	keyword whole case		yellow
+	keyword whole class		yellow
 	keyword whole const		yellow
 	keyword whole continue		yellow
 	keyword whole def		yellow
+	keyword whole default		yellow
 	keyword whole del		yellow
 	keyword whole dump		yellow
 	keyword whole elif		yellow

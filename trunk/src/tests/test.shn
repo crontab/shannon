@@ -341,7 +341,7 @@ switch b1
         {
             assert true
         }
-    else
+    default
     {
         assert false
     }
@@ -355,7 +355,7 @@ switch b1
         }
     case 0, 2:
         assert true
-    else:
+    default:
         assert false
 }
 
@@ -370,7 +370,7 @@ switch b1
     case 1: assert false
     case 2
         { assert false }
-    else: assert true
+    default: assert true
 }
 
 switch s0
@@ -383,7 +383,7 @@ switch typeof s0
 {
     case str: assert true
     case int: assert false
-    else {
+    default {
         assert false
     }
 }
@@ -628,21 +628,64 @@ nested1(4)
 assert vn1 == 2
 
 
+// Argument reclamation
+
+var argrec1 = 0
+def void argrec(int a)
+{
+    var a
+    argrec1 = a
+}
+argrec(149)
+assert argrec1 == 149
+
+
 // OOP
 
-def self point(int _x, int _y)
+var pst = 2
+
+class point(int x, int y)
 {
     def cpt = 50
-    var x = _x
-    var y = _y
+    var x
+    var y
+    
+    begin {
+        var x = 0
+    }
+
+    def void move(int dx, int dy)
+    {
+        x += dx
+        y += dy
+    }
+
+    def void move2(int dx, int dy)
+    {
+        def int double(int i)
+            { result = i * pst }
+
+        move(double(dx), double(dy))
+    }
 }
 
 var p = point(10, 20)
 var point p2 = point(100, 200)
+var point p3 = result.point(1000, 2000)
 
 assert p.x == 10 and p.y == 20
 assert p2.x == 100 and p2.y == 200
+assert p3.x == 1000 and p3.y == 2000
 assert p.cpt == 50 and p2.cpt == 50
 assert point.cpt == 50
+
+var point pnull = {}
+assert not ?pnull and ?p
+
+p.move(5, 10)
+assert p.x == 15 and p.y == 30
+// point.move(5, 5)
+p.move2(5, 10)
+assert p.x == 25 and p.y == 50
 
 dump system.__program_result

@@ -339,9 +339,9 @@ void CodeGen::loadDefinition(Definition* def)
         // loadMember(Symbol*). Later though, one of the following may occur:
         // (1) it's a function call, then most likely opLoad*FuncPtr will be
         // replaced with a op*Call (see call()); (2) typecast is requested to 
-        // TypeRef, in which case all preceeding subexpression is discarded;
-        // (3) def selection or scope override is requested: same as (2); or
-        // (4) otherwise the function pointer is left "as is".
+        // TypeRef, in which case the preceeding subexpression is discarded;
+        // (3) member constant selection or scope override is requested: same 
+        // as (2); or (4) otherwise the function pointer is left "as is".
         State* stateType = PState(aliasedType);
         OpCode op = opInv;
         if (isCompileTime())
@@ -461,10 +461,23 @@ void CodeGen::loadVariable(Variable* var)
 
 void CodeGen::loadMember(const str& ident)
 {
-    Type* stateType = stkType();
-    if (!stateType->isAnyState())
+    Type* type = stkType();
+    if (type->isFuncPtr())
+    {
+        // Scope resolution: we have a state name followed by '.', but because
+        // state names are by default transformed to function pointers, we 
+        // need to roll it back:
+        type = undoTypeRef();
+        if (!type->isAnyState())
+            error("Invalid member selection");
+        loadMember(PState(type), ident);
+    }
+    else if (type->isAnyState())
+    {
+        loadMember(PState(type)->findShallow(ident));
+    }
+    else
         error("Invalid member selection");
-    loadMember(PState(stateType)->findShallow(ident));
 }
 
 
