@@ -10,6 +10,9 @@
 enum OpCode
 {
     // NOTE: the relative order of many of these instructions in their groups is significant
+    // NOTE: no instruction should push more than one value onto the stack
+    //       regardless of the number of pop's -- required for some optimization
+    //       techniques (e.g. see CodeGen::undoSubexpr())
 
     // --- 1. MISC CONTROL
     opEnd,              // end execution and return
@@ -20,8 +23,8 @@ enum OpCode
     opEnterCtor,        // [State*]
 
     // --- 2. CONST LOADERS
-    // --- begin undoable loaders (it's important that all this kind of loaders
-    //     be grouped together or at least recognized by isUndoableLoader())
+    // --- begin primary loaders (it's important that all this kind of loaders
+    //     be grouped together or at least recognized by isPrimaryLoader())
     opLoadTypeRef,      // [Type*] +obj
     opLoadNull,         // +null
     opLoad0,            // +int
@@ -43,7 +46,7 @@ enum OpCode
     opLoadSelfVar,      // [self.idx:u8] +var
     opLoadOuterVar,     // [outer.idx:u8] +var
     opLoadStkVar,       // [stk.idx:s8] +var
-    // --- end undoable loaders
+    // --- end primary loaders
     opLoadMember,       // [stateobj.idx:u8] -stateobj +var
     opDeref,            // -ref +var
     // --- end grounded loaders
@@ -51,7 +54,7 @@ enum OpCode
     opLeaSelfVar,       // [self.idx:u8] +obj(0) +ptr
     opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
     opLeaStkVar,        // [stk.idx:s8] +obj(0) +ptr
-    opLeaMember,        // [stateobj.idx:u8] -stateobj + stateobj +ptr
+    opLeaMember,        // [stateobj.idx:u8] -stateobj +stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
@@ -207,7 +210,7 @@ enum OpCode
 };
 
 
-inline bool isUndoableLoader(OpCode op)
+inline bool isPrimaryLoader(OpCode op)
     { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
 
 inline bool isGroundedLoader(OpCode op)
@@ -332,9 +335,8 @@ protected:
     {
         Type* type;
         memint loaderOffs;
-        memint prevLoaderOffs;
-        SimStackItem(Type* t, memint o, memint p)
-            : type(t), loaderOffs(o), prevLoaderOffs(p)  { }
+        SimStackItem(Type* t, memint o)
+            : type(t), loaderOffs(o)  { }
     };
 
     podvec<SimStackItem> simStack;  // exec simulation stack
@@ -358,26 +360,29 @@ protected:
     memint stkLoaderOffs()
         { return simStack.back().loaderOffs; }
     memint stkPrevLoaderOffs()
-        { return simStack.back().prevLoaderOffs; }
+        { return prevLoaderOffs; }
+    memint stkPrimaryLoaderOffs()
+        { return primaryLoaders.back(); }
     static void error(const char*);
     static void error(const str&);
 
-    memint saveLoaderOffs; // internal, used in stkPop()/addOp()
+    memint prevLoaderOffs;
+    podvec<memint> primaryLoaders;
 
 public:
     CodeGen(CodeSeg&, Module* m, State* treg, bool compileTime);
     ~CodeGen();
 
     memint getStackLevel()      { return simStack.size(); }
+    void endStatement()         { primaryLoaders.clear(); }
     bool isCompileTime()        { return codeOwner == NULL; }
     memint getLocals()          { return locals; }
     State* getState()           { return codeOwner; }
     Type* getTopType()          { return stkType(); }
-    void justForget()           { stkPop(); } 
+    void justForget()           { stkPop(); } // for branching in the if() function
     memint getCurrentOffs()     { return codeseg.size(); }
     Type* tryUndoTypeRef();
-    void undoExpr(memint from);
-    void undoLoader();
+    void undoSubexpr();
     bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
     void deinitFrame(memint baseLevel); // doesn't change the sim stack
@@ -385,7 +390,7 @@ public:
     bool tryImplicitCast(Type*);
     void implicitCast(Type*, const char* errmsg = NULL);
     void explicitCast(Type*);
-    void isType(Type*, memint undoOffs);
+    void isType(Type*);
     void mkRange();
 
     memint prolog();
@@ -401,8 +406,8 @@ public:
     void loadSymbol(Symbol*);
     void loadLocalVar(LocalVar*);
     void loadVariable(Variable*);
-    void loadMember(const str& ident, memint* undoOffs);
-    void loadMember(Symbol* sym, memint* undoOffs);
+    void loadMember(const str& ident);
+    void loadMember(Symbol* sym);
     void loadMember(Variable*);
     void loadThis();
     void loadDataSeg();
