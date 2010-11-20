@@ -167,6 +167,7 @@ void Compiler::singleStatement()
         programExit();
     else
         otherStatement();
+    codegen->endStatement();
 }
 
 

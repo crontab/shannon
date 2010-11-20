@@ -124,9 +124,8 @@ void Compiler::identifier(const str& ident)
                 codegen->loadSymbol(sym);
             else
             {
-                memint offs = codegen->getCurrentOffs();
                 codegen->loadVariable(m);
-                codegen->loadMember(sym, &offs);
+                codegen->loadMember(sym);
             }
             return;
         }
@@ -238,10 +237,9 @@ void Compiler::dictCtor(Type* typeHint)
 
 void Compiler::typeOf()
 {
-    memint undoOffs = codegen->getCurrentOffs();
     designator(NULL);
     Type* type = codegen->getTopType();
-    codegen->undoExpr(undoOffs);
+    codegen->undoSubexpr();
     codegen->loadTypeRef(type);
 }
 
@@ -352,7 +350,6 @@ void Compiler::atom(Type* typeHint)
 
 void Compiler::designator(Type* typeHint)
 {
-    memint undoOffs = codegen->getCurrentOffs();
     bool isAt = skipIf(tokAt);
     Type* refTypeHint = typeHint && typeHint->isReference() ? PReference(typeHint)->to : NULL;
 
@@ -366,7 +363,7 @@ void Compiler::designator(Type* typeHint)
             // all previous loads should be discarded - they are not needed to
             // load a constant
             codegen->deref();
-            codegen->loadMember(getIdentifier(), &undoOffs);
+            codegen->loadMember(getIdentifier());
         }
 
         else if (skipIf(tokLSquare))
@@ -419,7 +416,6 @@ void Compiler::factor(Type* typeHint)
     bool isQ = skipIf(tokQuestion);
     bool isLen = skipIf(tokSharp);
 
-    memint undoOffs = codegen->getCurrentOffs();
     designator(typeHint);
 
     if (isLen)
@@ -435,7 +431,7 @@ void Compiler::factor(Type* typeHint)
         codegen->explicitCast(type);
     }
     if (skipIf(tokIs))
-        codegen->isType(getTypeValue(true), undoOffs);
+        codegen->isType(getTypeValue(true));
 }
 
 
@@ -613,7 +609,6 @@ void Compiler::expression(Type* expectType)
         designator(expectType);
     else
         arithmExpr();
-
     if (expectType)
         codegen->implicitCast(expectType);
 }

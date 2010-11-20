@@ -9,7 +9,7 @@ const char* evoidfunc::what() throw() { return "Void function called"; }
 
 CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
     : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      lastOp(opInv), saveLoaderOffs(-1)
+      lastOp(opInv), prevLoaderOffs(-1), primaryLoaders()
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -31,43 +31,46 @@ void CodeGen::error(const str& msg)
 
 void CodeGen::addOp(Type* type, OpCode op)
 {
-    simStack.push_back(SimStackItem(type, getCurrentOffs(), saveLoaderOffs));
-    if (simStack.size() > codeseg.stackSize)
-        codeseg.stackSize = simStack.size();
+    memint offs = getCurrentOffs();
+    simStack.push_back(SimStackItem(type, offs));
+    if (isPrimaryLoader(op))
+        primaryLoaders.push_back(offs);
+    if (getStackLevel() > codeseg.stackSize)
+        codeseg.stackSize = getStackLevel();
     addOp(op);
-}
-
-
-void CodeGen::undoExpr(memint from)
-{
-    codeseg.erase(from);
-    stkPop();
-    saveLoaderOffs = -1;
-}
-
-
-void CodeGen::undoLoader()
-{
-    memint offs = stkLoaderOffs();
-    if (!isUndoableLoader(codeseg[offs]))
-        error("Invalid type cast");
-    undoExpr(offs);
-}
-
-
-bool CodeGen::lastWasFuncCall()
-{
-    return isCaller(codeseg[stkLoaderOffs()]);
 }
 
 
 Type* CodeGen::stkPop()
 {
     const SimStackItem& s = simStack.back();
-    saveLoaderOffs = getStackLevel() > locals ? s.loaderOffs : -1;
+    prevLoaderOffs = s.loaderOffs;
+    if (!primaryLoaders.empty() && s.loaderOffs < primaryLoaders.back())
+        primaryLoaders.pop_back();
     Type* result = s.type;
     simStack.pop_back();
     return result;
+}
+
+
+void CodeGen::undoSubexpr()
+{
+    // This works based on the assumption that at any stack level there is a 
+    // corresponding primary loader starting from which all code can be safely
+    // discarded. I think this should work provided that any instruction
+    // pushes not more than one value onto the stack (regardless of how many
+    // were pop'ed off the stack). See also stkPop().
+    memint from;
+    primaryLoaders.pop_back(from); // get & pop
+    codeseg.erase(from);
+    simStack.pop_back();
+    prevLoaderOffs = -1;
+}
+
+
+bool CodeGen::lastWasFuncCall()
+{
+    return isCaller(codeseg[stkLoaderOffs()]);
 }
 
 
@@ -101,7 +104,7 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     if (from->isNullCont() && to->isAnyCont())
     {
-        undoLoader();
+        undoSubexpr();
         loadEmptyConst(to);
         return true;
     }
@@ -140,12 +143,12 @@ void CodeGen::explicitCast(Type* to)
 }
 
 
-void CodeGen::isType(Type* to, memint undoOffs)
+void CodeGen::isType(Type* to)
 {
     Type* from = stkType();
     if (from->canAssignTo(to))
     {
-        undoExpr(undoOffs);
+        undoSubexpr();
         loadConst(queenBee->defBool, 1);
     }
     else if (from->isAnyState() || from->isVariant())
@@ -155,7 +158,7 @@ void CodeGen::isType(Type* to, memint undoOffs)
     }
     else
     {
-        undoExpr(undoOffs);
+        undoSubexpr();
         loadConst(queenBee->defBool, 0);
     }
 }
@@ -177,7 +180,7 @@ void CodeGen::deinitLocalVar(Variable* var)
 {
     // TODO: don't generate POPs if at the end of a function in RELEASE mode
     assert(var->isLocalVar());
-    assert(locals == simStack.size());
+    assert(locals == getStackLevel());
     if (var->id != locals - 1)
         fatal(0x6002, "Invalid local var id");
     popValue();
@@ -209,7 +212,7 @@ Type* CodeGen::tryUndoTypeRef()
     if (codeseg[offs] == opLoadTypeRef)
     {
         Type* type = codeseg.at<Type*>(offs + 1);
-        undoExpr(offs);
+        undoSubexpr();
         return type;
     }
     else
@@ -443,16 +446,16 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
-void CodeGen::loadMember(const str& ident, memint* undoOffs)
+void CodeGen::loadMember(const str& ident)
 {
     Type* stateType = stkType();
     if (!stateType->isAnyState())
         error("Invalid member selection");
-    loadMember(PState(stateType)->findShallow(ident), undoOffs);
+    loadMember(PState(stateType)->findShallow(ident));
 }
 
 
-void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
+void CodeGen::loadMember(Symbol* sym)
 {
     Type* type = stkType();
     // TODO: see if it's a FuncPtr, discard the whole designator and retrieve State*
@@ -474,8 +477,7 @@ void CodeGen::loadMember(Symbol* sym, memint* undoOffs)
         }
         else
         {
-            undoExpr(*undoOffs);
-            *undoOffs = getCurrentOffs();
+            undoSubexpr();
             loadDefinition(def);
         }
     }
@@ -524,7 +526,7 @@ void CodeGen::initLocalVar(LocalVar* var)
         fatal(0x6005, "initLocalVar(): not my var");
     // Local var simply remains on the stack, so just check the types.
     assert(var->id >= 0 && var->id <= 127);
-    if (locals != simStack.size() - 1 || var->id != locals)
+    if (locals != getStackLevel() - 1 || var->id != locals)
         fatal(0x6004, "initLocalVar(): invalid var id");
     locals++;
     implicitCast(var->type, "Variable type mismatch");
@@ -642,12 +644,12 @@ void CodeGen::length()
     Type* type = stkType();
     if (type->isNullCont())
     {
-        undoLoader();
+        undoSubexpr();
         loadConst(queenBee->defInt, 0);
     }
     else if (type->isByteSet())
     {
-        undoLoader();
+        undoSubexpr();
         loadConst(queenBee->defInt, POrdinal(PContainer(type)->index)->getRange());
     }
     else
@@ -1332,6 +1334,6 @@ void CodeGen::call(FuncPtr* funcPtr)
 void CodeGen::end()
 {
     codeseg.close();
-    assert(simStack.size() - locals == 0);
+    assert(getStackLevel() == locals);
 }
 
