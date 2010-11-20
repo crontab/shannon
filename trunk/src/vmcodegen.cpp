@@ -59,7 +59,7 @@ void CodeGen::undoSubexpr()
     // corresponding primary loader starting from which all code can be safely
     // discarded. I think this should work provided that any instruction
     // pushes not more than one value onto the stack (regardless of how many
-    // were pop'ed off the stack). See also stkPop().
+    // it pops off the stack). See also stkPop().
     memint from;
     primaryLoaders.pop_back(from); // get & pop
     codeseg.erase(from);
@@ -106,6 +106,13 @@ bool CodeGen::tryImplicitCast(Type* to)
     {
         undoSubexpr();
         loadEmptyConst(to);
+        return true;
+    }
+
+    if (from->isFuncPtr() && PFuncPtr(from)->derivedFrom && to->isTypeRef())
+    {
+        undoSubexpr();
+        loadTypeRef(PFuncPtr(from)->derivedFrom);
         return true;
     }
 
@@ -206,17 +213,15 @@ void CodeGen::popValue()
 }
 
 
-Type* CodeGen::tryUndoTypeRef()
+Type* CodeGen::undoTypeRef()
 {
+    implicitCast(defTypeRef);
     memint offs = stkLoaderOffs();
-    if (codeseg[offs] == opLoadTypeRef)
-    {
-        Type* type = codeseg.at<Type*>(offs + 1);
-        undoSubexpr();
-        return type;
-    }
-    else
-        return NULL;
+    if (codeseg[offs] != opLoadTypeRef)
+        error("Const type reference expected");
+    Type* type = codeseg.at<Type*>(offs + 1);
+    undoSubexpr();
+    return type;
 }
 
 
@@ -329,6 +334,14 @@ void CodeGen::loadDefinition(Definition* def)
     Type* aliasedType = def->getAliasedType();
     if (aliasedType && aliasedType->isAnyState())
     {
+        // A state definition by default is tranformed into a function pointer
+        // to preserve the object subexpression that may have preceeded it (see
+        // loadMember(Symbol*). Later though, one of the following may occur:
+        // (1) it's a function call, then most likely opLoad*FuncPtr will be
+        // replaced with a op*Call (see call()); (2) typecast is requested to 
+        // TypeRef, in which case all preceeding subexpression is discarded;
+        // (3) def selection or scope override is requested: same as (2); or
+        // (4) otherwise the function pointer is left "as is".
         State* stateType = PState(aliasedType);
         OpCode op = opInv;
         if (isCompileTime())
@@ -455,10 +468,20 @@ void CodeGen::loadMember(const str& ident)
 }
 
 
+void CodeGen::loadMember(State* stateType, const str& ident)
+{
+    Symbol* sym = stateType->findShallow(ident);
+    if (sym->isAnyDef())
+        loadDefinition(PDefinition(sym));
+    else
+        // TODO: scope override within classes
+        error("Invalid scope override");
+}
+
+
 void CodeGen::loadMember(Symbol* sym)
 {
     Type* type = stkType();
-    // TODO: see if it's a FuncPtr, discard the whole designator and retrieve State*
     if (!type->isAnyState())
         error("Invalid member selection");
     if (sym->host != PState(type))  // shouldn't happen
@@ -472,7 +495,8 @@ void CodeGen::loadMember(Symbol* sym)
         if (stateType && stateType->isAnyState())
         {
             stkPop();
-            // Most of the time opMkFuncPtr is replaced by opMethodCall
+            // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
+            // also loadDefinition()
             addOp<State*>(PState(stateType)->getFuncPtr(), opMkFuncPtr, PState(stateType));
         }
         else
@@ -819,9 +843,7 @@ void CodeGen::inCont()
 
 void CodeGen::inBounds()
 {
-    Type* type = tryUndoTypeRef();
-    if (type == NULL)
-        error("Const type reference expected");
+    Type* type = undoTypeRef();
     Type* elemType = stkPop();
     if (!elemType->isAnyOrd())
         error("Ordinal type expected");

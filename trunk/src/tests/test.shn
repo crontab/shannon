@@ -220,10 +220,15 @@ assert 1 in 0..2 and ints1[1][2] in 110..111 and 10 in 0..a and not 12 in 0..a
 assert if(true, true, false) and if(a in 10..1000, 'abc', 'def') == 'abc'
 
 var rng1 = [0..999]
+var rng2 = rng1
 assert 1 in rng1 and not -1 in rng1 and not 1000 in rng1
 assert 1 in 0..10 and 1 in [0..10]
 assert not -1 in 0..10 and not -1 in [0..10]
 assert rng1 == [0..999]
+assert 1 in rng2
+
+var char rng3[..] = ['A'..'Z']
+assert 'B' in rng3
 
 var str1 = 'abc'
 assert str1[0..1] == 'ab' and str1[0..2] == 'abc' and str1[2..2] == 'c'
@@ -627,11 +632,17 @@ assert vn1 == 2
 
 def self point(int _x, int _y)
 {
+    def cpt = 50
     var x = _x
     var y = _y
 }
 
 var p = point(10, 20)
-// var point p2 = point(100, 200)
+var point p2 = point(100, 200)
+
+assert p.x == 10 and p.y == 20
+assert p2.x == 100 and p2.y == 200
+assert p.cpt == 50 and p2.cpt == 50
+assert point.cpt == 50
 
 dump system.__program_result
