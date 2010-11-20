@@ -381,8 +381,8 @@ public:
     Type* getTopType()          { return stkType(); }
     void justForget()           { stkPop(); } // for branching in the if() function
     memint getCurrentOffs()     { return codeseg.size(); }
-    Type* tryUndoTypeRef();
     void undoSubexpr();
+    Type* undoTypeRef();
     bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
     void deinitFrame(memint baseLevel); // doesn't change the sim stack
@@ -407,6 +407,7 @@ public:
     void loadLocalVar(LocalVar*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
+    void loadMember(State*, const str& ident);
     void loadMember(Symbol* sym);
     void loadMember(Variable*);
     void loadThis();

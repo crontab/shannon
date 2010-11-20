@@ -120,7 +120,7 @@ typeof ::= 'typeof' designator
 type-spec ::= ident { '*' type-derivator { type-derivator } }
 
 type-derivator ::= container-derivator | prototype-derivator |
-    state-derivator | '<>'
+    state-derivator | '[..]' | '<>'
 
 container-derivator ::= '[' [ const-expr ] ']'
 

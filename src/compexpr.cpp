@@ -42,10 +42,19 @@ Type* Compiler::getTypeDerivators(Type* type)
     {
         if (skipIf(tokRSquare))
             return getTypeDerivators(type)->deriveVec(state);
+
+        else if (skipIf(tokRange))
+        {
+            if (!type->isAnyOrd())
+                error("Range can be derived from ordinal type only");
+            expect(tokRSquare, "']'");
+            return POrdinal(type)->getRangeType();
+        }
+
         else
         {
             Type* indexType = getTypeValue(false);
-            expect(tokRSquare, "]");
+            expect(tokRSquare, "']'");
             if (indexType->isVoid())
                 return getTypeDerivators(type)->deriveVec(state);
             else
@@ -74,7 +83,7 @@ Type* Compiler::getTypeDerivators(Type* type)
             while (skipIf(tokComma));
             expect(tokRParen, "')'");
         }
-        // TODO: distinguish a prototype somehow
+        // TODO: distinguish a prototype somehow ('...' maybe?)
         State* newState = state->registerType(new State(state, proto));
         stateBody(newState);
         return newState;
@@ -181,14 +190,15 @@ void Compiler::vectorCtor(Type* typeHint)
 
 void Compiler::dictCtor(Type* typeHint)
 {
+    if (skipIf(tokRCurly))
+    {
+        codegen->loadEmptyConst(typeHint ? typeHint : queenBee->defNullCont);
+        return;
+    }
+
     if (typeHint && !typeHint->isAnySet() && !typeHint->isAnyDict())
         error("Set/dict constructor not expected here");
     Container* type = PContainer(typeHint);
-    if (skipIf(tokRCurly))
-    {
-        codegen->loadEmptyConst(type ? type : queenBee->defNullCont);
-        return;
-    }
 
     expression(type ? type->index : NULL);
 
@@ -334,16 +344,10 @@ void Compiler::atom(Type* typeHint)
     else
         error("Expression syntax");
 
-    while (token == tokWildcard)
+    while (token == tokWildcard && codegen->tryImplicitCast(defTypeRef))
     {
-        Type* type = codegen->tryUndoTypeRef();
-        if (type != NULL)
-        {
-            next(); // *
-            codegen->loadTypeRef(getTypeDerivators(type));
-        }
-        else
-            break;
+        next(); // *
+        codegen->loadTypeRef(getTypeDerivators(codegen->undoTypeRef()));
     }
 }
 
@@ -359,11 +363,19 @@ void Compiler::designator(Type* typeHint)
     {
         if (skipIf(tokPeriod))
         {
-            // undoOffs is needed when the member is a definition, in which case
-            // all previous loads should be discarded - they are not needed to
-            // load a constant
             codegen->deref();
-            codegen->loadMember(getIdentifier());
+            // See if it's a scope resolution, i.e. we have a state name followed
+            // by '.'; but because state names are by default transformed to
+            // function pointers, we need to roll it back:
+            if (codegen->getTopType()->isFuncPtr())
+            {
+                Type* type = codegen->undoTypeRef();
+                if (!type->isAnyState())
+                    error("Invalid member selection");
+                codegen->loadMember(PState(type), getIdentifier());
+            }
+            else
+                codegen->loadMember(getIdentifier());
         }
 
         else if (skipIf(tokLSquare))
@@ -391,14 +403,7 @@ void Compiler::designator(Type* typeHint)
             actualArgs(PFuncPtr(type)->prototype);
             codegen->call(PFuncPtr(type));    // May throw evoidfunc()
         }
-/*
-        else if (skipIf(tokCaret))
-        {
-            if (!codegen->getTopType()->isReference())
-                error("'^' has no effect");
-            codegen->deref();
-        }
-*/
+
         else
             break;
     }
@@ -669,10 +674,7 @@ Type* Compiler::getTypeValue(bool atomic)
     if (atomic)
     {
         designator(defTypeRef);
-        Type* result = codegen->tryUndoTypeRef();
-        if (result == NULL)
-            error("Atomic type reference expected");
-        return result;
+        return codegen->undoTypeRef();
     }
     else
     {
