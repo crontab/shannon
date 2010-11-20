@@ -92,6 +92,7 @@ protected:
 public:
     memint const id;
     ~Variable();
+    bool isArgument() const  { return id < 0; }
 };
 
 
@@ -150,7 +151,9 @@ public:
     Scope(bool local, Scope* outer);
     ~Scope();
     bool isLocal() const        { return local; }
-    void addUnique(Symbol* s);
+    bool isStateScope() const   { return !local; }
+    void addUnique(Symbol*);
+    void replaceSymbol(Symbol*);
     Symbol* find(const str& ident) const            // returns NULL or Symbol
         { return symbols.find(ident); }
     Symbol* findShallow(const str& _name) const;    // throws EUnknown
@@ -507,9 +510,12 @@ protected:
 
     objvec<Type> types;             // owned
     objptr<FuncPtr> funcPtr;
-public:
     objvec<Definition> defs;        // owned
     objvec<LocalVar> args;          // owned, copied from prototype
+
+    SelfVar* addSelfVar(SelfVar*);
+
+public:
     objvec<SelfVar> selfVars;       // owned
 
     State* const parent;
@@ -525,13 +531,16 @@ public:
     Module* getParentModule();
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
+
     memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
     bool isStatic()                 { return parent == NULL; }
     bool isConstructor()            { return prototype->returnType == this; }
     bool isVoidFunc()               { return prototype->returnType->isVoid(); }
+
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     LocalVar* addArgument(const str&, Type*, memint);
     SelfVar* addSelfVar(const str&, Type*);
+    SelfVar* reclaimArg(LocalVar*, Type*);
     virtual stateobj* newInstance();
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }

@@ -11,7 +11,7 @@
 
 * Prototypes are distinguished from function defs by trailing '...'
 
-* Operator 'in' for vectors? 'lin'? 'through'?
+* Operator 'in' for vectors? 'lin'?
 
 * So what keyword: 'class' or 'state'? Or none?
 
@@ -21,6 +21,8 @@
 * Exceptions
 
 * Anonymous functions
+
+* Properties
 
 * Tiny set implementation?
 

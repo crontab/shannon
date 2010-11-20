@@ -62,6 +62,9 @@ static void typecastError()
 static void constExprErr()
     { throw emessage("Invalid constant expression"); }
 
+static void nullPointerErr()
+    { throw emessage("Uninitialized object"); }
+
 
 static void dumpVar(const str& expr, const variant& var, Type* type)
 {
@@ -134,6 +137,9 @@ template <class T>
 
 inline void SETPOD(variant* dest, integer l, integer r)
     { ::new(dest) variant(l, r); }
+
+inline void CHKOBJ(rtobject* obj)
+    { if (obj == NULL) nullPointerErr(); }
 
 
 void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const uchar* ip)
@@ -229,7 +235,11 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             PUSH(*(bp + ADV(char)));
             break;
         case opLoadMember:
-            *stk = *cast<stateobj*>(stk->_rtobj())->member(ADV(uchar));
+            {
+                rtobject* obj = stk->_rtobj();
+                CHKOBJ(obj);
+                *stk = *cast<stateobj*>(obj)->member(ADV(uchar));
+            }
             break;
         case opDeref:
             {
@@ -252,7 +262,11 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             PUSH(bp + ADV(char));
             break;
         case opLeaMember:
-            PUSH(cast<stateobj*>(stk->_rtobj())->member(ADV(uchar)));
+            {
+                rtobject* obj = stk->_rtobj();
+                CHKOBJ(obj);
+                PUSH(cast<stateobj*>(obj)->member(ADV(uchar)));
+            }
             break;
         case opLeaRef:
             PUSH(&stk->_ref()->var);
@@ -276,8 +290,12 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             POPTO(bp + ADV(char));
             break;
         case opStoreMember:
-            POPTO(cast<stateobj*>((stk - 1)->_rtobj())->member(ADV(uchar)));
-            POP();
+            {
+                rtobject* obj = (stk - 1)->_rtobj();
+                CHKOBJ(obj);
+                POPTO(cast<stateobj*>(obj)->member(ADV(uchar)));
+                POP();
+            }
             break;
         case opStoreRef:
             POPTO(&((stk - 1)->_ref()->var));
@@ -724,11 +742,12 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opMethodCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg,
-                    // The object pointer is right below the result var; pass it
-                    // as an "outer" parameter
-                    cast<stateobj*>((stk - state->popArgCount - state->returns)->_rtobj())->varbase(),
-                    stk + 1, state->getCode());
+                // The object pointer is right below the result var; pass it
+                // as an "outer" parameter
+                rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
+                CHKOBJ(obj);
+                runRabbitRun(dataseg, cast<stateobj*>(obj)->varbase(),
+                        stk + 1, state->getCode());
                 for (memint i = state->popArgCount; i--; )
                     POP();
                 if (state->returns)

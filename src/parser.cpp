@@ -64,9 +64,11 @@ Keywords::kwinfo Keywords::keywords[] =
         {"begin", tokBegin},
         {"break", tokBreak},
         {"case", tokCase},
+        {"class", tokClass},
         {"const", tokConst},
         {"continue", tokContinue},
         {"def", tokDef},
+        {"default", tokDefault},
         {"del", tokDel},
         {"dump", tokDump},
         {"elif", tokElif},
@@ -438,13 +440,17 @@ void Parser::expect(Token tok, const char* errName)
 }
 
 
+bool Parser::isEos()
+{
+    return token == tokSep || token == tokSemi || eof() || token == tokRCurly;
+}
+
+
 void Parser::skipEos()
 {
-    if (eof() || token == tokRCurly)
-        return;
     if (token == tokSep || token == tokSemi)
         next();
-    else
+    else if (!eof() && token != tokRCurly)
         error("End of statement expected");
 }
 

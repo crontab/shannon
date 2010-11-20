@@ -11,8 +11,8 @@ enum Token
     tokEof, tokSep, tokSemi,
     tokIdent, tokPrevIdent, tokIntValue, tokStrValue,
 
-    tokConst, tokDef, tokVar,
-    tokDump, tokAssert, tokBegin, tokIf, tokElif, tokElse,
+    tokConst, tokDef, tokVar, tokClass,
+    tokDump, tokAssert, tokBegin, tokIf, tokElif, tokElse, tokDefault,
     tokWhile, tokBreak, tokContinue, tokSwitch, tokCase, tokReturn, tokExit,
     tokFor,
     tokTypeOf, tokDel, tokIns, tokThis,
@@ -102,6 +102,7 @@ public:
             { return prevIdent; }
     void error(const str& msg);
     void error(const char*);
+    bool isEos();
     void skipEos();
     void skipToEos();
     void skipWsSeps()

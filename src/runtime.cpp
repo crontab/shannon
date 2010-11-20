@@ -1036,6 +1036,16 @@ bool symtbl_impl::add(symbol* s)
 }
 
 
+bool symtbl_impl::replace(symbol* s)
+{
+    memint i;
+    if (!bsearch(s->name, i))
+        return false;
+    parent::replace(i, s);
+    return true;
+}
+
+
 bool symtbl_impl::bsearch(const str& key, memint& idx) const
 {
     idx = 0;

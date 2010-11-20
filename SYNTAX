@@ -54,7 +54,7 @@ fifo-pull ::= expr '>>' designator { '>>' designator }
 
 if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 
-case-block ::= 'case' expr '{' case-label { case-label } '}'
+case-block ::= 'case' expr '{' case-label { case-label } [ 'default' block ] '}'
 
 case-label ::= case-range { ',' case-range } block
 
