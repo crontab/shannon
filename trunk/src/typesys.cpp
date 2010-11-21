@@ -157,7 +157,7 @@ LocalVar* BlockScope::addLocalVar(const str& n, Type* t)
     memint varid = startId + localVars.size();
     if (varid <= -128 || varid >= 127)
         error("Maximum number of local variables reached");
-    objptr<LocalVar> v = new LocalVar(n, t, varid, gen->getState());
+    objptr<LocalVar> v = new LocalVar(n, t, varid, gen->getCodeOwner());
     addUnique(v);   // may throw
     localVars.push_back(v->grab<LocalVar>());
     return v;
@@ -836,8 +836,8 @@ State::State(State* par, FuncPtr* proto)
     // Register all formal args as actual args within the local scope,
     // including the return var
     popArgCount = prototype->formalArgs.size();
-    returns = isVoidFunc() ? 0 : 1;
-    if (!prototype->returnType->isVoid())
+    returns = prototype->isVoidFunc() ? 0 : 1;
+    if (!prototype->isVoidFunc())
         returnVar = addArgument("result", prototype->returnType, - popArgCount - 1);
     for (memint i = 0; i < popArgCount; i++)
     {

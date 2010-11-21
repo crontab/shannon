@@ -290,7 +290,7 @@ void Compiler::ifFunc()
 
 void Compiler::actualArgs(FuncPtr* proto)
 {
-    if (!proto->returnType->isVoid())
+    if (!proto->isVoidFunc())
         codegen->loadEmptyConst(proto->returnType);
     for (memint i = 0; i < proto->formalArgs.size(); i++)
     {
