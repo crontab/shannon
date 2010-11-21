@@ -774,7 +774,26 @@ bool FuncPtr::identicalTo(FuncPtr* t) const
         || formalArgs.size() != t->formalArgs.size())
             return false;
     for (memint i = formalArgs.size(); i--; )
-        if (!formalArgs[i]->type->identicalTo(t->formalArgs[i]->type))
+        if (!t->formalArgs[i]->type->identicalTo(formalArgs[i]->type))
+            return false;
+    return true;
+}
+
+
+bool FuncPtr::canAssignTo(Type* t) const
+    { return this == t || (t->isFuncPtr() && canAssignTo(PFuncPtr(t))); }
+
+
+bool FuncPtr::canAssignTo(FuncPtr* t) const
+{
+    if (this == t)
+        return true;
+    if (!returnType->canAssignTo(t->returnType)
+        || formalArgs.size() != t->formalArgs.size())
+            return false;
+    for (memint i = formalArgs.size(); i--; )
+        // Note how canAssignTo() check is reversed for arguments
+        if (!t->formalArgs[i]->type->canAssignTo(formalArgs[i]->type))
             return false;
     return true;
 }

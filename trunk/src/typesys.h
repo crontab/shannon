@@ -455,8 +455,9 @@ public:
     ~FuncPtr();
     void dump(fifo&) const;
     bool identicalTo(Type*) const; // override
-    // TODO: canAssignTo(): allow return types be compatible?
     bool identicalTo(FuncPtr* t) const;
+    bool canAssignTo(Type*) const; // override
+    bool canAssignTo(FuncPtr* t) const;
     FormalArg* addFormalArg(const str&, Type*);
     void resolveSelfType(State*);
     int totalStkArgs() const

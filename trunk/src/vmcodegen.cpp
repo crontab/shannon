@@ -102,7 +102,7 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
-    if (from->isNullCont() && to->isAnyCont())
+    if (from->isNullCont())
     {
         undoSubexpr();
         loadEmptyConst(to);

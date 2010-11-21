@@ -238,6 +238,8 @@ assert #vec1[0..1] == 2 and vec1[0..1][0] == 'abc' and vec1[0..1][1] == 'def'
 assert #vec1[1..] == 2 and vec1[1..][1] == 'ghi'
 assert vec1[0..] == vec1
 
+var void ncont1()... = {}
+
 // TYPECASTS
 begin: assert 1 as char == '\x01'
 begin:
@@ -664,14 +666,17 @@ voidfp('nop')
 assert fpstr == 'nop'
 
 var cpint = 0
-class voidclass(int i)
+class intclass(int i)
 {
     var i
     cpint = i
 }
 
-def classptr = self *(int)...
-var classptr cp = voidclass
+def classptr = intclass *(int)...
+var classptr cp = intclass
+assert cpint == 0
+var intclass ic = cp(1)
+assert cpint == 1
 
 
 // OOP
