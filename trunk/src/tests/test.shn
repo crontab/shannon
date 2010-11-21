@@ -659,6 +659,9 @@ var intfunc intfp1 = max
 assert intfp(20, 10) == 10
 assert intfp1(20, 10) == 20
 
+var min minvar = 1
+assert typeof minvar == int
+
 assignstr('klm')
 assert fpstr == 'klm'
 var voidfp = assignstr

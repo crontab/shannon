@@ -71,7 +71,7 @@ void Compiler::definition()
 {
     str ident;
     Type* type = getTypeAndIdent(&ident);
-    if (type && type->isAnyState())
+    if (type && type->isState())
         state->addDefinition(ident, defTypeRef, PState(type), scope);
     else
     {

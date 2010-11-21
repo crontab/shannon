@@ -109,10 +109,10 @@ bool CodeGen::tryImplicitCast(Type* to)
         return true;
     }
 
-    if (from->isFuncPtr() && PFuncPtr(from)->derivedFrom && to->isTypeRef())
+    if (from->isFuncPtr() && to->isTypeRef())
     {
         undoSubexpr();
-        loadTypeRef(PFuncPtr(from)->derivedFrom);
+        loadTypeRef(PFuncPtr(from)->returnType);
         return true;
     }
 

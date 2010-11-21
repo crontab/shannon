@@ -740,7 +740,7 @@ bool Fifo::identicalTo(Type* t) const
 
 
 FuncPtr::FuncPtr(Type* r)
-    : Type(FUNCPTR), returnType(r), derivedFrom(NULL)  { }
+    : Type(FUNCPTR), returnType(r)  { }
 
 
 FuncPtr::~FuncPtr()
@@ -830,7 +830,6 @@ State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par), parent(par),
       prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
 {
-    proto->derivedFrom = this;
     // Is this a 'self' state?
     if (prototype->returnType->isSelfStub())
         prototype->resolveSelfType(this);
