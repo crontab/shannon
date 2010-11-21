@@ -213,7 +213,7 @@ public:
     bool isVoid() const         { return typeId == VOID; }
     bool isVariant() const      { return typeId == VARIANT; }
     bool isReference() const    { return typeId == REF; }
-    bool isDerefable() const    { return !isAnyState() & !isAnyFifo(); }
+    bool isDerefable() const    { return !isAnyState() && !isAnyFifo(); }
     bool isRange() const        { return typeId == RANGE; }
 
     bool isBool() const         { return typeId == BOOL; }
@@ -461,7 +461,9 @@ public:
     FormalArg* addFormalArg(const str&, Type*);
     void resolveSelfType(State*);
     int totalStkArgs() const
-        { return formalArgs.size() + int(!returnType->isVoid()); }
+        { return formalArgs.size() + int(!isVoidFunc()); }
+    bool isVoidFunc() const
+        { return returnType->isVoid(); }
 };
 
 
@@ -514,9 +516,7 @@ public:
     void dumpAll(fifo&) const;
 
     memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
-    bool isStatic()                 { return parent == NULL; }
     bool isConstructor()            { return prototype->returnType == this; }
-    bool isVoidFunc()               { return prototype->returnType->isVoid(); }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     LocalVar* addArgument(const str&, Type*, memint);
@@ -528,7 +528,6 @@ public:
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCode() const;
-    FuncPtr* getFuncPtr()           { return prototype; }
     // TODO: identicalTo(), canAssignTo()
 };
 

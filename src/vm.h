@@ -378,7 +378,7 @@ public:
     void endStatement()         { primaryLoaders.clear(); }
     bool isCompileTime()        { return codeOwner == NULL; }
     memint getLocals()          { return locals; }
-    State* getState()           { return codeOwner; }
+    State* getCodeOwner()       { return codeOwner; }
     Type* getTopType()          { return stkType(); }
     void justForget()           { stkPop(); } // for branching in the if() function
     memint getCurrentOffs()     { return codeseg.size(); }

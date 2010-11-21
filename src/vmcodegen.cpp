@@ -352,7 +352,7 @@ void CodeGen::loadDefinition(Definition* def)
             op = opLoadSelfFuncPtr;
         else
             error("Invalid context for a function pointer");
-        addOp<State*>(stateType->getFuncPtr(), op, stateType);
+        addOp<State*>(stateType->prototype, op, stateType);
     }
     else if (aliasedType || def->type->isVoid()
             || def->type->isAnyOrd() || def->type->isByteVec())
@@ -509,7 +509,7 @@ void CodeGen::loadMember(Symbol* sym)
             stkPop();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
             // also loadDefinition()
-            addOp<State*>(PState(stateType)->getFuncPtr(), opMkFuncPtr, PState(stateType));
+            addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
         }
         else
         {
@@ -1281,8 +1281,6 @@ memint CodeGen::prolog()
         ;
     else if (codeOwner->isConstructor())
         addOp<State*>(opEnterCtor, codeOwner);
-    else if (codeOwner->isStatic())
-        notimpl();
     else
         // All other functions need to create their frames. The size of the frame
         // though is not known at this point, will be resolved later in epilog()
@@ -1298,8 +1296,6 @@ void CodeGen::epilog(memint prologOffs)
         ;
     else if (codeOwner->isConstructor())
         ;
-    else if (codeOwner->isStatic())
-        notimpl();
     else
     {
         if (selfVarCount == 0)
@@ -1328,7 +1324,7 @@ void CodeGen::call(FuncPtr* proto)
 #endif
         stkPop();
     }
-    if (!proto->returnType->isVoid())
+    if (!proto->isVoidFunc())
         stkPop();
 
     // Remove the opMk*FuncPtr and append a corresponding caller
@@ -1355,7 +1351,7 @@ void CodeGen::call(FuncPtr* proto)
     {
         State* callee = codeseg.at<State*>(offs + 1);
         codeseg.eraseOp(offs); // erase funcptr loader
-        if (proto->returnType->isVoid())
+        if (proto->isVoidFunc())
         {
             addOp<State*>(op, callee);
             throw evoidfunc();
@@ -1366,7 +1362,7 @@ void CodeGen::call(FuncPtr* proto)
 
     else  // indirect call
     {
-        if (proto->returnType->isVoid())
+        if (proto->isVoidFunc())
         {
             addOp<uchar>(opCall, proto->totalStkArgs());
             throw evoidfunc();
