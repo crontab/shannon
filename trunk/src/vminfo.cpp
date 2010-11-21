@@ -184,9 +184,10 @@ OpInfo opTable[] =
     OP(JumpAnd, Jump16),        // [dst 16] (-)bool
     OP(JumpOr, Jump16),         // [dst 16] (-)bool
 
-    OP(ChildCall, State),        // [State*] -var -var ... +var
-    OP(SiblingCall, State),      // [State*] -var -var ... +var
-    OP(MethodCall, State),       // [State*] -var -var -obj ... +var
+    OP(ChildCall, State),       // [State*] -var -var ... +var
+    OP(SiblingCall, State),     // [State*] -var -var ... +var
+    OP(MethodCall, State),      // [State*] -var -var -obj ... +var
+    OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]

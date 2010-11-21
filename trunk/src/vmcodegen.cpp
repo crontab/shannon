@@ -394,7 +394,6 @@ static variant::Type typeToVarType(Type* t)
     case Type::DICT:
         return t->isByteDict() ? variant::VEC : variant::DICT;
     case Type::FIFO:
-    case Type::PROTOTYPE:
     case Type::STATE:
     case Type::FUNCPTR:
         return variant::RTOBJ;
@@ -1318,13 +1317,8 @@ void CodeGen::epilog(memint prologOffs)
 }
 
 
-void CodeGen::call(FuncPtr* funcPtr)
+void CodeGen::call(FuncPtr* proto)
 {
-    // TODO: indirect call (callee == NULL)
-
-    State* callee = funcPtr->derivedFrom;
-    Prototype* proto = callee->prototype;
-
     // Pop arguments and the return value off the simulation stack
     for (memint i = proto->formalArgs.size(); i--; )
     {
@@ -1343,26 +1337,43 @@ void CodeGen::call(FuncPtr* funcPtr)
     memint offs = stkLoaderOffs();
     switch (codeseg[offs])
     {
+        // All the ops below have a State* argument in the code
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadSelfFuncPtr: op = opChildCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
-        default: notimpl();
+        default: ; // leave op = opInv
     }
-    stkPop(); // funcptr
-    codeseg.eraseOp(offs); // erase funcptr loader
 
     // Finally, leave the return value (if any) on the simulation stack. At
     // run-time, however, in case of opMethodCall we have the 'this' object
     // for which the method was called and only then on top of it the return
     // value. The VM discards the object pointer and puts the ret value instead
     // so that everything looks like the method call has just returned a value.
-    if (proto->returnType->isVoid())
+
+    stkPop(); // funcptr
+    if (op != opInv)
     {
-        addOp<State*>(op, callee);
-        throw evoidfunc();
+        State* callee = codeseg.at<State*>(offs + 1);
+        codeseg.eraseOp(offs); // erase funcptr loader
+        if (proto->returnType->isVoid())
+        {
+            addOp<State*>(op, callee);
+            throw evoidfunc();
+        }
+        else
+            addOp<State*>(proto->returnType, op, callee);
     }
-    else
-        addOp<State*>(callee->prototype->returnType, op, callee);
+
+    else  // indirect call
+    {
+        if (proto->returnType->isVoid())
+        {
+            addOp<uchar>(opCall, proto->totalStkArgs());
+            throw evoidfunc();
+        }
+        else
+            addOp<uchar>(proto->returnType, opCall, proto->totalStkArgs());
+    }
 }
 
 

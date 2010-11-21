@@ -756,6 +756,21 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                     POP();
             }
             break;
+        case opCall:
+            {
+                funcptr* fp = cast<funcptr*>((stk - ADV(uchar))->_rtobj());
+                CHKOBJ(fp);
+                stateobj* obj = fp->outer;
+                CHKOBJ(obj);
+                runRabbitRun(dataseg, obj->varbase(), stk + 1, fp->state->getCode());
+                for (memint i = fp->state->popArgCount; i--; )
+                    POP();
+                if (fp->state->returns)
+                    POPTO(stk - 1)
+                else
+                    POP();
+            }
+            break;
 
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------

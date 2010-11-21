@@ -1028,6 +1028,8 @@ symbol* symtbl_impl::find(const str& name) const
 
 bool symtbl_impl::add(symbol* s)
 {
+    if (s->name.empty())
+        fatal(0x1003, "Empty symbol in symbol table");
     memint i;
     if (bsearch(s->name, i))
         return false;

@@ -92,7 +92,7 @@ void Compiler::classDef()
 {
     str ident = getIdentifier();
     expect(tokLParen, "'('");
-    State* type = getStateDerivator(queenBee->defSelfStub, false);
+    State* type = cast<State*>(getStateDerivator(queenBee->defSelfStub, false));
     state->addDefinition(ident, defTypeRef, type, scope);
 }
 

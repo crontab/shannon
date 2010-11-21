@@ -32,7 +32,8 @@ void Symbol::fqName(fifo& stm) const
 void Symbol::dump(fifo& stm) const
 {
     type->dumpDef(stm);
-    stm << ' ' << name;
+    if (!name.empty())
+        stm << ' ' << name;
 }
 
 
@@ -738,15 +739,15 @@ bool Fifo::identicalTo(Type* t) const
 // --- Prototype ----------------------------------------------------------- //
 
 
-Prototype::Prototype(Type* r)
-    : Type(PROTOTYPE), returnType(r)  { }
+FuncPtr::FuncPtr(Type* r)
+    : Type(FUNCPTR), returnType(r), derivedFrom(NULL)  { }
 
 
-Prototype::~Prototype()
+FuncPtr::~FuncPtr()
     { formalArgs.release_all(); }
 
 
-void Prototype::dump(fifo& stm) const
+void FuncPtr::dump(fifo& stm) const
 {
     stm << '(';
     returnType->dumpDef(stm);
@@ -757,15 +758,15 @@ void Prototype::dump(fifo& stm) const
             stm << ", ";
         formalArgs[i]->dump(stm);
     }
-    stm << "))";
+    stm << ")...)";
 }
 
 
-bool Prototype::identicalTo(Type* t) const
-    { return this == t || (t->isPrototype() && identicalTo(PPrototype(t))); }
+bool FuncPtr::identicalTo(Type* t) const
+    { return this == t || (t->isFuncPtr() && identicalTo(PFuncPtr(t))); }
 
 
-bool Prototype::identicalTo(Prototype* t) const
+bool FuncPtr::identicalTo(FuncPtr* t) const
 {
     if (this == t)
         return true;
@@ -779,7 +780,7 @@ bool Prototype::identicalTo(Prototype* t) const
 }
 
 
-FormalArg* Prototype::addFormalArg(const str& n, Type* t)
+FormalArg* FuncPtr::addFormalArg(const str& n, Type* t)
 {
     objptr<FormalArg> arg = new FormalArg(n, t);
     formalArgs.push_back(arg->grab<FormalArg>());
@@ -803,34 +804,14 @@ bool SelfStub::canAssignTo(Type*) const
     { error("'self' incomplete"); return false; }
 
 
-// --- FuncPtr ------------------------------------------------------------- //
-
-
-FuncPtr::FuncPtr(State* o, Prototype* p)
-    : Type(FUNCPTR), objType(o), prototype(p), derivedFrom(NULL)  { }
-
-FuncPtr::FuncPtr(State* d)
-    : Type(FUNCPTR), objType(d->parent), prototype(d->prototype), derivedFrom(d)  { }
-
-FuncPtr::~FuncPtr()
-    { }
-
-bool FuncPtr::identicalTo(Type* t) const
-    { return t->isFuncPtr() && objType->identicalTo(PFuncPtr(t)->objType)
-        && prototype->identicalTo(PFuncPtr(t)->prototype); }
-
-bool FuncPtr::canAssignTo(Type* t) const
-    { return t->isFuncPtr() && objType->canAssignTo(PFuncPtr(t)->objType)
-        && prototype->canAssignTo(PFuncPtr(t)->prototype); }
-
-
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* par, Prototype* proto)
+State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par), parent(par),
       prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
 {
+    proto->derivedFrom = this;
     // Is this a 'self' state?
     if (prototype->returnType->isSelfStub())
         prototype->resolveSelfType(this);
@@ -845,7 +826,6 @@ State::State(State* par, Prototype* proto)
         FormalArg* arg = prototype->formalArgs[i];
         addArgument(arg->name, arg->type, - popArgCount + i);
     }
-    funcPtr = new FuncPtr(this);
 }
 
 
@@ -885,7 +865,7 @@ void State::dump(fifo& stm) const
 {
     stm << '(';
     prototype->dump(stm);
-    stm << " {...})";
+    stm << " {<code>})";
 }
 
 
@@ -973,7 +953,8 @@ void State::addTypeAlias(const str& n, Type* t)
 LocalVar* State::addArgument(const str& n, Type* t, memint varid)
 {
     objptr<LocalVar> arg = new LocalVar(n, t, varid, this);
-    addUnique(arg);
+    if (!n.empty())
+        addUnique(arg);
     args.push_back(arg->grab<LocalVar>());
     return arg;
 }
@@ -1036,7 +1017,7 @@ Container* State::getContainerType(Type* idx, Type* elem)
 
 
 Module::Module(const str& n, const str& f)
-    : State(NULL, new Prototype(this)), complete(false), filePath(f)
+    : State(NULL, new FuncPtr(this)), complete(false), filePath(f)
 {
     defName = n;
     registerType(prototype);
