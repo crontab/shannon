@@ -333,7 +333,14 @@ restart:
             skipEol();
             goto restart;
         case ',': return token = tokComma;
-        case '.': return token = (input->get_if('.') ? tokRange : tokPeriod);
+        case '.':
+            if (input->get_if('.'))
+            {
+                if (input->get_if('.'))
+                    return token = tokEllipsis;
+                return token = tokRange;
+            }
+            return token = tokPeriod;
         case '\'': parseStringLiteral(); return token = tokStrValue;
         case ';': return token = tokSemi;
         case ':': return token = tokColon;

@@ -199,6 +199,7 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
+    opCall,             // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -226,7 +227,7 @@ inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
 inline bool isCaller(OpCode op)
-    { return op >= opChildCall && op <= opSiblingCall; }
+    { return op >= opChildCall && op <= opCall; }
 
 
 // --- OpCode Info

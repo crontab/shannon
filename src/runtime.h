@@ -1158,7 +1158,6 @@ inline void variant::_init(reference* o)  { _init(REF, o); }
 
 
 class State;  // defined in typesys.h
-class Prototype;
 
 
 // sateobj: a run-time ref-counted object, actually a structure with variant

@@ -8,7 +8,7 @@
 /*
     <nested-expr>  <ident>  <number>  <string>  <char>  <type-spec>
         <vec-ctor>  <dict-ctor>  <if-func>  <typeof>
-    @ <array-sel>  <member-sel>  <function-call>  ^
+    @ <array-sel>  <member-sel>  <function-call>
     unary-  ?  #  as  is
     |
     *  /  mod
@@ -35,25 +35,37 @@ Type* Compiler::getEnumeration(const str& firstIdent)
 }
 
 
-State* Compiler::getStateDerivator(Type* retType, bool)
+Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
 {
-    Prototype* proto = state->registerType(new Prototype(retType));
+    FuncPtr* proto = state->registerType(new FuncPtr(retType));
     if (!skipIf(tokRParen))
     {
         do
         {
             Type* argType = getTypeValue(true);
-            str ident = getIdentifier();
-            argType = getTypeDerivators(argType);
+            str ident;
+            if (token == tokIdent)
+            {
+                ident = getIdentifier();
+                argType = getTypeDerivators(argType);
+            }
             proto->addFormalArg(ident, argType);
         }
         while (skipIf(tokComma));
         expect(tokRParen, "')'");
     }
-    // TODO: distinguish a prototype somehow ('...' maybe?)
-    State* newState = state->registerType(new State(state, proto));
-    stateBody(newState);
-    return newState;
+    if (skipIf(tokEllipsis))
+    {
+        if (!allowProto)
+            error("Function pointer type not allowed here");
+        return proto;
+    }
+    else
+    {
+        State* newState = state->registerType(new State(state, proto));
+        stateBody(newState);
+        return newState;
+    }
 }
 
 
@@ -276,7 +288,7 @@ void Compiler::ifFunc()
 }
 
 
-void Compiler::actualArgs(Prototype* proto)
+void Compiler::actualArgs(FuncPtr* proto)
 {
     if (!proto->returnType->isVoid())
         codegen->loadEmptyConst(proto->returnType);
@@ -393,7 +405,7 @@ void Compiler::designator(Type* typeHint)
             Type* type = codegen->getTopType();
             if (!type->isFuncPtr())
                 error("Invalid function call");
-            actualArgs(PFuncPtr(type)->prototype);
+            actualArgs(PFuncPtr(type));
             codegen->call(PFuncPtr(type));    // May throw evoidfunc()
         }
 

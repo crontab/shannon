@@ -34,7 +34,7 @@ enum Token
     tokOr, tokXor,
 
     // Special chars and sequences
-    tokComma, tokPeriod, tokRange, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
+    tokComma, tokPeriod, tokRange, tokEllipsis, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
     tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
     tokIs, tokAs,
 

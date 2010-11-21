@@ -1,4 +1,6 @@
 
+* When function/state is used as a type, take the return type
+
 * Functions: function pointers, indirect calls, method calls
 
 * Builtins are defined within states; "global" builtins are in QueenBee.

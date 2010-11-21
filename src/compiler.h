@@ -41,7 +41,7 @@ protected:
     LoopInfo* loopInfo;
 
     // in compexpr.cpp
-    State* getStateDerivator(Type*, bool allowProto);
+    Type* getStateDerivator(Type*, bool allowProto);
     Type* getTypeDerivators(Type*);
     Type* getEnumeration(const str& firstIdent);
     void identifier(const str&);
@@ -49,7 +49,7 @@ protected:
     void dictCtor(Type* type);
     void typeOf();
     void ifFunc();
-    void actualArgs(Prototype*);
+    void actualArgs(FuncPtr*);
     void atom(Type*);
     void designator(Type*);
     void factor(Type*);

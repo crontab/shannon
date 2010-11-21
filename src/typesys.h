@@ -18,7 +18,6 @@ class Enumeration;
 class Range;
 class Container;
 class Fifo;
-class Prototype;
 class SelfStub;
 class State;
 class FuncPtr;
@@ -37,7 +36,6 @@ typedef Enumeration* PEnumeration;
 typedef Range* PRange;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
-typedef Prototype* PPrototype;
 typedef State* PState;
 typedef FuncPtr* PFuncPtr;
 typedef Module* PModule;
@@ -196,7 +194,7 @@ public:
         BOOL, CHAR, INT, ENUM,      // ordinal types; see isAnyOrd()
         NULLCONT, VEC, SET, DICT,   // containers; see isAnyCont()
         FIFO,
-        PROTOTYPE, SELFSTUB, STATE, FUNCPTR };
+        SELFSTUB, STATE, FUNCPTR };
 
 protected:
     objptr<Reference> refType;
@@ -240,7 +238,6 @@ public:
     bool isAnyFifo() const      { return typeId == FIFO; }
     bool isCharFifo() const;
 
-    bool isPrototype() const    { return typeId == PROTOTYPE; }
     bool isSelfStub() const     { return typeId == SELFSTUB; }
     bool isAnyState() const     { return typeId == STATE; }
     bool isFuncPtr() const      { return typeId == FUNCPTR; }
@@ -443,24 +440,27 @@ public:
 };
 
 
-// --- Prototype ----------------------------------------------------------- //
+// --- Prototype/FuncPtr --------------------------------------------------- //
 
 
-class Prototype: public Type
+class FuncPtr: public Type
 {
     // TODO: allow unnamed formal args (put '?' as a name?)
 public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
+    State* derivedFrom;
 
-    Prototype(Type* retType);
-    ~Prototype();
+    FuncPtr(Type* retType);
+    ~FuncPtr();
     void dump(fifo&) const;
     bool identicalTo(Type*) const; // override
     // TODO: canAssignTo(): allow return types be compatible?
-    bool identicalTo(Prototype* t) const;
+    bool identicalTo(FuncPtr* t) const;
     FormalArg* addFormalArg(const str&, Type*);
     void resolveSelfType(State*);
+    int totalStkArgs() const
+        { return formalArgs.size() + int(!returnType->isVoid()); }
 };
 
 
@@ -479,25 +479,6 @@ public:
 };
 
 
-// --- FuncPtr ------------------------------------------------------------- //
-
-
-class FuncPtr: public Type
-{
-    friend class State;
-    FuncPtr(State*);
-public:
-    State* const objType;
-    Prototype* const prototype;
-    State* const derivedFrom; // may be NULL
-    FuncPtr(State*, Prototype*);
-    ~FuncPtr();
-    bool identicalTo(Type*) const;
-    bool canAssignTo(Type*) const;
-    // void dump(fifo&) const;
-};
-
-
 // --- State --------------------------------------------------------------- //
 
 // TODO: extern/builtin functions
@@ -509,7 +490,6 @@ protected:
     void addTypeAlias(const str&, Type*);
 
     objvec<Type> types;             // owned
-    objptr<FuncPtr> funcPtr;
     objvec<Definition> defs;        // owned
     objvec<LocalVar> args;          // owned, copied from prototype
 
@@ -519,13 +499,13 @@ public:
     objvec<SelfVar> selfVars;       // owned
 
     State* const parent;
-    Prototype* const prototype;
+    FuncPtr* const prototype;
     LocalVar* returnVar;            // may be NULL
     memint popArgCount;             // VM helper
     int returns;                    // VM helper
     objptr<object> codeseg;
 
-    State(State* parent, Prototype*);
+    State(State* parent, FuncPtr*);
     ~State();
     void fqName(fifo&) const;
     Module* getParentModule();
@@ -547,12 +527,12 @@ public:
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCode() const;
-    FuncPtr* getFuncPtr()           { return funcPtr; }
+    FuncPtr* getFuncPtr()           { return prototype; }
     // TODO: identicalTo(), canAssignTo()
 };
 
 
-inline void Prototype::resolveSelfType(State* state)
+inline void FuncPtr::resolveSelfType(State* state)
     { returnType = state; }
 
 

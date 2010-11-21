@@ -640,6 +640,40 @@ argrec(149)
 assert argrec1 == 149
 
 
+// Function pointers
+
+var fpstr = ''
+
+def intfunc = int *(int, int)...
+def voidfunc = void *(str)...
+
+def int min(int a, int b) { result = if(a < b, a, b) }
+def int max(int a, int b) { result = if(a > b, a, b) }
+def void assignstr(str s) { fpstr = s }
+
+assert min(2, 1) == 1
+var intfp = min
+var intfunc intfp1 = max
+assert intfp(20, 10) == 10
+assert intfp1(20, 10) == 20
+
+assignstr('klm')
+assert fpstr == 'klm'
+var voidfp = assignstr
+voidfp('nop')
+assert fpstr == 'nop'
+
+var cpint = 0
+class voidclass(int i)
+{
+    var i
+    cpint = i
+}
+
+def classptr = self *(int)...
+var classptr cp = voidclass
+
+
 // OOP
 
 var pst = 2
