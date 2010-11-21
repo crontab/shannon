@@ -240,6 +240,7 @@ public:
 
     bool isSelfStub() const     { return typeId == SELFSTUB; }
     bool isAnyState() const     { return typeId == STATE; }
+    bool isState() const        { return typeId == STATE; }
     bool isFuncPtr() const      { return typeId == FUNCPTR; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
@@ -449,7 +450,6 @@ class FuncPtr: public Type
 public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
-    State* derivedFrom;
 
     FuncPtr(Type* retType);
     ~FuncPtr();

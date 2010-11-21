@@ -1,8 +1,4 @@
 
-* When function/state is used as a type, take the return type
-
-* Functions: function pointers, indirect calls, method calls
-
 * Builtins are defined within states; "global" builtins are in QueenBee.
   What about containers? Fifos?
 
@@ -11,11 +7,11 @@
 
 * return, goto
 
-* Prototypes are distinguished from function defs by trailing '...'
+* Properties
+
+* Inheritance, virtual calls, compatibility rules
 
 * Operator 'in' for vectors? 'lin'?
-
-* So what keyword: 'class' or 'state'? Or none?
 
 * Procedures, pipes. Procedures are declared as, e.g. def <char, char>
   convert() ...
@@ -23,8 +19,6 @@
 * Exceptions
 
 * Anonymous functions
-
-* Properties
 
 * Tiny set implementation?
 
