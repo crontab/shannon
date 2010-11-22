@@ -316,7 +316,7 @@ template<> OpCode& CodeSeg::atw<OpCode>(memint i);
 
 
 inline CodeSeg* State::getCodeSeg() const { return cast<CodeSeg*>(codeseg.get()); }
-inline const uchar* State::getCode() const { return getCodeSeg()->getCode(); }
+inline const uchar* State::getCodeStart() const { return getCodeSeg()->getCode(); }
 
 
 // --- Code Generator ------------------------------------------------------ //

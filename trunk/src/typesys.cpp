@@ -828,7 +828,8 @@ bool SelfStub::canAssignTo(Type*) const
 
 State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par), parent(par),
-      prototype(proto), returnVar(NULL), popArgCount(0), codeseg(new CodeSeg(this))
+      prototype(proto), returnVar(NULL), popArgCount(0),
+      codeseg(new CodeSeg(this)), externFunc(NULL)
 {
     // Is this a 'self' state?
     if (prototype->returnType->isSelfStub())

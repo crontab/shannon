@@ -2,14 +2,14 @@
 * Builtins are defined within states; "global" builtins are in QueenBee.
   What about containers? Fifos?
 
+* Inheritance, virtual calls, compatibility rules
+
 * Enqueue and dequeue operators: << and >>, almost like the iostream
   operators in C++. The leftmost operand is always a fifo.
 
 * return, goto
 
 * Properties
-
-* Inheritance, virtual calls, compatibility rules
 
 * Operator 'in' for vectors? 'lin'?
 
