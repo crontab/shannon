@@ -34,7 +34,6 @@ enum OpCode
     opLoadStr,          // [str] +str
     opLoadEmptyVar,     // [variant::Type:u8] + var
     opLoadConst,        // [Definition*] +var
-    opLoadOuterObj,     // +stateobj
     opLoadDataSeg,      // +module-obj
     // opLoadSelfObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
@@ -44,7 +43,6 @@ enum OpCode
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
     opLoadSelfVar,      // [self.idx:u8] +var
-    opLoadOuterVar,     // [outer.idx:u8] +var
     opLoadStkVar,       // [stk.idx:s8] +var
     // --- end primary loaders
     opLoadMember,       // [stateobj.idx:u8] -stateobj +var
@@ -52,7 +50,6 @@ enum OpCode
     // --- end grounded loaders
 
     opLeaSelfVar,       // [self.idx:u8] +obj(0) +ptr
-    opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
     opLeaStkVar,        // [stk.idx:s8] +obj(0) +ptr
     opLeaMember,        // [stateobj.idx:u8] -stateobj +stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
@@ -62,7 +59,6 @@ enum OpCode
     opInitStkVar,       // [stk.idx:s8] -var
     // --- begin grounded storers
     opStoreSelfVar,     // [self.idx:u8] -var
-    opStoreOuterVar,    // [outer.idx:u8] -var
     opStoreStkVar,      // [stk.idx:s8] -var
     opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
@@ -196,8 +192,7 @@ enum OpCode
     opJumpOr,           // [dst 16] (-)bool
 
     // don't forget isCaller()
-    opChildCall,        // [State*] -var -var ... +var
-    opSiblingCall,      // [State*] -var -var ... +var
+    opNearCall,         // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var
 
@@ -227,7 +222,7 @@ inline bool isBoolJump(OpCode op)
     { return op >= opJumpFalse && op <= opJumpOr; }
 
 inline bool isCaller(OpCode op)
-    { return op >= opChildCall && op <= opCall; }
+    { return op >= opNearCall && op <= opCall; }
 
 
 // --- OpCode Info
@@ -550,7 +545,7 @@ public:
 // Besides, code segments never have any relocatble data elements, so that any
 // module can be reused in the multithreaded server environment too.
 
-void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, const uchar* code);
+void runRabbitRun(stateobj* dataseg, variant* bp, const uchar* code);
 
 
 struct eexit: public exception
