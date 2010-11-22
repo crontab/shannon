@@ -484,7 +484,9 @@ public:
 
 // --- State --------------------------------------------------------------- //
 
-// TODO: extern/builtin functions
+
+typedef void (*ExternFuncProto)(stateobj* self, variant* args);
+
 
 class State: public Type, public Scope
 {
@@ -507,6 +509,7 @@ public:
     memint popArgCount;             // VM helper
     int returns;                    // VM helper
     objptr<object> codeseg;
+    ExternFuncProto externFunc;
 
     State(State* parent, FuncPtr*);
     ~State();
@@ -515,8 +518,10 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
 
-    memint selfVarCount()           { return selfVars.size(); } // TODO: plus inherited
-    bool isConstructor()            { return prototype->returnType == this; }
+    memint selfVarCount()
+        { return selfVars.size(); } // TODO: plus inherited
+    bool isConstructor()
+        { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     LocalVar* addArgument(const str&, Type*, memint);
@@ -527,7 +532,7 @@ public:
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
-    const uchar* getCode() const;
+    const uchar* getCodeStart() const;
     // TODO: identicalTo(), canAssignTo()
 };
 

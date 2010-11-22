@@ -685,13 +685,14 @@ void test_typesys()
 int main()
 {
     sio << "short: " << sizeof(short) << "  long: " << sizeof(long)
-         << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
-         << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
-         << "  double: " << sizeof(double) << '\n';
+        << "  long long: " << sizeof(long long) << "  int: " << sizeof(int)
+        << "  void*: " << sizeof(void*) << "  float: " << sizeof(float)
+        << "  double: " << sizeof(double) << '\n';
     sio << "integer: " << sizeof(integer) << "  memint: " << sizeof(memint)
-         << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
-         << "  object: " << sizeof(object) << "  rtobject: " << sizeof(rtobject) << '\n';
-    sio  << "stateobj: " << sizeof(stateobj)<< "  opcodes: " << opMaxCode << '\n';
+        << "  real: " << sizeof(real) << "  variant: " << sizeof(variant)
+        << "  object: " << sizeof(object) << "  rtobject: " << sizeof(rtobject) << '\n';
+    sio << "stateobj: " << sizeof(stateobj) << "  Type: " << sizeof(Type)
+        << "  State: " << sizeof(State) << "  opcodes: " << opMaxCode << '\n';
 
     check(sizeof(memint) == sizeof(void*));
     check(sizeof(memint) == sizeof(size_t));

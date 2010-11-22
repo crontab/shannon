@@ -726,7 +726,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opChildCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, self, stk + 1, state->getCode());
+                runRabbitRun(dataseg, self, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
             }
@@ -734,7 +734,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opSiblingCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, outer, stk + 1, state->getCode());
+                runRabbitRun(dataseg, outer, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
             }
@@ -747,7 +747,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
                 CHKOBJ(obj);
                 runRabbitRun(dataseg, cast<stateobj*>(obj)->varbase(),
-                        stk + 1, state->getCode());
+                        stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
                 if (state->returns)
@@ -762,7 +762,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 CHKOBJ(fp);
                 stateobj* obj = fp->outer;
                 CHKOBJ(obj);
-                runRabbitRun(dataseg, obj->varbase(), stk + 1, fp->state->getCode());
+                runRabbitRun(dataseg, obj->varbase(), stk + 1, fp->state->getCodeStart());
                 for (memint i = fp->state->popArgCount; i--; )
                     POP();
                 if (fp->state->returns)
@@ -867,7 +867,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     stack.push(obj.get());
     try
     {
-        runRabbitRun(obj, obj->varbase(), stack.bp, module->getCode());
+        runRabbitRun(obj, obj->varbase(), stack.bp, module->getCodeStart());
     }
     catch (exception&)
     {
