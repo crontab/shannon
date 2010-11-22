@@ -445,8 +445,7 @@ void CodeGen::loadVariable(Variable* var)
     }
     else if (var->isSelfVar() && var->host == codeOwner->parent)
     {
-        assert(var->id >= 0 && var->id <= 255);
-        addOp<uchar>(var->type, opLoadOuterVar, var->id);
+        notimpl();
     }
     else if (var->isSelfVar() && var->host == module)
     {
@@ -542,7 +541,7 @@ void CodeGen::loadThis()
     if (isCompileTime())
         error("'this' is not available in const expressions");
     else if (codeOwner->parent && codeOwner->parent->isConstructor())
-        addOp(codeOwner->parent, opLoadOuterObj);
+        notimpl();
     else
         error("'this' is not available within this context");
 }
@@ -1084,7 +1083,6 @@ static OpCode loaderToStorer(OpCode op)
     switch (op)
     {
         case opLoadSelfVar:     return opStoreSelfVar;
-        case opLoadOuterVar:    return opStoreOuterVar;
         case opLoadStkVar:      return opStoreStkVar;
         case opLoadMember:      return opStoreMember;
         case opDeref:           return opStoreRef;
@@ -1105,7 +1103,6 @@ static OpCode loaderToLea(OpCode op)
     switch (op)
     {
         case opLoadSelfVar:     return opLeaSelfVar;
-        case opLoadOuterVar:    return opLeaOuterVar;
         case opLoadStkVar:      return opLeaStkVar;
         case opLoadMember:      return opLeaMember;
         case opDeref:           return opLeaRef;
@@ -1333,9 +1330,8 @@ void CodeGen::call(FuncPtr* proto)
     memint offs = stkLoaderOffs();
     switch (codeseg[offs])
     {
-        // All the ops below have a State* argument in the code
-        case opLoadOuterFuncPtr: op = opSiblingCall; break;
-        case opLoadSelfFuncPtr: op = opChildCall; break;
+        // The ops below have a State* argument in the code
+        case opLoadSelfFuncPtr: op = opNearCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
         default: ; // leave op = opInv
     }
