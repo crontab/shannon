@@ -34,6 +34,7 @@ OpInfo opTable[] =
     OP(LoadStr, Str),           // [str] +str
     OP(LoadEmptyVar, VarType8), // [variant::Type:8] + var
     OP(LoadConst, Definition),  // [Definition*] +var
+    OP(LoadOuterObj, None),     // +stateobj
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadSelfFuncPtr, State), // [State*] +funcptr
@@ -41,12 +42,14 @@ OpInfo opTable[] =
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadSelfVar, SelfIdx),   // [self.idx:u8] +var
+    OP(LoadOuterVar, OuterIdx), // [outer.idx:u8] +var
     OP(LoadStkVar, StkIdx),     // [stk.idx:s8] +var
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj.idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
 
     OP(LeaSelfVar, SelfIdx),    // [self.idx:u8] +obj(0) +ptr
+    OP(LeaOuterVar, OuterIdx),  // [outer.idx:u8] +obj(0) +ptr
     OP(LeaStkVar, StkIdx),      // [stk.idx:s8] +obj(0) +ptr
     OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
@@ -56,6 +59,7 @@ OpInfo opTable[] =
     OP(InitStkVar, StkIdx),     // [stk.idx:s8] -var
     // --- begin grounded storers
     OP(StoreSelfVar, SelfIdx),  // [self.idx:u8] -var
+    OP(StoreOuterVar, OuterIdx),// [outer.idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk.idx:s8] -var
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
@@ -180,7 +184,8 @@ OpInfo opTable[] =
     OP(JumpAnd, Jump16),        // [dst 16] (-)bool
     OP(JumpOr, Jump16),         // [dst 16] (-)bool
 
-    OP(NearCall, State),        // [State*] -var -var ... +var
+    OP(ChildCall, State),       // [State*] -var -var ... +var
+    OP(SiblingCall, State),     // [State*] -var -var ... +var
     OP(MethodCall, State),      // [State*] -var -var -obj ... +var
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
 

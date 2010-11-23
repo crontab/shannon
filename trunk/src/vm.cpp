@@ -142,7 +142,7 @@ inline void CHKOBJ(rtobject* obj)
     { if (obj == NULL) nullPointerErr(); }
 
 
-void runRabbitRun(stateobj* dataseg, variant* bp, register const uchar* ip)
+void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const uchar* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = bp - 1;
@@ -171,6 +171,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             {
                 State* state = ADV(State*);
                 variant* result = bp + state->returnVar->id;
+                // Instantiate the class if not already done
                 if (result->_rtobj() == NULL)
                     SETPOD(result, state->newInstance());
                 self = cast<stateobj*>(result->_rtobj())->varbase();
@@ -206,8 +207,14 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLoadConst:
             PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
+        case opLoadOuterObj:
+            PUSH(stateobj::objbase(outer));
+            break;
         case opLoadDataSeg:
             PUSH(dataseg);
+            break;
+        case opLoadOuterFuncPtr:
+            PUSH(new funcptr(stateobj::objbase(outer), ADV(State*)));
             break;
         case opLoadSelfFuncPtr:
             PUSH(new funcptr(stateobj::objbase(self), ADV(State*)));
@@ -220,6 +227,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadSelfVar:
             PUSH(*(self + ADV(uchar)));
+            break;
+        case opLoadOuterVar:
+            PUSH(*(outer + ADV(uchar)));
             break;
         case opLoadStkVar:
             PUSH(*(bp + ADV(char)));
@@ -242,6 +252,10 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opLeaSelfVar:
             PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
             PUSH(self + ADV(uchar));
+            break;
+        case opLeaOuterVar:
+            PUSH((rtobject*)NULL);  // again, an outer var is "grounded" and thus locked too
+            PUSH(outer + ADV(uchar));
             break;
         case opLeaStkVar:
             PUSH((rtobject*)NULL);  // same for stack-local vars
@@ -268,6 +282,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opStoreSelfVar:
             POPTO(self + ADV(uchar));
+            break;
+        case opStoreOuterVar:
+            POPTO(outer + ADV(uchar));
             break;
         case opStoreStkVar:
             POPTO(bp + ADV(char));
@@ -706,10 +723,18 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             }
             break;
 
-        case opNearCall:
+        case opChildCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, stk + 1, state->getCodeStart());
+                runRabbitRun(dataseg, self, stk + 1, state->getCodeStart());
+                for (memint i = state->popArgCount; i--; )
+                    POP();
+            }
+            break;
+        case opSiblingCall:
+            {
+                State* state = ADV(State*);
+                runRabbitRun(dataseg, outer, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
             }
@@ -717,9 +742,12 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opMethodCall:
             {
                 State* state = ADV(State*);
-                // rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
-                // CHKOBJ(obj);
-                runRabbitRun(dataseg, stk + 1, state->getCodeStart());
+                // The object pointer is right below the result var; pass it
+                // as an "outer" parameter
+                rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
+                CHKOBJ(obj);
+                runRabbitRun(dataseg, cast<stateobj*>(obj)->varbase(),
+                        stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
                 if (state->returns)
@@ -732,9 +760,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             {
                 funcptr* fp = cast<funcptr*>((stk - ADV(uchar))->_rtobj());
                 CHKOBJ(fp);
-                // stateobj* obj = fp->outer;
-                // CHKOBJ(obj);
-                runRabbitRun(dataseg, stk + 1, fp->state->getCodeStart());
+                stateobj* obj = fp->outer;
+                CHKOBJ(obj);
+                runRabbitRun(dataseg, obj->varbase(), stk + 1, fp->state->getCodeStart());
                 for (memint i = fp->state->popArgCount; i--; )
                     POP();
                 if (fp->state->returns)
@@ -803,7 +831,7 @@ Type* CodeGen::runConstExpr(variant& result)
     stack.push(variant::null);  // storage for the return value
     try
     {
-        runRabbitRun(NULL, stack.bp, codeseg.getCode());
+        runRabbitRun(NULL, NULL, stack.bp, codeseg.getCode());
     }
     catch (exception&)
     {
@@ -839,7 +867,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     stack.push(obj.get());
     try
     {
-        runRabbitRun(obj, stack.bp, module->getCodeStart());
+        runRabbitRun(obj, obj->varbase(), stack.bp, module->getCodeStart());
     }
     catch (exception&)
     {
