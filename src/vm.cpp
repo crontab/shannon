@@ -53,8 +53,8 @@ static void invOpcode(int)
 static void doExit(const variant& r)    { throw eexit(r); }
 
 
-static void failAssertion(const str& cond, const str& modname, integer linenum)
-    { throw emessage("Assertion failed \"" + cond + "\" at " + modname + '(' + to_string(linenum) + ')'); }
+static void failAssertion(const str& modname, integer linenum, const str& cond)
+    { throw emessage("Assertion failed \"" + cond + "\" at " + modname + " (" + to_string(linenum) + ')'); }
 
 static void typecastError()
     { throw evariant("Invalid typecast"); }
@@ -151,7 +151,6 @@ void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, registe
     register variant* stk = basep - 1;
     variant* argp = basep;
     stateobj* innerobj = NULL;
-    integer linenum = -1;
     try
     {
 loop:  // use goto instead of while(1) {} so that compilers don't complain
@@ -805,14 +804,15 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
         case opLineNum:
-            linenum = ADV(integer);
+            ADV(integer);
             break;
         case opAssert:
             {
+                State* state = ADV(State*);
+                integer linenum = ADV(integer);
                 str& cond = ADV(str);
                 if (!stk->_int())
-                    // TODO: module name
-                    failAssertion(cond, "?", linenum);
+                    failAssertion(state->getParentModule()->filePath, linenum, cond);
                 POPPOD();
             }
             break;

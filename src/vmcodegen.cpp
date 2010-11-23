@@ -1046,11 +1046,13 @@ void CodeGen::linenum(integer n)
 }
 
 
-void CodeGen::assertion(const str& cond)
+void CodeGen::assertion(integer ln, const str& cond)
 {
     implicitCast(queenBee->defBool, "Boolean expression expected for 'assert'");
     stkPop();
-    addOp(opAssert, cond.obj);
+    addOp(opAssert, codeOwner);
+    add(ln);
+    add(cond);
 }
 
 

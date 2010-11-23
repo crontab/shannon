@@ -192,12 +192,12 @@ enum OpCode
 
     // --- 11. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
-    opJump,             // [dst 16]
-    opJumpFalse,        // [dst 16] -bool
-    opJumpTrue,         // [dst 16] -bool
+    opJump,             // [dst:s16]
+    opJumpFalse,        // [dst:s16] -bool
+    opJumpTrue,         // [dst:s16] -bool
     // Short bool evaluation: pop if jump, leave it otherwise
-    opJumpAnd,          // [dst 16] (-)bool
-    opJumpOr,           // [dst 16] (-)bool
+    opJumpAnd,          // [dst:s16] (-)bool
+    opJumpOr,           // [dst:s16] (-)bool
 
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
@@ -207,7 +207,7 @@ enum OpCode
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
-    opAssert,           // [cond:str] -bool
+    opAssert,           // [State*, linenum:int, cond:str] -bool
     opDump,             // [expr:str, type:Type*] -var
 
     opInv,
@@ -241,7 +241,7 @@ enum ArgType
     { argNone, argType, argState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
       argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
-      argJump16, argLineNum, argAssertCond, argDump,
+      argJump16, argLineNum, argAssert, argDump,
       argMax };
 
 
@@ -467,7 +467,7 @@ public:
     void jump(memint target)
         { _jump(target, opJump); }
     void linenum(integer);
-    void assertion(const str& cond);
+    void assertion(integer linenum, const str& cond);
     void dumpVar(const str& expr);
     void programExit();
 

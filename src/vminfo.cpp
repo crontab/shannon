@@ -10,7 +10,9 @@ umemint ArgSizes[argMax] =
       0, sizeof(Type*), sizeof(State*), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
-      sizeof(jumpoffs), sizeof(integer), sizeof(str), sizeof(str) + sizeof(Type*),
+      sizeof(jumpoffs), sizeof(integer),
+      sizeof(State*) + sizeof(integer) + sizeof(str), // argAssert
+      sizeof(str) + sizeof(Type*), // argDump
     };
 
 
@@ -181,11 +183,11 @@ OpInfo opTable[] =
     OP(StkVarGe, StkIdx),       // [stk.idx:u8] -int +bool
 
     // --- 11. JUMPS, CALLS
-    OP(Jump, Jump16),           // [dst 16]
-    OP(JumpFalse, Jump16),      // [dst 16] -bool
-    OP(JumpTrue, Jump16),       // [dst 16] -bool
-    OP(JumpAnd, Jump16),        // [dst 16] (-)bool
-    OP(JumpOr, Jump16),         // [dst 16] (-)bool
+    OP(Jump, Jump16),           // [dst:s16]
+    OP(JumpFalse, Jump16),      // [dst:s16] -bool
+    OP(JumpTrue, Jump16),       // [dst:s16] -bool
+    OP(JumpAnd, Jump16),        // [dst:s16] (-)bool
+    OP(JumpOr, Jump16),         // [dst:s16] (-)bool
 
     OP(ChildCall, State),       // [State*] -var -var ... +var
     OP(SiblingCall, State),     // [State*] -var -var ... +var
@@ -194,7 +196,7 @@ OpInfo opTable[] =
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]
-    OP(Assert, AssertCond),     // [cond:str] -bool
+    OP(Assert, Assert),         // [State*, linenum:int, cond:str] -bool
     OP(Dump, Dump),             // [expr:str, type:Type*] -var
     OP(Inv, None),              // not used
 };
@@ -288,7 +290,11 @@ void CodeSeg::dump(fifo& stm) const
                 case argStateIdx:   stm << "state." << int(ADV(uchar)); break;
                 case argJump16:     stm << to_string(ip - beginip + ADV(jumpoffs), 16, 4, '0');
                 case argLineNum:    break; // handled above
-                case argAssertCond: stm << '"' << ADV(str) << '"'; break;
+                case argAssert:
+                    stm << ADV(State*)->getParentModule()->filePath;
+                    stm << " (" << ADV(integer) << "): ";
+                    stm << " \"" << ADV(str) << '"';
+                    break;
                 case argDump:       stm << ADV(str) << ": "; ADV(Type*)->dumpDef(stm); break;
                 case argMax:        break;
             }

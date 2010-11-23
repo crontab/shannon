@@ -226,7 +226,7 @@ void Compiler::assertion()
         module->registerString(s);
         if (!context.options.lineNumbers)
             codegen->linenum(ln);
-        codegen->assertion(s);
+        codegen->assertion(ln, s);
     }
     else
         skipToEos();
