@@ -182,7 +182,7 @@ class rtobject: public object
 private:
     Type* _type;
 public:
-    rtobject(Type* t)       : object(), _type(t)  { }
+    rtobject(Type* t)       : _type(t)  { }
     ~rtobject();
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
