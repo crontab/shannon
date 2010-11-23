@@ -71,11 +71,10 @@ class Parser: noncopyable
 protected:
     objptr<buffifo> input;
     integer linenum;
-    bool prevWasEol;
 
     str prevIdent; // undoIdent()
     Token saveToken;
-    
+
     InputRecorder recorder;  // raw input recorder, for assert and dump
 
     str errorLocation() const;

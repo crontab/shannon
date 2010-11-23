@@ -12,10 +12,10 @@ Compiler::AutoScope::~AutoScope()
         { compiler->scope = outer; }
 
 
-LocalVar* Compiler::AutoScope::addInitLocalVar(const str& name, Type* type)
+StkVar* Compiler::AutoScope::addInitStkVar(const str& name, Type* type)
 {
-    LocalVar* var = addLocalVar(name, type);
-    compiler->codegen->initLocalVar(var);
+    StkVar* var = addStkVar(name, type);
+    compiler->codegen->initStkVar(var);
     return var;
 }
 
@@ -107,14 +107,14 @@ void Compiler::variable()
         if (!scope->isStateScope())
             error("Argument reclamation not allowed here");
         Symbol* sym = state->findShallow(ident);
-        if (!sym->isLocalVar() || !PLocalVar(sym)->isArgument())
+        if (!sym->isArgVar())
             error("Only function arguments can be reclaimed");
-        LocalVar* arg = PLocalVar(sym);
+        ArgVar* arg = PArgVar(sym);
         if (type == NULL)
             type = arg->type;
-        codegen->loadLocalVar(arg);
-        SelfVar* var = state->reclaimArg(arg, type);
-        codegen->initSelfVar(var);
+        codegen->loadArgVar(arg);
+        InnerVar* var = state->reclaimArg(arg, type);
+        codegen->initInnerVar(var);
     }
     else
     {
@@ -126,13 +126,13 @@ void Compiler::variable()
             error("Type undefined (null container)");
         if (scope->isLocal())
         {
-            LocalVar* var = PBlockScope(scope)->addLocalVar(ident, type);
-            codegen->initLocalVar(var);
+            StkVar* var = PBlockScope(scope)->addStkVar(ident, type);
+            codegen->initStkVar(var);
         }
         else if (scope->isStateScope())
         {
-            SelfVar* var = state->addSelfVar(ident, type);
-            codegen->initSelfVar(var);
+            InnerVar* var = state->addInnerVar(ident, type);
+            codegen->initInnerVar(var);
         }
         else
             notimpl();
@@ -370,7 +370,7 @@ void Compiler::switchBlock()
     AutoScope local(this);
     expression(NULL);
     Type* ctlType = codegen->getTopType();
-    local.addInitLocalVar("__switch", ctlType);
+    local.addInitStkVar("__switch", ctlType);
     skipMultiBlockBegin("'{'");
     caseLabel(ctlType);
     local.deinitLocals();
@@ -390,11 +390,11 @@ void Compiler::whileBlock()
 }
 
 
-void Compiler::forBlockTail(LocalVar* ctlVar, memint outJumpOffs, memint incJumpOffs)
+void Compiler::forBlockTail(StkVar* ctlVar, memint outJumpOffs, memint incJumpOffs)
 {
     if (incJumpOffs >= 0)
         codegen->resolveJump(incJumpOffs);
-    codegen->incLocalVar(ctlVar);
+    codegen->incStkVar(ctlVar);
     codegen->jump(loopInfo->continueTarget);
     codegen->resolveJump(outJumpOffs);
     loopInfo->resolveBreakJumps();
@@ -417,12 +417,12 @@ void Compiler::forBlock()
     {
         if (!ident2.empty())
             error("Key/value pair is not allowed for range loops");
-        LocalVar* ctlVar = local.addInitLocalVar(ident, iterType);
+        StkVar* ctlVar = local.addInitStkVar(ident, iterType);
         {
             LoopInfo loop(*this);
             expect(tokRange, "'..'");
             expression(iterType);
-            codegen->localVarCmp(ctlVar, opGreaterThan);
+            codegen->stkVarCmp(ctlVar, opGreaterThan);
             memint out = codegen->boolJumpForward(opJumpTrue);
             block();
             forBlockTail(ctlVar, out);
@@ -432,12 +432,12 @@ void Compiler::forBlock()
     // Vector iterator
     else if (iterType->isAnyVec() || iterType->isNullCont())
     {
-        LocalVar* vecVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, iterType);
+        StkVar* vecVar = local.addInitStkVar(LOCAL_ITERATOR_NAME, iterType);
         codegen->loadConst(queenBee->defInt, 0);
-        LocalVar* ctlVar = local.addInitLocalVar(ident, queenBee->defInt);
+        StkVar* ctlVar = local.addInitStkVar(ident, queenBee->defInt);
         {
             LoopInfo loop(*this);
-            codegen->localVarCmpLength(ctlVar, vecVar);
+            codegen->stkVarCmpLength(ctlVar, vecVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             if (!ident2.empty())
             {
@@ -448,15 +448,15 @@ void Compiler::forBlock()
                     // do we care, because this code below is never executed, however
                     // we want the ident2 variable to exist within the block
                     codegen->loadConst(defVoid, variant());
-                    inner.addInitLocalVar(ident2, defVoid);
+                    inner.addInitStkVar(ident2, defVoid);
                 }
                 else
                 {
                     // TODO: optimize this?
-                    codegen->loadLocalVar(vecVar);
-                    codegen->loadLocalVar(ctlVar);
+                    codegen->loadStkVar(vecVar);
+                    codegen->loadStkVar(ctlVar);
                     codegen->loadContainerElem();
-                    inner.addInitLocalVar(ident2, PContainer(iterType)->elem);
+                    inner.addInitStkVar(ident2, PContainer(iterType)->elem);
                 }
                 block();
                 inner.deinitLocals();
@@ -474,32 +474,32 @@ void Compiler::forBlock()
             error("Key/value pair is not allowed for set loops");
         Container* contType = PContainer(iterType);
         Ordinal* idxType = POrdinal(contType->index);
-        LocalVar* contVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, contType);
+        StkVar* contVar = local.addInitStkVar(LOCAL_ITERATOR_NAME, contType);
         codegen->loadConst(idxType, idxType->left);
-        LocalVar* ctlVar = local.addInitLocalVar(ident, idxType);
+        StkVar* ctlVar = local.addInitStkVar(ident, idxType);
         {
             LoopInfo loop(*this);
             if (iterType->isByteSet())
             {
                 codegen->loadConst(idxType, idxType->right);
-                codegen->localVarCmp(ctlVar, opGreaterThan);
+                codegen->stkVarCmp(ctlVar, opGreaterThan);
             }
             else
-                codegen->localVarCmpLength(ctlVar, contVar);
+                codegen->stkVarCmpLength(ctlVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             // TODO: optimize this?
-            codegen->loadLocalVar(ctlVar);
-            codegen->loadLocalVar(contVar);
+            codegen->loadStkVar(ctlVar);
+            codegen->loadStkVar(contVar);
             codegen->inCont();
             memint inc = codegen->boolJumpForward(opJumpFalse);
             if (!ident2.empty()) // dict only
             {
                 AutoScope inner(this);
                 // TODO: optimize this?
-                codegen->loadLocalVar(contVar);
-                codegen->loadLocalVar(ctlVar);
+                codegen->loadStkVar(contVar);
+                codegen->loadStkVar(ctlVar);
                 codegen->loadContainerElem();
-                inner.addInitLocalVar(ident2, contType->elem);
+                inner.addInitStkVar(ident2, contType->elem);
                 block();
                 inner.deinitLocals();
             }
@@ -515,25 +515,25 @@ void Compiler::forBlock()
         if (iterType->isAnySet() && !ident2.empty())
             error("Key/value pair is not allowed for set loops");
         Container* contType = PContainer(iterType);
-        LocalVar* contVar = local.addInitLocalVar(LOCAL_ITERATOR_NAME, iterType);
+        StkVar* contVar = local.addInitStkVar(LOCAL_ITERATOR_NAME, iterType);
         codegen->loadConst(queenBee->defInt, 0);
-        LocalVar* idxVar = local.addInitLocalVar(LOCAL_INDEX_NAME, queenBee->defInt);
+        StkVar* idxVar = local.addInitStkVar(LOCAL_INDEX_NAME, queenBee->defInt);
         {
             LoopInfo loop(*this);
-            codegen->localVarCmpLength(idxVar, contVar);
+            codegen->stkVarCmpLength(idxVar, contVar);
             memint out = codegen->boolJumpForward(opJumpTrue);
             {
                 AutoScope inner(this);
-                codegen->loadLocalVar(contVar);
-                codegen->loadLocalVar(idxVar);
+                codegen->loadStkVar(contVar);
+                codegen->loadStkVar(idxVar);
                 codegen->loadKeyByIndex();
-                inner.addInitLocalVar(ident, contType->index);
+                inner.addInitStkVar(ident, contType->index);
                 if (!ident2.empty()) // dict only
                 {
-                    codegen->loadLocalVar(contVar);
-                    codegen->loadLocalVar(idxVar);
+                    codegen->loadStkVar(contVar);
+                    codegen->loadStkVar(idxVar);
                     codegen->loadDictElemByIndex();
-                    inner.addInitLocalVar(ident2, contType->elem);
+                    inner.addInitStkVar(ident2, contType->elem);
                 }
                 block();
                 inner.deinitLocals();

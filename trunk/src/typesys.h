@@ -6,8 +6,9 @@
 
 class Symbol;
 class Variable;
-class SelfVar;
-class LocalVar;
+class InnerVar;
+class StkVar;
+class ArgVar;
 class Definition;
 class Scope;
 class BlockScope;
@@ -25,7 +26,8 @@ class Module;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
-typedef LocalVar* PLocalVar;
+typedef StkVar* PStkVar;
+typedef ArgVar* PArgVar;
 typedef Definition* PDefinition;
 typedef Scope* PScope;
 typedef BlockScope* PBlockScope;
@@ -51,7 +53,7 @@ class CodeGen;
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { LOCALVAR, SELFVAR, FORMALARG, DEFINITION, MODULEINST };
+    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION, MODULEINST };
 
     SymbolId const symbolId;
     Type* const type;
@@ -63,9 +65,10 @@ public:
     void fqName(fifo&) const;
     void dump(fifo&) const;
 
-    bool isAnyVar() const           { return symbolId == LOCALVAR || symbolId == SELFVAR; }
-    bool isSelfVar() const          { return symbolId == SELFVAR; }
-    bool isLocalVar() const         { return symbolId == LOCALVAR; }
+    bool isAnyVar() const           { return symbolId <= INNERVAR; }
+    bool isStkVar() const           { return symbolId == STKVAR; }
+    bool isArgVar() const           { return symbolId == ARGVAR; }
+    bool isInnerVar() const         { return symbolId == INNERVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
     bool isAnyDef() const           { return symbolId == DEFINITION; }
     // bool isTypeAlias() const;
@@ -90,21 +93,27 @@ protected:
 public:
     memint const id;
     ~Variable();
-    bool isArgument() const  { return id < 0; }
 };
 
 
-class LocalVar: public Variable
+class StkVar: public Variable
 {
 public:
-    LocalVar(const str&, Type*, memint, State*);
+    StkVar(const str&, Type*, memint, State*);
 };
 
 
-class SelfVar: public Variable
+class ArgVar: public Variable
 {
 public:
-    SelfVar(const str&, Type*, memint, State*);
+    ArgVar(const str&, Type*, memint, State*);
+};
+
+
+class InnerVar: public Variable
+{
+public:
+    InnerVar(const str&, Type*, memint, State*);
     Module* getModuleType() const
         { return cast<Module*>(type); }
 };
@@ -161,13 +170,13 @@ public:
 class BlockScope: public Scope
 {
 protected:
-    objvec<LocalVar> localVars;      // owned
+    objvec<StkVar> stkVars;      // owned
     memint startId;
     CodeGen* gen;
 public:
     BlockScope(Scope* outer, CodeGen*);
     ~BlockScope();
-    LocalVar* addLocalVar(const str&, Type*);
+    StkVar* addStkVar(const str&, Type*);
     void deinitLocals();    // generates POPs via CodeGen (currently used only in AutoScope)
 };
 
@@ -496,16 +505,16 @@ protected:
 
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
-    objvec<LocalVar> args;          // owned, copied from prototype
+    objvec<ArgVar> args;            // owned, copied from prototype
 
-    SelfVar* addSelfVar(SelfVar*);
+    InnerVar* addInnerVar(InnerVar*);
 
 public:
-    objvec<SelfVar> selfVars;       // owned
+    objvec<InnerVar> innerVars;     // owned
 
     State* const parent;
     FuncPtr* const prototype;
-    LocalVar* returnVar;            // may be NULL
+    ArgVar* returnVar;              // may be NULL
     memint popArgCount;             // VM helper
     int returns;                    // VM helper
     objptr<object> codeseg;
@@ -518,15 +527,15 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
 
-    memint selfVarCount()
-        { return selfVars.size(); } // TODO: plus inherited
+    memint innerVarCount()
+        { return innerVars.size(); } // TODO: plus inherited
     bool isConstructor()
         { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
-    LocalVar* addArgument(const str&, Type*, memint);
-    SelfVar* addSelfVar(const str&, Type*);
-    SelfVar* reclaimArg(LocalVar*, Type*);
+    ArgVar* addArgument(const str&, Type*, memint);
+    InnerVar* addInnerVar(const str&, Type*);
+    InnerVar* reclaimArg(ArgVar*, Type*);
     virtual stateobj* newInstance();
     template <class T>
         T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
@@ -541,6 +550,14 @@ inline void FuncPtr::resolveSelfType(State* state)
     { returnType = state; }
 
 
+inline stateobj::stateobj(State* t)
+        : rtobject(t)
+#ifdef DEBUG
+          , varcount(t->innerVarCount())
+#endif
+        { }
+
+
 // --- Module -------------------------------------------------------------- //
 
 
@@ -552,7 +569,7 @@ protected:
     bool complete;
 public:
     str const filePath;
-    objvec<SelfVar> usedModuleInsts; // used module instances are stored in static vars
+    objvec<InnerVar> usedModuleInsts; // used module instances are stored in static vars
     Module(const str& name, const str& filePath);
     ~Module();
     void dump(fifo&) const;

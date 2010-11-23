@@ -81,17 +81,17 @@ protected:
 
     bool _release();
 
+public:
+
     void _mkstatic()
     {
         // Prevent this object from being free'd by release() and also from
         // being counted against memory leaks.
-        pincrement(&_refcount);
+        _refcount = 1;
 #ifdef DEBUG
-        object::allocated--;
+        pdecrement(&object::allocated);
 #endif
     }
-
-public:
 
     void* operator new(size_t self);
     void* operator new(size_t self, memint extra);
@@ -1167,14 +1167,14 @@ class stateobj: public rtobject
 {
     friend class State;
     typedef rtobject parent;
+    friend void runRabbitRun(stateobj*, stateobj*, variant*, const uchar*);
     
 protected:
 #ifdef DEBUG
     memint varcount;
     static void idxerr();
 #endif
-    // variant vars[0];
-    stateobj(State* t);
+    stateobj(State*); // defined in typesys.h as an inline function
 
     // Get zeroed memory so that the destructor works correctly even if the
     // constructor failed in the middle. A zeroed variant is a null variant.
@@ -1183,7 +1183,17 @@ protected:
 #ifdef DEBUG
         pincrement(&object::allocated);
 #endif
-        return pmemcalloc(s + extra);
+        return pmemcalloc(s + extra * sizeof(variant));
+    }
+
+    // In place operator new for stateobj: for creating pseudo-objects on the stack
+    void* operator new(size_t s, memint extra, void* p)
+    {
+#ifdef DEBUG
+        pincrement(&object::allocated);
+#endif
+        memset(pchar(p) + s, 0, extra * sizeof(variant));
+        return p;
     }
 
 public:
@@ -1199,14 +1209,8 @@ public:
         if (umemint(index) >= umemint(varcount))
             idxerr();
 #endif
-        return varbase() + index;
+        return (variant*)(this + 1) + index;
     }
-
-    variant* varbase() // pointer to first member
-        { return this ? (variant*)(this + 1) : NULL; }
-
-    static stateobj* objbase(variant* varbase)
-        { return varbase ? ((stateobj*)varbase) - 1 : NULL; }
 
     void collapse();
 };
@@ -1233,7 +1237,7 @@ class rtstack: protected podvec<variant>
 {
     typedef podvec<variant> parent;
 public:
-    variant* bp;    // base pointer, directly manipulated by the VM
+    variant* bp;    // base pointer
     rtstack(memint maxSize);
     variant* base() const       { return (variant*)parent::data(); }
     template <class T>

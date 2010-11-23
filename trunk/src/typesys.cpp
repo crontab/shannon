@@ -72,12 +72,14 @@ Variable::~Variable()
     { }
 
 
-LocalVar::LocalVar(const str& n, Type* t, memint i, State* h)
-    : Variable(n, LOCALVAR, t, i, h)  { }
+StkVar::StkVar(const str& n, Type* t, memint i, State* h)
+    : Variable(n, STKVAR, t, i, h)  { assert(i >= 0); }
 
+ArgVar::ArgVar(const str& n, Type* t, memint i, State* h)
+    : Variable(n, ARGVAR, t, i, h)  { assert(i >= 0); }
 
-SelfVar::SelfVar(const str& n, Type* t, memint i, State* h)
-    : Variable(n, SELFVAR, t, i, h)  { }
+InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
+    : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
 
 FormalArg::FormalArg(const str& n, Type* t)
@@ -142,24 +144,24 @@ BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
 
 
 BlockScope::~BlockScope()
-    { localVars.release_all(); }
+    { stkVars.release_all(); }
 
 
 void BlockScope::deinitLocals()
 {
-    for (memint i = localVars.size(); i--; )
-        gen->deinitLocalVar(localVars[i]);
+    for (memint i = stkVars.size(); i--; )
+        gen->deinitLocalVar(stkVars[i]);
 }
 
 
-LocalVar* BlockScope::addLocalVar(const str& n, Type* t)
+StkVar* BlockScope::addStkVar(const str& n, Type* t)
 {
-    memint varid = startId + localVars.size();
-    if (varid <= -128 || varid >= 127)
+    memint varid = startId + stkVars.size();
+    if (varid < 0 || varid >= 255)
         error("Maximum number of local variables reached");
-    objptr<LocalVar> v = new LocalVar(n, t, varid, gen->getCodeOwner());
+    objptr<StkVar> v = new StkVar(n, t, varid, gen->getCodeOwner());
     addUnique(v);   // may throw
-    localVars.push_back(v->grab<LocalVar>());
+    stkVars.push_back(v->grab<StkVar>());
     return v;
 }
 
@@ -839,11 +841,11 @@ State::State(State* par, FuncPtr* proto)
     popArgCount = prototype->formalArgs.size();
     returns = prototype->isVoidFunc() ? 0 : 1;
     if (!prototype->isVoidFunc())
-        returnVar = addArgument("result", prototype->returnType, - popArgCount - 1);
+        returnVar = addArgument("result", prototype->returnType, popArgCount + 1);
     for (memint i = 0; i < popArgCount; i++)
     {
         FormalArg* arg = prototype->formalArgs[i];
-        addArgument(arg->name, arg->type, - popArgCount + i);
+        addArgument(arg->name, arg->type, popArgCount - i);
     }
 }
 
@@ -851,7 +853,7 @@ State::State(State* par, FuncPtr* proto)
 State::~State()
 {
     args.release_all();
-    selfVars.release_all();
+    innerVars.release_all();
     defs.release_all();
     types.release_all();
 }
@@ -916,9 +918,9 @@ void State::dumpAll(fifo& stm) const
             dumpVariant(stm, def->value, def->type);
         stm << endl;
     }
-    for (memint i = 0; i < selfVars.size(); i++)
+    for (memint i = 0; i < innerVars.size(); i++)
     {
-        SelfVar* var = selfVars[i];
+        InnerVar* var = innerVars[i];
         stm << "var ";
         var->type->dumpDef(stm);
         stm << ' ';
@@ -969,51 +971,48 @@ void State::addTypeAlias(const str& n, Type* t)
     { addDefinition(n, t->getType(), t, this); }
 
 
-LocalVar* State::addArgument(const str& n, Type* t, memint varid)
+ArgVar* State::addArgument(const str& n, Type* t, memint varid)
 {
-    objptr<LocalVar> arg = new LocalVar(n, t, varid, this);
+    objptr<ArgVar> arg = new ArgVar(n, t, varid, this);
     if (!n.empty())
         addUnique(arg);
-    args.push_back(arg->grab<LocalVar>());
+    args.push_back(arg->grab<ArgVar>());
     return arg;
 }
 
 
-SelfVar* State::addSelfVar(SelfVar* var)
+InnerVar* State::addInnerVar(InnerVar* var)
 {
     if (var->id >= 255)
         error("Too many variables");
-    return selfVars.push_back(var->grab<SelfVar>());
+    return innerVars.push_back(var->grab<InnerVar>());
 }
 
 
-SelfVar* State::addSelfVar(const str& n, Type* t)
+InnerVar* State::addInnerVar(const str& n, Type* t)
 {
     if (n.empty())
         fatal(0x3002, "Empty identifier");
-    objptr<SelfVar> v = new SelfVar(n, t, selfVarCount(), this);
+    objptr<InnerVar> v = new InnerVar(n, t, innerVarCount(), this);
     addUnique(v);
-    return addSelfVar(v);
+    return addInnerVar(v);
 }
 
 
-SelfVar* State::reclaimArg(LocalVar* arg, Type* t)
+InnerVar* State::reclaimArg(ArgVar* arg, Type* t)
 {
-    objptr<SelfVar> v = new SelfVar(arg->name, t, selfVarCount(), this);
+    objptr<InnerVar> v = new InnerVar(arg->name, t, innerVarCount(), this);
     replaceSymbol(v);
-    return addSelfVar(v);
+    return addInnerVar(v);
 }
 
 
 stateobj* State::newInstance()
 {
-    memint varcount = selfVarCount();
+    memint varcount = innerVarCount();
     if (varcount == 0)
         return NULL;
-    stateobj* obj = new(varcount * sizeof(variant)) stateobj(this);
-#ifdef DEBUG
-    obj->varcount = varcount;
-#endif
+    stateobj* obj = new(varcount) stateobj(this);
     return obj;
 }
 
@@ -1063,7 +1062,7 @@ void Module::dump(fifo& stm) const
 
 
 void Module::addUsedModule(Module* m)
-    { usedModuleInsts.push_back(addSelfVar(m->getName(), m)); }
+    { usedModuleInsts.push_back(addInnerVar(m->getName(), m)); }
 
 
 void Module::registerString(str& s)
@@ -1125,9 +1124,9 @@ QueenBee::QueenBee()
     addDefinition("__VER_FIX", defInt, SHANNON_VERSION_FIX, this);
 
     // Variables
-    resultVar = addSelfVar("__program_result", defVariant);
-    sioVar = addSelfVar("sio", defCharFifo);
-    serrVar = addSelfVar("serr", defCharFifo);
+    resultVar = addInnerVar("__program_result", defVariant);
+    sioVar = addInnerVar("sio", defCharFifo);
+    serrVar = addInnerVar("serr", defCharFifo);
 
     setComplete();
 }

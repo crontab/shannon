@@ -65,6 +65,9 @@ static void constExprErr()
 static void nullPointerErr()
     { throw emessage("Uninitialized object"); }
 
+static void localObjErr()
+    { throw emessage("Local object is locked"); }
+
 
 static void dumpVar(const str& expr, const variant& var, Type* type)
 {
@@ -142,11 +145,12 @@ inline void CHKOBJ(rtobject* obj)
     { if (obj == NULL) nullPointerErr(); }
 
 
-void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, register const uchar* ip)
+void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, register const uchar* ip)
 {
     // TODO: check for stack overflow (during function call?)
-    register variant* stk = bp - 1;
-    variant* self = NULL;
+    register variant* stk = basep - 1;
+    variant* argp = basep;
+    stateobj* innerobj = NULL;
     integer linenum = -1;
     try
     {
@@ -158,23 +162,40 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opEnd:             goto exit;
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
-        case opEnter:
-            self = bp;
-            for (memint i = ADV(uchar); i--; ) // memset() maybe?
-                PUSHN();
+        case opEnterFunc:
+            {
+                State* state = ADV(State*);
+                int varcnt = state->innerVarCount();
+                innerobj = new(varcnt, basep) stateobj(state);
+                innerobj->_mkstatic();
+#ifdef DEBUG
+                innerobj->varcount = varcnt;
+#endif
+                basep = innerobj->member(0);
+                stk = innerobj->member(varcnt - 1);
+            }
             break;
-        case opLeave: // used only in DEBUG mode
-            for (memint i = ADV(uchar); i--; )
-                POP();
+        case opLeaveFunc:
+            {
+#ifdef DEBUG
+                State* state = ADV(State*);
+                for (memint i = state->innerVarCount(); i--; )
+                    POP();
+#else
+                ADV(State*);
+#endif
+                if (!innerobj->isunique())
+                    localObjErr();
+            }
             goto exit;
         case opEnterCtor:
             {
                 State* state = ADV(State*);
-                variant* result = bp + state->returnVar->id;
+                variant* result = argp - state->returnVar->id;
                 // Instantiate the class if not already done
                 if (result->_rtobj() == NULL)
                     SETPOD(result, state->newInstance());
-                self = cast<stateobj*>(result->_rtobj())->varbase();
+                innerobj = cast<stateobj*>(result->_rtobj());
             }
             break;
 
@@ -202,22 +223,22 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             PUSH(ADV(str));
             break;
         case opLoadEmptyVar:
-            PUSH(variant::Type(ADV(char)));
+            PUSH(variant::Type(ADV(uchar)));
             break;
         case opLoadConst:
             PUSH(ADV(Definition*)->value);  // TODO: better?
             break;
         case opLoadOuterObj:
-            PUSH(stateobj::objbase(outer));
+            PUSH(outerobj);
             break;
         case opLoadDataSeg:
             PUSH(dataseg);
             break;
         case opLoadOuterFuncPtr:
-            PUSH(new funcptr(stateobj::objbase(outer), ADV(State*)));
+            PUSH(new funcptr(outerobj, ADV(State*)));
             break;
-        case opLoadSelfFuncPtr:
-            PUSH(new funcptr(stateobj::objbase(self), ADV(State*)));
+        case opLoadInnerFuncPtr:
+            PUSH(new funcptr(innerobj, ADV(State*)));
             break;
         case opLoadNullFuncPtr:
             PUSH(new funcptr(NULL, ADV(State*)));
@@ -225,14 +246,17 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
-        case opLoadSelfVar:
-            PUSH(*(self + ADV(uchar)));
+        case opLoadInnerVar:
+            PUSH(*(innerobj->member(ADV(uchar))));
             break;
         case opLoadOuterVar:
-            PUSH(*(outer + ADV(uchar)));
+            PUSH(*(outerobj->member(ADV(uchar))));
             break;
         case opLoadStkVar:
-            PUSH(*(bp + ADV(char)));
+            PUSH(*(basep + ADV(uchar)));
+            break;
+        case opLoadArgVar:
+            PUSH(*(argp - ADV(uchar)));
             break;
         case opLoadMember:
             {
@@ -249,17 +273,21 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             }
             break;
 
-        case opLeaSelfVar:
+        case opLeaInnerVar:
             PUSH((rtobject*)NULL);  // no need to lock "self", should be locked anyway
-            PUSH(self + ADV(uchar));
+            PUSH(innerobj->member(ADV(uchar)));
             break;
         case opLeaOuterVar:
             PUSH((rtobject*)NULL);  // again, an outer var is "grounded" and thus locked too
-            PUSH(outer + ADV(uchar));
+            PUSH(outerobj->member(ADV(uchar)));
             break;
         case opLeaStkVar:
             PUSH((rtobject*)NULL);  // same for stack-local vars
-            PUSH(bp + ADV(char));
+            PUSH(basep + ADV(uchar));
+            break;
+        case opLeaArgVar:
+            PUSH((rtobject*)NULL);  // same for stack-local vars
+            PUSH(argp - ADV(uchar));
             break;
         case opLeaMember:
             {
@@ -274,20 +302,23 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
 
 
         // --- 4. STORERS ----------------------------------------------------
-        case opInitSelfVar:
-            INITTO(self + ADV(uchar));
+        case opInitInnerVar:
+            INITTO(innerobj->member(ADV(uchar)));
             break;
         case opInitStkVar:
-            INITTO(bp + ADV(char));
+            INITTO(basep + ADV(uchar));
             break;
-        case opStoreSelfVar:
-            POPTO(self + ADV(uchar));
+        case opStoreInnerVar:
+            POPTO(innerobj->member(ADV(uchar)));
             break;
         case opStoreOuterVar:
-            POPTO(outer + ADV(uchar));
+            POPTO(outerobj->member(ADV(uchar)));
             break;
         case opStoreStkVar:
-            POPTO(bp + ADV(char));
+            POPTO(basep + ADV(uchar));
+            break;
+        case opStoreArgVar:
+            POPTO(argp - ADV(uchar));
             break;
         case opStoreMember:
             {
@@ -303,7 +334,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
 
         case opIncStkVar:
-            ((bp + ADV(char))->_int())++;
+            ((basep + ADV(uchar))->_int())++;
             break;
 
         // --- 5. DESIGNATOR OPS, MISC ---------------------------------------
@@ -676,8 +707,8 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opCaseVar:     *stk = int(*stk == *(stk - 1)); break;
 
         // Loop helpers
-        case opStkVarGt:    *stk = int((bp + ADV(char))->_int() > stk->_int()); break;
-        case opStkVarGe:    *stk = int((bp + ADV(char))->_int() >= stk->_int()); break;
+        case opStkVarGt:    *stk = int((basep + ADV(uchar))->_int() > stk->_int()); break;
+        case opStkVarGe:    *stk = int((basep + ADV(uchar))->_int() >= stk->_int()); break;
 
 
         // --- 11. JUMPS, CALLS ----------------------------------------------
@@ -726,7 +757,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opChildCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, self, stk + 1, state->getCodeStart());
+                runRabbitRun(dataseg, innerobj, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
             }
@@ -734,7 +765,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opSiblingCall:
             {
                 State* state = ADV(State*);
-                runRabbitRun(dataseg, outer, stk + 1, state->getCodeStart());
+                runRabbitRun(dataseg, outerobj, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
             }
@@ -746,8 +777,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 // as an "outer" parameter
                 rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
                 CHKOBJ(obj);
-                runRabbitRun(dataseg, cast<stateobj*>(obj)->varbase(),
-                        stk + 1, state->getCodeStart());
+                runRabbitRun(dataseg, cast<stateobj*>(obj), stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
                 if (state->returns)
@@ -762,7 +792,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 CHKOBJ(fp);
                 stateobj* obj = fp->outer;
                 CHKOBJ(obj);
-                runRabbitRun(dataseg, obj->varbase(), stk + 1, fp->state->getCodeStart());
+                runRabbitRun(dataseg, obj, stk + 1, fp->state->getCodeStart());
                 for (memint i = fp->state->popArgCount; i--; )
                     POP();
                 if (fp->state->returns)
@@ -802,14 +832,14 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         goto loop;
 exit:
 #ifndef DEBUG
-        while (stk >= bp)
+        while (stk >= basep)
             POP();
 #endif
-        assert(stk == bp - 1);
+        assert(stk == basep - 1);
     }
     catch(exception&)
     {
-        while (stk >= bp)
+        while (stk >= basep)
             POP();
         throw;
     }
@@ -824,7 +854,7 @@ const char* eexit::what() throw()  { return "Exit called"; }
 Type* CodeGen::runConstExpr(variant& result)
 {
     Type* resultType = stkPop();
-    addOp<char>(opInitStkVar, -1);
+    addOp<uchar>(opStoreArgVar, 1);
     end();
 
     rtstack stack(codeseg.stackSize + 1);
@@ -858,7 +888,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     // static data by variable id, so that code is context-independent
     for (memint i = 0; i < module->usedModuleInsts.size(); i++)
     {
-        SelfVar* v = module->usedModuleInsts[i];
+        InnerVar* v = module->usedModuleInsts[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
         *obj->member(v->id) = o;
     }
@@ -867,7 +897,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     stack.push(obj.get());
     try
     {
-        runRabbitRun(obj, obj->varbase(), stack.bp, module->getCodeStart());
+        runRabbitRun(obj, obj, stack.bp, module->getCodeStart());
     }
     catch (exception&)
     {

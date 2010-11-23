@@ -563,6 +563,8 @@ def void nested_inc_test()
     assert inc_call_count == 3
 }
 
+nested_inc_test()
+
 def confusing_proto = int *[]()
     { }
 
