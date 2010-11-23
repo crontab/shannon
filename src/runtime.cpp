@@ -1228,10 +1228,6 @@ reference::~reference()
     { }
 
 
-stateobj::stateobj(State* t)
-    : rtobject(t)  { }
-
-
 stateobj::~stateobj()
     { collapse(); }
 
@@ -1252,8 +1248,8 @@ void stateobj::collapse()
     // TODO: this is not thread-safe. An atomic exchnage for pointers is needed.
     if (getType() != NULL)
     {
-        for (memint count = getType()->selfVarCount(); count--; )
-            varbase()[count].clear();
+        for (memint count = getType()->innerVarCount(); count--; )
+            member(count)->clear();
         clearType();
 #ifdef DEBUG
         varcount = 0;

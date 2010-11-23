@@ -122,7 +122,7 @@ void InputRecorder::clear()
 
 
 Parser::Parser(buffifo* inp)
-    : input(inp), linenum(1), prevWasEol(false),
+    : input(inp), linenum(1),
       prevIdent(), saveToken(tokUndefined),
       token(tokUndefined), strValue(), intValue(0)  { }
 
@@ -169,7 +169,6 @@ void Parser::skipEol()
     assert(input->eol());
     input->skip_eol();
     linenum++;
-    prevWasEol = true;
 }
 
 
@@ -263,9 +262,8 @@ Token Parser::next()
     
     if (recorder.active())
         recorder.prevpos = input->tellg();
-    
+
 restart:
-    prevWasEol = false;
     strValue.clear();
     intValue = 0;
 
@@ -472,7 +470,7 @@ void Parser::skipToEos()
 
 integer Parser::getLineNum() const
 {
-    if (token == tokSep && prevWasEol)
+    if (token == tokSep)
         return linenum - 1;
     else
         return linenum;

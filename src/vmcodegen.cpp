@@ -186,7 +186,7 @@ void CodeGen::mkRange()
 void CodeGen::deinitLocalVar(Variable* var)
 {
     // TODO: don't generate POPs if at the end of a function in RELEASE mode
-    assert(var->isLocalVar());
+    assert(var->isStkVar());
     assert(locals == getStackLevel());
     if (var->id != locals - 1)
         fatal(0x6002, "Invalid local var id");
@@ -349,7 +349,7 @@ void CodeGen::loadDefinition(Definition* def)
         else if (stateType->parent == codeOwner->parent)
             op = opLoadOuterFuncPtr;
         else if (stateType->parent == codeOwner)
-            op = opLoadSelfFuncPtr;
+            op = opLoadInnerFuncPtr;
         else
             error("Invalid context for a function pointer");
         addOp<State*>(stateType->prototype, op, stateType);
@@ -419,11 +419,15 @@ void CodeGen::loadSymbol(Symbol* sym)
 }
 
 
-void CodeGen::loadLocalVar(LocalVar* var)
+void CodeGen::_loadVar(Variable* var, OpCode op)
 {
-    assert(var->id >= -128 && var->id <= 127);
-    addOp<char>(var->type, opLoadStkVar, var->id);
+    assert(var->id >= 0 && var->id < 255);
+    addOp<uchar>(var->type, op, var->id);
 }
+
+
+static void varNotAccessible(const str& name)
+    { throw emessage("'" + name  + "' is not accessible within this context"); }
 
 
 void CodeGen::loadVariable(Variable* var)
@@ -434,27 +438,26 @@ void CodeGen::loadVariable(Variable* var)
         // this may be useful in expressions like typeof, where the value
         // is not needed:
         addOp(var->type, opConstExprErr);
-    else if (var->isLocalVar() && var->host == codeOwner)
+    else if (var->host == codeOwner)
     {
-        loadLocalVar(PLocalVar(var));
+        if (var->isStkVar())
+            _loadVar(var, opLoadStkVar);
+        else if (var->isArgVar())
+            _loadVar(var, opLoadArgVar);
+        else if (var->isInnerVar())
+            _loadVar(var, opLoadInnerVar);
+        else
+            varNotAccessible(var->name);
     }
-    else if (var->isSelfVar() && var->host == codeOwner)
-    {
-        assert(var->id >= 0 && var->id <= 255);
-        addOp<uchar>(var->type, opLoadSelfVar, var->id);
-    }
-    else if (var->isSelfVar() && var->host == codeOwner->parent)
-    {
-        assert(var->id >= 0 && var->id <= 255);
-        addOp<uchar>(var->type, opLoadOuterVar, var->id);
-    }
-    else if (var->isSelfVar() && var->host == module)
+    else if (var->isInnerVar() && var->host == codeOwner->parent)
+        _loadVar(var, opLoadOuterVar);
+    else if (var->isInnerVar() && var->host == module)
     {
         loadDataSeg();
         loadMember(var);
     }
     else
-        error("'" + var->name  + "' is not accessible within this context");
+        varNotAccessible(var->name);
 }
 
 
@@ -529,9 +532,9 @@ void CodeGen::loadMember(Variable* var)
         addOp(var->type, opConstExprErr);
     else
     {
-        if (!stateType->isAnyState() || var->host != stateType || !var->isSelfVar())
+        if (!stateType->isAnyState() || var->host != stateType || !var->isInnerVar())
             error("Invalid member selection");
-        assert(var->id >= 0 && var->id <= 255);
+        assert(var->id >= 0 && var->id < 255);
         addOp<uchar>(var->type, opLoadMember, var->id);
     }
 }
@@ -556,34 +559,34 @@ void CodeGen::loadDataSeg()
 }
 
 
-void CodeGen::initLocalVar(LocalVar* var)
+void CodeGen::initStkVar(StkVar* var)
 {
     if (var->host != codeOwner)
         fatal(0x6005, "initLocalVar(): not my var");
     // Local var simply remains on the stack, so just check the types.
-    assert(var->id >= 0 && var->id <= 127);
+    assert(var->id >= 0 && var->id < 255);
     if (locals != getStackLevel() - 1 || var->id != locals)
-        fatal(0x6004, "initLocalVar(): invalid var id");
+        fatal(0x6004, "initStkVar(): invalid var id");
     locals++;
     implicitCast(var->type, "Variable type mismatch");
 }
 
 
-void CodeGen::initSelfVar(SelfVar* var)
+void CodeGen::initInnerVar(InnerVar* var)
 {
     if (var->host != codeOwner)
-        fatal(0x6005, "initSelfVar(): not my var");
+        fatal(0x6005, "initInnerVar(): not my var");
     implicitCast(var->type, "Variable type mismatch");
     stkPop();
-    assert(var->id >= 0 && var->id <= 255);
-    addOp<uchar>(opInitSelfVar, var->id);
+    assert(var->id >= 0 && var->id < 255);
+    addOp<uchar>(opInitInnerVar, var->id);
 }
 
 
-void CodeGen::incLocalVar(LocalVar* var)
+void CodeGen::incStkVar(StkVar* var)
 {
-    assert(var->id >= 0 && var->id <= 127);
-    addOp<char>(opIncStkVar, var->id);
+    assert(var->id >= 0 && var->id < 255);
+    addOp<uchar>(opIncStkVar, var->id);
 }
 
 
@@ -962,7 +965,7 @@ void CodeGen::_not()
 }
 
 
-void CodeGen::localVarCmp(LocalVar* var, OpCode op)
+void CodeGen::stkVarCmp(StkVar* var, OpCode op)
 {
     // implicitCast(var->type, "Type mismatch in comparison");
     if (!stkType()->isAnyOrd() || !var->type->isAnyOrd())
@@ -974,17 +977,17 @@ void CodeGen::localVarCmp(LocalVar* var, OpCode op)
         op = opStkVarGe;
     else
         fatal(0x6007, "localVarCmp(): unsupported opcode");
-    assert(var->id >= 0 && var->id <= 127);
-    addOp<char>(queenBee->defBool, op, var->id);
+    assert(var->id >= 0 && var->id < 255);
+    addOp<uchar>(queenBee->defBool, op, var->id);
 }
 
 
-void CodeGen::localVarCmpLength(LocalVar* var, LocalVar* contVar)
+void CodeGen::stkVarCmpLength(StkVar* var, StkVar* contVar)
 {
     // TODO: optimize (single instruction?)
-    loadLocalVar(contVar);
+    loadStkVar(contVar);
     length();
-    localVarCmp(var, opGreaterEq);
+    stkVarCmp(var, opGreaterEq);
 }
 
 
@@ -1083,9 +1086,10 @@ static OpCode loaderToStorer(OpCode op)
 {
     switch (op)
     {
-        case opLoadSelfVar:     return opStoreSelfVar;
+        case opLoadInnerVar:    return opStoreInnerVar;
         case opLoadOuterVar:    return opStoreOuterVar;
         case opLoadStkVar:      return opStoreStkVar;
+        case opLoadArgVar:      return opStoreArgVar;
         case opLoadMember:      return opStoreMember;
         case opDeref:           return opStoreRef;
         // end grounded loaders
@@ -1104,9 +1108,10 @@ static OpCode loaderToLea(OpCode op)
 {
     switch (op)
     {
-        case opLoadSelfVar:     return opLeaSelfVar;
+        case opLoadInnerVar:    return opLeaInnerVar;
         case opLoadOuterVar:    return opLeaOuterVar;
         case opLoadStkVar:      return opLeaStkVar;
+        case opLoadArgVar:      return opLeaArgVar;
         case opLoadMember:      return opLeaMember;
         case opDeref:           return opLeaRef;
         default:
@@ -1282,33 +1287,23 @@ memint CodeGen::prolog()
     else if (codeOwner->isConstructor())
         addOp<State*>(opEnterCtor, codeOwner);
     else
-        // All other functions need to create their frames. The size of the frame
-        // though is not known at this point, will be resolved later in epilog()
-        addOp<uchar>(opEnter, 0);
+        addOp<State*>(opEnterFunc, codeOwner);
     return offs;
 }
 
 
 void CodeGen::epilog(memint prologOffs)
 {
-    memint selfVarCount = codeOwner->selfVarCount();
     if (isCompileTime())
         ;
     else if (codeOwner->isConstructor())
         ;
     else
     {
-        if (selfVarCount == 0)
+        if (codeOwner->innerVarCount() == 0)
             codeseg.eraseOp(prologOffs);
         else
-        {
-#ifdef DEBUG
-            // The local stack frame is cleaned up automatically anyway; in
-            // DEBUG mode we just need to verify correctness of compilation
-            addOp<uchar>(opLeave, selfVarCount);
-            codeseg.atw<uchar>(prologOffs + 1) = uchar(selfVarCount);
-#endif
-        }
+            addOp<State*>(opLeaveFunc, codeOwner);
     }
 }
 
@@ -1335,7 +1330,7 @@ void CodeGen::call(FuncPtr* proto)
     {
         // All the ops below have a State* argument in the code
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
-        case opLoadSelfFuncPtr: op = opChildCall; break;
+        case opLoadInnerFuncPtr: op = opChildCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
         default: ; // leave op = opInv
     }

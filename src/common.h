@@ -69,6 +69,8 @@ typedef int16_t jumpoffs;
 typedef unsigned char uchar;
 typedef long long large;
 typedef unsigned long long ularge;
+typedef char* pchar;
+typedef uchar* puchar;
 
 
 // --- MISC --------------------------------------------------------------- //

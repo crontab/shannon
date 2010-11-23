@@ -18,9 +18,10 @@ enum OpCode
     opEnd,              // end execution and return
     opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
-    opEnter,            // [varcount:u8]
-    opLeave,            // [varcount:u8]
+    opEnterFunc,        // [State*]
+    opLeaveFunc,        // [State*]
     opEnterCtor,        // [State*]
+    // opLeaveCtor
 
     // --- 2. CONST LOADERS
     // --- begin primary loaders (it's important that all this kind of loaders
@@ -36,38 +37,41 @@ enum OpCode
     opLoadConst,        // [Definition*] +var
     opLoadOuterObj,     // +stateobj
     opLoadDataSeg,      // +module-obj
-    // opLoadSelfObj,      // equivalent to opLoadStkVar 'result'
+    // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
-    opLoadSelfFuncPtr,  // [State*] +funcptr
+    opLoadInnerFuncPtr, // [State*] +funcptr
     opLoadNullFuncPtr,  // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
-    opLoadSelfVar,      // [self.idx:u8] +var
+    opLoadInnerVar,     // [inner.idx:u8] +var
     opLoadOuterVar,     // [outer.idx:u8] +var
-    opLoadStkVar,       // [stk.idx:s8] +var
+    opLoadStkVar,       // [stk.idx:u8] +var
+    opLoadArgVar,       // [arg.idx:u8] +var
     // --- end primary loaders
     opLoadMember,       // [stateobj.idx:u8] -stateobj +var
     opDeref,            // -ref +var
     // --- end grounded loaders
 
-    opLeaSelfVar,       // [self.idx:u8] +obj(0) +ptr
+    opLeaInnerVar,      // [inner.idx:u8] +obj(0) +ptr
     opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
-    opLeaStkVar,        // [stk.idx:s8] +obj(0) +ptr
+    opLeaStkVar,        // [stk.idx:u8] +obj(0) +ptr
+    opLeaArgVar,        // [arg.idx:u8] +obj(0) +ptr
     opLeaMember,        // [stateobj.idx:u8] -stateobj +stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
 
     // --- 4. STORERS
-    opInitSelfVar,      // [self.idx:u8] -var
-    opInitStkVar,       // [stk.idx:s8] -var
+    opInitInnerVar,     // [inner.idx:u8] -var
+    opInitStkVar,       // [stk.idx:u8] -var
     // --- begin grounded storers
-    opStoreSelfVar,     // [self.idx:u8] -var
+    opStoreInnerVar,    // [inner.idx:u8] -var
     opStoreOuterVar,    // [outer.idx:u8] -var
-    opStoreStkVar,      // [stk.idx:s8] -var
+    opStoreStkVar,      // [stk.idx:u8] -var
+    opStoreArgVar,      // [arg.idx:u8] -var
     opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
     // --- end grounded storers
-    opIncStkVar,        // [stk.idx:s8] -- for loop helper
+    opIncStkVar,        // [stk.idx:u8] -- for loop helper
 
     // --- 5. DESIGNATOR OPS, MISC
     opMkRange,          // -int -int +range
@@ -183,8 +187,8 @@ enum OpCode
     opCaseStr,          // -str -str +str +bool
     opCaseVar,          // -var -var +var +bool
     // for loop helpers
-    opStkVarGt,         // [stk.idx:s8] -int +bool
-    opStkVarGe,         // [stk.idx:s8] -int +bool
+    opStkVarGt,         // [stk.idx:u8] -int +bool
+    opStkVarGe,         // [stk.idx:u8] -int +bool
 
     // --- 11. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
@@ -212,10 +216,10 @@ enum OpCode
 
 
 inline bool isPrimaryLoader(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadStkVar); }
+    { return (op >= opLoadTypeRef && op <= opLoadArgVar); }
 
 inline bool isGroundedLoader(OpCode op)
-    { return op >= opLoadSelfVar && op <= opDeref; }
+    { return op >= opLoadInnerVar && op <= opDeref; }
 
 inline bool isCmpOp(OpCode op)
     { return op >= opEqual && op <= opGreaterEq; }
@@ -236,7 +240,7 @@ inline bool isCaller(OpCode op)
 enum ArgType
     { argNone, argType, argState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
-      argSelfIdx, argOuterIdx, argStkIdx, argStateIdx, 
+      argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
       argJump16, argLineNum, argAssertCond, argDump,
       argMax };
 
@@ -366,6 +370,8 @@ protected:
         { return primaryLoaders.back(); }
     static void error(const char*);
     static void error(const str&);
+    
+    void _loadVar(Variable*, OpCode);
 
     memint prevLoaderOffs;
     podvec<memint> primaryLoaders;
@@ -405,7 +411,10 @@ public:
     void loadDefinition(Definition*);
     void loadEmptyConst(Type* type);
     void loadSymbol(Symbol*);
-    void loadLocalVar(LocalVar*);
+    void loadStkVar(StkVar* var)
+        { _loadVar(var, opLoadStkVar); }
+    void loadArgVar(ArgVar* var)
+        { _loadVar(var, opLoadArgVar); }
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(State*, const str& ident);
@@ -414,9 +423,9 @@ public:
     void loadThis();
     void loadDataSeg();
 
-    void initLocalVar(LocalVar*);
-    void initSelfVar(SelfVar*);
-    void incLocalVar(LocalVar*);
+    void initStkVar(StkVar*);
+    void initInnerVar(InnerVar*);
+    void incStkVar(StkVar*);
 
     Container* elemToVec(Container*);
     void elemCat();
@@ -447,8 +456,8 @@ public:
         { inRange2(true); }
     void _not(); // 'not' is something reserved, probably only with Apple's GCC
 
-    void localVarCmp(LocalVar*, OpCode);
-    void localVarCmpLength(LocalVar* var, LocalVar* vec);
+    void stkVarCmp(StkVar*, OpCode);
+    void stkVarCmpLength(StkVar* var, StkVar* vec);
 
     void boolJump(memint target, OpCode op);
     memint boolJumpForward(OpCode op);
@@ -550,7 +559,7 @@ public:
 // Besides, code segments never have any relocatble data elements, so that any
 // module can be reused in the multithreaded server environment too.
 
-void runRabbitRun(stateobj* dataseg, variant* outer, variant* bp, const uchar* code);
+void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, const uchar* code);
 
 
 struct eexit: public exception

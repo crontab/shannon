@@ -16,7 +16,7 @@ class Compiler: protected Parser
 
         AutoScope(Compiler* c);
         ~AutoScope();
-        LocalVar* addInitLocalVar(const str&, Type*);
+        StkVar* addInitStkVar(const str&, Type*);
     };
 
     struct LoopInfo
@@ -81,7 +81,7 @@ protected:
     void caseLabel(Type*);
     void switchBlock();
     void whileBlock();
-    void forBlockTail(LocalVar*, memint outJumpOffs, memint incJumpOffs = -1);
+    void forBlockTail(StkVar*, memint outJumpOffs, memint incJumpOffs = -1);
     void forBlock();
     void doContinue();
     void doBreak();
