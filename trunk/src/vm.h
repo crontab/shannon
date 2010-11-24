@@ -40,7 +40,6 @@ enum OpCode
     // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadInnerFuncPtr, // [State*] +funcptr
-    opLoadFarFuncPtr,   // [datasegidx:u8, State*] +funcptr
     opLoadNullFuncPtr,  // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
@@ -78,6 +77,7 @@ enum OpCode
     opMkRange,          // -int -int +range
     opMkRef,            // -var +ref
     opMkFuncPtr,        // [State*] -obj +funcptr
+    opMkFarFuncPtr,     // [datasegidx:u8, State*] -obj +funcptr
     opNonEmpty,         // -var +bool
     opPop,              // -var
     opPopPod,           // -int

@@ -40,7 +40,6 @@ OpInfo opTable[] =
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadInnerFuncPtr, State),// [State*] +funcptr
-    OP(LoadFarFuncPtr, FarState),   // [datasegidx:u8, State*] +funcptr
     OP(LoadNullFuncPtr, State), // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
@@ -76,6 +75,7 @@ OpInfo opTable[] =
     OP(MkRange, None),          // -int -int +range
     OP(MkRef, None),            // -var +ref
     OP(MkFuncPtr, State),       // [State*] -obj +funcptr
+    OP(MkFarFuncPtr, FarState), // [datasegidx:u8, State*] -obj +funcptr
     OP(NonEmpty, None),         // -var +bool
     OP(Pop, None),              // -var
     OP(PopPod, None),           // -int

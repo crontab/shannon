@@ -166,7 +166,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 // TODO: see if the local stateobj is not used in the function
                 //       and produce a simpler prologue
                 State* state = ADV(State*);
-                innerobj = new(state->varCount, basep) stateobj(state);
+                innerobj = new(basep) stateobj(state); // note: doesn't initialize the vars
                 innerobj->_mkstatic();
 #ifdef DEBUG
                 innerobj->varcount = state->varCount;
@@ -239,12 +239,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opLoadInnerFuncPtr:
             PUSH(new funcptr(dataseg, innerobj, ADV(State*)));
-            break;
-        case opLoadFarFuncPtr:
-            {
-                stateobj* ds = dataseg->member(ADV(uchar))->_stateobj();
-                PUSH(new funcptr(ds, innerobj, ADV(State*)));
-            }
             break;
         case opLoadNullFuncPtr:
             PUSH(new funcptr(NULL, NULL, ADV(State*)));
@@ -355,6 +349,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opMkFuncPtr:
             *stk = new funcptr(dataseg, stk->_stateobj(), ADV(State*));
+            break;
+        case opMkFarFuncPtr:
+            {
+                stateobj* ds = dataseg->member(ADV(uchar))->_stateobj();
+                *stk = new funcptr(ds, stk->_stateobj(), ADV(State*));
+            }
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -795,7 +795,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opCall:
             {
-                funcptr* fp = cast<funcptr*>((stk - ADV(uchar))->_rtobj());
+                funcptr* fp = (stk - ADV(uchar))->_funcptr();
                 CHKOBJ(fp);
                 stateobj* obj = fp->outer;
                 CHKOBJ(obj);
