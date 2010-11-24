@@ -422,7 +422,22 @@ void CodeGen::loadSymbol(Symbol* sym)
 void CodeGen::_loadVar(Variable* var, OpCode op)
 {
     assert(var->id >= 0 && var->id < 255);
-    addOp<uchar>(var->type, op, var->id);
+    if (isCompileTime())
+        // Load an error message generator in case it gets executed; however
+        // this may be useful in expressions like typeof, where the value
+        // is not needed:
+        addOp(var->type, opConstExprErr);
+    else
+        addOp<uchar>(var->type, op, var->id);
+}
+
+
+void CodeGen::loadInnerVar(InnerVar* var)
+{
+    // In ordinary (non-ctor) functions innerobj may not be available because
+    // of optimizations, so we use stack reference whenever possible
+    _loadVar(var, codeOwner && codeOwner->isConstructor() ?
+        opLoadInnerVar : opLoadStkVar);
 }
 
 
@@ -434,18 +449,15 @@ void CodeGen::loadVariable(Variable* var)
 {
     assert(var->host != NULL);
     if (isCompileTime())
-        // Load an error message generator in case it gets executed; however
-        // this may be useful in expressions like typeof, where the value
-        // is not needed:
         addOp(var->type, opConstExprErr);
     else if (var->host == codeOwner)
     {
         if (var->isStkVar())
-            _loadVar(var, opLoadStkVar);
+            loadStkVar(PStkVar(var));
         else if (var->isArgVar())
-            _loadVar(var, opLoadArgVar);
+            loadArgVar(PArgVar(var));
         else if (var->isInnerVar())
-            _loadVar(var, opLoadInnerVar);
+            loadInnerVar(PInnerVar(var));
         else
             varNotAccessible(var->name);
     }
@@ -578,12 +590,13 @@ void CodeGen::initStkVar(StkVar* var)
 
 void CodeGen::initInnerVar(InnerVar* var)
 {
+    assert(var->id >= 0 && var->id < 255);
+    assert(codeOwner);
     if (var->host != codeOwner)
         fatal(0x6005, "initInnerVar(): not my var");
     implicitCast(var->type, "Variable type mismatch");
     stkPop();
-    assert(var->id >= 0 && var->id < 255);
-    addOp<uchar>(opInitInnerVar, var->id);
+    addOp<uchar>(codeOwner->isConstructor() ? opInitInnerVar : opInitStkVar, var->id);
 }
 
 

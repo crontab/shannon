@@ -145,12 +145,18 @@ inline void CHKOBJ(rtobject* obj)
     { if (obj == NULL) nullPointerErr(); }
 
 
-void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, register const uchar* ip)
+void runRabbitRun(stateobj* dataseg, stateobj* outerobj,
+        register variant* basep, register const uchar* ip)
 {
     // TODO: check for stack overflow (during function call?)
     register variant* stk = basep - 1;
-    variant* argp = basep;
+    register variant* argp = basep;
     stateobj* innerobj = NULL;
+
+    // op*Call helpers:
+    stateobj* callobj;
+    stateobj* callds;
+    State* callee;
     try
     {
 loop:  // We use goto instead of while(1) {} so that compilers never complain
@@ -161,10 +167,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opEnd:             goto exit;
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
+
         case opEnterFunc:
             {
+                CHKOBJ(outerobj);
                 // TODO: see if the local stateobj is not used in the function
-                //       and produce a simpler prologue
+                //       (and nested functions) and produce a simpler prologue
                 State* state = ADV(State*);
                 innerobj = new(basep) stateobj(state); // note: doesn't initialize the vars
                 innerobj->_mkstatic();
@@ -175,6 +183,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 stk = basep + state->varCount - 1;
             }
             break;
+
         case opLeaveFunc:
             {
 #ifdef DEBUG
@@ -188,8 +197,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                     localObjErr();
             }
             goto exit;
+
         case opEnterCtor:
             {
+                CHKOBJ(outerobj);
                 State* state = ADV(State*);
                 variant* result = argp - state->returnVar->id;
                 // Instantiate the class if not already done
@@ -761,51 +772,45 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
 
         case opChildCall:
-            {
-                State* state = ADV(State*);
-                runRabbitRun(dataseg, innerobj, stk + 1, state->getCodeStart());
-                for (memint i = state->popArgCount; i--; )
-                    POP();
-            }
+            callobj = innerobj;
+nearCall:
+            callee = ADV(State*);
+            runRabbitRun(dataseg, callobj, stk + 1, callee->getCodeStart());
+            for (memint i = callee->popArgCount; i--; )
+                POP();
             break;
+
         case opSiblingCall:
-            {
-                State* state = ADV(State*);
-                runRabbitRun(dataseg, outerobj, stk + 1, state->getCodeStart());
-                for (memint i = state->popArgCount; i--; )
-                    POP();
-            }
-            break;
+            callobj = outerobj;
+            goto nearCall;
+
         case opMethodCall:
-            {
-                State* state = ADV(State*);
-                stateobj* obj = (stk - state->popArgCount - state->returns)->_stateobj();
-                CHKOBJ(obj);
-                runRabbitRun(dataseg, obj, stk + 1, state->getCodeStart());
-                for (memint i = state->popArgCount; i--; )
-                    POP();
-                if (state->returns)
-                    POPTO(stk - 1)
-                else
-                    POP();
-            }
+            callds = dataseg;
+farCall:
+            callee = ADV(State*);
+            callobj = (stk - callee->popArgCount - callee->returns)->_stateobj();
+indirCall:
+            runRabbitRun(callds, callobj, stk + 1, callee->getCodeStart());
+            for (memint i = callee->popArgCount; i--; )
+                POP();
+            if (callee->returns)
+                POPTO(stk - 1)
+            else
+                POP();
             break;
+
         case opFarMethodCall:
-            notimpl();
-            break;
+            callds = dataseg->member(ADV(uchar))->_stateobj();
+            goto farCall;
+
         case opCall:
             {
                 funcptr* fp = (stk - ADV(uchar))->_funcptr();
                 CHKOBJ(fp);
-                stateobj* obj = fp->outer;
-                CHKOBJ(obj);
-                runRabbitRun(dataseg, obj, stk + 1, fp->state->getCodeStart());
-                for (memint i = fp->state->popArgCount; i--; )
-                    POP();
-                if (fp->state->returns)
-                    POPTO(stk - 1)
-                else
-                    POP();
+                callds = fp->dataseg;
+                callee = fp->state;
+                callobj = fp->outer;
+                goto indirCall;
             }
             break;
 

@@ -417,6 +417,7 @@ public:
         { _loadVar(var, opLoadStkVar); }
     void loadArgVar(ArgVar* var)
         { _loadVar(var, opLoadArgVar); }
+    void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
     void loadMember(State*, const str& ident);
