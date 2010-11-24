@@ -516,7 +516,7 @@ void CodeGen::loadMember(Symbol* sym)
             if (targetModule == codeOwner->parentModule) // near call
                 addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
             else
-                error("Invalid context for a method pointer");
+                notimpl(); // far call
         }
         else
         {
@@ -1338,6 +1338,7 @@ void CodeGen::call(FuncPtr* proto)
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
+        case opMkFarFuncPtr: op = opFarMethodCall; break;
         default: ; // leave op = opInv
     }
 

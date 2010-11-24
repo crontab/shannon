@@ -1067,6 +1067,7 @@ public:
     reference*  _ref()            const { _dbg(REF); return val._ref; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     stateobj*   _stateobj() const;
+    funcptr*    _funcptr() const;
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
@@ -1188,12 +1189,12 @@ protected:
     }
 
     // In place operator new for stateobj: for creating pseudo-objects on the stack
-    void* operator new(size_t s, memint extra, void* p)
+    void* operator new(size_t, void* p)
     {
 #ifdef DEBUG
         pincrement(&object::allocated);
 #endif
-        memset(pchar(p) + s, 0, extra * sizeof(variant));
+        // memset(pchar(p) + s, 0, extra * sizeof(variant));
         return p;
     }
 
@@ -1233,16 +1234,15 @@ public:
     void dump(fifo&) const;
 };
 
+inline funcptr* variant::_funcptr() const  { return cast<funcptr*>(_rtobj()); }
 
-// TODO: Runtime stack is a fixed, uninitialized and unmanaged array of
-//       variants, should be implemented more efficiently than this.
+
 class rtstack: protected podvec<variant>
 {
     typedef podvec<variant> parent;
 public:
     variant* bp;    // base pointer
     rtstack(memint maxSize);
-    variant* base() const       { return (variant*)parent::data(); }
     template <class T>
         void push(const T& t)   { new(bp) variant(t); bp++; }
     variant& top()              { return *(bp - 1); }

@@ -1279,7 +1279,7 @@ rtstack::rtstack(memint maxSize)
 {
     if (maxSize)
         _init(maxSize * Tsize);
-    bp = base();
+    bp = (variant*)begin();
 }
 
 
