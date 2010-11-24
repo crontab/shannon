@@ -508,27 +508,27 @@ protected:
     objvec<ArgVar> args;            // owned, copied from prototype
 
     InnerVar* addInnerVar(InnerVar*);
+    static Module* getParentModule(State*);
 
 public:
     objvec<InnerVar> innerVars;     // owned
 
     State* const parent;
+    Module* const parentModule;
     FuncPtr* const prototype;
     ArgVar* returnVar;              // may be NULL
     memint popArgCount;             // VM helper
     int returns;                    // VM helper
+    memint varCount;                // VM helper
     objptr<object> codeseg;
     ExternFuncProto externFunc;
 
     State(State* parent, FuncPtr*);
     ~State();
     void fqName(fifo&) const;
-    Module* getParentModule();
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
 
-    memint innerVarCount()
-        { return innerVars.size(); } // TODO: plus inherited
     bool isConstructor()
         { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
 
@@ -553,7 +553,7 @@ inline void FuncPtr::resolveSelfType(State* state)
 inline stateobj::stateobj(State* t)
         : rtobject(t)
 #ifdef DEBUG
-          , varcount(t->innerVarCount())
+          , varcount(t->varCount)
 #endif
         { }
 

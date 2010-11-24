@@ -512,7 +512,11 @@ void CodeGen::loadMember(Symbol* sym)
             stkPop();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
             // also loadDefinition()
-            addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
+            Module* targetModule = PState(stateType)->parentModule;
+            if (targetModule == codeOwner->parentModule) // near call
+                addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
+            else
+                error("Invalid context for a method pointer");
         }
         else
         {
@@ -1302,7 +1306,7 @@ void CodeGen::epilog(memint prologOffs)
         ;
     else
     {
-        if (codeOwner->innerVarCount() == 0)
+        if (codeOwner->varCount == 0)
             codeseg.eraseOp(prologOffs);
         else
             addOp<State*>(opLeaveFunc, codeOwner);

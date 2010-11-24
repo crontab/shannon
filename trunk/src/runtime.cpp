@@ -1248,7 +1248,7 @@ void stateobj::collapse()
     // TODO: this is not thread-safe. An atomic exchnage for pointers is needed.
     if (getType() != NULL)
     {
-        for (memint count = getType()->innerVarCount(); count--; )
+        for (memint count = getType()->varCount; count--; )
             member(count)->clear();
         clearType();
 #ifdef DEBUG
@@ -1258,8 +1258,8 @@ void stateobj::collapse()
 }
 
 
-funcptr::funcptr(stateobj* o, State* s)
-    : rtobject(s->prototype), outer(o), state(s)  { }
+funcptr::funcptr(stateobj* d, stateobj* o, State* s)
+    : rtobject(s->prototype), dataseg(d), outer(o), state(s)  { }
 
 funcptr::~funcptr()
     { }

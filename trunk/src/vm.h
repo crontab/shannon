@@ -40,6 +40,7 @@ enum OpCode
     // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadInnerFuncPtr, // [State*] +funcptr
+    opLoadFarFuncPtr,   // [datasegidx:u8, State*] +funcptr
     opLoadNullFuncPtr,  // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
@@ -203,6 +204,7 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
+    opFarMethodCall,    // [datasegidx:u8, State*] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
@@ -238,7 +240,7 @@ inline bool isCaller(OpCode op)
 
 
 enum ArgType
-    { argNone, argType, argState, argUInt8, argInt, argStr, 
+    { argNone, argType, argState, argFarState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
       argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
       argJump16, argLineNum, argAssert, argDump,
