@@ -26,6 +26,7 @@ class Module;
 
 typedef Symbol* PSymbol;
 typedef Variable* PVariable;
+typedef InnerVar* PInnerVar;
 typedef StkVar* PStkVar;
 typedef ArgVar* PArgVar;
 typedef Definition* PDefinition;
@@ -517,11 +518,15 @@ public:
     Module* const parentModule;
     FuncPtr* const prototype;
     ArgVar* returnVar;              // may be NULL
-    memint popArgCount;             // VM helper
-    int returns;                    // VM helper
-    memint varCount;                // VM helper
+
+    // Code (for extern functions codeseg contains stub code, otherwise, just the main code)
     objptr<object> codeseg;
     ExternFuncProto externFunc;
+
+    // VM helpers:
+    memint popArgCount;
+    int returns;
+    memint varCount;
 
     State(State* parent, FuncPtr*);
     ~State();
