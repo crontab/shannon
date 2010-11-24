@@ -7,7 +7,7 @@
 
 umemint ArgSizes[argMax] =
     {
-      0, sizeof(Type*), sizeof(State*), sizeof(uchar), sizeof(integer), sizeof(str), 
+      0, sizeof(Type*), sizeof(State*), sizeof(uchar) + sizeof(State*), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer),
@@ -40,6 +40,7 @@ OpInfo opTable[] =
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadInnerFuncPtr, State),// [State*] +funcptr
+    OP(LoadFarFuncPtr, FarState),   // [datasegidx:u8, State*] +funcptr
     OP(LoadNullFuncPtr, State), // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
@@ -192,6 +193,7 @@ OpInfo opTable[] =
     OP(ChildCall, State),       // [State*] -var -var ... +var
     OP(SiblingCall, State),     // [State*] -var -var ... +var
     OP(MethodCall, State),      // [State*] -var -var -obj ... +var
+    OP(FarMethodCall, FarState),// [datasegidx:u8, State*] -var -var -obj ... +var
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
@@ -278,6 +280,7 @@ void CodeSeg::dump(fifo& stm) const
                 case argNone:       break;
                 case argType:       ADV(Type*)->dumpDef(stm); break;
                 case argState:      ADV(State*)->fqName(stm); break;
+                case argFarState:   stm << "[ds:" << ADV(uchar) << ']'; ADV(State*)->fqName(stm); break;
                 case argUInt8:      stm << to_quoted(*ip); stm << " (" << int(ADV(uchar)) << ')'; break;
                 case argInt:        stm << ADV(integer); break;
                 case argStr:        stm << to_quoted(ADV(str)); break;
@@ -291,7 +294,7 @@ void CodeSeg::dump(fifo& stm) const
                 case argJump16:     stm << to_string(ip - beginip + ADV(jumpoffs), 16, 4, '0');
                 case argLineNum:    break; // handled above
                 case argAssert:
-                    stm << ADV(State*)->getParentModule()->filePath;
+                    stm << ADV(State*)->parentModule->filePath;
                     stm << " (" << ADV(integer) << "): ";
                     stm << " \"" << ADV(str) << '"';
                     break;

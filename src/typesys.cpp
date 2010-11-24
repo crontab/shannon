@@ -829,8 +829,8 @@ bool SelfStub::canAssignTo(Type*) const
 
 
 State::State(State* par, FuncPtr* proto)
-    : Type(STATE), Scope(false, par), parent(par),
-      prototype(proto), returnVar(NULL), popArgCount(0),
+    : Type(STATE), Scope(false, par), parent(par), parentModule(getParentModule(this)),
+      prototype(proto), returnVar(NULL), popArgCount(0), varCount(0),
       codeseg(new CodeSeg(this)), externFunc(NULL)
 {
     // Is this a 'self' state?
@@ -873,12 +873,11 @@ void State::fqName(fifo& stm) const
 }
 
 
-Module* State::getParentModule()
+Module* State::getParentModule(State* m)
 {
-    State* m = this;
     while (m->parent)
         m = m->parent;
-    return cast<Module*>(m);
+    return PModule(m);
 }
 
 
@@ -985,6 +984,7 @@ InnerVar* State::addInnerVar(InnerVar* var)
 {
     if (var->id >= 255)
         error("Too many variables");
+    varCount++;
     return innerVars.push_back(var->grab<InnerVar>());
 }
 
@@ -993,7 +993,7 @@ InnerVar* State::addInnerVar(const str& n, Type* t)
 {
     if (n.empty())
         fatal(0x3002, "Empty identifier");
-    objptr<InnerVar> v = new InnerVar(n, t, innerVarCount(), this);
+    objptr<InnerVar> v = new InnerVar(n, t, varCount, this);
     addUnique(v);
     return addInnerVar(v);
 }
@@ -1001,7 +1001,7 @@ InnerVar* State::addInnerVar(const str& n, Type* t)
 
 InnerVar* State::reclaimArg(ArgVar* arg, Type* t)
 {
-    objptr<InnerVar> v = new InnerVar(arg->name, t, innerVarCount(), this);
+    objptr<InnerVar> v = new InnerVar(arg->name, t, varCount, this);
     replaceSymbol(v);
     return addInnerVar(v);
 }
@@ -1009,10 +1009,9 @@ InnerVar* State::reclaimArg(ArgVar* arg, Type* t)
 
 stateobj* State::newInstance()
 {
-    memint varcount = innerVarCount();
-    if (varcount == 0)
+    if (varCount == 0)
         return NULL;
-    stateobj* obj = new(varcount) stateobj(this);
+    stateobj* obj = new(varCount) stateobj(this);
     return obj;
 }
 

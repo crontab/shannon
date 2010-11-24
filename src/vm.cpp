@@ -153,7 +153,7 @@ void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, registe
     stateobj* innerobj = NULL;
     try
     {
-loop:  // use goto instead of while(1) {} so that compilers don't complain
+loop:  // We use goto instead of while(1) {} so that compilers never complain
         switch(*ip++)
         {
 
@@ -163,22 +163,23 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opExit:            doExit(*stk); break;
         case opEnterFunc:
             {
+                // TODO: see if the local stateobj is not used in the function
+                //       and produce a simpler prologue
                 State* state = ADV(State*);
-                int varcnt = state->innerVarCount();
-                innerobj = new(varcnt, basep) stateobj(state);
+                innerobj = new(state->varCount, basep) stateobj(state);
                 innerobj->_mkstatic();
 #ifdef DEBUG
-                innerobj->varcount = varcnt;
+                innerobj->varcount = state->varCount;
 #endif
                 basep = innerobj->member(0);
-                stk = innerobj->member(varcnt - 1);
+                stk = basep + state->varCount - 1;
             }
             break;
         case opLeaveFunc:
             {
 #ifdef DEBUG
                 State* state = ADV(State*);
-                for (memint i = state->innerVarCount(); i--; )
+                for (memint i = state->varCount; i--; )
                     POP();
 #else
                 ADV(State*);
@@ -194,7 +195,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 // Instantiate the class if not already done
                 if (result->_rtobj() == NULL)
                     SETPOD(result, state->newInstance());
-                innerobj = cast<stateobj*>(result->_rtobj());
+                innerobj = result->_stateobj();
             }
             break;
 
@@ -234,13 +235,19 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             PUSH(dataseg);
             break;
         case opLoadOuterFuncPtr:
-            PUSH(new funcptr(outerobj, ADV(State*)));
+            PUSH(new funcptr(dataseg, outerobj, ADV(State*)));
             break;
         case opLoadInnerFuncPtr:
-            PUSH(new funcptr(innerobj, ADV(State*)));
+            PUSH(new funcptr(dataseg, innerobj, ADV(State*)));
+            break;
+        case opLoadFarFuncPtr:
+            {
+                stateobj* ds = dataseg->member(ADV(uchar))->_stateobj();
+                PUSH(new funcptr(ds, innerobj, ADV(State*)));
+            }
             break;
         case opLoadNullFuncPtr:
-            PUSH(new funcptr(NULL, ADV(State*)));
+            PUSH(new funcptr(NULL, NULL, ADV(State*)));
             break;
 
 
@@ -259,9 +266,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opLoadMember:
             {
-                rtobject* obj = stk->_rtobj();
+                stateobj* obj = stk->_stateobj();
                 CHKOBJ(obj);
-                *stk = *cast<stateobj*>(obj)->member(ADV(uchar));
+                *stk = *obj->member(ADV(uchar));
             }
             break;
         case opDeref:
@@ -290,9 +297,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opLeaMember:
             {
-                rtobject* obj = stk->_rtobj();
+                stateobj* obj = stk->_stateobj();
                 CHKOBJ(obj);
-                PUSH(cast<stateobj*>(obj)->member(ADV(uchar)));
+                PUSH(obj->member(ADV(uchar)));
             }
             break;
         case opLeaRef:
@@ -321,9 +328,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             break;
         case opStoreMember:
             {
-                rtobject* obj = (stk - 1)->_rtobj();
+                stateobj* obj = (stk - 1)->_stateobj();
                 CHKOBJ(obj);
-                POPTO(cast<stateobj*>(obj)->member(ADV(uchar)));
+                POPTO(obj->member(ADV(uchar)));
                 POP();
             }
             break;
@@ -347,7 +354,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
             SETPOD(stk, new reference((podvar*)stk));
             break;
         case opMkFuncPtr:
-            *stk = new funcptr(cast<stateobj*>(stk->_rtobj()), ADV(State*));
+            *stk = new funcptr(dataseg, stk->_stateobj(), ADV(State*));
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -772,11 +779,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
         case opMethodCall:
             {
                 State* state = ADV(State*);
-                // The object pointer is right below the result var; pass it
-                // as an "outer" parameter
-                rtobject* obj = (stk - state->popArgCount - state->returns)->_rtobj();
+                stateobj* obj = (stk - state->popArgCount - state->returns)->_stateobj();
                 CHKOBJ(obj);
-                runRabbitRun(dataseg, cast<stateobj*>(obj), stk + 1, state->getCodeStart());
+                runRabbitRun(dataseg, obj, stk + 1, state->getCodeStart());
                 for (memint i = state->popArgCount; i--; )
                     POP();
                 if (state->returns)
@@ -784,6 +789,9 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 else
                     POP();
             }
+            break;
+        case opFarMethodCall:
+            notimpl();
             break;
         case opCall:
             {
@@ -812,7 +820,7 @@ loop:  // use goto instead of while(1) {} so that compilers don't complain
                 integer linenum = ADV(integer);
                 str& cond = ADV(str);
                 if (!stk->_int())
-                    failAssertion(state->getParentModule()->filePath, linenum, cond);
+                    failAssertion(state->parentModule->filePath, linenum, cond);
                 POPPOD();
             }
             break;

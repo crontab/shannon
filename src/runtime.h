@@ -1066,6 +1066,7 @@ public:
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
     reference*  _ref()            const { _dbg(REF); return val._ref; }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
+    stateobj*   _stateobj() const;
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
@@ -1217,14 +1218,16 @@ public:
 
 
 inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
+inline stateobj* variant::_stateobj() const  { return cast<stateobj*>(_rtobj()); }
 
 
 class funcptr: public rtobject
 {
 public:
+    stateobj* dataseg;
     objptr<stateobj> outer;
     State* state;
-    funcptr(stateobj* o, State* s);
+    funcptr(stateobj* dataseg, stateobj* outer, State* state);
     ~funcptr();
     bool empty() const;
     void dump(fifo&) const;
