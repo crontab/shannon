@@ -112,7 +112,7 @@ bool CodeGen::tryImplicitCast(Type* to)
     if (from->isFuncPtr() && to->isTypeRef())
     {
         undoSubexpr();
-        loadTypeRef(PFuncPtr(from)->returnType);
+        loadTypeRefConst(PFuncPtr(from)->returnType);
         return true;
     }
 
@@ -273,7 +273,7 @@ void CodeGen::nonEmpty()
 }
 
 
-void CodeGen::loadTypeRef(Type* type)
+void CodeGen::loadTypeRefConst(Type* type)
 {
     addOp<Type*>(defTypeRef, opLoadTypeRef, type);
 }
@@ -320,7 +320,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::RTOBJ:
         if (value._rtobj()->getType()->isTypeRef())
         {
-            loadTypeRef(cast<Type*>(value._rtobj()));
+            loadTypeRefConst(cast<Type*>(value._rtobj()));
             return;
         }
         break;
@@ -329,10 +329,9 @@ void CodeGen::loadConst(Type* type, const variant& value)
 }
 
 
-void CodeGen::loadDefinition(Definition* def)
+void CodeGen::loadTypeRef(Type* type)
 {
-    Type* aliasedType = def->getAliasedType();
-    if (aliasedType && aliasedType->isAnyState())
+    if (!isCompileTime() && type->isAnyState())
     {
         // A state definition by default is tranformed into a function pointer
         // to preserve the object subexpression that may have preceeded it (see
@@ -342,11 +341,9 @@ void CodeGen::loadDefinition(Definition* def)
         // TypeRef, in which case the preceeding subexpression is discarded;
         // (3) member constant selection or scope override is requested: same 
         // as (2); or (4) otherwise the function pointer is left "as is".
-        State* stateType = PState(aliasedType);
+        State* stateType = PState(type);
         OpCode op = opInv;
-        if (isCompileTime())
-            op = opLoadNullFuncPtr;
-        else if (stateType->parent == codeOwner->parent)
+        if (stateType->parent == codeOwner->parent)
             op = opLoadOuterFuncPtr;
         else if (stateType->parent == codeOwner)
             op = opLoadInnerFuncPtr;
@@ -354,8 +351,17 @@ void CodeGen::loadDefinition(Definition* def)
             error("Invalid context for a function pointer");
         addOp<State*>(stateType->prototype, op, stateType);
     }
-    else if (aliasedType || def->type->isVoid()
-            || def->type->isAnyOrd() || def->type->isByteVec())
+    else
+        loadTypeRefConst(type);
+}
+
+
+void CodeGen::loadDefinition(Definition* def)
+{
+    Type* aliasedType = def->getAliasedType();
+    if (aliasedType)
+        loadTypeRef(aliasedType);
+    else if (def->type->isVoid() || def->type->isAnyOrd() || def->type->isByteVec())
         loadConst(def->type, def->value);
     else
         addOp<Definition*>(def->type, opLoadConst, def);

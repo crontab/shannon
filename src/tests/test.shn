@@ -549,6 +549,12 @@ def inc = int *(int i)
     inc_call_count = inc_call_count + 1
 }
 
+var incv = int *(int i)
+{
+    result = i + 1
+    inc_call_count = inc_call_count + 1
+}
+
 var rr1 = inc(5)
 assert rr1 == 6
 assert inc_call_count == 1
@@ -564,6 +570,9 @@ def void nested_inc_test()
 }
 
 nested_inc_test()
+
+incv(10)
+assert inc_call_count == 4
 
 def confusing_proto = int *[]()
     { }
@@ -683,6 +692,13 @@ assert cpint == 0
 var intclass ic = cp(1)
 assert cpint == 1
 
+def incfunc = int *(int)...
+def incd = int *(int i) { result = i + 1 }
+var incd incdv = 1
+assert incdv is int
+var incvar = int *(int i) { result = i + 1 }
+assert incvar(100) == 101
+assert incvar is incfunc
 
 // OOP
 

@@ -40,7 +40,6 @@ enum OpCode
     // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadInnerFuncPtr, // [State*] +funcptr
-    opLoadNullFuncPtr,  // [State*] +funcptr -- used in const expressions
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -74,7 +73,7 @@ enum OpCode
     opIncStkVar,        // [stk.idx:u8] -- for loop helper
 
     // --- 5. DESIGNATOR OPS, MISC
-    opMkRange,          // -int -int +range
+    opMkRange,          // -int -int +range -- currently used only in const expressions
     opMkRef,            // -var +ref
     opMkFuncPtr,        // [State*] -obj +funcptr
     opMkFarFuncPtr,     // [datasegidx:u8, State*] -obj +funcptr
@@ -408,8 +407,9 @@ public:
     bool deref();
     void mkref();
     void nonEmpty();
-    void loadTypeRef(Type*);
+    void loadTypeRefConst(Type*);
     void loadConst(Type* type, const variant&);
+    void loadTypeRef(Type*);
     void loadDefinition(Definition*);
     void loadEmptyConst(Type* type);
     void loadSymbol(Symbol*);

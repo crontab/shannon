@@ -266,7 +266,7 @@ void Compiler::typeOf()
     designator(NULL);
     Type* type = codegen->getTopType();
     codegen->undoSubexpr();
-    codegen->loadTypeRef(type);
+    codegen->loadTypeRefConst(type);
 }
 
 
@@ -643,6 +643,9 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
     Type* resultType = NULL;
     try
     {
+        // We don't pass defTypeRef as an expected type because we may have a
+        // range type expression, in which case expression() below evaluates
+        // to an Ordinal value.
         expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
 
         if (skipIf(tokRange))

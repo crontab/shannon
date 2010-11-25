@@ -251,10 +251,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadInnerFuncPtr:
             PUSH(new funcptr(dataseg, innerobj, ADV(State*)));
             break;
-        case opLoadNullFuncPtr:
-            PUSH(new funcptr(NULL, NULL, ADV(State*)));
-            break;
-
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadInnerVar:
