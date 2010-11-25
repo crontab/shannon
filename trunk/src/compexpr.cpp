@@ -354,9 +354,6 @@ void Compiler::atom(Type* typeHint)
     else if (skipIf(tokTypeOf))
         typeOf();
 
-    else if (skipIf(tokThat))
-        codegen->loadOuterObj();
-
     else if (skipIf(tokThis))
         codegen->loadThis();
 

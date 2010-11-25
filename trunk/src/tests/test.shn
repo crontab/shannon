@@ -545,13 +545,13 @@ var inc_call_count = 0
 
 def inc = int *(int i)
 {
-    this = i + 1
+    result = i + 1
     inc_call_count = inc_call_count + 1
 }
 
 var incv = int *(int i)
 {
-    this = i + 1
+    result = i + 1
     inc_call_count = inc_call_count + 1
 }
 
@@ -586,7 +586,7 @@ def int avg(int a, int b, str s)
 {
     var t = wi
     assert t == wi
-    this = (a + b) / 2
+    result = (a + b) / 2
     str2 = s
 }
 
@@ -605,7 +605,7 @@ begin
     def void vfunc() { }
     def void vfunc2()
     {
-        assert that.loc2 == 1
+        assert this.loc2 == 1
         assert loc2 == 1
         // error: loc1 = 1
     }
@@ -660,8 +660,8 @@ var fpstr = ''
 def intfunc = int *(int, int)...
 def voidfunc = void *(str)...
 
-def int min(int a, int b) { this = if(a < b, a, b) }
-def int max(int a, int b) { this = if(a > b, a, b) }
+def int min(int a, int b) { result = if(a < b, a, b) }
+def int max(int a, int b) { result = if(a > b, a, b) }
 def void assignstr(str s) { fpstr = s }
 
 assert min(2, 1) == 1
@@ -693,10 +693,10 @@ var intclass ic = cp(1)
 assert cpint == 1
 
 def incfunc = int *(int)...
-def incd = int *(int i) { this = i + 1 }
+def incd = int *(int i) { result = i + 1 }
 var incd incdv = 1
 assert incdv is int
-var incvar = int *(int i) { this = i + 1 }
+var incvar = int *(int i) { result = i + 1 }
 assert incvar(100) == 101
 assert incvar is incfunc
 
@@ -723,7 +723,7 @@ class point(int x, int y)
     def void move2(int dx, int dy)
     {
         def int double(int i)
-            { this = i * pst }
+            { result = i * pst }
 
         move(double(dx), double(dy))
     }
@@ -731,7 +731,7 @@ class point(int x, int y)
 
 var p = point(10, 20)
 var point p2 = point(100, 200)
-var point p3 = this.point(1000, 2000)
+var point p3 = result.point(1000, 2000)
 
 assert p.x == 10 and p.y == 20
 assert p2.x == 100 and p2.y == 200

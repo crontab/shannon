@@ -423,7 +423,6 @@ public:
     void loadMember(State*, const str& ident);
     void loadMember(Symbol* sym);
     void loadMember(Variable*);
-    void loadOuterObj();
     void loadThis();
     void loadDataSeg();
 
