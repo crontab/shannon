@@ -139,9 +139,9 @@ void Compiler::identifier(const str& ident)
     while (sc != NULL);
 
     // Look up in used modules; search backwards
-    for (memint i = module->usedModuleInsts.size(); i--; )
+    for (memint i = module->usedModuleVars.size(); i--; )
     {
-        InnerVar* m = module->usedModuleInsts[i];
+        InnerVar* m = module->usedModuleVars[i];
         Symbol* sym = m->getModuleType()->find(ident);
         if (sym)
         {

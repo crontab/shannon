@@ -76,7 +76,7 @@ enum OpCode
     opMkRange,          // -int -int +range -- currently used only in const expressions
     opMkRef,            // -var +ref
     opMkFuncPtr,        // [State*] -obj +funcptr
-    opMkFarFuncPtr,     // [datasegidx:u8, State*] -obj +funcptr
+    opMkFarFuncPtr,     // [State*, datasegidx:u8] -obj +funcptr
     opNonEmpty,         // -var +bool
     opPop,              // -var
     opPopPod,           // -int
@@ -203,7 +203,7 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
-    opFarMethodCall,    // [datasegidx:u8, State*] -var -var -obj ... +var
+    opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
@@ -293,7 +293,7 @@ protected:
     template<class T>
         T& atw(memint i)                { return *(T*)code.atw(i); }
     OpCode operator[](memint i) const   { return OpCode(uchar(code.at(i))); }
-    void replaceOp(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
+    void replaceOpCode(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
 
     static inline memint oplen(OpCode op)
         { assert(op < opInv); return memint(ArgSizes[opTable[op].arg]) + 1; }

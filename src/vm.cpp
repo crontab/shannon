@@ -358,10 +358,8 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             *stk = new funcptr(dataseg, stk->_stateobj(), ADV(State*));
             break;
         case opMkFarFuncPtr:
-            {
-                stateobj* ds = dataseg->member(ADV(uchar))->_stateobj();
-                *stk = new funcptr(ds, stk->_stateobj(), ADV(State*));
-            }
+            callee = ADV(State*);
+            *stk = new funcptr(dataseg->member(ADV(uchar))->_stateobj(), stk->_stateobj(), callee);
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -781,9 +779,9 @@ nearCall:
             goto nearCall;
 
         case opMethodCall:
+            callee = ADV(State*);
             callds = dataseg;
 farCall:
-            callee = ADV(State*);
             callobj = (stk - callee->popArgCount - callee->returns)->_stateobj();
 indirCall:
             runRabbitRun(callds, callobj, stk + 1, callee->getCodeStart());
@@ -796,6 +794,7 @@ indirCall:
             break;
 
         case opFarMethodCall:
+            callee = ADV(State*);
             callds = dataseg->member(ADV(uchar))->_stateobj();
             goto farCall;
 
@@ -803,8 +802,8 @@ indirCall:
             {
                 funcptr* fp = (stk - ADV(uchar))->_funcptr();
                 CHKOBJ(fp);
-                callds = fp->dataseg;
                 callee = fp->state;
+                callds = fp->dataseg;
                 callobj = fp->outer;
                 goto indirCall;
             }
@@ -895,9 +894,9 @@ void ModuleInstance::run(Context* context, rtstack& stack)
 
     // Assign module vars. This allows to generate code that accesses module
     // static data by variable id, so that code is context-independent
-    for (memint i = 0; i < module->usedModuleInsts.size(); i++)
+    for (memint i = 0; i < module->usedModuleVars.size(); i++)
     {
-        InnerVar* v = module->usedModuleInsts[i];
+        InnerVar* v = module->usedModuleVars[i];
         stateobj* o = context->getModuleObject(v->getModuleType());
         *obj->member(v->id) = o;
     }

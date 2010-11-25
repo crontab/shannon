@@ -525,7 +525,7 @@ public:
 
     // VM helpers:
     memint popArgCount;
-    int returns;
+    bool returns;
     memint varCount;
 
     State(State* parent, FuncPtr*);
@@ -574,7 +574,7 @@ protected:
     bool complete;
 public:
     str const filePath;
-    objvec<InnerVar> usedModuleInsts; // used module instances are stored in static vars
+    objvec<InnerVar> usedModuleVars; // used module instances are stored in static vars
     Module(const str& name, const str& filePath);
     ~Module();
     void dump(fifo&) const;
@@ -582,6 +582,7 @@ public:
     bool isComplete() const     { return complete; }
     void setComplete()          { complete = true; }
     void addUsedModule(Module*);
+    InnerVar* findUsedModuleVar(Module*);
     void registerString(str&); // registers a string literal for use at run-time
     void registerCodeSeg(CodeSeg* c); // collected here for dumps
 };

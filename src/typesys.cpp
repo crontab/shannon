@@ -833,7 +833,7 @@ State::State(State* par, FuncPtr* proto)
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), returnVar(NULL),
       codeseg(new CodeSeg(this)), externFunc(NULL),
-      popArgCount(0), returns(0), varCount(0)
+      popArgCount(0), returns(false), varCount(0)
 {
     // Is this a 'self' state?
     if (prototype->returnType->isSelfStub())
@@ -841,7 +841,7 @@ State::State(State* par, FuncPtr* proto)
     // Register all formal args as actual args within the local scope,
     // including the return var
     popArgCount = prototype->formalArgs.size();
-    returns = prototype->isVoidFunc() ? 0 : 1;
+    returns = prototype->isVoidFunc();
     if (!prototype->isVoidFunc())
         returnVar = addArgument("result", prototype->returnType, popArgCount + 1);
     for (memint i = 0; i < popArgCount; i++)
@@ -1063,7 +1063,19 @@ void Module::dump(fifo& stm) const
 
 
 void Module::addUsedModule(Module* m)
-    { usedModuleInsts.push_back(addInnerVar(m->getName(), m)); }
+    { usedModuleVars.push_back(addInnerVar(m->getName(), m)); }
+
+
+InnerVar* Module::findUsedModuleVar(Module* m)
+{
+    for (memint i = usedModuleVars.size(); i--; )
+    {
+        InnerVar* var = usedModuleVars[i];
+        if (var->type == m)
+            return var;
+    }
+    return NULL;
+}
 
 
 void Module::registerString(str& s)

@@ -534,7 +534,16 @@ void CodeGen::loadMember(Symbol* sym)
             if (targetModule == codeOwner->parentModule) // near call
                 addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
             else
-                notimpl(); // far call
+            {
+                // For far calls/funcptrs a data segment object should be provided
+                // as well: we do this by providing the ID of a corresponding
+                // module instance variable:
+                InnerVar* moduleVar = codeOwner->parentModule->findUsedModuleVar(targetModule);
+                if (moduleVar == NULL)
+                    error("Function call impossible within this context");
+                addOp<State*>(PState(stateType)->prototype, opMkFarFuncPtr, PState(stateType));
+                add<uchar>(moduleVar->id);
+            }
         }
         else
         {
@@ -1196,10 +1205,10 @@ str CodeGen::lvalue()
         // should be a grounded one, transform it to its LEA equivalent, then
         // transform/move the last loader like in the previous case.
         memint prev = stkPrevLoaderOffs();
-        codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
+        codeseg.replaceOpCode(prev, loaderToLea(codeseg[prev]));
     }
     OpCode storer = loaderToStorer(loader);
-    codeseg.replaceOp(offs, storer);
+    codeseg.replaceOpCode(offs, storer);
     return codeseg.cutOp(offs);
 }
 
@@ -1209,7 +1218,7 @@ str CodeGen::arithmLvalue(Token tok)
     assert(tok >= tokAddAssign && tok <= tokModAssign);
     OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
     memint offs = stkLoaderOffs();
-    codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
+    codeseg.replaceOpCode(offs, loaderToLea(codeseg[offs]));
     offs = getCurrentOffs();
     codeseg.append(op);
     return codeseg.cutOp(offs);
@@ -1221,7 +1230,7 @@ void CodeGen::catLvalue()
     if (!stkType()->isAnyVec())
         error("'|=' expects vector/string type");
     memint offs = stkLoaderOffs();
-    codeseg.replaceOp(offs, loaderToLea(codeseg[offs]));
+    codeseg.replaceOpCode(offs, loaderToLea(codeseg[offs]));
 }
 
 
@@ -1230,8 +1239,8 @@ str CodeGen::insLvalue()
     memint offs = stkLoaderOffs();
     OpCode inserter = loaderToInserter(codeseg[offs]);
     memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
-    codeseg.replaceOp(offs, inserter);
+    codeseg.replaceOpCode(prev, loaderToLea(codeseg[prev]));
+    codeseg.replaceOpCode(offs, inserter);
     return codeseg.cutOp(offs);
 }
 
@@ -1254,8 +1263,8 @@ void CodeGen::deleteContainerElem()
     memint offs = stkLoaderOffs();
     OpCode deleter = loaderToDeleter(codeseg[offs]);
     memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOp(prev, loaderToLea(codeseg[prev]));
-    codeseg.replaceOp(offs, deleter);
+    codeseg.replaceOpCode(prev, loaderToLea(codeseg[prev]));
+    codeseg.replaceOpCode(offs, deleter);
     stkPop();
 }
 
@@ -1353,7 +1362,6 @@ void CodeGen::call(FuncPtr* proto)
     memint offs = stkLoaderOffs();
     switch (codeseg[offs])
     {
-        // All the ops below have a State* argument in the code
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
@@ -1367,22 +1375,21 @@ void CodeGen::call(FuncPtr* proto)
     // value. The VM discards the object pointer and puts the ret value instead
     // so that everything looks like the method call has just returned a value.
 
-    stkPop(); // funcptr
     if (op != opInv)
     {
-        State* callee = codeseg.at<State*>(offs + 1);
-        codeseg.eraseOp(offs); // erase funcptr loader
+        codeseg.replaceOpCode(offs, op); // replace funcptr loader with a call
         if (proto->isVoidFunc())
         {
-            addOp<State*>(op, callee);
+            stkPop();
             throw evoidfunc();
         }
         else
-            addOp<State*>(proto->returnType, op, callee);
+            stkReplaceType(proto->returnType);
     }
 
     else  // indirect call
     {
+        stkPop(); // funcptr
         if (proto->isVoidFunc())
         {
             addOp<uchar>(opCall, proto->totalStkArgs());
