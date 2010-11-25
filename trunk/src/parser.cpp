@@ -85,6 +85,7 @@ Keywords::kwinfo Keywords::keywords[] =
         {"shl", tokShl},
         {"shr", tokShr},
         {"switch", tokSwitch},
+        {"that", tokThat},
         {"this", tokThis},
         {"typeof", tokTypeOf},
         {"var", tokVar},

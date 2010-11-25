@@ -843,7 +843,7 @@ State::State(State* par, FuncPtr* proto)
     popArgCount = prototype->formalArgs.size();
     returns = prototype->isVoidFunc() ? 0 : 1;
     if (!prototype->isVoidFunc())
-        returnVar = addArgument("result", prototype->returnType, popArgCount + 1);
+        returnVar = addArgument("", prototype->returnType, popArgCount + 1);
     for (memint i = 0; i < popArgCount; i++)
     {
         FormalArg* arg = prototype->formalArgs[i];

@@ -562,14 +562,23 @@ void CodeGen::loadMember(Variable* var)
 }
 
 
+void CodeGen::loadOuterObj()
+{
+    if (isCompileTime())
+        error("'that' is not available in const expressions");
+    else
+        addOp(codeOwner->parent, opLoadOuterObj);
+}
+
+
 void CodeGen::loadThis()
 {
     if (isCompileTime())
         error("'this' is not available in const expressions");
-    else if (codeOwner->parent && codeOwner->parent->isConstructor())
-        addOp(codeOwner->parent, opLoadOuterObj);
+    else if (codeOwner->returnVar)
+        loadArgVar(codeOwner->returnVar);
     else
-        error("'this' is not available within this context");
+        error("'this' is not available in void functions");
 }
 
 

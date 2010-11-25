@@ -38,6 +38,7 @@ context default
 	keyword whole shl		yellow
 	keyword whole shr		yellow
 	keyword whole switch		yellow
+	keyword whole that		yellow
 	keyword whole this		yellow
 	keyword whole typeof		yellow
 	keyword whole var		yellow
