@@ -548,17 +548,17 @@ def inc = int *(int i)
     result = i + 1
     inc_call_count = inc_call_count + 1
 }
-
+/*
 var incv = int *(int i)
 {
     result = i + 1
     inc_call_count = inc_call_count + 1
 }
-
+*/
 var rr1 = inc(5)
 assert rr1 == 6
 assert inc_call_count == 1
-
+/*
 inc(9)
 assert inc_call_count == 2
 
@@ -747,5 +747,5 @@ assert p.x == 15 and p.y == 30
 // point.move(5, 5)
 p.move2(5, 10)
 assert p.x == 25 and p.y == 50
-
+*/
 dump system.__program_result

@@ -7,7 +7,7 @@
 
 umemint ArgSizes[argMax] =
     {
-      0, sizeof(Type*), sizeof(State*), sizeof(uchar) + sizeof(State*), sizeof(uchar), sizeof(integer), sizeof(str), 
+      0, sizeof(Type*), sizeof(State*), sizeof(State*) + sizeof(uchar), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer),
@@ -74,7 +74,7 @@ OpInfo opTable[] =
     OP(MkRange, None),          // -int -int +range
     OP(MkRef, None),            // -var +ref
     OP(MkFuncPtr, State),       // [State*] -obj +funcptr
-    OP(MkFarFuncPtr, FarState), // [datasegidx:u8, State*] -obj +funcptr
+    OP(MkFarFuncPtr, FarState), // [State*, datasegidx:u8] -obj +funcptr
     OP(NonEmpty, None),         // -var +bool
     OP(Pop, None),              // -var
     OP(PopPod, None),           // -int
@@ -192,7 +192,7 @@ OpInfo opTable[] =
     OP(ChildCall, State),       // [State*] -var -var ... +var
     OP(SiblingCall, State),     // [State*] -var -var ... +var
     OP(MethodCall, State),      // [State*] -var -var -obj ... +var
-    OP(FarMethodCall, FarState),// [datasegidx:u8, State*] -var -var -obj ... +var
+    OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... +var
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
 
     // Misc. builtins
@@ -279,7 +279,7 @@ void CodeSeg::dump(fifo& stm) const
                 case argNone:       break;
                 case argType:       ADV(Type*)->dumpDef(stm); break;
                 case argState:      ADV(State*)->fqName(stm); break;
-                case argFarState:   stm << "[ds:" << ADV(uchar) << ']'; ADV(State*)->fqName(stm); break;
+                case argFarState:   ADV(State*)->fqName(stm); stm << "[ds:" << ADV(uchar) << ']'; break;
                 case argUInt8:      stm << to_quoted(*ip); stm << " (" << int(ADV(uchar)) << ')'; break;
                 case argInt:        stm << ADV(integer); break;
                 case argStr:        stm << to_quoted(ADV(str)); break;

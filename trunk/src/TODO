@@ -1,7 +1,8 @@
 
 * Far calls
 
-* 'this' and 'that'
+* 'var' arguments: pass a grounded reference (l-value actually): limited
+  but useful. Many builtins can be defined with var arguments.
 
 * Builtins are defined within states; "global" builtins are in QueenBee.
   What about containers? Fifos?
