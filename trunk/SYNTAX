@@ -128,6 +128,10 @@ prototype-derivator ::= formal-args
 
 state-derivator ::= formal-args multi-block
 
+formal-args ::= '(' formal-arg { ',' formal-arg } ')'
+
+formal-arg ::= type-name [ ident ]
+
 index-expr ::= expr [ '..' [ expr ] ]
 
 actual-args ::= expr { ',' expr }
