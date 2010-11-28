@@ -358,10 +358,18 @@ void CodeGen::loadTypeRef(Type* type)
         // as (2); or (4) otherwise the function pointer is left "as is".
         State* stateType = PState(type);
         OpCode op = opInv;
-        if (stateType->parent == codeOwner->parent)
+        if (stateType->isStatic())
+            op = opLoadStaticFuncPtr;
+        else if (stateType->parent == codeOwner->parent)
+        {
+            codeOwner->useOutsideObject();
             op = opLoadOuterFuncPtr;
+        }
         else if (stateType->parent == codeOwner)
+        {
+            codeOwner->useOutsideObject(); // uses dataseg
             op = opLoadInnerFuncPtr;
+        }
         else
             error("Invalid context for a function pointer");
         addOp<State*>(stateType->prototype, op, stateType);
@@ -483,7 +491,10 @@ void CodeGen::loadVariable(Variable* var)
             varNotAccessible(var->name);
     }
     else if (var->isInnerVar() && var->host == codeOwner->parent)
+    {
+        codeOwner->useOutsideObject();
         _loadVar(var, opLoadOuterVar);
+    }
     else if (var->isInnerVar() && var->host == module)
     {
         loadDataSeg();
@@ -543,6 +554,7 @@ void CodeGen::loadMember(Symbol* sym)
         if (stateType && stateType->isAnyState())
         {
             stkPop();
+            codeOwner->useOutsideObject();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
             // also loadDefinition()
             Module* targetModule = PState(stateType)->parentModule;
@@ -591,7 +603,10 @@ void CodeGen::loadThis()
     if (isCompileTime())
         error("'this' is not available in const expressions");
     else if (codeOwner->parent && codeOwner->parent->isConstructor())
+    {
+        codeOwner->useOutsideObject();
         addOp(codeOwner->parent, opLoadOuterObj);
+    }
     else
         error("'this' is not available within this context");
 }
@@ -601,6 +616,7 @@ void CodeGen::loadDataSeg()
 {
     if (isCompileTime())
         error("Static data can not be accessed in const expressions");
+    codeOwner->useOutsideObject();
     addOp(module, opLoadDataSeg);
 }
 
@@ -1378,6 +1394,7 @@ void CodeGen::call(FuncPtr* proto)
     {
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
+        case opLoadStaticFuncPtr: op = opStaticCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
         case opMkFarFuncPtr: op = opFarMethodCall; break;
         default: ; // leave op = opInv

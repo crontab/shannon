@@ -5,10 +5,10 @@
 
 CodeSeg::CodeSeg(State* s)
     : object(), state(s)
+    , stackSize(0)
 #ifdef DEBUG
     , closed(false)
 #endif
-    , stackSize(0)
     { }
 
 
@@ -170,7 +170,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 
         case opEnterFunc:
             {
-                CHKOBJ(outerobj);
+                // CHKOBJ(outerobj);
                 // TODO: see if the local stateobj is not used in the function
                 //       (and nested functions) and produce a simpler prologue
                 State* state = ADV(State*);
@@ -200,7 +200,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 
         case opEnterCtor:
             {
-                CHKOBJ(outerobj);
+                // CHKOBJ(outerobj);
                 State* state = ADV(State*);
                 variant* result = argp - state->returnVar->id;
                 // Instantiate the class if not already done
@@ -250,6 +250,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opLoadInnerFuncPtr:
             PUSH(new funcptr(dataseg, innerobj, ADV(State*)));
+            break;
+        case opLoadStaticFuncPtr:
+            PUSH(new funcptr(NULL, NULL, ADV(State*)));
             break;
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
@@ -770,6 +773,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 nearCall:
             callee = ADV(State*);
             runRabbitRun(dataseg, callobj, stk + 1, callee->getCodeStart());
+popArgs:
             for (memint i = callee->popArgCount; i--; )
                 POP();
             break;
@@ -777,6 +781,11 @@ nearCall:
         case opSiblingCall:
             callobj = outerobj;
             goto nearCall;
+
+        case opStaticCall:
+            callee = ADV(State*);
+            runRabbitRun(NULL, NULL, stk + 1, callee->getCodeStart());
+            goto popArgs;
 
         case opMethodCall:
             callee = ADV(State*);

@@ -830,6 +830,7 @@ bool SelfStub::canAssignTo(Type*) const
 
 State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par),
+      complete(false), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), returnVar(NULL),
       codeseg(new CodeSeg(this)), externFunc(NULL),
@@ -1036,7 +1037,7 @@ Container* State::getContainerType(Type* idx, Type* elem)
 
 
 Module::Module(const str& n, const str& f)
-    : State(NULL, new FuncPtr(this)), complete(false), filePath(f)
+    : State(NULL, new FuncPtr(this)), filePath(f)
 {
     defName = n;
     registerType(prototype);
@@ -1141,6 +1142,7 @@ QueenBee::QueenBee()
     sioVar = addInnerVar("sio", defCharFifo);
     serrVar = addInnerVar("serr", defCharFifo);
 
+    getCodeSeg()->close();
     setComplete();
 }
 
@@ -1151,12 +1153,13 @@ QueenBee::~QueenBee()
 
 stateobj* QueenBee::newInstance()
 {
+    assert(getCodeSeg()->closed);
+    assert(complete);
     stateobj* inst = parent::newInstance();
     sio.setType(defCharFifo);
     serr.setType(defCharFifo);
     *inst->member(sioVar->id) = &sio;
     *inst->member(serrVar->id) = &serr;
-    getCodeSeg()->close();
     return inst;
 }
 

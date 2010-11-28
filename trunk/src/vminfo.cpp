@@ -40,6 +40,7 @@ OpInfo opTable[] =
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadInnerFuncPtr, State),// [State*] +funcptr
+    OP(LoadStaticFuncPtr, State),// [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadInnerVar, InnerIdx), // [inner.idx:u8] +var
@@ -191,6 +192,7 @@ OpInfo opTable[] =
 
     OP(ChildCall, State),       // [State*] -var -var ... +var
     OP(SiblingCall, State),     // [State*] -var -var ... +var
+    OP(StaticCall, State),      // [State*] -var -var ... +var
     OP(MethodCall, State),      // [State*] -var -var -obj ... +var
     OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... +var
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
