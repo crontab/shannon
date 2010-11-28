@@ -40,6 +40,7 @@ enum OpCode
     // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadInnerFuncPtr, // [State*] +funcptr
+    opLoadStaticFuncPtr,// [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -202,6 +203,7 @@ enum OpCode
     // don't forget isCaller()
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
+    opStaticCall,       // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
     opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var
@@ -274,10 +276,6 @@ class CodeSeg: public object
     State* state;
     str code;
 
-#ifdef DEBUG
-    bool closed;
-#endif
-
 protected:
     memint stackSize;
 
@@ -309,6 +307,11 @@ public:
 
     const uchar* getCode() const        { assert(closed); return (uchar*)code.data(); }
     void dump(fifo& stm) const;  // in vminfo.cpp
+
+#ifdef DEBUG
+    bool closed;
+#endif
+
 };
 
 

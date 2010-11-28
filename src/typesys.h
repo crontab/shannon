@@ -511,6 +511,9 @@ protected:
     InnerVar* addInnerVar(InnerVar*);
     static Module* getParentModule(State*);
 
+    bool complete;
+    int outsideObjectsUsed;
+
 public:
     objvec<InnerVar> innerVars;     // owned
 
@@ -534,8 +537,16 @@ public:
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
 
-    bool isConstructor()
+    bool isComplete() const
+        { return complete; }
+    void setComplete()
+        { assert(!complete); complete = true; }
+    bool isConstructor() const
         { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
+    bool isStatic() const
+        { return isComplete() && outsideObjectsUsed == 0; }
+    State* useOutsideObject()
+        { outsideObjectsUsed++; return this; }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     ArgVar* addArgument(const str&, Type*, memint);
@@ -543,7 +554,8 @@ public:
     InnerVar* reclaimArg(ArgVar*, Type*);
     virtual stateobj* newInstance();
     template <class T>
-        T* registerType(T* t)       { return cast<T*>(_registerType(t)); }
+        T* registerType(T* t)
+            { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCodeStart() const;
@@ -571,7 +583,6 @@ class Module: public State
 protected:
     strvec constStrings;
     objvec<CodeSeg> codeSegs;   // for dumps
-    bool complete;
 public:
     str const filePath;
     objvec<InnerVar> usedModuleVars; // used module instances are stored in static vars
@@ -579,8 +590,6 @@ public:
     ~Module();
     void dump(fifo&) const;
     str getName() const         { return defName; }
-    bool isComplete() const     { return complete; }
-    void setComplete()          { complete = true; }
     void addUsedModule(Module*);
     InnerVar* findUsedModuleVar(Module*);
     void registerString(str&); // registers a string literal for use at run-time

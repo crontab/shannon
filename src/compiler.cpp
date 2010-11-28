@@ -592,6 +592,7 @@ void Compiler::stateBody(State* newState)
     Scope* saveScope = exchange(scope, cast<Scope*>(newState));
     try
     {
+        // TODO: allow single statement with colon?
         memint prologOffs = codegen->prolog();
         skipMultiBlockBegin("'{'");
         statementList(false);
@@ -609,6 +610,7 @@ void Compiler::stateBody(State* newState)
     state = saveState;
     codegen = saveCodeGen;
     newCodeGen.end();
+    newState->setComplete();
     module->registerCodeSeg(newState->getCodeSeg());
 }
 
@@ -658,7 +660,7 @@ void Compiler::compileModule()
     }
 
     mainCodeGen.end();
-    module->registerCodeSeg(module->getCodeSeg());
     module->setComplete();
+    module->registerCodeSeg(module->getCodeSeg());
 }
 

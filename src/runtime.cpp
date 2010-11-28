@@ -884,7 +884,7 @@ str remove_filename_ext(const str& fn)
 }
 
 
-static const charset printable_chars = "~20-~7E~81-~FE";
+static const charset printable_chars = "~20-~7E~80-~FE";
 
 
 static void _to_printable(char c, str& s)
