@@ -841,7 +841,7 @@ State::State(State* par, FuncPtr* proto)
     // Register all formal args as actual args within the local scope,
     // including the return var
     popArgCount = prototype->formalArgs.size();
-    returns = prototype->isVoidFunc();
+    returns = !prototype->isVoidFunc();
     if (!prototype->isVoidFunc())
         returnVar = addArgument("result", prototype->returnType, popArgCount + 1);
     for (memint i = 0; i < popArgCount; i++)

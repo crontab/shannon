@@ -656,6 +656,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
 
         if (codegen->getTopType()->isReference())
             error("References not allowed in const expressions");
+
         resultType = constCodeGen.runConstExpr(result);
         codegen = prevCodeGen;
 

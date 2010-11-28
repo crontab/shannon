@@ -9,7 +9,7 @@ const char* evoidfunc::what() throw() { return "Void function called"; }
 
 CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
     : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
-      lastOp(opInv), prevLoaderOffs(-1), primaryLoaders()
+      prevLoaderOffs(-1), primaryLoaders()
 {
     assert(treg != NULL);
     if (compileTime != (codeOwner == NULL))
@@ -29,15 +29,30 @@ void CodeGen::error(const str& msg)
     { throw emessage(msg); }
 
 
-void CodeGen::addOp(Type* type, OpCode op)
+void CodeGen::stkPush(Type* type, memint offs)
 {
-    memint offs = getCurrentOffs();
     simStack.push_back(SimStackItem(type, offs));
+    OpCode op = codeseg[offs];
     if (isPrimaryLoader(op))
         primaryLoaders.push_back(offs);
     if (getStackLevel() > codeseg.stackSize)
         codeseg.stackSize = getStackLevel();
+}
+
+
+void CodeGen::addOp(Type* type, OpCode op)
+{
+    memint offs = getCurrentOffs();
     addOp(op);
+    stkPush(type, offs);
+}
+
+
+void CodeGen::addOp(Type* type, const str& code)
+{
+    memint offs = getCurrentOffs();
+    codeseg.append(code);
+    stkPush(type, offs);
 }
 
 
@@ -1073,8 +1088,7 @@ void CodeGen::_jump(memint target, OpCode op)
 
 void CodeGen::linenum(integer n)
 {
-    if (lastOp != opLineNum)
-        addOp<integer>(opLineNum, n);
+    addOp<integer>(opLineNum, n);
 }
 
 
@@ -1375,21 +1389,22 @@ void CodeGen::call(FuncPtr* proto)
     // value. The VM discards the object pointer and puts the ret value instead
     // so that everything looks like the method call has just returned a value.
 
+    stkPop(); // funcptr; arguments are gone already
     if (op != opInv)
     {
-        codeseg.replaceOpCode(offs, op); // replace funcptr loader with a call
+        codeseg.replaceOpCode(offs, op); // replace funcptr loader with a call op
+        str callCode = codeseg.cutOp(offs); // and move it to the end (after the actual args)
         if (proto->isVoidFunc())
         {
-            stkPop();
+            codeseg.append(callCode);
             throw evoidfunc();
         }
         else
-            stkReplaceType(proto->returnType);
+            addOp(proto->returnType, callCode);
     }
 
     else  // indirect call
     {
-        stkPop(); // funcptr
         if (proto->isVoidFunc())
         {
             addOp<uchar>(opCall, proto->totalStkArgs());
