@@ -347,16 +347,17 @@ protected:
 
     podvec<SimStackItem> simStack;  // exec simulation stack
     memint locals;                  // number of local vars allocated
-    OpCode lastOp;
 
     template <class T>
         void add(const T& t)                        { codeseg.append<T>(t); }
-    void addOp(OpCode op)                           { codeseg.append<uchar>(lastOp = op); }
+    void addOp(OpCode op)                           { codeseg.append<uchar>(op); }
     void addOp(Type*, OpCode op);
+    void addOp(Type*, const str& op);
     template <class T>
         void addOp(OpCode op, const T& a)           { addOp(op); add<T>(a); }
     template <class T>
         void addOp(Type* t, OpCode op, const T& a)  { addOp(t, op); add<T>(a); }
+    void stkPush(Type*, memint);
     Type* stkPop();
     void stkReplaceType(Type* t);  // only if the opcode is not changed
     Type* stkType()
