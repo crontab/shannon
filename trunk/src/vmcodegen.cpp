@@ -240,6 +240,15 @@ Type* CodeGen::undoTypeRef()
 }
 
 
+Ordinal* CodeGen::undoOrdTypeRef()
+{
+    Type* type = undoTypeRef();
+    if (!type->isAnyOrd())
+        error("Ordinal type reference expected");
+    return POrdinal(type);
+}
+
+
 bool CodeGen::deref()
 {
     Type* type = stkType();
@@ -770,6 +779,41 @@ void CodeGen::length()
 }
 
 
+void CodeGen::lo()
+{
+    Type* type = stkType();
+    if (type->isTypeRef())
+        loadConst(queenBee->defInt, undoOrdTypeRef()->left);
+    else if (type->isNullCont() || type->isAnyVec())
+    {
+        undoSubexpr();
+        loadConst(queenBee->defInt, 0);
+    }
+    else
+        error("lo() expects vector, string or ordinal type reference");
+}
+
+
+void CodeGen::hi()
+{
+    Type* type = stkType();
+    if (type->isTypeRef())
+        loadConst(queenBee->defInt, undoOrdTypeRef()->right);
+    else if (type->isNullCont())
+    {
+        undoSubexpr();
+        loadConst(queenBee->defInt, -1);
+    }
+    else if (type->isAnyVec())
+    {
+        stkPop();
+        addOp(queenBee->defInt, type->isByteVec() ? opStrHi : opVecHi);
+    }
+    else
+        error("hi() expects vector, string or ordinal type reference");
+}
+
+
 Container* CodeGen::elemToVec(Container* vecType)
 {
     Type* elemType = stkType();
@@ -920,12 +964,10 @@ void CodeGen::inCont()
 
 void CodeGen::inBounds()
 {
-    Type* type = undoTypeRef();
+    Type* type = undoOrdTypeRef();
     Type* elemType = stkPop();
     if (!elemType->isAnyOrd())
         error("Ordinal type expected");
-    if (!type->isAnyOrd())
-        error("Ordinal type reference expected");
     addOp<Ordinal*>(queenBee->defBool, opInBounds, POrdinal(type));
 }
 

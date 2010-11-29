@@ -8,6 +8,8 @@
 
 * Inheritance, virtual calls, compatibility rules
 
+* Allow static calls via a type instead of an object
+
 * Enqueue and dequeue operators: << and >>, almost like the iostream
   operators in C++. The leftmost operand is always a fifo.
 
@@ -31,15 +33,16 @@
   state members with the 'for' operator - how?
 
 * Nullable types: patented by Microsoft. Instead, maybe just use 'any'
-  and operator '?', e.g. v = v ? 0 (if null then assign 0)
+  and operator 'default', e.g. v = v default 0 (if null then assign 0)
 
 * Read-only variables (const) and const subexpressions? A bit problematic:
   const should be part of type, not var definition.
 
 * 'public' and 'forward' blocks
 
-* Small ordinals with the 's' prefix? Custom prefixes will be used for
-  measurement units as well, don't know.
+* Small ordinals with the 's' prefix? Custom prefixes can be used for
+  measurement units as well. Meas. units are compatible with ints but not
+  compatible with each other.
 
 * finally { ... } is a nested block which is executed if the enclosing
   block reaches its end, i.e. the finally label. For states this is the
@@ -48,10 +51,6 @@
 * Structs are almost like vectors, except element types are specified    
   individually. Can be used for returning multiple values from functions.    
   So a struct descriptor is a vector of types?
-
-* A special return value with 'var' indicates it's a special method
-  that's called on a variable or a reference, e.g. def (var chars)
-  include(int, ... Might be especially useful for builtins.
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
 
@@ -63,7 +62,7 @@
 * HTML/XML embedded mode, also arbitrary text embedded mode
 
 * Compiler directives: DEBUG ON|OFF  RANGE_CHECK ON|OFF  ASSERT ON|OFF
-  ECHO ON|OFF  MARKUP ON|OFF (syntax?)
+  DUMP ON|OFF  MARKUP ON|OFF (syntax?)
 
 * Two versions of the binary: debug and release. Debug helps to debug
   both the program (assertions, dumps and range checking are on) and the

@@ -91,7 +91,7 @@ void Compiler::definition()
 void Compiler::classDef()
 {
     str ident = getIdentifier();
-    expectLParen();
+    skipLParen();
     State* type = cast<State*>(getStateDerivator(queenBee->defSelfStub, false));
     state->addDefinition(ident, defTypeRef, type, scope);
 }

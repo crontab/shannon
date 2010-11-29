@@ -67,9 +67,12 @@ assert v8[0] == 10 and v8[1] == 11
 assert v9[0] == 12 and v9[1] == 13
 assert d0['one'] == 1 and d0['two'] == 2
 assert d1['a'] == 'Letter A' and d1['b'] == 'Letter B'
-assert ?i0 and ?v5 and ?n0 and not ?one and not ?false and not ?s1 and ?v2
+assert i0? and v5? and n0? and not one? and not false? and not s1? and v2?
 assert 'a' in identChars and not '?' in identChars
 assert (int *[] *[str]) == (intvec *[str])
+assert lo(v1) == 0 and hi(v1) == 1
+assert lo(char) == 0 and hi(char) == 255
+assert hi([]) == -1
 
 
 // ASSIGNMENTS, DEL, INS
@@ -747,7 +750,7 @@ assert p.cpt == 50 and p2.cpt == 50
 assert point.cpt == 50
 
 var point pnull = {}
-assert not ?pnull and ?p
+assert not pnull? and p?
 
 p.move(5, 10)
 assert p.x == 15 and p.y == 30

@@ -16,6 +16,8 @@ class Compiler;
 
  
 void compileLen(Compiler*, Builtin*);
+void compileLo(Compiler*, Builtin*);
+void compileHi(Compiler*, Builtin*);
 
 
 #endif // __BUILTINS_H

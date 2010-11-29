@@ -107,8 +107,8 @@ public:
     void skipWsSeps()
         { while (skipIf(tokSep)) ; }
     void expect(Token tok, const char* errName);
-    void expectLParen();
-    void expectRParen();
+    void skipLParen();
+    void skipRParen();
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
     bool skipIf(Token tokMin, Token tokMax)

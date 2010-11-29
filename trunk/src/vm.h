@@ -93,6 +93,8 @@ enum OpCode
     opVecCat,           // -vec -vec +vec
     opStrLen,           // -str +int
     opVecLen,           // -str +int
+    opStrHi,            // -str +int
+    opVecHi,            // -str +int
     opStrElem,          // -int -str +char
     opVecElem,          // -int -vec +var
     opSubstr,           // -{int,void} -int -str +str
@@ -396,6 +398,7 @@ public:
     memint getCurrentOffs()     { return codeseg.size(); }
     void undoSubexpr();
     Type* undoTypeRef();
+    Ordinal* undoOrdTypeRef();
     bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
     void deinitFrame(memint baseLevel); // doesn't change the sim stack
@@ -443,6 +446,8 @@ public:
     void loadDictElemByIndex();
     void loadSubvec();
     void length();
+    void lo();
+    void hi();
     Container* elemToSet();
     Container* rangeToSet();
     void setAddElem();

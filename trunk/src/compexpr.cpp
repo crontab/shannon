@@ -52,7 +52,7 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
             proto->addFormalArg(ident, argType);
         }
         while (skipIf(tokComma));
-        expectRParen();
+        skipRParen();
     }
     if (skipIf(tokEllipsis))
     {
@@ -121,6 +121,11 @@ Type* Compiler::getTypeDerivators(Type* type)
 
 void Compiler::builtin(Builtin* b)
 {
+    if (b->prototype)
+    {
+        skipLParen();
+        actualArgs(b->prototype);
+    }
     b->compileFunc(this, b);
 }
 
@@ -287,7 +292,7 @@ void Compiler::typeOf()
 
 void Compiler::ifFunc()
 {
-    expectLParen();
+    skipLParen();
     expression(queenBee->defBool);
     memint jumpFalse = codegen->boolJumpForward(opJumpFalse);
     expect(tokComma, "','");
@@ -299,7 +304,7 @@ void Compiler::ifFunc()
     expect(tokComma, "','");
     expression(exprType);
     codegen->resolveJump(jumpOut);
-    expectRParen();
+    skipRParen();
 }
 
 
@@ -314,7 +319,7 @@ void Compiler::actualArgs(FuncPtr* proto)
         FormalArg* arg = proto->formalArgs[i];
         expression(arg->type);
     }
-    expectRParen();
+    skipRParen();
 }
 
 
@@ -348,7 +353,7 @@ void Compiler::atom(Type* typeHint)
     else if (skipIf(tokLParen))
     {
         expression(typeHint);
-        expectRParen();
+        skipRParen();
     }
 
     else if (skipIf(tokLSquare))
@@ -432,11 +437,10 @@ void Compiler::designator(Type* typeHint)
 void Compiler::factor(Type* typeHint)
 {
     bool isNeg = skipIf(tokMinus);
-    bool isQ = skipIf(tokQuestion);
 
     designator(typeHint);
 
-    if (isQ)
+    if (skipIf(tokQuestion))
         codegen->nonEmpty();
     if (isNeg)
         codegen->arithmUnary(opNeg);
