@@ -56,7 +56,7 @@ class CodeGen;
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION, MODULEINST };
+    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION };
 
     SymbolId const symbolId;
     Type* const type;
@@ -74,8 +74,6 @@ public:
     bool isInnerVar() const         { return symbolId == INNERVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
     bool isAnyDef() const           { return symbolId == DEFINITION; }
-    // bool isTypeAlias() const;
-    bool isModuleInstance() const   { return symbolId == MODULEINST; }
 };
 
 

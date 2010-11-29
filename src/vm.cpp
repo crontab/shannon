@@ -899,7 +899,7 @@ Type* CodeGen::runConstExpr(variant& result)
 
 
 ModuleInstance::ModuleInstance(Module* m)
-    : Symbol(m->getName(), MODULEINST, m, NULL), module(m), obj()  { }
+    : symbol(m->getName()), module(m), obj()  { }
 
 
 void ModuleInstance::run(Context* context, rtstack& stack)
@@ -967,7 +967,7 @@ static str moduleNameFromFileName(const str& n)
 
 
 Context::Context()
-    : Scope(false, NULL), queenBeeInst(addModule(queenBee))  { }
+    : queenBeeInst(addModule(queenBee))  { }
 
 
 Context::~Context()
@@ -976,8 +976,11 @@ Context::~Context()
 
 ModuleInstance* Context::addModule(Module* m)
 {
+    if (m->getName().empty())
+        fatal(0x5007, "Empty module name");
     objptr<ModuleInstance> inst = new ModuleInstance(m);
-    Scope::addUnique(inst);
+    if (!instTable.add(inst))
+        throw emessage("Duplicate module name: " + inst->name);
     instances.push_back(inst->grab<ModuleInstance>());
     return inst;
 }
@@ -1013,7 +1016,7 @@ Module* Context::getModule(const str& modName)
 {
     // TODO: find a moudle by full path, not just name (hash by path/name?)
     // TODO: to have a global cache of compiled modules, not just within the context
-    ModuleInstance* inst = cast<ModuleInstance*>(Scope::find(modName));
+    ModuleInstance* inst = instTable.find(modName);
     if (inst != NULL)
         return inst->module;
     else

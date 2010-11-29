@@ -524,7 +524,7 @@ struct CompilerOptions
 
 class Context;
 
-class ModuleInstance: public Symbol
+class ModuleInstance: public symbol
 {
 public:
     objptr<Module> module;
@@ -535,9 +535,10 @@ public:
 };
 
 
-class Context: protected Scope
+class Context
 {
 protected:
+    symtbl<ModuleInstance> instTable;
     objvec<ModuleInstance> instances;
     ModuleInstance* queenBeeInst;
 
