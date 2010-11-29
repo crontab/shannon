@@ -648,7 +648,7 @@ void test_typesys()
         state.addDefinition("ghi", NULL, 2, &state);
         Symbol* s = state.find("def");
         check(s != NULL);
-        check(s->isAnyDef());
+        check(s->isDef());
         check(s->name == "def");
         state.findShallow("def");
     }
@@ -676,7 +676,7 @@ void test_typesys()
     check(queenBee->defStr->isAnyVec());
 
     Symbol* b = queenBee->find("true");
-    check(b != NULL && b->isAnyDef());
+    check(b != NULL && b->isDef());
     check(PDefinition(b)->value.as_ord() == 1);
     check(PDefinition(b)->type->isBool());
 }

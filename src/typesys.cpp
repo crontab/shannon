@@ -1,4 +1,6 @@
 
+
+#include "sysmodule.h"
 #include "typesys.h"
 #include "vm.h"
 
@@ -35,10 +37,6 @@ void Symbol::dump(fifo& stm) const
     if (!name.empty())
         stm << ' ' << name;
 }
-
-
-// bool Symbol::isTypeAlias() const
-//     { return isAnyDef() && PDefinition(this)->getAliasedType() != NULL; }
 
 
 // --- //
@@ -89,6 +87,30 @@ FormalArg::FormalArg(const str& n, Type* t)
 // --- //
 
 
+Builtin::Builtin(const str& n, CompileFunc f, FuncPtr* p, State* h)
+    : Symbol(n, BUILTIN, NULL, h), compileFunc(f), prototype(p)  { }
+
+
+Builtin::~Builtin()
+    { }
+
+
+void Builtin::dump(fifo& stm) const
+{
+    if (prototype)
+    {
+        prototype->dump(stm);
+        stm << " {<builtin." << name << ">}";
+    }
+    else
+        stm << "builtin." << name;
+}
+
+
+
+// --- //
+
+
 EDuplicate::EDuplicate(const str& _ident) throw(): ident(_ident)  { }
 EDuplicate::~EDuplicate() throw()  { }
 const char* EDuplicate::what() throw()  { return "Duplicate identifier"; }
@@ -99,9 +121,6 @@ const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 
 
 // --- //
-
-
-template class symtbl<Symbol>;
 
 
 Scope::Scope(bool _local, Scope* _outer)
@@ -1045,7 +1064,10 @@ Module::Module(const str& n, const str& f)
 
 
 Module::~Module()
-    { codeSegs.release_all(); }
+{
+    builtins.release_all();
+    codeSegs.release_all();
+}
 
 
 void Module::dump(fifo& stm) const
@@ -1099,6 +1121,20 @@ void Module::registerCodeSeg(CodeSeg* c)
     { codeSegs.push_back(c->grab<CodeSeg>()); }
 
 
+Builtin* Module::addBuiltin(Builtin* b)
+{
+    builtins.push_back(b->grab<Builtin>());
+    addUnique(b);
+    return b;
+}
+
+
+Builtin* Module::addBuiltin(const str& n, Builtin::CompileFunc f, FuncPtr* p)
+{
+    return addBuiltin(new Builtin(n, f, p, this));
+}
+
+
 // --- QueenBee ------------------------------------------------------------ //
 
 
@@ -1141,6 +1177,11 @@ QueenBee::QueenBee()
     resultVar = addInnerVar("__program_result", defVariant);
     sioVar = addInnerVar("sio", defCharFifo);
     serrVar = addInnerVar("serr", defCharFifo);
+
+    // Built-ins
+    FuncPtr* lenProto = registerType<FuncPtr>(new FuncPtr(defInt));
+    lenProto->addFormalArg("vec", defVariant);
+    addBuiltin("len", compileLen, lenProto);
 
     getCodeSeg()->close();
     setComplete();

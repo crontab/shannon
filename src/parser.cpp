@@ -384,7 +384,7 @@ restart:
         case '|': return token = (input->get_if('=') ? tokCatAssign : tokCat);
         case '^': return token = tokCaret;
         case '@': return token = tokAt;
-        case '#': return token = tokSharp;
+        // case '#': return token = tokHash;
         case '?': return token = tokQuestion;
         case '!': return token = (input->get_if('=') ? tokNotEq : tokExclam);
         }
@@ -443,6 +443,13 @@ void Parser::expect(Token tok, const char* errName)
         error(str(errName) + " expected");
     next();
 }
+
+
+void Parser::expectLParen()
+    { expect(tokLParen, "'('"); }
+
+void Parser::expectRParen()
+    { expect(tokRParen, "')'"); }
 
 
 bool Parser::isEos()

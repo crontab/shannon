@@ -4,7 +4,8 @@ debug/common.o: common.h version.h
 debug/runtime.o: runtime.h common.h version.h typesys.h
 debug/rtio.o: runtime.h common.h version.h
 debug/parser.o: parser.h common.h version.h runtime.h
-debug/typesys.o: typesys.h runtime.h common.h version.h vm.h parser.h
+debug/typesys.o: sysmodule.h runtime.h common.h version.h typesys.h vm.h
+debug/typesys.o: parser.h
 debug/vm.o: vm.h common.h version.h runtime.h parser.h typesys.h compiler.h
 debug/vmcodegen.o: vm.h common.h version.h runtime.h parser.h typesys.h
 debug/vminfo.o: vm.h common.h version.h runtime.h parser.h typesys.h
@@ -12,7 +13,8 @@ debug/compexpr.o: vm.h common.h version.h runtime.h parser.h typesys.h
 debug/compexpr.o: compiler.h
 debug/compiler.o: vm.h common.h version.h runtime.h parser.h typesys.h
 debug/compiler.o: compiler.h
-debug/sysmodule.o: sysmodule.h runtime.h common.h version.h
+debug/sysmodule.o: sysmodule.h runtime.h common.h version.h typesys.h vm.h
+debug/sysmodule.o: parser.h compiler.h
 debug/main.o: common.h version.h runtime.h parser.h typesys.h vm.h compiler.h
 debug/main-ut.o: common.h version.h runtime.h parser.h typesys.h vm.h
 debug/main-ut.o: compiler.h

@@ -439,7 +439,7 @@ void CodeGen::loadEmptyConst(Type* type)
 
 void CodeGen::loadSymbol(Symbol* sym)
 {
-    if (sym->isAnyDef())
+    if (sym->isDef())
         loadDefinition(PDefinition(sym));
     else if (sym->isAnyVar())
         loadVariable(PVariable(sym));
@@ -530,7 +530,7 @@ void CodeGen::loadMember(const str& ident)
 void CodeGen::loadMember(State* stateType, const str& ident)
 {
     Symbol* sym = stateType->findShallow(ident);
-    if (sym->isAnyDef())
+    if (sym->isDef())
         loadDefinition(PDefinition(sym));
     else
         // TODO: scope override within classes
@@ -547,7 +547,7 @@ void CodeGen::loadMember(Symbol* sym)
         fatal(0x600c, "Invalid member selection");
     if (sym->isAnyVar())
         loadMember(PVariable(sym));
-    else if (sym->isAnyDef())
+    else if (sym->isDef())
     {
         Definition* def = PDefinition(sym);
         Type* stateType = def->getAliasedType();
@@ -741,8 +741,7 @@ void CodeGen::loadSubvec()
 
 void CodeGen::length()
 {
-    // NOTE: # for sets and dicts is not a language feature, it's needed for 'for' loops
-    // TODO: maybe then we should allow # on these only internally
+    // NOTE: len() for sets and dicts is not a language feature, it's needed for 'for' loops
     Type* type = stkType();
     if (type->isNullCont())
     {
@@ -764,7 +763,7 @@ void CodeGen::length()
         else if (type->isAnyDict())
             op = opDictLen;
         else
-            error("'#' expects vector or string");
+            error("len() expects vector or string");
         stkPop();
         addOp(queenBee->defInt, op);
     }

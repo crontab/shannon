@@ -34,7 +34,7 @@ enum Token
     tokOr, tokXor,
 
     // Special chars and sequences
-    tokComma, tokPeriod, tokRange, tokEllipsis, tokCaret, tokAt, tokSharp, tokQuestion, tokExclam,
+    tokComma, tokPeriod, tokRange, tokEllipsis, tokCaret, tokAt, tokQuestion, tokExclam,
     tokLSquare, tokRSquare, tokLParen, tokRParen, tokLCurly, tokRCurly, tokColon,
     tokIs, tokAs,
 
@@ -107,6 +107,8 @@ public:
     void skipWsSeps()
         { while (skipIf(tokSep)) ; }
     void expect(Token tok, const char* errName);
+    void expectLParen();
+    void expectRParen();
     bool skipIf(Token tok)
             { if (token == tok) { next(); return true; } return false; }
     bool skipIf(Token tokMin, Token tokMax)

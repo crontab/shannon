@@ -5,7 +5,7 @@
 #include "typesys.h"
 
 
-class Compiler: protected Parser
+class Compiler: public Parser
 {
     friend class Context;
     friend class AutoScope;
@@ -32,7 +32,7 @@ class Compiler: protected Parser
         void resolveBreakJumps();
     };
 
-protected:
+public:
     Context& context;
     Module* const module;
     CodeGen* codegen;
@@ -44,7 +44,8 @@ protected:
     Type* getStateDerivator(Type*, bool allowProto);
     Type* getTypeDerivators(Type*);
     Type* getEnumeration(const str& firstIdent);
-    void identifier(const str&);
+    void builtin(Builtin*);
+    void identifier(str);
     void vectorCtor(Type* type);
     void dictCtor(Type* type);
     void typeOf();
