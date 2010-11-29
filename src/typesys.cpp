@@ -33,7 +33,10 @@ void Symbol::fqName(fifo& stm) const
 
 void Symbol::dump(fifo& stm) const
 {
-    type->dumpDef(stm);
+    if (type)
+        type->dumpDef(stm);
+    else
+        stm << "<var>";
     if (!name.empty())
         stm << ' ' << name;
 }
@@ -1178,10 +1181,17 @@ QueenBee::QueenBee()
     sioVar = addInnerVar("sio", defCharFifo);
     serrVar = addInnerVar("serr", defCharFifo);
 
-    // Built-ins
-    FuncPtr* lenProto = registerType<FuncPtr>(new FuncPtr(defInt));
-    lenProto->addFormalArg("vec", defVariant);
-    addBuiltin("len", compileLen, lenProto);
+    // Built-ins:
+    // Return type for many builtins is set to void because they don't need
+    // an empty return var be pushed onto the stack like for ordinary
+    // functions: the builtins usually handle the return value themselves.
+    // Also, NULL argument means anything goes, the builtin parser will
+    // take care of type checking.
+    FuncPtr* proto1 = registerType<FuncPtr>(new FuncPtr(defVoid));
+    proto1->addFormalArg("arg", NULL);
+    addBuiltin("len", compileLen, proto1);
+    addBuiltin("lo", compileLo, proto1);
+    addBuiltin("hi", compileHi, proto1);
 
     getCodeSeg()->close();
     setComplete();

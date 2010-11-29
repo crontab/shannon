@@ -99,7 +99,7 @@ term ::= cat-expr { ( '*' | '/' | '%' ) cat-expr }
 
 cat-expr ::= factor { '|' factor }
 
-factor ::= [ '-' ] [ '?' ] [ '#' ] designator [ ( 'as' | 'is' ) type-name ]
+factor ::= [ '-' ] designator [ '?' ] [ ( 'as' | 'is' ) type-name ]
 
 designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
     '(' [ actual-args ] ')' }

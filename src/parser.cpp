@@ -445,10 +445,10 @@ void Parser::expect(Token tok, const char* errName)
 }
 
 
-void Parser::expectLParen()
+void Parser::skipLParen()
     { expect(tokLParen, "'('"); }
 
-void Parser::expectRParen()
+void Parser::skipRParen()
     { expect(tokRParen, "')'"); }
 
 

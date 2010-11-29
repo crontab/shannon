@@ -91,6 +91,8 @@ OpInfo opTable[] =
     OP(VecCat, None),           // -vec -vec +vec
     OP(StrLen, None),           // -str +int
     OP(VecLen, None),           // -str +int
+    OP(StrHi, None),            // -str +int
+    OP(VecHi, None),            // -str +int
     OP(StrElem, None),          // -int -str +int
     OP(VecElem, None),          // -int -vec +var
     OP(Substr, None),           // -{int,void} -int -str +str

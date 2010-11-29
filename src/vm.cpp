@@ -170,7 +170,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 
         case opEnterFunc:
             {
-                // CHKOBJ(outerobj);
                 // TODO: see if the local stateobj is not used in the function
                 //       (and nested functions) and produce a simpler prologue
                 State* state = ADV(State*);
@@ -200,7 +199,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 
         case opEnterCtor:
             {
-                // CHKOBJ(outerobj);
                 State* state = ADV(State*);
                 variant* result = argp - state->returnVar->id;
                 // Instantiate the class if not already done
@@ -260,6 +258,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             PUSH(*(innerobj->member(ADV(uchar))));
             break;
         case opLoadOuterVar:
+            CHKOBJ(outerobj);
             PUSH(*(outerobj->member(ADV(uchar))));
             break;
         case opLoadStkVar:
@@ -289,6 +288,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opLeaOuterVar:
             PUSH((rtobject*)NULL);  // again, an outer var is "grounded" and thus locked too
+            CHKOBJ(outerobj);
             PUSH(outerobj->member(ADV(uchar)));
             break;
         case opLeaStkVar:
@@ -322,6 +322,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             POPTO(innerobj->member(ADV(uchar)));
             break;
         case opStoreOuterVar:
+            CHKOBJ(outerobj);
             POPTO(outerobj->member(ADV(uchar)));
             break;
         case opStoreStkVar:
@@ -410,6 +411,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opVecLen:
             *stk = integer(stk->_vec().size());
+            break;
+        case opStrHi:
+            *stk = integer(stk->_str().size() - 1);
+            break;
+        case opVecHi:
+            *stk = integer(stk->_vec().size() - 1);
             break;
         case opStrElem:
             *(stk - 1) = (stk - 1)->_str().at(stk->_int());  // *OVR

@@ -5,10 +5,11 @@
 
 
 void compileLen(Compiler* c, Builtin*)
-{
-    c->expectLParen();
-    c->expression(NULL);
-    c->expectRParen();
-    c->codegen->length();
-}
+    { c->codegen->length(); }
+
+void compileLo(Compiler* c, Builtin*)
+    { c->codegen->lo(); }
+
+void compileHi(Compiler* c, Builtin*)
+    { c->codegen->hi(); }
 
