@@ -10,18 +10,21 @@ LDLIBS = -ldl
 
 DOBJS = debug/common.o debug/runtime.o debug/rtio.o \
     debug/parser.o debug/typesys.o debug/vm.o debug/vmcodegen.o \
-    debug/vminfo.o debug/compexpr.o debug/compiler.o
+    debug/vminfo.o debug/compexpr.o debug/compiler.o \
+    debug/sysmodule.o
 
 ROBJS = release/common.o release/runtime.o release/rtio.o \
     release/parser.o release/typesys.o release/vm.o release/vmcodegen.o \
-    release/vminfo.o release/compexpr.o release/compiler.o
+    release/vminfo.o release/compexpr.o release/compiler.o \
+    release/sysmodule.o
 
 SRCS = common.cpp runtime.cpp rtio.cpp \
     parser.cpp typesys.cpp vm.cpp vmcodegen.cpp \
     vminfo.cpp compexpr.cpp compiler.cpp \
+    sysmodule.cpp \
     main.cpp main-ut.cpp
 
-HDRS = version.h common.h runtime.h typesys.h parser.h vm.h compiler.h
+HDRS = version.h common.h runtime.h typesys.h parser.h vm.h compiler.h sysmodule.h
 
 
 all: dirs shannon shannon-ut release

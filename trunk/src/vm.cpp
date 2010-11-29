@@ -787,6 +787,11 @@ popArgs:
             runRabbitRun(NULL, NULL, stk + 1, callee->getCodeStart());
             goto popArgs;
 
+        case opStaticExternCall:
+            callee = ADV(State*);
+            callee->externFunc(NULL, stk + 1);
+            goto popArgs;
+
         case opMethodCall:
             callee = ADV(State*);
             callds = dataseg;

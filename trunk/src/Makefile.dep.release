@@ -12,6 +12,7 @@ release/compexpr.o: vm.h common.h version.h runtime.h parser.h typesys.h
 release/compexpr.o: compiler.h
 release/compiler.o: vm.h common.h version.h runtime.h parser.h typesys.h
 release/compiler.o: compiler.h
+release/sysmodule.o: sysmodule.h runtime.h common.h version.h
 release/main.o: common.h version.h runtime.h parser.h typesys.h vm.h
 release/main.o: compiler.h
 release/main-ut.o: common.h version.h runtime.h parser.h typesys.h vm.h

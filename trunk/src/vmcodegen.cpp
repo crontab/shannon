@@ -1386,15 +1386,24 @@ void CodeGen::call(FuncPtr* proto)
     if (!proto->isVoidFunc())
         stkPop();
 
-    // Remove the opMk*FuncPtr and append a corresponding caller
+    // Remove the opMk*FuncPtr and append a corresponding caller. Note that
+    // opcode arguments for funcptr loaders and their respective callers
+    // should match.
     assert(stkType()->isFuncPtr());
     OpCode op = opInv;
     memint offs = stkLoaderOffs();
     switch (codeseg[offs])
     {
+        // TODO: maybe also implement the versions of these for extern calls:
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
-        case opLoadStaticFuncPtr: op = opStaticCall; break;
+        case opLoadStaticFuncPtr:
+            {
+                // Optimize for static externs/builtins:
+                State* callee = codeseg.at<State*>(offs + 1);
+                op = callee->isExternal() ? opStaticExternCall : opStaticCall;
+            }
+            break;
         case opMkFuncPtr: op = opMethodCall; break;
         case opMkFarFuncPtr: op = opFarMethodCall; break;
         default: ; // leave op = opInv
