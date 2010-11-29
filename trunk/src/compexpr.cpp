@@ -52,7 +52,7 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
             proto->addFormalArg(ident, argType);
         }
         while (skipIf(tokComma));
-        expect(tokRParen, "')'");
+        expectRParen();
     }
     if (skipIf(tokEllipsis))
     {
@@ -119,11 +119,21 @@ Type* Compiler::getTypeDerivators(Type* type)
 }
 
 
-void Compiler::identifier(const str& ident)
+void Compiler::builtin(Builtin* b)
+{
+    b->compileFunc(this, b);
+}
+
+
+void Compiler::identifier(str ident)
 {
     // Go up the current scope hierarchy within the module. Currently not
     // everything is accessible even if found by the code below: an error
     // will be thrown by the CodeGen in case a symbol can not be accessed.
+    if (token == tokPrevIdent)
+        redoIdent();
+    else
+        next();
     Scope* sc = scope;
     do
     {
@@ -131,7 +141,10 @@ void Compiler::identifier(const str& ident)
         Symbol* sym = sc->find(ident);
         if (sym)
         {
-            codegen->loadSymbol(sym);
+            if (sym->isBuiltin())
+                builtin(PBuiltin(sym));
+            else
+                codegen->loadSymbol(sym);
             return;
         }
         sc = sc->outer;
@@ -145,7 +158,9 @@ void Compiler::identifier(const str& ident)
         Symbol* sym = m->getModuleType()->find(ident);
         if (sym)
         {
-            if (codegen->isCompileTime())
+            if (sym->isBuiltin())
+                builtin(PBuiltin(sym));
+            else if (codegen->isCompileTime())
                 codegen->loadSymbol(sym);
             else
             {
@@ -272,7 +287,7 @@ void Compiler::typeOf()
 
 void Compiler::ifFunc()
 {
-    expect(tokLParen, "(");
+    expectLParen();
     expression(queenBee->defBool);
     memint jumpFalse = codegen->boolJumpForward(opJumpFalse);
     expect(tokComma, "','");
@@ -284,7 +299,7 @@ void Compiler::ifFunc()
     expect(tokComma, "','");
     expression(exprType);
     codegen->resolveJump(jumpOut);
-    expect(tokRParen, ")");
+    expectRParen();
 }
 
 
@@ -299,17 +314,14 @@ void Compiler::actualArgs(FuncPtr* proto)
         FormalArg* arg = proto->formalArgs[i];
         expression(arg->type);
     }
-    expect(tokRParen, "')'");
+    expectRParen();
 }
 
 
 void Compiler::atom(Type* typeHint)
 {
     if (token == tokPrevIdent)  // from partial (typeless) definition
-    {
         identifier(getPrevIdent());
-        redoIdent();
-    }
 
     else if (token == tokIntValue)
     {
@@ -331,15 +343,12 @@ void Compiler::atom(Type* typeHint)
     }
 
     else if (token == tokIdent)
-    {
         identifier(strValue);
-        next();
-    }
 
     else if (skipIf(tokLParen))
     {
         expression(typeHint);
-        expect(tokRParen, "')'");
+        expectRParen();
     }
 
     else if (skipIf(tokLSquare))
@@ -424,12 +433,9 @@ void Compiler::factor(Type* typeHint)
 {
     bool isNeg = skipIf(tokMinus);
     bool isQ = skipIf(tokQuestion);
-    bool isLen = skipIf(tokSharp);
 
     designator(typeHint);
 
-    if (isLen)
-        codegen->length();
     if (isQ)
         codegen->nonEmpty();
     if (isNeg)

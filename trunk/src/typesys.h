@@ -10,6 +10,7 @@ class InnerVar;
 class StkVar;
 class ArgVar;
 class Definition;
+class Builtin;
 class Scope;
 class BlockScope;
 class Type;
@@ -21,7 +22,6 @@ class Container;
 class Fifo;
 class SelfStub;
 class State;
-class Builtin;
 class FuncPtr;
 class Module;
 
@@ -31,6 +31,7 @@ typedef InnerVar* PInnerVar;
 typedef StkVar* PStkVar;
 typedef ArgVar* PArgVar;
 typedef Definition* PDefinition;
+typedef Builtin* PBuiltin;
 typedef Scope* PScope;
 typedef BlockScope* PBlockScope;
 typedef Type* PType;
@@ -41,13 +42,14 @@ typedef Range* PRange;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
 typedef State* PState;
-typedef Builtin* PBuiltin;
 typedef FuncPtr* PFuncPtr;
 typedef Module* PModule;
 
 
 class CodeSeg; // defined in vm.h
 class CodeGen;
+
+class Compiler; // defined in compiler.h
 
 
 // --- Symbols & Scope ----------------------------------------------------- //
@@ -56,7 +58,7 @@ class CodeGen;
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION };
+    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION, BUILTIN };
 
     SymbolId const symbolId;
     Type* const type;
@@ -73,7 +75,8 @@ public:
     bool isArgVar() const           { return symbolId == ARGVAR; }
     bool isInnerVar() const         { return symbolId == INNERVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
-    bool isAnyDef() const           { return symbolId == DEFINITION; }
+    bool isDef() const              { return symbolId == DEFINITION; }
+    bool isBuiltin() const          { return symbolId == BUILTIN; }
 };
 
 
@@ -127,6 +130,20 @@ public:
 };
 
 
+class Builtin: public Symbol
+{
+public:
+    typedef void (*CompileFunc)(Compiler*, Builtin*);
+
+    CompileFunc const compileFunc;
+    FuncPtr* const prototype; // optional
+
+    Builtin(const str&, CompileFunc, FuncPtr*, State*);
+    ~Builtin();
+    void dump(fifo&) const;
+};
+
+
 struct EDuplicate: public exception
 {
     str const ident;
@@ -143,9 +160,6 @@ struct EUnknownIdent: public exception
     ~EUnknownIdent() throw();
     const char* what() throw(); // shouldn't be called
 };
-
-
-extern template class symtbl<Symbol>;
 
 
 class Scope
@@ -588,6 +602,7 @@ class Module: public State
 protected:
     strvec constStrings;
     objvec<CodeSeg> codeSegs;   // for dumps
+    objvec<Builtin> builtins;
 public:
     str const filePath;
     objvec<InnerVar> usedModuleVars; // used module instances are stored in static vars
@@ -599,6 +614,8 @@ public:
     InnerVar* findUsedModuleVar(Module*);
     void registerString(str&); // registers a string literal for use at run-time
     void registerCodeSeg(CodeSeg* c); // collected here for dumps
+    Builtin* addBuiltin(Builtin*);
+    Builtin* addBuiltin(const str&, Builtin::CompileFunc, FuncPtr*);
 };
 
 
