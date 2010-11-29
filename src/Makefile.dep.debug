@@ -12,6 +12,7 @@ debug/compexpr.o: vm.h common.h version.h runtime.h parser.h typesys.h
 debug/compexpr.o: compiler.h
 debug/compiler.o: vm.h common.h version.h runtime.h parser.h typesys.h
 debug/compiler.o: compiler.h
+debug/sysmodule.o: sysmodule.h runtime.h common.h version.h
 debug/main.o: common.h version.h runtime.h parser.h typesys.h vm.h compiler.h
 debug/main-ut.o: common.h version.h runtime.h parser.h typesys.h vm.h
 debug/main-ut.o: compiler.h

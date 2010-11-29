@@ -13,6 +13,8 @@
 		3646492D11CF89A500853339 /* vminfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3646492B11CF89A500853339 /* vminfo.cpp */; };
 		365B4A71100283E40023D0FD /* common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4A70100283E40023D0FD /* common.cpp */; };
 		365B4A72100283E40023D0FD /* common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365B4A70100283E40023D0FD /* common.cpp */; };
+		3698665C12A322D50028FB7A /* sysmodule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3698665A12A322D50028FB7A /* sysmodule.cpp */; };
+		3698665D12A322D50028FB7A /* sysmodule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3698665A12A322D50028FB7A /* sysmodule.cpp */; };
 		369DE917119447A600BBD287 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 369DE915119447A600BBD287 /* runtime.cpp */; };
 		369DE918119447A600BBD287 /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 369DE915119447A600BBD287 /* runtime.cpp */; };
 		36A45F4F11D68D3E0010EBAC /* compexpr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A45F4E11D68D3E0010EBAC /* compexpr.cpp */; };
@@ -63,6 +65,8 @@
 		3646492B11CF89A500853339 /* vminfo.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vminfo.cpp; path = src/vminfo.cpp; sourceTree = "<group>"; };
 		36510CA511C9731500071AB4 /* shannon.syntax */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = shannon.syntax; path = src/shannon.syntax; sourceTree = "<group>"; };
 		365B4A70100283E40023D0FD /* common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = common.cpp; path = src/common.cpp; sourceTree = "<group>"; };
+		3698665A12A322D50028FB7A /* sysmodule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = sysmodule.cpp; path = src/sysmodule.cpp; sourceTree = "<group>"; };
+		3698665B12A322D50028FB7A /* sysmodule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysmodule.h; path = src/sysmodule.h; sourceTree = "<group>"; };
 		369DE915119447A600BBD287 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		369DE916119447A600BBD287 /* runtime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = runtime.h; path = src/runtime.h; sourceTree = "<group>"; };
 		36A45F4E11D68D3E0010EBAC /* compexpr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = compexpr.cpp; path = src/compexpr.cpp; sourceTree = "<group>"; };
@@ -121,6 +125,8 @@
 				36B6AD1E1195F0C7001EF4C0 /* parser.cpp */,
 				36B6AD3B1195F863001EF4C0 /* typesys.h */,
 				36B6AD3A1195F863001EF4C0 /* typesys.cpp */,
+				3698665B12A322D50028FB7A /* sysmodule.h */,
+				3698665A12A322D50028FB7A /* sysmodule.cpp */,
 				36B6AD4611960432001EF4C0 /* vm.h */,
 				36B6AD4511960432001EF4C0 /* vm.cpp */,
 				36B6AD4711960432001EF4C0 /* vmcodegen.cpp */,
@@ -233,6 +239,7 @@
 				36B6AD551196061B001EF4C0 /* compiler.cpp in Sources */,
 				3646492C11CF89A500853339 /* vminfo.cpp in Sources */,
 				36A45F4F11D68D3E0010EBAC /* compexpr.cpp in Sources */,
+				3698665C12A322D50028FB7A /* sysmodule.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +258,7 @@
 				36B6AD561196061B001EF4C0 /* compiler.cpp in Sources */,
 				3646492D11CF89A500853339 /* vminfo.cpp in Sources */,
 				36A45F5011D68D3E0010EBAC /* compexpr.cpp in Sources */,
+				3698665D12A322D50028FB7A /* sysmodule.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

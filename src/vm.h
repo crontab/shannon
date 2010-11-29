@@ -76,7 +76,7 @@ enum OpCode
     // --- 5. DESIGNATOR OPS, MISC
     opMkRange,          // -int -int +range -- currently used only in const expressions
     opMkRef,            // -var +ref
-    opMkFuncPtr,        // [State*] -obj +funcptr
+    opMkFuncPtr,        // [State*] -obj +funcptr  -- args for opMk*FuncPtr should match respective caller ops
     opMkFarFuncPtr,     // [State*, datasegidx:u8] -obj +funcptr
     opNonEmpty,         // -var +bool
     opPop,              // -var
@@ -204,6 +204,7 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opStaticCall,       // [State*] -var -var ... +var
+    opStaticExternCall, // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
     opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var

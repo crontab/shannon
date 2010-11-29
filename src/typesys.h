@@ -21,6 +21,7 @@ class Container;
 class Fifo;
 class SelfStub;
 class State;
+class Builtin;
 class FuncPtr;
 class Module;
 
@@ -40,6 +41,7 @@ typedef Range* PRange;
 typedef Container* PContainer;
 typedef Fifo* PFifo;
 typedef State* PState;
+typedef Builtin* PBuiltin;
 typedef FuncPtr* PFuncPtr;
 typedef Module* PModule;
 
@@ -456,7 +458,6 @@ public:
 
 class FuncPtr: public Type
 {
-    // TODO: allow unnamed formal args (put '?' as a name?)
 public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
@@ -495,7 +496,10 @@ public:
 // --- State --------------------------------------------------------------- //
 
 
-typedef void (*ExternFuncProto)(stateobj* self, variant* args);
+typedef void (*ExternFuncProto)(stateobj* outerobj, variant* args);
+
+// "i" below is 1-based; arguments are numbered from right to left
+#define EXTERN_ARG(i) (args-(i))
 
 
 class State: public Type, public Scope
@@ -511,6 +515,7 @@ protected:
     InnerVar* addInnerVar(InnerVar*);
     static Module* getParentModule(State*);
 
+    // Compiler helpers:
     bool complete;
     int outsideObjectsUsed;
 
@@ -545,6 +550,8 @@ public:
         { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
     bool isStatic() const
         { return isComplete() && outsideObjectsUsed == 0; }
+    bool isExternal() const
+        { return externFunc != NULL; }
     State* useOutsideObject()
         { outsideObjectsUsed++; return this; }
 
