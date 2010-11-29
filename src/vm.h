@@ -15,6 +15,7 @@ enum OpCode
     //       techniques (e.g. see CodeGen::undoSubexpr())
 
     // --- 1. MISC CONTROL
+    opInv0,             //  -- help detect invalid code: don't execute 0
     opEnd,              // end execution and return
     opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
@@ -239,11 +240,13 @@ inline bool isBoolJump(OpCode op)
 inline bool isCaller(OpCode op)
     { return op >= opChildCall && op <= opCall; }
 
+inline bool hasTypeArg(OpCode op);
+
 
 // --- OpCode Info
 
 
-enum ArgType
+enum OpArgType
     { argNone, argType, argState, argFarState, argUInt8, argInt, argStr, 
       argVarType8, argDefinition,
       argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
@@ -251,21 +254,21 @@ enum ArgType
       argMax };
 
 
-extern umemint ArgSizes[argMax];
+extern umemint opArgSizes[argMax];
 
 
 struct OpInfo
 {
     const char* name;
     OpCode op;
-    ArgType arg;
+    OpArgType arg;
 };
 
 
 extern OpInfo opTable[];
 
 
-// --- Code segment -------------------------------------------------------- //
+// --- Code Segment -------------------------------------------------------- //
 
 
 #define DEFAULT_STACK_SIZE 8192
@@ -273,13 +276,17 @@ extern OpInfo opTable[];
 
 class CodeSeg: public object
 {
-    friend class CodeGen;
     typedef rtobject parent;
 
     State* state;
     str code;
 
-protected:
+    template<class T>
+        T& atw(memint i)                { return *(T*)code.atw(i); }
+    template<class T>
+        T at(memint i) const            { return *(T*)code.at(i); }
+
+public:
     memint stackSize;
 
     // Code gen helpers
@@ -287,19 +294,24 @@ protected:
         void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
     void append(const str& s)           { code.append(s); }
     void erase(memint from)             { code.resize(from); }
-    void eraseOp(memint offs)           { code.erase(offs, oplen((*this)[offs])); }
+    void eraseOp(memint offs);
     str cutOp(memint offs);
-    template<class T>
-        T at(memint i) const            { return *(T*)code.data(i); }
-    template<class T>
-        T& atw(memint i)                { return *(T*)code.atw(i); }
-    OpCode operator[](memint i) const   { return OpCode(uchar(code.at(i))); }
-    void replaceOpCode(memint i, OpCode op)   { *code.atw<uchar>(i) = op; }
+    void replaceOpAt(memint i, OpCode op);
+    OpCode opAt(memint i) const         { return OpCode(at<uchar>(i)); }
+    memint opLenAt(memint offs) const;
 
-    static inline memint oplen(OpCode op)
-        { assert(op < opInv); return memint(ArgSizes[opTable[op].arg]) + 1; }
+    jumpoffs& jumpOffsAt(memint i)
+        { assert(isJump(OpCode(at<uchar>(i)))); return atw<jumpoffs>(i + 1); }
 
-public:
+    Type* typeArgAt(memint i) const;
+    State* stateArgAt(memint i) const    { return cast<State*>(typeArgAt(i)); }
+
+    static inline memint opLen(OpCode op)
+        { assert(op < opMaxCode); return memint(opArgSizes[opTable[op].arg]) + 1; }
+
+    static inline OpArgType opArgType(OpCode op)
+        { assert(op < opMaxCode); return opTable[op].arg; }
+
     CodeSeg(State*);
     ~CodeSeg();
 
@@ -321,7 +333,7 @@ public:
 template<> inline void CodeSeg::append<OpCode>(const OpCode& op)
     { append<uchar>(uchar(op)); }
 
-// Compiler traps, don't use these
+// Compiler traps
 template<> OpCode CodeSeg::at<OpCode>(memint i) const;
 template<> OpCode& CodeSeg::atw<OpCode>(memint i);
 

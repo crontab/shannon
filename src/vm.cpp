@@ -3,38 +3,6 @@
 #include "compiler.h"
 
 
-CodeSeg::CodeSeg(State* s)
-    : object(), state(s)
-    , stackSize(0)
-#ifdef DEBUG
-    , closed(false)
-#endif
-    { }
-
-
-CodeSeg::~CodeSeg()
-    { }
-
-
-str CodeSeg::cutOp(memint offs)
-{
-    memint len = oplen((*this)[offs]);
-    str s = code.substr(offs, len);
-    code.erase(offs, len);
-    return s;
-}
-
-
-void CodeSeg::close()
-{
-#ifdef DEBUG
-    assert(!closed);
-    closed = true;
-#endif
-    append(opEnd);
-}
-
-
 // --- VIRTUAL MACHINE ----------------------------------------------------- //
 
 
@@ -164,6 +132,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         {
 
         // --- 1. MISC CONTROL -----------------------------------------------
+        case opInv0:            invOpcode(0); break;
         case opEnd:             goto exit;
         case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;

@@ -5,7 +5,7 @@
 #define OP(o,a)  { #o, op##o, arg##a }
 
 
-umemint ArgSizes[argMax] =
+umemint opArgSizes[argMax] =
     {
       0, sizeof(Type*), sizeof(State*), sizeof(State*) + sizeof(uchar), sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
@@ -18,6 +18,7 @@ umemint ArgSizes[argMax] =
 
 OpInfo opTable[] = 
 {
+    OP(Inv0, None),             //
     OP(End, None),              //
     OP(ConstExprErr, None),     //
     OP(Exit, None),             //
