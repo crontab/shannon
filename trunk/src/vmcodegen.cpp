@@ -444,6 +444,7 @@ void CodeGen::loadTypeRef(Type* type)
         else if (stateType->parent == codeOwner)
         {
             codeOwner->useOutsideObject(); // uses dataseg
+            codeOwner->useInnerObj();
             op = opLoadInnerFuncPtr;
         }
         else
@@ -541,8 +542,13 @@ void CodeGen::loadInnerVar(InnerVar* var)
 {
     // In ordinary (non-ctor) functions innerobj may not be available because
     // of optimizations, so we use stack reference whenever possible
-    _loadVar(var, codeOwner && codeOwner->isConstructor() ?
-        opLoadInnerVar : opLoadStkVar);
+    if (codeOwner && codeOwner->isConstructor())
+    {
+        codeOwner->useInnerObj();
+        _loadVar(var, opLoadInnerVar);
+    }
+    else
+        _loadVar(var, opLoadStkVar);
 }
 
 
@@ -703,8 +709,7 @@ void CodeGen::initStkVar(StkVar* var)
         fatal(0x6005, "initLocalVar(): not my var");
     // Local var simply remains on the stack, so just check the types.
     assert(var->id >= 0 && var->id < 255);
-    if (locals != getStackLevel() - 1 || var->id != locals)
-        fatal(0x6004, "initStkVar(): invalid var id");
+    assert(locals == getStackLevel() - 1 && var->id == locals);
     locals++;
     implicitCast(var->type, "Variable type mismatch");
 }
@@ -717,8 +722,18 @@ void CodeGen::initInnerVar(InnerVar* var)
     if (var->host != codeOwner)
         fatal(0x6005, "initInnerVar(): not my var");
     implicitCast(var->type, "Variable type mismatch");
-    stkPop();
-    addOp<uchar>(codeOwner->isConstructor() ? opInitInnerVar : opInitStkVar, var->id);
+    if (codeOwner->isConstructor())
+    {
+        codeOwner->useInnerObj();
+        stkPop();
+        addOp<uchar>(opInitInnerVar, var->id);
+    }
+    else
+    {
+        assert(getStackLevel() - 1 == var->id);
+        locals++;
+        // addOp<uchar>(opInitStkVar, var->id);
+    }
 }
 
 
@@ -1456,7 +1471,10 @@ memint CodeGen::prolog()
     if (isCompileTime())
         ;
     else if (codeOwner->isConstructor())
+    {
+        codeOwner->useInnerObj();
         addOp<State*>(opEnterCtor, codeOwner);
+    }
     else
         addOp<State*>(opEnterFunc, codeOwner);
     return offs;
@@ -1471,9 +1489,17 @@ void CodeGen::epilog(memint prologOffs)
         ;
     else
     {
-        if (codeOwner->varCount == 0)
+        // Prolog code is not needed if either there are no inner vars or
+        // innerobj wasn't used in the code. Note that inner vars are not
+        // necessarily loaded via innerobj, these are separate independent
+        // conditions
+        if (codeOwner->varCount == 0 || !codeOwner->innerObjUsedSoFar())
             codeseg.eraseOp(prologOffs);
-        else
+#ifdef DEBUG
+        if (codeOwner->varCount > 0 || codeOwner->innerObjUsedSoFar())
+#else
+        if (codeOwner->innerObjUsedSoFar())
+#endif
             addOp<State*>(opLeaveFunc, codeOwner);
     }
 }
@@ -1508,7 +1534,7 @@ void CodeGen::call(FuncPtr* proto)
             {
                 // Optimize for static externs/builtins:
                 State* callee = codeseg.stateArgAt(offs);
-                op = callee->isExternal() ? opStaticExternCall : opStaticCall;
+                op = callee->isExternal() ? opStaticExtCall : opStaticCall;
             }
             break;
         case opMkFuncPtr: op = opMethodCall; break;

@@ -529,6 +529,7 @@ protected:
 
     // Compiler helpers:
     bool complete;
+    int innerObjUsed;
     int outsideObjectsUsed;
 
 public:
@@ -562,10 +563,14 @@ public:
         { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
     bool isStatic() const
         { return isComplete() && outsideObjectsUsed == 0; }
+    bool innerObjUsedSoFar() const
+        { return innerObjUsed; }
     bool isExternal() const
         { return externFunc != NULL; }
-    State* useOutsideObject()
-        { outsideObjectsUsed++; return this; }
+    void useInnerObj()
+        { innerObjUsed++; }
+    void useOutsideObject()
+        { outsideObjectsUsed++; }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     ArgVar* addArgument(const str&, Type*, memint);
