@@ -63,7 +63,7 @@ enum OpCode
 
     // --- 4. STORERS
     opInitInnerVar,     // [inner.idx:u8] -var
-    opInitStkVar,       // [stk.idx:u8] -var
+    // opInitStkVar,       // [stk.idx:u8] -var
     // --- begin grounded storers
     opStoreInnerVar,    // [inner.idx:u8] -var
     opStoreOuterVar,    // [outer.idx:u8] -var
@@ -207,7 +207,7 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opStaticCall,       // [State*] -var -var ... +var
-    opStaticExternCall, // [State*] -var -var ... +var
+    opStaticExtCall,    // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
     opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var
@@ -284,7 +284,7 @@ class CodeSeg: public object
     template<class T>
         T& atw(memint i)                { return *(T*)code.atw(i); }
     template<class T>
-        T at(memint i) const            { return *(T*)code.at(i); }
+        T at(memint i) const            { return *(T*)code.data(i); }
 
 public:
     memint stackSize;

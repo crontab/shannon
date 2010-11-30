@@ -852,7 +852,7 @@ bool SelfStub::canAssignTo(Type*) const
 
 State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par),
-      complete(false), outsideObjectsUsed(0),
+      complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), returnVar(NULL),
       codeseg(new CodeSeg(this)), externFunc(NULL),

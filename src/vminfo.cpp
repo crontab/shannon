@@ -61,7 +61,7 @@ OpInfo opTable[] =
 
     // --- 4. STORERS
     OP(InitInnerVar, InnerIdx), // [inner.idx:u8] -var
-    OP(InitStkVar, StkIdx),     // [stk.idx:u8] -var
+    // OP(InitStkVar, StkIdx),     // [stk.idx:u8] -var
     // --- begin grounded storers
     OP(StoreInnerVar, InnerIdx),// [inner.idx:u8] -var
     OP(StoreOuterVar, OuterIdx),// [outer.idx:u8] -var
@@ -196,7 +196,7 @@ OpInfo opTable[] =
     OP(ChildCall, State),       // [State*] -var -var ... +var
     OP(SiblingCall, State),     // [State*] -var -var ... +var
     OP(StaticCall, State),      // [State*] -var -var ... +var
-    OP(StaticExternCall, State),// [State*] -var -var ... +var
+    OP(StaticExtCall, State),   // [State*] -var -var ... +var
     OP(MethodCall, State),      // [State*] -var -var -obj ... +var
     OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... +var
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
