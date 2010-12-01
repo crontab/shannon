@@ -48,6 +48,7 @@ OpInfo opTable[] =
     OP(LoadOuterVar, OuterIdx), // [outer.idx:u8] +var
     OP(LoadStkVar, StkIdx),     // [stk.idx:u8] +var
     OP(LoadArgVar, ArgIdx),     // [arg.idx:u8] +var
+    OP(LoadResultVar, None),    // +var
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj.idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
@@ -56,6 +57,7 @@ OpInfo opTable[] =
     OP(LeaOuterVar, OuterIdx),  // [outer.idx:u8] +obj(0) +ptr
     OP(LeaStkVar, StkIdx),      // [stk.idx:u8] +obj(0) +ptr
     OP(LeaArgVar, ArgIdx),      // [arg.idx:u8] +obj(0) +ptr
+    OP(LeaResultVar, None),     // +var
     OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
 
@@ -67,6 +69,7 @@ OpInfo opTable[] =
     OP(StoreOuterVar, OuterIdx),// [outer.idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk.idx:u8] -var
     OP(StoreArgVar, ArgIdx),    // [arg.idx:u8] -var
+    OP(StoreResultVar, None),   // -var
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
     // --- end grounded storers

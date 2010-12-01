@@ -9,6 +9,7 @@ class Variable;
 class InnerVar;
 class StkVar;
 class ArgVar;
+class ResultVar;
 class Definition;
 class Builtin;
 class Scope;
@@ -30,6 +31,7 @@ typedef Variable* PVariable;
 typedef InnerVar* PInnerVar;
 typedef StkVar* PStkVar;
 typedef ArgVar* PArgVar;
+typedef ResultVar* PResultVar;
 typedef Definition* PDefinition;
 typedef Builtin* PBuiltin;
 typedef Scope* PScope;
@@ -58,7 +60,7 @@ class Compiler; // defined in compiler.h
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { STKVAR, ARGVAR, INNERVAR, FORMALARG, DEFINITION, BUILTIN };
+    enum SymbolId { STKVAR, ARGVAR, RESULTVAR, INNERVAR, FORMALARG, DEFINITION, BUILTIN };
 
     SymbolId const symbolId;
     Type* const type;
@@ -73,6 +75,7 @@ public:
     bool isAnyVar() const           { return symbolId <= INNERVAR; }
     bool isStkVar() const           { return symbolId == STKVAR; }
     bool isArgVar() const           { return symbolId == ARGVAR; }
+    bool isResultVar() const        { return symbolId == RESULTVAR; }
     bool isInnerVar() const         { return symbolId == INNERVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
     bool isDef() const              { return symbolId == DEFINITION; }
@@ -111,6 +114,13 @@ class ArgVar: public Variable
 {
 public:
     ArgVar(const str&, Type*, memint, State*);
+};
+
+
+class ResultVar: public Variable
+{
+public:
+    ResultVar(Type*, State*);
 };
 
 
@@ -483,8 +493,8 @@ public:
     bool canAssignTo(FuncPtr* t) const;
     FormalArg* addFormalArg(const str&, Type*);
     void resolveSelfType(State*);
-    int totalStkArgs() const
-        { return formalArgs.size() + int(!isVoidFunc()); }
+    int getPopArgs() const
+        { return formalArgs.size(); }
     bool isVoidFunc() const
         { return returnType->isVoid(); }
 };
@@ -508,7 +518,7 @@ public:
 // --- State --------------------------------------------------------------- //
 
 
-typedef void (*ExternFuncProto)(stateobj* outerobj, variant* args);
+typedef void (*ExternFuncProto)(variant* result, stateobj* outerobj, variant args[]);
 
 // "i" below is 1-based; arguments are numbered from right to left
 #define EXTERN_ARG(i) (args-(i))
@@ -538,7 +548,7 @@ public:
     State* const parent;
     Module* const parentModule;
     FuncPtr* const prototype;
-    ArgVar* returnVar;              // may be NULL
+    objptr<ResultVar> resultVar;              // may be NULL
 
     // Code (for extern functions codeseg contains stub code, otherwise, just the main code)
     objptr<object> codeseg;
@@ -574,6 +584,7 @@ public:
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     ArgVar* addArgument(const str&, Type*, memint);
+    void addResultVar(Type*);
     InnerVar* addInnerVar(const str&, Type*);
     InnerVar* reclaimArg(ArgVar*, Type*);
     virtual stateobj* newInstance();

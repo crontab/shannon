@@ -567,6 +567,8 @@ void CodeGen::loadVariable(Variable* var)
             loadStkVar(PStkVar(var));
         else if (var->isArgVar())
             loadArgVar(PArgVar(var));
+        else if (var->isResultVar())
+            loadResultVar(PResultVar(var));
         else if (var->isInnerVar())
             loadInnerVar(PInnerVar(var));
         else
@@ -1279,6 +1281,7 @@ static OpCode loaderToStorer(OpCode op)
         case opLoadOuterVar:    return opStoreOuterVar;
         case opLoadStkVar:      return opStoreStkVar;
         case opLoadArgVar:      return opStoreArgVar;
+        case opLoadResultVar:   return opStoreResultVar;
         case opLoadMember:      return opStoreMember;
         case opDeref:           return opStoreRef;
         // end grounded loaders
@@ -1301,6 +1304,7 @@ static OpCode loaderToLea(OpCode op)
         case opLoadOuterVar:    return opLeaOuterVar;
         case opLoadStkVar:      return opLeaStkVar;
         case opLoadArgVar:      return opLeaArgVar;
+        case opLoadResultVar:   return opLeaResultVar;
         case opLoadMember:      return opLeaMember;
         case opDeref:           return opLeaRef;
         default:
@@ -1519,8 +1523,6 @@ void CodeGen::call(FuncPtr* proto)
 #endif
         stkPop();
     }
-    if (!proto->isVoidFunc())
-        stkPop();
 
     // Remove the opMk*FuncPtr and append a corresponding caller. Note that
     // opcode arguments for funcptr loaders and their respective callers
@@ -1563,11 +1565,11 @@ void CodeGen::call(FuncPtr* proto)
     {
         if (proto->isVoidFunc())
         {
-            addOp<uchar>(opCall, proto->totalStkArgs());
+            addOp<uchar>(opCall, proto->getPopArgs());
             throw evoidfunc();
         }
         else
-            addOp<uchar>(proto->returnType, opCall, proto->totalStkArgs());
+            addOp<uchar>(proto->returnType, opCall, proto->getPopArgs());
     }
 }
 
