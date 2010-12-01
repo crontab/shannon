@@ -86,8 +86,6 @@ static void byteDictDelete(varvec& v, integer i)
 #define PUSH(v) \
     { ::new(stk + 1) variant(v); stk++; }
 
-// #define PUSHT(t,v) { ::new(++stk) variant(variant::Type(t), v); }
-
 #define PUSHN() { ::new(++stk) variant(); }
 
 #define POP() \
@@ -96,24 +94,27 @@ static void byteDictDelete(varvec& v, integer i)
 #define POPPOD() \
     { assert(!stk->is_anyobj()); stk--; }
 
-#define INITTO(dest) \
-    { *(podvar*)(dest) = *(podvar*)stk; stk--; } // pop to to uninitialized area
+#define INITPOP(dest) \
+    { *(podvar*)(dest) = *(podvar*)stk; stk--; } // pop to uninitialized area
+
+#define INITPUSH(src) \
+    { *(podvar*)(++stk) = *(podvar*)src; } // push without ctor
 
 #define POPTO(dest) \
-    { variant* d = dest; d->~variant(); INITTO(d); }
+    { variant* d = dest; d->~variant(); INITPOP(d); }
 
 template <class T>
-   inline void SETPOD(variant* dest, const T& v)
+   inline void INITAT(variant* dest, const T& v)
         { ::new(dest) variant(v); }
 
-inline void SETPOD(variant* dest, integer l, integer r)
+inline void INITAT(variant* dest, integer l, integer r)
     { ::new(dest) variant(l, r); }
 
 inline void CHKOBJ(rtobject* obj)
     { if (obj == NULL) nullPointerErr(); }
 
 
-void runRabbitRun(stateobj* dataseg, stateobj* outerobj,
+void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
         variant* basep, const uchar* ip)
 {
     // TODO: check for stack overflow (during function call?)
@@ -121,6 +122,12 @@ void runRabbitRun(stateobj* dataseg, stateobj* outerobj,
     variant* argp = basep;
     stateobj* innerobj = NULL;
 
+    // Function call helpers:
+    variant ax; // accumulator register, for function results
+    State* callee;
+    stateobj* callds;
+    stateobj* callobj;
+    int popArgCount;
     try
     {
 loop:  // We use goto instead of while(1) {} so that compilers never complain
@@ -166,10 +173,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opEnterCtor:
             {
                 State* state = ADV(State*);
-                variant* result = argp - state->returnVar->id;
                 // Instantiate the class if not already done
-                if (result->_rtobj() == NULL)
-                    SETPOD(result, state->newInstance());
+                if (result->is_null())
+                    INITAT(result, state->newInstance());
                 innerobj = result->_stateobj();
             }
             break;
@@ -233,6 +239,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadArgVar:
             PUSH(*(argp - ADV(uchar)));
             break;
+        case opLoadResultVar:
+            PUSH(*result);
+            break;
         case opLoadMember:
             {
                 stateobj* obj = stk->_stateobj();
@@ -243,7 +252,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opDeref:
             {
                 reference* r = stk->_ref();
-                SETPOD(stk, r->var);
+                INITAT(stk, r->var);
                 r->release();
             }
             break;
@@ -265,6 +274,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             PUSH((rtobject*)NULL);  // same for stack-local vars
             PUSH(argp - ADV(uchar));
             break;
+        case opLeaResultVar:
+            PUSH((rtobject*)NULL);
+            PUSH(result);
+            break;
         case opLeaMember:
             {
                 stateobj* obj = stk->_stateobj();
@@ -279,7 +292,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
 
         // --- 4. STORERS ----------------------------------------------------
         case opInitInnerVar:
-            INITTO(innerobj->member(ADV(uchar)));
+            INITPOP(innerobj->member(ADV(uchar)));
             break;
         // case opInitStkVar:
         //     INITTO(basep + ADV(uchar));
@@ -296,6 +309,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opStoreArgVar:
             POPTO(argp - ADV(uchar));
+            break;
+        case opStoreResultVar:
+            POPTO(result);
             break;
         case opStoreMember:
             {
@@ -317,21 +333,19 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         // --- 5. DESIGNATOR OPS, MISC ---------------------------------------
         case opMkRange:
             {
-                SETPOD(stk - 1, (stk - 1)->_int(), stk->_int());
+                INITAT(stk - 1, (stk - 1)->_int(), stk->_int());
                 POPPOD();
             }
             break;
         case opMkRef:
-            SETPOD(stk, new reference((podvar*)stk));
+            INITAT(stk, new reference((podvar*)stk));
             break;
         case opMkFuncPtr:
             *stk = new funcptr(dataseg, stk->_stateobj(), ADV(State*));
             break;
         case opMkFarFuncPtr:
-            {
-                State* callee = ADV(State*);
-                *stk = new funcptr(dataseg->member(ADV(uchar))->_stateobj(), stk->_stateobj(), callee);
-            }
+            callee = ADV(State*);
+            *stk = new funcptr(dataseg->member(ADV(uchar))->_stateobj(), stk->_stateobj(), callee);
             break;
         case opNonEmpty:
             *stk = int(!stk->empty());
@@ -563,7 +577,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opPairToByteDict:
             {
                 integer i = (stk - 1)->_int();
-                SETPOD(stk - 1, varvec());
+                INITAT(stk - 1, varvec());
                 byteDictReplace((stk - 1)->_vec(), i, *stk);
                 POP();
             }
@@ -743,94 +757,60 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             }
             break;
 
+        // --- Function calls
         case opChildCall:
+            callobj = innerobj;
+nearCall:
+            callds = dataseg;
+farCall:
+            callee = ADV(State*);
+            popArgCount = callee->popArgCount;
+anyCall:
+            if (callee->isExternal())
+                callee->externFunc(&ax, callobj, stk + 1);
+            else
+                runRabbitRun(&ax, callds, callobj, stk + 1, callee->getCodeStart());
+            while (popArgCount--)
+                POP();
+            if (callee->returns)
             {
-                State* callee = ADV(State*);
-                if (callee->isExternal())
-                    callee->externFunc(innerobj, stk + 1);
-                else
-                    runRabbitRun(dataseg, innerobj, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
+                INITPUSH(&ax); // no need for the variant ctor, just copy
+                INITAT(&ax, variant::VOID);
             }
             break;
 
         case opSiblingCall:
-            {
-                State* callee = ADV(State*);
-                if (callee->isExternal())
-                    callee->externFunc(outerobj, stk + 1);
-                else
-                    runRabbitRun(dataseg, outerobj, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-            }
-            break;
+            callobj = outerobj;
+            goto nearCall;
 
         case opStaticCall:
-            {
-                State* callee = ADV(State*);
-                if (callee->isExternal())
-                    callee->externFunc(NULL, stk + 1);
-                else
-                    runRabbitRun(NULL, NULL, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-            }
-            break;
+            callobj = NULL;
+            callds = NULL;
+            goto farCall;
 
         case opMethodCall:
-            {
-                State* callee = ADV(State*);
-                stateobj* obj = (stk - callee->popArgCount - callee->returns)->_stateobj();
-                if (callee->isExternal())
-                    callee->externFunc(obj, stk + 1);
-                else
-                    runRabbitRun(dataseg, obj, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-                if (callee->returns)
-                    POPTO(stk - 1)
-                else
-                    POP();
-            }
-            break;
+            callee = ADV(State*);
+            callds = dataseg;
+farMethodCall:
+            callobj = (stk - callee->popArgCount)->_stateobj();
+            popArgCount = callee->popArgCount + 1;
+            goto anyCall;
 
         case opFarMethodCall:
-            {
-                State* callee = ADV(State*);
-                stateobj* obj = (stk - callee->popArgCount - callee->returns)->_stateobj();
-                if (callee->isExternal())
-                    callee->externFunc(obj, stk + 1);
-                else
-                    runRabbitRun(dataseg->member(ADV(uchar))->_stateobj(),
-                        obj, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-                if (callee->returns)
-                    POPTO(stk - 1)
-                else
-                    POP();
-            }
-            break;
+            callee = ADV(State*);
+            callds = dataseg->member(ADV(uchar))->_stateobj();
+            goto farMethodCall;
 
         case opCall:
             {
-                funcptr* fp = (stk - ADV(uchar))->_funcptr();
-                CHKOBJ(fp);
-                State* callee = fp->state;
-                if (callee->isExternal())
-                    callee->externFunc(fp->outer, stk + 1);
-                else
-                    runRabbitRun(fp->dataseg, fp->outer, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-                if (callee->returns)
-                    POPTO(stk - 1)
-                else
-                    POP();
+                funcptr* callfp = (stk - ADV(uchar))->_funcptr();
+                CHKOBJ(callfp);
+                callee = callfp->state;
+                popArgCount = callee->popArgCount + 1;
+                callds = callfp->dataseg;
+                callobj = callfp->outer;
             }
-            break;
+            goto anyCall;
 
 
         // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
@@ -885,21 +865,12 @@ const char* eexit::what() throw()  { return "Exit called"; }
 Type* CodeGen::runConstExpr(variant& result)
 {
     Type* resultType = stkPop();
-    addOp<uchar>(opStoreArgVar, 1);
+    addOp(opStoreResultVar);
     end();
 
-    rtstack stack(codeseg.stackSize + 1);
-    stack.push(variant::null);  // storage for the return value
-    try
-    {
-        runRabbitRun(NULL, NULL, stack.bp, codeseg.getCode());
-    }
-    catch (exception&)
-    {
-        stack.pop();
-        throw;
-    }
-    stack.popto(result);
+    rtstack stack(codeseg.stackSize);
+    runRabbitRun(&result, NULL, NULL, stack.base(), codeseg.getCode());
+
     return resultType;
 }
 
@@ -925,17 +896,8 @@ void ModuleInstance::run(Context* context, rtstack& stack)
     }
 
     // Run module initialization or main code
-    stack.push(obj.get());
-    try
-    {
-        runRabbitRun(obj, obj, stack.bp, module->getCodeStart());
-    }
-    catch (exception&)
-    {
-        stack.pop();
-        throw;
-    }
-    stack.pop();
+    variant result = obj.get();
+    runRabbitRun(&result, obj, obj, stack.base(), module->getCodeStart());
 }
 
 

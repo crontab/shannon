@@ -49,6 +49,7 @@ enum OpCode
     opLoadOuterVar,     // [outer.idx:u8] +var
     opLoadStkVar,       // [stk.idx:u8] +var
     opLoadArgVar,       // [arg.idx:u8] +var
+    opLoadResultVar,    // +var
     // --- end primary loaders
     opLoadMember,       // [stateobj.idx:u8] -stateobj +var
     opDeref,            // -ref +var
@@ -58,6 +59,7 @@ enum OpCode
     opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
     opLeaStkVar,        // [stk.idx:u8] +obj(0) +ptr
     opLeaArgVar,        // [arg.idx:u8] +obj(0) +ptr
+    opLeaResultVar,     // +obj(0) +ptr
     opLeaMember,        // [stateobj.idx:u8] -stateobj +stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
 
@@ -69,6 +71,7 @@ enum OpCode
     opStoreOuterVar,    // [outer.idx:u8] -var
     opStoreStkVar,      // [stk.idx:u8] -var
     opStoreArgVar,      // [arg.idx:u8] -var
+    opStoreResultVar,   // -var
     opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
     // --- end grounded storers
@@ -222,7 +225,7 @@ enum OpCode
 
 
 inline bool isPrimaryLoader(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadArgVar); }
+    { return (op >= opLoadTypeRef && op <= opLoadResultVar); }
 
 inline bool isGroundedLoader(OpCode op)
     { return op >= opLoadInnerVar && op <= opDeref; }
@@ -436,6 +439,8 @@ public:
         { _loadVar(var, opLoadStkVar); }
     void loadArgVar(ArgVar* var)
         { _loadVar(var, opLoadArgVar); }
+    void loadResultVar(ResultVar* var)
+        { assert(var->id == 0); addOp(var->type, opLoadResultVar); }
     void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
     void loadMember(const str& ident);
@@ -584,7 +589,8 @@ public:
 // Besides, code segments never have any relocatble data elements, so that any
 // module can be reused in the multithreaded server environment too.
 
-void runRabbitRun(stateobj* dataseg, stateobj* outerobj, variant* basep, const uchar* code);
+void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
+        variant* basep, const uchar* code);
 
 
 struct eexit: public exception

@@ -281,7 +281,7 @@ container* container::allocate(memint cap, memint siz)
 inline memint container::_calc_prealloc(memint newsize)
 {
     if (newsize <= memint(8 * sizeof(memint)))
-        return 12 * sizeof(memint);
+        return 12 * sizeof(memint);  // 96 on 64-bit systems, maybe too much?
     else
         return newsize + newsize / 2;
 }
@@ -1278,8 +1278,7 @@ void funcptr::dump(fifo& stm) const
 rtstack::rtstack(memint maxSize)
 {
     if (maxSize)
-        _init(maxSize * Tsize);
-    bp = (variant*)begin();
+        _init(maxSize * sizeof(variant));
 }
 
 

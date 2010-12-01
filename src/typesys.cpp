@@ -79,6 +79,9 @@ StkVar::StkVar(const str& n, Type* t, memint i, State* h)
 ArgVar::ArgVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, ARGVAR, t, i, h)  { assert(i >= 0); }
 
+ResultVar::ResultVar(Type* t, State* h)
+    : Variable("result", RESULTVAR, t, 0, h)  { }
+
 InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
@@ -854,7 +857,7 @@ State::State(State* par, FuncPtr* proto)
     : Type(STATE), Scope(false, par),
       complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
-      prototype(proto), returnVar(NULL),
+      prototype(proto), resultVar(NULL),
       codeseg(new CodeSeg(this)), externFunc(NULL),
       popArgCount(0), returns(false), varCount(0)
 {
@@ -863,10 +866,10 @@ State::State(State* par, FuncPtr* proto)
         prototype->resolveSelfType(this);
     // Register all formal args as actual args within the local scope,
     // including the return var
-    popArgCount = prototype->formalArgs.size();
+    popArgCount = prototype->getPopArgs();
     returns = !prototype->isVoidFunc();
     if (!prototype->isVoidFunc())
-        returnVar = addArgument("result", prototype->returnType, popArgCount + 1);
+        addResultVar(prototype->returnType);
     for (memint i = 0; i < popArgCount; i++)
     {
         FormalArg* arg = prototype->formalArgs[i];
@@ -1002,6 +1005,15 @@ ArgVar* State::addArgument(const str& n, Type* t, memint varid)
         addUnique(arg);
     args.push_back(arg->grab<ArgVar>());
     return arg;
+}
+
+
+void State::addResultVar(Type* t)
+{
+    assert(resultVar.empty());
+    resultVar = new ResultVar(t, this);
+    if (!resultVar->name.empty()) // currently set to "result"
+        addUnique(resultVar);
 }
 
 
@@ -1182,12 +1194,9 @@ QueenBee::QueenBee()
     serrVar = addInnerVar("serr", defCharFifo);
 
     // Built-ins:
-    // Return type for many builtins is set to void because they don't need
-    // an empty return var be pushed onto the stack like for ordinary
-    // functions: the builtins usually handle the return value themselves.
-    // Also, NULL argument means anything goes, the builtin parser will
-    // take care of type checking.
-    FuncPtr* proto1 = registerType<FuncPtr>(new FuncPtr(defVoid));
+    // NULL argument means anything goes, the builtin parser will take care of 
+    // type checking.
+    FuncPtr* proto1 = registerType<FuncPtr>(new FuncPtr(defInt));
     proto1->addFormalArg("arg", NULL);
     addBuiltin("len", compileLen, proto1);
     addBuiltin("lo", compileLo, proto1);

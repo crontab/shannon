@@ -1169,7 +1169,7 @@ class stateobj: public rtobject
 {
     friend class State;
     typedef rtobject parent;
-    friend void runRabbitRun(stateobj*, stateobj*, variant*, const uchar*);
+    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
     
 protected:
 #ifdef DEBUG
@@ -1237,17 +1237,12 @@ public:
 inline funcptr* variant::_funcptr() const  { return cast<funcptr*>(_rtobj()); }
 
 
-class rtstack: protected podvec<variant>
+class rtstack: protected bytevec
 {
-    typedef podvec<variant> parent;
 public:
-    variant* bp;    // base pointer
     rtstack(memint maxSize);
-    template <class T>
-        void push(const T& t)   { new(bp) variant(t); bp++; }
-    variant& top()              { return *(bp - 1); }
-    void pop()                  { bp--; bp->~variant(); }
-    void popto(variant& v)      { bp--; v.~variant(); (podvar&)v = *(podvar*)bp; }
+    variant* base()
+        { return (variant*)begin(); }
 };
 
 
