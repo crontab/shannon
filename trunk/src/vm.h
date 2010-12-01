@@ -207,7 +207,6 @@ enum OpCode
     opChildCall,        // [State*] -var -var ... +var
     opSiblingCall,      // [State*] -var -var ... +var
     opStaticCall,       // [State*] -var -var ... +var
-    opStaticExtCall,    // [State*] -var -var ... +var
     opMethodCall,       // [State*] -var -var -obj ... +var
     opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
     opCall,             // [argcount:u8] -var -var -funcptr +var

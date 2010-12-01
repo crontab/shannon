@@ -594,16 +594,16 @@ void CodeGen::loadMember(const str& ident)
     {
         // Scope resolution: we have a state name followed by '.', but because
         // state names are by default transformed to function pointers, we 
-        // need to roll it back:
+        // need to roll it back (undoTypeRef() does the typecast from FuncPtr
+        // to State and returns the State reference):
         type = undoTypeRef();
         if (!type->isAnyState())
             error("Invalid member selection");
         loadMember(PState(type), ident);
     }
     else if (type->isAnyState())
-    {
+        // State object (variable or subexpr) on the stack followed by '.' and member:
         loadMember(PState(type)->findShallow(ident));
-    }
     else
         error("Invalid member selection");
 }
@@ -639,6 +639,7 @@ void CodeGen::loadMember(Symbol* sym)
             codeOwner->useOutsideObject();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
             // also loadDefinition()
+            // TODO: static functions
             Module* targetModule = PState(stateType)->parentModule;
             if (targetModule == codeOwner->parentModule) // near call
                 addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
@@ -656,6 +657,8 @@ void CodeGen::loadMember(Symbol* sym)
         }
         else
         {
+            // Any previous scope and object loads are not needed since this is
+            // a definition:
             undoSubexpr();
             loadDefinition(def);
         }
@@ -1530,13 +1533,7 @@ void CodeGen::call(FuncPtr* proto)
         // TODO: maybe also implement the versions of these for extern calls:
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
-        case opLoadStaticFuncPtr:
-            {
-                // Optimize for static externs/builtins:
-                State* callee = codeseg.stateArgAt(offs);
-                op = callee->isExternal() ? opStaticExtCall : opStaticCall;
-            }
-            break;
+        case opLoadStaticFuncPtr: op = opStaticCall; break;
         case opMkFuncPtr: op = opMethodCall; break;
         case opMkFarFuncPtr: op = opFarMethodCall; break;
         default: ; // leave op = opInv
