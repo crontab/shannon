@@ -746,7 +746,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opChildCall:
             {
                 State* callee = ADV(State*);
-                runRabbitRun(dataseg, innerobj, stk + 1, callee->getCodeStart());
+                if (callee->isExternal())
+                    callee->externFunc(innerobj, stk + 1);
+                else
+                    runRabbitRun(dataseg, innerobj, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
             }
@@ -755,7 +758,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opSiblingCall:
             {
                 State* callee = ADV(State*);
-                runRabbitRun(dataseg, outerobj, stk + 1, callee->getCodeStart());
+                if (callee->isExternal())
+                    callee->externFunc(outerobj, stk + 1);
+                else
+                    runRabbitRun(dataseg, outerobj, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
             }
@@ -764,16 +770,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opStaticCall:
             {
                 State* callee = ADV(State*);
-                runRabbitRun(NULL, NULL, stk + 1, callee->getCodeStart());
-                for (memint i = callee->popArgCount; i--; )
-                    POP();
-            }
-            break;
-
-        case opStaticExtCall:
-            {
-                State* callee = ADV(State*);
-                callee->externFunc(NULL, stk + 1);
+                if (callee->isExternal())
+                    callee->externFunc(NULL, stk + 1);
+                else
+                    runRabbitRun(NULL, NULL, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
             }
@@ -782,9 +782,11 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opMethodCall:
             {
                 State* callee = ADV(State*);
-                runRabbitRun(dataseg,
-                    (stk - callee->popArgCount - callee->returns)->_stateobj(),
-                    stk + 1, callee->getCodeStart());
+                stateobj* obj = (stk - callee->popArgCount - callee->returns)->_stateobj();
+                if (callee->isExternal())
+                    callee->externFunc(obj, stk + 1);
+                else
+                    runRabbitRun(dataseg, obj, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
                 if (callee->returns)
@@ -797,10 +799,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opFarMethodCall:
             {
                 State* callee = ADV(State*);
-                runRabbitRun(
-                    dataseg->member(ADV(uchar))->_stateobj(),
-                    (stk - callee->popArgCount - callee->returns)->_stateobj(),
-                    stk + 1, callee->getCodeStart());
+                stateobj* obj = (stk - callee->popArgCount - callee->returns)->_stateobj();
+                if (callee->isExternal())
+                    callee->externFunc(obj, stk + 1);
+                else
+                    runRabbitRun(dataseg->member(ADV(uchar))->_stateobj(),
+                        obj, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
                 if (callee->returns)
@@ -815,7 +819,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 funcptr* fp = (stk - ADV(uchar))->_funcptr();
                 CHKOBJ(fp);
                 State* callee = fp->state;
-                runRabbitRun(fp->dataseg, fp->outer, stk + 1, callee->getCodeStart());
+                if (callee->isExternal())
+                    callee->externFunc(fp->outer, stk + 1);
+                else
+                    runRabbitRun(fp->dataseg, fp->outer, stk + 1, callee->getCodeStart());
                 for (memint i = callee->popArgCount; i--; )
                     POP();
                 if (callee->returns)
