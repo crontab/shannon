@@ -559,7 +559,7 @@ for i, j = {'one' = one, 'two' = two, 'three' = three}
 
 // STATES
 
-// def proto1 = int *(int a, int b) ...
+def proto1 = int *(int a, int b) ...
 
 var inc_call_count = 0
 
@@ -639,6 +639,14 @@ def void vinc(int i^) { i = i + 1 }
 vinc(loc3)
 assert loc3 == 4
 
+
+var statv = 1
+def int nonstatf():
+    result = statv
+assert nonstatf() == 1
+
+def void shouldnt_be_statf(): assert nonstatf() == 1
+shouldnt_be_statf()
 
 // Nested functions
 

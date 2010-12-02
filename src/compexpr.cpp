@@ -170,7 +170,7 @@ void Compiler::identifier(str ident)
             else
             {
                 codegen->loadVariable(m);
-                codegen->loadMember(sym);
+                codegen->loadMember(sym->host, sym);
             }
             return;
         }
@@ -392,7 +392,7 @@ void Compiler::designator(Type* typeHint)
         if (skipIf(tokPeriod))
         {
             codegen->deref();
-            codegen->loadMember(getIdentifier());
+            codegen->loadDotMember(getIdentifier());
         }
 
         else if (skipIf(tokLSquare))
