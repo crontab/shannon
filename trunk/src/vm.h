@@ -111,8 +111,8 @@ enum OpCode
     opDelSubvec,        // -{int,void} -int -ptr -obj
     opStrIns,           // -char -int -ptr -obj
     opVecIns,           // -var -int -ptr -obj
-    opSubstrIns,        // -str -{int,void} -int -ptr -obj
-    opSubvecIns,        // -vec -{int,void} -int -ptr -obj
+    opSubstrReplace,    // -str -{int,void} -int -ptr -obj
+    opSubvecReplace,    // -vec -{int,void} -int -ptr -obj
     // In-place vector concat
     opChrCatAssign,     // -char -ptr -obj
     opStrCatAssign,     // -str -ptr -obj
@@ -501,12 +501,13 @@ public:
     void programExit();
 
     str lvalue();
+    void assign(const str& storerCode);
     str arithmLvalue(Token);
     void catLvalue();
-    str insLvalue();
-    void assignment(const str& storerCode);
-    void deleteContainerElem();
     void catAssign();
+    str insLvalue();
+    void insAssign(const str& storerCode);
+    void deleteContainerElem();
     void fifoPush();
 
     State* mkFuncPtr();

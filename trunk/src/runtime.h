@@ -378,6 +378,7 @@ public:
     void insert(memint pos, const char* s);
     void operator= (const char* c);
     void operator= (char c);
+    void replace(memint pos, memint len, const str& s);
 
     enum { npos = -1 };
     memint find(char c) const;
@@ -596,6 +597,12 @@ public:
     void push_back(const T& t)
         { new(bytevec::_append(Tsize, cont::allocate)) T(t); }
     void resize(memint); // not implemented
+
+    void replace(memint pos, memint len, const vector& v)
+    {
+        parent::erase(pos, len);
+        insert(pos, v);
+    }
 
     void grow(memint extra_items)
     {
@@ -1050,6 +1057,8 @@ public:
 
     Type getType() const                { return Type(type); }
     bool is(Type t) const               { return type == t; }
+    bool is_str() const                 { return type == STR; }
+    bool is_vec() const                 { return type == VEC; }
     bool is_null() const                { return type == VOID; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
 

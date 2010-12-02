@@ -178,7 +178,7 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     // Vector elements are automatically converted to vectors when necessary,
     // e.g. char -> str
-    if (to->isAnyVec() && from->identicalTo(PContainer(to)->elem))
+    if (to->isVectorOf(from))
     {
         elemToVec(PContainer(to));
         return true;
@@ -823,8 +823,8 @@ void CodeGen::loadSubvec()
         implicitCast(left);
     if (contType->isAnyVec())
     {
-        if (!left->isAnyOrd())
-            error("Non-ordinal range bounds");
+        if (!left->isInt())
+            error("Vector index type mismatch");
         stkPop();
         stkPop();
         stkPop();
@@ -1320,8 +1320,8 @@ static OpCode loaderToInserter(OpCode op)
     {
         case opStrElem:   return opStrIns;
         case opVecElem:   return opVecIns;
-        case opSubstr:    return opSubstrIns;
-        case opSubvec:    return opSubvecIns;
+        case opSubstr:    return opSubstrReplace;
+        case opSubvec:    return opSubvecReplace;
         default:
             errorNotInsertableElem();
             return opInv;
@@ -1372,8 +1372,22 @@ str CodeGen::lvalue()
 }
 
 
+void CodeGen::assign(const str& storerCode)
+{
+    assert(!storerCode.empty());
+    Type* dest = stkType(2);
+    if (dest->isVoid())  // Don't remember why it's here. Possibly because of set elem selection
+        error("Destination is void type");
+    implicitCast(dest, "Type mismatch in assignment");
+    codeseg.append(storerCode);
+    stkPop();
+    stkPop();
+}
+
+
 str CodeGen::arithmLvalue(Token tok)
 {
+    // Like with lvalue(), returns the storer code to be processed by assign()
     assert(tok >= tokAddAssign && tok <= tokModAssign);
     OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
     memint offs = stkLoaderOffs();
@@ -1390,41 +1404,6 @@ void CodeGen::catLvalue()
         error("'|=' expects vector/string type");
     memint offs = stkLoaderOffs();
     codeseg.replaceOpAt(offs, loaderToLea(codeseg.opAt(offs)));
-}
-
-
-str CodeGen::insLvalue()
-{
-    memint offs = stkLoaderOffs();
-    OpCode inserter = loaderToInserter(codeseg.opAt(offs));
-    memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
-    codeseg.replaceOpAt(offs, inserter);
-    return codeseg.cutOp(offs);
-}
-
-
-void CodeGen::assignment(const str& storerCode)
-{
-    assert(!storerCode.empty());
-    Type* dest = stkType(2);
-    if (dest->isVoid())  // Don't remember why it's here. Possibly because of set elem selection
-        error("Destination is void type");
-    implicitCast(dest, "Type mismatch in assignment");
-    codeseg.append(storerCode);
-    stkPop();
-    stkPop();
-}
-
-
-void CodeGen::deleteContainerElem()
-{
-    memint offs = stkLoaderOffs();
-    OpCode deleter = loaderToDeleter(codeseg.opAt(offs));
-    memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
-    codeseg.replaceOpAt(offs, deleter);
-    stkPop();
 }
 
 
@@ -1446,6 +1425,46 @@ void CodeGen::catAssign()
 }
 
 
+str CodeGen::insLvalue()
+{
+    memint offs = stkLoaderOffs();
+    OpCode inserter = loaderToInserter(codeseg.opAt(offs));
+    memint prev = stkPrevLoaderOffs();
+    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
+    codeseg.replaceOpAt(offs, inserter);
+    return codeseg.cutOp(offs);
+}
+
+
+void CodeGen::insAssign(const str& storerCode)
+{
+    assert(!storerCode.empty());
+    Type* left = stkType(2);
+    Type* right = stkType();
+    // This one is a little bit messy. If the lvalue is an element selection
+    // then 'left' is the element type; otherwise if it's a subvec/substr 
+    // selection (s[i..j]), then 'left' is vector/string type. At the same time,
+    // we need to support both vector and element cases on the right. The below
+    // code somehow works correctly but I don't like all this.
+    if (!right->isVectorOf(left))
+        implicitCast(left, "Type mismatch in 'ins'");
+    codeseg.append(storerCode);
+    stkPop();
+    stkPop();
+}
+
+
+void CodeGen::deleteContainerElem()
+{
+    memint offs = stkLoaderOffs();
+    OpCode deleter = loaderToDeleter(codeseg.opAt(offs));
+    memint prev = stkPrevLoaderOffs();
+    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
+    codeseg.replaceOpAt(offs, deleter);
+    stkPop();
+}
+
+
 void CodeGen::fifoPush()
 {
     Type* left = stkType(2);
@@ -1454,7 +1473,7 @@ void CodeGen::fifoPush()
     Type* right = stkType();
     // TODO: call a builtin
     // TODO: what about conversions like in C++? probably Nah.
-    if (right->isAnyVec() && PContainer(right)->elem->identicalTo(PFifo(left)->elem))
+    if (right->isVectorOf(PFifo(left)->elem))
     {
         notimpl();
     }
@@ -1505,7 +1524,7 @@ void CodeGen::epilog(memint prologOffs)
 #ifdef DEBUG
         if (codeOwner->varCount > 0 || codeOwner->innerObjUsedSoFar())
 #else
-        if (codeOwner->innerObjUsedSoFar())
+        else
 #endif
             addOp<State*>(opLeaveFunc, codeOwner);
     }

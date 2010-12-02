@@ -280,7 +280,7 @@ void Compiler::otherStatement()
     {
         str storerCode = codegen->lvalue();
         expression(codegen->getTopType());
-        codegen->assignment(storerCode);
+        codegen->assign(storerCode);
     }
 
     else if (token >= tokAddAssign && token <= tokModAssign)
@@ -288,9 +288,9 @@ void Compiler::otherStatement()
         str storerCode = codegen->arithmLvalue(token);
         next();
         expression(codegen->getTopType());
-        codegen->assignment(storerCode);
+        codegen->assign(storerCode);
     }
-    
+
     else if (skipIf(tokCatAssign))
     {
         codegen->catLvalue();
@@ -322,6 +322,24 @@ void Compiler::otherStatement()
             error("Unused value in statement");
     }
     assert(codegen->getStackLevel() == stkLevel);
+}
+
+
+void Compiler::doIns()
+{
+    designator(NULL);
+    expect(tokAssign, "'='");
+    str inserterCode = codegen->insLvalue();
+    expression(NULL);
+    codegen->insAssign(inserterCode);
+    skipEos();
+}
+
+
+void Compiler::doDel()
+{
+    designator(NULL);
+    codegen->deleteContainerElem();
 }
 
 
@@ -563,24 +581,6 @@ void Compiler::doBreak()
         error("'break' not within loop");
     codegen->deinitFrame(loopInfo->stackLevel);
     loopInfo->breakJumps.push_back(codegen->jumpForward());
-}
-
-
-void Compiler::doDel()
-{
-    designator(NULL);
-    codegen->deleteContainerElem();
-}
-
-
-void Compiler::doIns()
-{
-    designator(NULL);
-    expect(tokAssign, "'='");
-    str inserterCode = codegen->insLvalue();
-    expression(codegen->getTopType());
-    codegen->assignment(inserterCode);
-    skipEos();
 }
 
 

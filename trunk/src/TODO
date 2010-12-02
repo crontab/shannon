@@ -1,6 +1,4 @@
 
-* 'typeof' as a builtin
-
 * Builtins can be called both as methods and functions: len(s) and
   s.len() is the same
 
