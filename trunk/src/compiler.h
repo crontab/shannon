@@ -76,7 +76,8 @@ public:
     void otherStatement();
     void doDel();
     void doIns();
-    void block();
+    void singleOrMultiBlock();
+    void nestedBlock();
     void singleStatement();
     void statementList(bool topLevel);
     void ifBlock();

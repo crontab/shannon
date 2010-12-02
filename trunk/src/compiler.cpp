@@ -141,9 +141,8 @@ void Compiler::variable()
 }
 
 
-void Compiler::block()
+void Compiler::singleOrMultiBlock()
 {
-    AutoScope local(this);
     if (skipIf(tokColon))
     {
         skipWsSeps();
@@ -155,8 +154,15 @@ void Compiler::block()
         statementList(false);
         skipMultiBlockEnd();
     }
-    local.deinitLocals();
+}
+
+
+void Compiler::nestedBlock()
+{
+    AutoScope local(this);
+    singleOrMultiBlock();
     skipWsSeps();
+    local.deinitLocals();
 }
 
 
@@ -173,7 +179,7 @@ void Compiler::singleStatement()
     else if (skipIf(tokVar))
         variable();
     else if (skipIf(tokBegin))
-        block();
+        nestedBlock();
     else if (skipIf(tokIf))
         ifBlock();
     else if (skipIf(tokSwitch))
@@ -204,7 +210,6 @@ void Compiler::singleStatement()
 
 void Compiler::statementList(bool topLevel)
 {
-    skipWsSeps();
     while (!isBlockEnd() && !(topLevel && eof()))
     {
         singleStatement();
@@ -347,7 +352,7 @@ void Compiler::ifBlock()
 {
     expression(queenBee->defBool);
     memint out = codegen->boolJumpForward(opJumpFalse);
-    block();
+    nestedBlock();
     if (token == tokElif || token == tokElse)
     {
         memint t = codegen->jumpForward();
@@ -356,7 +361,7 @@ void Compiler::ifBlock()
         if (skipIf(tokElif))
             ifBlock();
         else if (skipIf(tokElse))
-            block();
+            nestedBlock();
     }
     codegen->resolveJump(out);
 }
@@ -368,14 +373,14 @@ void Compiler::caseLabel(Type* ctlType)
     expect(tokCase, "'case' or 'default'");
     caseValue(ctlType);
     memint out = codegen->boolJumpForward(opJumpFalse);
-    block();
+    nestedBlock();
     if (!isBlockEnd())
     {
         memint t = codegen->jumpForward();
         codegen->resolveJump(out);
         out = t;
         if (skipIf(tokDefault))
-            block();
+            nestedBlock();
         else
             caseLabel(ctlType);
     }
@@ -401,7 +406,7 @@ void Compiler::whileBlock()
     LoopInfo loop(*this);
     expression(queenBee->defBool);
     memint out = codegen->boolJumpForward(opJumpFalse);
-    block();
+    nestedBlock();
     codegen->jump(loop.continueTarget);
     codegen->resolveJump(out);
     loop.resolveBreakJumps();
@@ -442,7 +447,7 @@ void Compiler::forBlock()
             expression(iterType);
             codegen->stkVarCmp(ctlVar, opGreaterThan);
             memint out = codegen->boolJumpForward(opJumpTrue);
-            block();
+            nestedBlock();
             forBlockTail(ctlVar, out);
         }
     }
@@ -476,11 +481,11 @@ void Compiler::forBlock()
                     codegen->loadContainerElem();
                     inner.addInitStkVar(ident2, PContainer(iterType)->elem);
                 }
-                block();
+                nestedBlock();
                 inner.deinitLocals();
             }
             else
-                block();
+                nestedBlock();
             forBlockTail(ctlVar, out);
         }
     }
@@ -518,11 +523,11 @@ void Compiler::forBlock()
                 codegen->loadStkVar(ctlVar);
                 codegen->loadContainerElem();
                 inner.addInitStkVar(ident2, contType->elem);
-                block();
+                nestedBlock();
                 inner.deinitLocals();
             }
             else
-                block();
+                nestedBlock();
             forBlockTail(ctlVar, out, inc);
         }
     }
@@ -553,7 +558,7 @@ void Compiler::forBlock()
                     codegen->loadDictElemByIndex();
                     inner.addInitStkVar(ident2, contType->elem);
                 }
-                block();
+                nestedBlock();
                 inner.deinitLocals();
             }
             forBlockTail(idxVar, out);
@@ -592,11 +597,11 @@ void Compiler::stateBody(State* newState)
     Scope* saveScope = exchange(scope, cast<Scope*>(newState));
     try
     {
-        // TODO: allow single statement with colon?
         memint prologOffs = codegen->prolog();
-        skipMultiBlockBegin("'{'");
-        statementList(false);
-        skipMultiBlockEnd();
+        singleOrMultiBlock();
+        // skipMultiBlockBegin("'{'");
+        // statementList(false);
+        // skipMultiBlockEnd();
         codegen->epilog(prologOffs);
     }
     catch (exception&)
@@ -630,6 +635,7 @@ void Compiler::compileModule()
         {
             memint prologOffs = codegen->prolog();
             next();
+            skipWsSeps();
             statementList(true);
             expect(tokEof, "End of file");
             codegen->epilog(prologOffs);

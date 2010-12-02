@@ -589,45 +589,29 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
-void CodeGen::loadMember(const str& ident)
+void CodeGen::loadDotMember(const str& ident)
 {
     Type* type = stkType();
     if (type->isFuncPtr())
     {
         // Scope resolution: we have a state name followed by '.', but because
-        // state names are by default transformed to function pointers, we 
+        // state names are by default transformed into function pointers, we 
         // need to roll it back (undoTypeRef() does the typecast from FuncPtr
         // to State and returns the State reference):
-        type = undoTypeRef();
-        if (!type->isAnyState())
-            error("Invalid member selection");
-        loadMember(PState(type), ident);
+        loadTypeRefConst(type = undoTypeRef());
     }
-    else if (type->isAnyState())
+    if (type->isAnyState())
         // State object (variable or subexpr) on the stack followed by '.' and member:
-        loadMember(PState(type)->findShallow(ident));
+        loadMember(PState(type), PState(type)->findShallow(ident));
     else
         error("Invalid member selection");
 }
 
 
-void CodeGen::loadMember(State* stateType, const str& ident)
+void CodeGen::loadMember(State* type, Symbol* sym)
 {
-    Symbol* sym = stateType->findShallow(ident);
-    if (sym->isDef())
-        loadDefinition(PDefinition(sym));
-    else
-        // TODO: scope override within classes
-        error("Invalid scope override");
-}
-
-
-void CodeGen::loadMember(Symbol* sym)
-{
-    Type* type = stkType();
-    if (!type->isAnyState())
-        error("Invalid member selection");
-    if (sym->host != PState(type))  // shouldn't happen
+    // Here the scope is known to be a State, but is not used actually
+    if (sym->host != type)  // shouldn't happen
         fatal(0x600c, "Invalid member selection");
     if (sym->isAnyVar())
         loadMember(PVariable(sym));
@@ -637,11 +621,11 @@ void CodeGen::loadMember(Symbol* sym)
         Type* stateType = def->getAliasedType();
         if (stateType && stateType->isAnyState())
         {
+            // TODO: static functions
             stkPop();
             codeOwner->useOutsideObject();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
             // also loadDefinition()
-            // TODO: static functions
             Module* targetModule = PState(stateType)->parentModule;
             if (targetModule == codeOwner->parentModule) // near call
                 addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
@@ -672,6 +656,9 @@ void CodeGen::loadMember(Symbol* sym)
 
 void CodeGen::loadMember(Variable* var)
 {
+    // This variant of loadMember() is called when (1) loading a global/static
+    // variable which is not accessible other than through the dataseg object,
+    // or (2) from loadMember(Symbol*)
     Type* stateType = stkPop();
     if (isCompileTime())
         addOp(var->type, opConstExprErr);

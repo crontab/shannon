@@ -443,9 +443,8 @@ public:
         { assert(var->id == 0); addOp(var->type, opLoadResultVar); }
     void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
-    void loadMember(const str& ident);
-    void loadMember(State*, const str& ident);
-    void loadMember(Symbol* sym);
+    void loadDotMember(const str&);
+    void loadMember(State*, Symbol*);
     void loadMember(Variable*);
     void loadThis();
     void loadDataSeg();
