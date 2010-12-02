@@ -74,6 +74,8 @@ public:
     void dumpVar();
     void programExit();
     void otherStatement();
+    void doDel();
+    void doIns();
     void block();
     void singleStatement();
     void statementList(bool topLevel);
@@ -86,8 +88,6 @@ public:
     void forBlock();
     void doContinue();
     void doBreak();
-    void doDel();
-    void doIns();
     void stateBody(State*);
 
     void compileModule();

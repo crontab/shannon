@@ -111,10 +111,16 @@ del s3[2..]
 assert s3 == 'Zx'
 ins s3[1] = 'a'
 assert s3 == 'Zax'
-ins s3[3] = 'b'
-assert s3 == 'Zaxb'
-ins s3[1..] = 'so'
-assert s3 == 'Zsoaxb'
+ins s3[3] = 'bc'
+assert s3 == 'Zaxbc'
+ins s3[1..1] = 'so'
+assert s3 == 'Zsoxbc'
+ins s3[2..3] = 'p'
+assert s3 == 'Zspbc'
+ins s3[3..] = 'def'
+assert s3 == 'Zspdef'
+ins s3[2..4] = ''
+assert s3 == 'Zsf'
 
 a = 3
 a += 1
@@ -144,13 +150,17 @@ del v11[1..2]
 assert len(v11) == 3 and v11[0] == 'abc' and v11[1] == 'jkl' and v11[2] == 'mno'
 del v11[1..]
 assert len(v11) == 1 and v11[0] == 'abc'
-ins v11[0] = 'pqr'
-assert len(v11) == 2 and v11[0] == 'pqr' and v11[1] == 'abc'
-ins v11[len(v11)] = 'stu'
-assert len(v11) == 3 and v11[0] == 'pqr' and v11[1] == 'abc' and v11[2] == 'stu'
-ins v11[1..] = ['def']
-assert len(v11) == 4 and v11[0] == 'pqr' and v11[1] == 'def' \
-    and v11[2] == 'abc' and v11[3] == 'stu'
+ins v11[0] = ['pqr', 'stu']
+assert len(v11) == 3 and v11[0] == 'pqr' and v11[1] == 'stu' and v11[2] == 'abc'
+ins v11[len(v11)] = 'vwx'
+assert len(v11) == 4 and v11[0] == 'pqr' and v11[1] == 'stu' and v11[2] == 'abc' \
+     and v11[3] == 'vwx'
+
+ins v11[1..] = ['def', 'ghi']
+assert len(v11) == 3 and v11[0] == 'pqr' and v11[1] == 'def' \
+    and v11[2] == 'ghi'
+ins v11[2..2] = []
+assert len(v11) == 2 and v11[0] == 'pqr' and v11[1] == 'def'
 
 assert typeof c == str and typeof d == (int *[]) and typeof e == byte *[][] \
     and typeof er == int *[][]

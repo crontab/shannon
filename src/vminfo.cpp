@@ -109,8 +109,8 @@ OpInfo opTable[] =
     OP(DelSubvec, None),        // -{int,void} -int -ptr -obj
     OP(StrIns, None),           // -char -int -ptr -obj
     OP(VecIns, None),           // -var -int -ptr -obj
-    OP(SubstrIns, None),        // -str -void -int -ptr -obj
-    OP(SubvecIns, None),        // -vec -void -int -ptr -obj
+    OP(SubstrReplace, None),    // -str -void -int -ptr -obj
+    OP(SubvecReplace, None),    // -vec -void -int -ptr -obj
     OP(ChrCatAssign, None),     // -char -ptr -obj
     OP(StrCatAssign, None),     // -str -ptr -obj
     OP(VarCatAssign, None),     // -var -ptr -obj

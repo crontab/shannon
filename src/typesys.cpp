@@ -237,6 +237,8 @@ bool Type::isContainer(Type* idx, Type* elem) const
     { return isAnyCont() && elem->identicalTo(PContainer(this)->elem)
          && idx->identicalTo(PContainer(this)->index); }
 
+bool Type::isVectorOf(Type* elem) const
+    { return isAnyVec() && elem->identicalTo(PContainer(this)->elem); }
 
 bool Type::identicalTo(Type* t) const
     { return t == this; }

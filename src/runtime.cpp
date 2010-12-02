@@ -671,6 +671,13 @@ void str::insert(memint pos, const char* s)
     { bytevec::insert(pos, s, pstrlen(s)); }
 
 
+void str::replace(memint pos, memint len, const str& s)
+{
+    erase(pos, len);
+    insert(pos, s);
+}
+
+
 str str::substr(memint pos, memint len) const
 {
     if (pos == 0 && len == size())

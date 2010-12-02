@@ -268,6 +268,7 @@ public:
     bool isByteSet() const;
     bool isByteDict() const;
     bool isContainer(Type* idx, Type* elem) const;
+    bool isVectorOf(Type* elem) const;
 
     bool isAnyFifo() const      { return typeId == FIFO; }
     bool isCharFifo() const;

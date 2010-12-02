@@ -408,6 +408,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             *(stk - 1) = (stk - 1)->_vec().at(stk->_int());  // *OVR
             POPPOD();
             break;
+
         case opSubstr:  // -{int,void} -int -str +str
             {
                 memint pos = (stk - 1)->_int();  // *OVR
@@ -417,6 +418,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 POPPOD(); POPPOD();
             }
             break;
+
         case opSubvec:  // -{int,void} -int -vec +vec
             {
                 memint pos = (stk - 1)->_int();  // *OVR
@@ -426,6 +428,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 POPPOD(); POPPOD();
             }
             break;
+
         case opStoreStrElem:    // -char -int -ptr -obj
             (stk - 2)->_ptr()->_str().replace((stk - 1)->_int(), stk->_uchar());  // *OVR
             POPPOD(); POPPOD(); POPPOD(); POP();
@@ -442,6 +445,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             (stk - 1)->_ptr()->_vec().erase(stk->_int());  // *OVR
             POPPOD(); POPPOD(); POP();
             break;
+
         case opDelSubstr:       // -{int,void} -int -ptr -obj
             {
                 memint pos = (stk - 1)->_int();  // *OVR
@@ -450,6 +454,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 POPPOD(); POPPOD(); POPPOD(); POP();
             }
             break;
+
         case opDelSubvec:       // -{int,void} -int -ptr -obj
             {
                 memint pos = (stk - 1)->_int();  // *OVR
@@ -458,23 +463,55 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
                 POPPOD(); POPPOD(); POPPOD(); POP();
             }
             break;
-        case opStrIns:          // -char -int -ptr -obj
-            (stk - 2)->_ptr()->_str().insert((stk - 1)->_int(), stk->_uchar());  // *OVR
-            POPPOD(); POPPOD(); POPPOD(); POP();
+
+        case opStrIns:          // -{char,str} -int -ptr -obj
+            {
+                str& s = (stk - 2)->_ptr()->_str();
+                memint pos = (stk - 1)->_int();   // *OVR
+                if (stk->is_str())
+                    { s.insert(pos, stk->_str()); POP(); }
+                else // is_uchar()
+                    { s.insert(pos, stk->_uchar()); POPPOD(); }
+            }
+            POPPOD(); POPPOD(); POP();
             break;
-        case opVecIns:          // -var -int -ptr -obj
-            (stk - 2)->_ptr()->_vec().insert((stk - 1)->_int(), *stk);  // *OVR
+
+        case opVecIns:          // -{var,vec} -int -ptr -obj
+            {
+                varvec& v = (stk - 2)->_ptr()->_vec();
+                memint pos = (stk - 1)->_int();   // *OVR
+                if (stk->is_vec())
+                    v.insert(pos, stk->_vec());
+                else
+                    v.insert(pos, *stk);
+            }
             POP(); POPPOD(); POPPOD(); POP();
             break;
-        case opSubstrIns:       // -str -{int,void} -int -ptr -obj
-            // NOTE: the upper boundary in the range (int or void) is ignored
-            (stk - 3)->_ptr()->_str().insert((stk - 2)->_int(), stk->_str());  // *OVR
+
+        case opSubstrReplace:   // -str -{int,void} -int -ptr -obj
+            {
+                str& s = (stk - 3)->_ptr()->_str();
+                memint pos = (stk - 2)->_int();  // *OVR
+                s.replace(pos,
+                    (stk - 1)->is_null() ? s.size() - pos :
+                        (stk - 1)->_int() - pos + 1,
+                    stk->_str());
+            }
             POP(); POPPOD(); POPPOD(); POPPOD(); POP();
             break;
-        case opSubvecIns:       // -vec -{int,void} -int -ptr -obj
-            (stk - 3)->_ptr()->_vec().insert((stk - 2)->_int(), stk->_vec());  // *OVR
+
+        case opSubvecReplace:   // -vec -{int,void} -int -ptr -obj
+            {
+                varvec& v = (stk - 3)->_ptr()->_vec();
+                memint pos = (stk - 2)->_int();  // *OVR
+                v.replace(pos,
+                    (stk - 1)->is_null() ? v.size() - pos :
+                        (stk - 1)->_int() - pos + 1,
+                    stk->_vec());
+            }
             POP(); POPPOD(); POPPOD(); POPPOD(); POP();
             break;
+
         // In-place vector concat
         case opChrCatAssign:
             (stk - 1)->_ptr()->_str().push_back(stk->_uchar());
