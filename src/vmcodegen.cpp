@@ -433,23 +433,30 @@ void CodeGen::loadTypeRef(Type* type)
         // (3) member constant selection or scope override is requested: same 
         // as (2); or (4) otherwise the function pointer is left "as is".
         State* stateType = PState(type);
-        OpCode op = opInv;
         if (stateType->isStatic())
-            op = opLoadStaticFuncPtr;
+        {
+            addOp<State*>(stateType->prototype, opLoadStaticFuncPtr, stateType);
+        }
         else if (stateType->parent == codeOwner->parent)
         {
             codeOwner->useOutsideObject();
-            op = opLoadOuterFuncPtr;
+            addOp<State*>(stateType->prototype, opLoadOuterFuncPtr, stateType);
         }
         else if (stateType->parent == codeOwner)
         {
             codeOwner->useOutsideObject(); // uses dataseg
             codeOwner->useInnerObj();
-            op = opLoadInnerFuncPtr;
+            addOp<State*>(stateType->prototype, opLoadInnerFuncPtr, stateType);
         }
+        else if (stateType->parent == codeOwner->parentModule) // near top-level func
+        {
+            loadDataSeg();
+            stkPop();
+            addOp<State*>(stateType->prototype, opMkFuncPtr, stateType);
+        }
+        // TODO: far call, see loadMember(State*, Symbol*)
         else
             error("Invalid context for a function pointer");
-        addOp<State*>(stateType->prototype, op, stateType);
     }
     else
         loadTypeRefConst(type);
@@ -621,7 +628,7 @@ void CodeGen::loadMember(State* type, Symbol* sym)
         Type* stateType = def->getAliasedType();
         if (stateType && stateType->isAnyState())
         {
-            // TODO: static functions
+            // TODO: static call
             stkPop();
             codeOwner->useOutsideObject();
             // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
