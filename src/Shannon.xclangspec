@@ -1,0 +1,160 @@
+// Syntax coloring for XCode
+(
+	{
+		Identifier = "xcode.lang.shannon.identifier";
+		Syntax = {
+			StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+			Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+			Words = (
+				and,
+				as,
+				assert,
+				begin,
+				break,
+				case,
+				class,
+				const,
+				continue,
+				def,
+				default,
+				del,
+				dump,
+				elif,
+				else,
+				exit,
+				for,
+				if,
+				in,
+				ins,
+				is,
+				not,
+				or,
+				return,
+				shl,
+				shr,
+				switch,
+				this,
+				typeof,
+				var,
+				while,
+				xor,
+			);
+			Type = "xcode.syntax.keyword";
+			AltType = "xcode.syntax.identifier";
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon";
+		Description = "Shannon Coloring";
+		BasedOn = "xcode.lang.simpleColoring";
+		IncludeInMenu = YES;
+		Name = Shannon;
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			IncludeRules = (
+				"xcode.lang.shannon.function",
+				"xcode.lang.shannon.block",
+				"xcode.lang.shannon.bracketexpr",
+				"xcode.lang.shannon.parenexpr",
+			);
+			Type = "xcode.syntax.plain";
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.lexer";
+		Syntax = {
+			IncludeRules = (
+				"xcode.lang.comment",
+				"xcode.lang.comment.singleline",
+				"xcode.lang.string",
+				"xcode.lang.character",
+				"xcode.lang.shannon.identifier",
+				"xcode.lang.number",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.function";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Rules = (
+				"xcode.lang.shannon.function.declarator",
+				"xcode.lang.shannon.block",
+			);
+			Type = "xcode.syntax.definition.function";
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.function.declarator";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Rules = (
+				def,
+				"xcode.lang.shannon.identifier",
+				"xcode.lang.shannon.function.name",
+				"xcode.lang.shannon.parenexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.function.name";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Rules = (
+				"xcode.lang.shannon.identifier",
+				"xcode.lang.shannon.function.name.more*",
+			);
+			Type = "xcode.syntax.name.partial";
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.function.name.more";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Rules = (
+				".",
+				"xcode.lang.shannon.identifier",
+			);
+			Type = "xcode.syntax.name.partial";
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.block";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Start = "{";
+			End = "}";
+			Foldable = YES;
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.shannon.function",
+				"xcode.lang.shannon.bracketexpr",
+				"xcode.lang.shannon.parenexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.parenexpr";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Start = "(";
+			End = ")";
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.shannon.bracketexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.shannon.bracketexpr";
+		Syntax = {
+			Tokenizer = "xcode.lang.shannon.lexer";
+			Start = "[";
+			End = "]";
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.shannon.parenexpr",
+			);
+		};
+	},
+)
