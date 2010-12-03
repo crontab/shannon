@@ -55,7 +55,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3609125811CA87BB0091B8AA /* test.shn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.shn; path = src/tests/test.shn; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.javascript; };
+		3609125811CA87BB0091B8AA /* test.shn */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.shn; path = src/tests/test.shn; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.shannon; };
 		361AF9621000E38D00E12EAE /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = src/common.h; sourceTree = "<group>"; };
 		3626BA9E0EFAE7E2005644AF /* SYNTAX */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SYNTAX; sourceTree = "<group>"; };
 		362E29FD0F0D6C58005E05B4 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TODO; path = src/TODO; sourceTree = "<group>"; };
@@ -70,6 +70,7 @@
 		369DE915119447A600BBD287 /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = runtime.cpp; path = src/runtime.cpp; sourceTree = "<group>"; };
 		369DE916119447A600BBD287 /* runtime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = runtime.h; path = src/runtime.h; sourceTree = "<group>"; };
 		36A45F4E11D68D3E0010EBAC /* compexpr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = compexpr.cpp; path = src/compexpr.cpp; sourceTree = "<group>"; };
+		36A4D54012A86DA900B5D16C /* Shannon.xclangspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xclangspec; name = Shannon.xclangspec; path = src/Shannon.xclangspec; sourceTree = "<group>"; };
 		36B6ACEB1195E0A3001EF4C0 /* rtio.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rtio.cpp; path = src/rtio.cpp; sourceTree = "<group>"; };
 		36B6AD1E1195F0C7001EF4C0 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = src/parser.cpp; sourceTree = "<group>"; };
 		36B6AD1F1195F0C7001EF4C0 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
@@ -155,6 +156,7 @@
 				362E29FD0F0D6C58005E05B4 /* TODO */,
 				3626BA9E0EFAE7E2005644AF /* SYNTAX */,
 				36510CA511C9731500071AB4 /* shannon.syntax */,
+				36A4D54012A86DA900B5D16C /* Shannon.xclangspec */,
 				3609125811CA87BB0091B8AA /* test.shn */,
 			);
 			name = Documentation;
