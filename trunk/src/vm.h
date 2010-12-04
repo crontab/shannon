@@ -17,7 +17,6 @@ enum OpCode
     // --- 1. MISC CONTROL
     opInv0,             //  -- help detect invalid code: don't execute 0
     opEnd,              // end execution and return
-    opConstExprErr,     // placeholder for var loaders to generate an error
     opExit,             // throws eexit()
     opEnterFunc,        // [State*]
     opLeaveFunc,        // [State*]
@@ -42,6 +41,7 @@ enum OpCode
     opLoadOuterFuncPtr, // [State*] +funcptr -- see also opMkFuncPtr
     opLoadInnerFuncPtr, // [State*] +funcptr
     opLoadStaticFuncPtr,// [State*] +funcptr
+    opLoadFuncPtrErr,   // [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -50,6 +50,7 @@ enum OpCode
     opLoadStkVar,       // [stk.idx:u8] +var
     opLoadArgVar,       // [arg.idx:u8] +var
     opLoadResultVar,    // +var
+    opLoadVarErr,       // placeholder for var loaders to generate an error
     // --- end primary loaders
     opLoadMember,       // [stateobj.idx:u8] -stateobj +var
     opDeref,            // -ref +var
@@ -207,12 +208,12 @@ enum OpCode
     opJumpOr,           // [dst:s16] (-)bool
 
     // don't forget isCaller()
-    opChildCall,        // [State*] -var -var ... +var
-    opSiblingCall,      // [State*] -var -var ... +var
-    opStaticCall,       // [State*] -var -var ... +var
-    opMethodCall,       // [State*] -var -var -obj ... +var
-    opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... +var
-    opCall,             // [argcount:u8] -var -var -funcptr +var
+    opChildCall,        // [State*] -var -var ... {+var}
+    opSiblingCall,      // [State*] -var -var ... {+var}
+    opStaticCall,       // [State*] -var -var ... {+var}
+    opMethodCall,       // [State*] -var -var -obj ... {+var}
+    opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... {+var}
+    opCall,             // [argcount:u8] -var -var -funcptr {+var}
 
     // Misc. builtins
     opLineNum,          // [linenum:int]
@@ -225,7 +226,7 @@ enum OpCode
 
 
 inline bool isPrimaryLoader(OpCode op)
-    { return (op >= opLoadTypeRef && op <= opLoadResultVar); }
+    { return (op >= opLoadTypeRef && op <= opLoadVarErr); }
 
 inline bool isGroundedLoader(OpCode op)
     { return op >= opLoadInnerVar && op <= opDeref; }
@@ -289,8 +290,6 @@ class CodeSeg: public object
         T at(memint i) const            { return *(T*)code.data(i); }
 
 public:
-    memint stackSize;
-
     // Code gen helpers
     template <class T>
         void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
@@ -412,6 +411,7 @@ public:
     memint getCurrentOffs()     { return codeseg.size(); }
     void undoSubexpr();
     Type* undoTypeRef();
+    State* undoStateRef();
     Ordinal* undoOrdTypeRef();
     bool lastWasFuncCall();
     void deinitLocalVar(Variable*);
@@ -439,13 +439,12 @@ public:
         { _loadVar(var, opLoadStkVar); }
     void loadArgVar(ArgVar* var)
         { _loadVar(var, opLoadArgVar); }
-    void loadResultVar(ResultVar* var)
-        { assert(var->id == 0); addOp(var->type, opLoadResultVar); }
+    void loadResultVar(ResultVar* var);
     void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
     void loadDotMember(const str&);
     void loadMember(State*, Symbol*);
-    void loadMember(Variable*);
+    void loadMember(State*, Variable*);
     void loadThis();
     void loadDataSeg();
 
@@ -509,11 +508,11 @@ public:
     void deleteContainerElem();
     void fifoPush();
 
-    State* mkFuncPtr();
+    void _popArgs(FuncPtr*);
     void call(FuncPtr*);
 
     void end();
-    Type* runConstExpr(variant& result); // defined in vm.cpp
+    Type* runConstExpr(rtstack& constStack, variant& result); // defined in vm.cpp
 };
 
 

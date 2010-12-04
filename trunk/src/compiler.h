@@ -34,6 +34,7 @@ class Compiler: public Parser
 
 public:
     Context& context;
+    rtstack constStack;
     Module* const module;
     CodeGen* codegen;
     Scope* scope;           // for looking up symbols, can be local or state scope
@@ -63,7 +64,7 @@ public:
     void orLevel();
     void expression(Type*);
     Type* getConstValue(Type* resultType, variant& result);
-    Type* getTypeValue(bool atomic);
+    Type* getTypeValue();
 
     // in compiler.cpp
     Type* getTypeAndIdent(str* ident);

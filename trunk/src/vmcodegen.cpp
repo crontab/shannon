@@ -9,12 +9,15 @@ inline bool hasTypeArg(OpCode op)
 }
 
 
+inline bool hasStateArg(OpCode op)
+    { return opTable[op].arg == argState; }
+
+
 // --- Code Segment -------------------------------------------------------- //
 
 
 CodeSeg::CodeSeg(State* s)
     : object(), state(s)
-    , stackSize(0)
 #ifdef DEBUG
     , closed(false)
 #endif
@@ -102,8 +105,6 @@ void CodeGen::stkPush(Type* type, memint offs)
     OpCode op = codeseg.opAt(offs);
     if (isPrimaryLoader(op))
         primaryLoaders.push_back(offs);
-    if (getStackLevel() > codeseg.stackSize)
-        codeseg.stackSize = getStackLevel();
 }
 
 
@@ -193,9 +194,14 @@ bool CodeGen::tryImplicitCast(Type* to)
 
     if (from->isFuncPtr() && to->isTypeRef())
     {
-        undoSubexpr();
-        loadTypeRefConst(PFuncPtr(from)->returnType);
-        return true;
+        memint offs = stkLoaderOffs();
+        if (hasStateArg(codeseg.opAt(offs)))
+        {
+            State* stateType = codeseg.stateArgAt(offs);
+            undoSubexpr();
+            loadTypeRefConst(stateType);
+            return true;
+        }
     }
 
     return false;
@@ -297,13 +303,21 @@ void CodeGen::popValue()
 
 Type* CodeGen::undoTypeRef()
 {
-    implicitCast(defTypeRef);
     memint offs = stkLoaderOffs();
     if (codeseg.opAt(offs) != opLoadTypeRef)
         error("Const type reference expected");
     Type* type = codeseg.typeArgAt(offs);
     undoSubexpr();
     return type;
+}
+
+
+State* CodeGen::undoStateRef()
+{
+    Type* type = undoTypeRef();
+    if (!type->isAnyState())
+        error("State/function type expected");
+    return PState(type);
 }
 
 
@@ -422,7 +436,7 @@ void CodeGen::loadConst(Type* type, const variant& value)
 
 void CodeGen::loadTypeRef(Type* type)
 {
-    if (!isCompileTime() && type->isAnyState())
+    if (type->isAnyState())
     {
         // A state definition by default is tranformed into a function pointer
         // to preserve the object subexpression that may have preceeded it (see
@@ -436,6 +450,10 @@ void CodeGen::loadTypeRef(Type* type)
         if (stateType->isStatic())
         {
             addOp<State*>(stateType->prototype, opLoadStaticFuncPtr, stateType);
+        }
+        else if (isCompileTime())
+        {
+            addOp<State*>(stateType->prototype, opLoadFuncPtrErr, stateType);
         }
         else if (stateType->parent == codeOwner->parent)
         {
@@ -539,7 +557,7 @@ void CodeGen::_loadVar(Variable* var, OpCode op)
         // Load an error message generator in case it gets executed; however
         // this may be useful in expressions like typeof, where the value
         // is not needed:
-        addOp(var->type, opConstExprErr);
+        addOp(var->type, opLoadVarErr);
     else
         addOp<uchar>(var->type, op, var->id);
 }
@@ -559,6 +577,13 @@ void CodeGen::loadInnerVar(InnerVar* var)
 }
 
 
+void CodeGen::loadResultVar(ResultVar* var)
+{
+    assert(var->id == 0);
+    addOp(var->type, isCompileTime() ? opLoadVarErr : opLoadResultVar);
+}
+
+
 static void varNotAccessible(const str& name)
     { throw emessage("'" + name  + "' is not accessible within this context"); }
 
@@ -567,7 +592,7 @@ void CodeGen::loadVariable(Variable* var)
 {
     assert(var->host != NULL);
     if (isCompileTime())
-        addOp(var->type, opConstExprErr);
+        addOp(var->type, opLoadVarErr);
     else if (var->host == codeOwner)
     {
         if (var->isStkVar())
@@ -589,7 +614,7 @@ void CodeGen::loadVariable(Variable* var)
     else if (var->isInnerVar() && var->host == module)
     {
         loadDataSeg();
-        loadMember(var);
+        loadMember(module, var);
     }
     else
         varNotAccessible(var->name);
@@ -603,11 +628,11 @@ void CodeGen::loadDotMember(const str& ident)
     {
         // Scope resolution: we have a state name followed by '.', but because
         // state names are by default transformed into function pointers, we 
-        // need to roll it back (undoTypeRef() does the typecast from FuncPtr
-        // to State and returns the State reference):
-        loadTypeRefConst(type = undoTypeRef());
+        // need to roll it back
+        implicitCast(defTypeRef, "Invalid member selection");
+        loadSymbol(undoStateRef()->findShallow(ident));
     }
-    if (type->isAnyState())
+    else if (type->isAnyState())
         // State object (variable or subexpr) on the stack followed by '.' and member:
         loadMember(PState(type), PState(type)->findShallow(ident));
     else
@@ -615,37 +640,49 @@ void CodeGen::loadDotMember(const str& ident)
 }
 
 
-void CodeGen::loadMember(State* type, Symbol* sym)
+void CodeGen::loadMember(State* hostStateType, Symbol* sym)
 {
     // Here the scope is known to be a State, but is not used actually
-    if (sym->host != type)  // shouldn't happen
+    assert(hostStateType == stkType());
+    if (sym->host != hostStateType)  // shouldn't happen
         fatal(0x600c, "Invalid member selection");
     if (sym->isAnyVar())
-        loadMember(PVariable(sym));
+        loadMember(hostStateType, PVariable(sym));
     else if (sym->isDef())
     {
         Definition* def = PDefinition(sym);
-        Type* stateType = def->getAliasedType();
-        if (stateType && stateType->isAnyState())
+        Type* type = def->getAliasedType();
+        if (type && type->isAnyState())
         {
-            // TODO: static call
-            stkPop();
-            codeOwner->useOutsideObject();
-            // Most of the time opMkFuncPtr is replaced by opMethodCall. See 
-            // also loadDefinition()
-            Module* targetModule = PState(stateType)->parentModule;
-            if (targetModule == codeOwner->parentModule) // near call
-                addOp<State*>(PState(stateType)->prototype, opMkFuncPtr, PState(stateType));
+            State* stateType = PState(type);
+            if (stateType->isStatic())
+            {
+                undoSubexpr();
+                addOp(stateType->prototype, opLoadStaticFuncPtr, stateType);
+            }
+            else if (isCompileTime())
+            {
+                undoSubexpr();
+                addOp(stateType->prototype, opLoadFuncPtrErr, stateType);
+            }
             else
             {
-                // For far calls/funcptrs a data segment object should be provided
-                // as well: we do this by providing the ID of a corresponding
-                // module instance variable:
-                InnerVar* moduleVar = codeOwner->parentModule->findUsedModuleVar(targetModule);
-                if (moduleVar == NULL)
-                    error("Function call impossible within this context");
-                addOp<State*>(PState(stateType)->prototype, opMkFarFuncPtr, PState(stateType));
-                add<uchar>(moduleVar->id);
+                stkPop();
+                codeOwner->useOutsideObject();
+                Module* targetModule = stateType->parentModule;
+                if (targetModule == codeOwner->parentModule) // near call
+                    addOp<State*>(stateType->prototype, opMkFuncPtr, stateType);
+                else
+                {
+                    // For far calls/funcptrs a data segment object should be provided
+                    // as well: we do this by providing the ID of a corresponding
+                    // module instance variable:
+                    InnerVar* moduleVar = codeOwner->parentModule->findUsedModuleVar(targetModule);
+                    if (moduleVar == NULL)
+                        error("Function call impossible within this context");
+                    addOp<State*>(stateType->prototype, opMkFarFuncPtr, stateType);
+                    add<uchar>(moduleVar->id);
+                }
             }
         }
         else
@@ -661,19 +698,23 @@ void CodeGen::loadMember(State* type, Symbol* sym)
 }
 
 
-void CodeGen::loadMember(Variable* var)
+void CodeGen::loadMember(State* stateType, Variable* var)
 {
     // This variant of loadMember() is called when (1) loading a global/static
     // variable which is not accessible other than through the dataseg object,
     // or (2) from loadMember(Symbol*)
-    Type* stateType = stkPop();
+    assert(stateType == stkType());
+    if (var->host != stateType || !var->isInnerVar())
+        varNotAccessible(var->name);
     if (isCompileTime())
-        addOp(var->type, opConstExprErr);
+    {
+        undoSubexpr();
+        addOp(var->type, opLoadVarErr);
+    }
     else
     {
-        if (!stateType->isAnyState() || var->host != stateType || !var->isInnerVar())
-            error("Invalid member selection");
         assert(var->id >= 0 && var->id < 255);
+        stkPop();
         addOp<uchar>(var->type, opLoadMember, var->id);
     }
 }
@@ -1525,9 +1566,9 @@ void CodeGen::epilog(memint prologOffs)
 }
 
 
-void CodeGen::call(FuncPtr* proto)
+void CodeGen::_popArgs(FuncPtr* proto)
 {
-    // Pop arguments and the return value off the simulation stack
+    // Pop arguments off the simulation stack
     for (memint i = proto->formalArgs.size(); i--; )
     {
 #ifdef DEBUG
@@ -1536,6 +1577,12 @@ void CodeGen::call(FuncPtr* proto)
 #endif
         stkPop();
     }
+}
+
+
+void CodeGen::call(FuncPtr* proto)
+{
+    _popArgs(proto);
 
     // Remove the opMk*FuncPtr and append a corresponding caller. Note that
     // opcode arguments for funcptr loaders and their respective callers
@@ -1545,7 +1592,6 @@ void CodeGen::call(FuncPtr* proto)
     memint offs = stkLoaderOffs();
     switch (codeseg.opAt(offs))
     {
-        // TODO: maybe also implement the versions of these for extern calls:
         case opLoadOuterFuncPtr: op = opSiblingCall; break;
         case opLoadInnerFuncPtr: op = opChildCall; break;
         case opLoadStaticFuncPtr: op = opStaticCall; break;
@@ -1553,12 +1599,6 @@ void CodeGen::call(FuncPtr* proto)
         case opMkFarFuncPtr: op = opFarMethodCall; break;
         default: ; // leave op = opInv
     }
-
-    // Finally, leave the return value (if any) on the simulation stack. At
-    // run-time, however, in case of opMethodCall we have the 'this' object
-    // for which the method was called and only then on top of it the return
-    // value. The VM discards the object pointer and puts the ret value instead
-    // so that everything looks like the method call has just returned a value.
 
     stkPop(); // funcptr; arguments are gone already
     if (op != opInv)

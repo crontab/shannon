@@ -28,7 +28,10 @@ static void typecastError()
     { throw evariant("Invalid typecast"); }
 
 static void constExprErr()
-    { throw emessage("Invalid constant expression"); }
+    { throw emessage("Variable used in const expression"); }
+
+static void funcPtrErr()
+    { throw emessage("Invalid use of function in const expression"); }
 
 static void nullPointerErr()
     { throw emessage("Uninitialized object"); }
@@ -137,7 +140,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         // --- 1. MISC CONTROL -----------------------------------------------
         case opInv0:            invOpcode(0); break;
         case opEnd:             goto exit;
-        case opConstExprErr:    constExprErr(); break;
         case opExit:            doExit(*stk); break;
 
         case opEnterFunc:
@@ -224,6 +226,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadStaticFuncPtr:
             PUSH(new funcptr(NULL, NULL, ADV(State*)));
             break;
+        case opLoadFuncPtrErr:
+            funcPtrErr();
+            break;
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadInnerVar:
@@ -242,6 +247,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadResultVar:
             PUSH(*result);
             break;
+        case opLoadVarErr:
+            constExprErr();
+            break;
+
         case opLoadMember:
             {
                 stateobj* obj = stk->_stateobj();
@@ -899,14 +908,13 @@ eexit::~eexit() throw()  { }
 const char* eexit::what() throw()  { return "Exit called"; }
 
 
-Type* CodeGen::runConstExpr(variant& result)
+Type* CodeGen::runConstExpr(rtstack& constStack, variant& result)
 {
     Type* resultType = stkPop();
     addOp(opStoreResultVar);
     end();
 
-    rtstack stack(codeseg.stackSize);
-    runRabbitRun(&result, NULL, NULL, stack.base(), codeseg.getCode());
+    runRabbitRun(&result, NULL, NULL, constStack.base(), codeseg.getCode());
 
     return resultType;
 }

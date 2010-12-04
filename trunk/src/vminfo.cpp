@@ -20,7 +20,6 @@ OpInfo opTable[] =
 {
     OP(Inv0, None),             //
     OP(End, None),              //
-    OP(ConstExprErr, None),     //
     OP(Exit, None),             //
     OP(EnterFunc, State),       // [State*]
     OP(LeaveFunc, State),       // [State*]
@@ -42,6 +41,7 @@ OpInfo opTable[] =
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
     OP(LoadInnerFuncPtr, State),// [State*] +funcptr
     OP(LoadStaticFuncPtr, State),// [State*] +funcptr
+    OP(LoadFuncPtrErr, State),  // [State*] +funcptr
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadInnerVar, InnerIdx), // [inner.idx:u8] +var
@@ -49,6 +49,7 @@ OpInfo opTable[] =
     OP(LoadStkVar, StkIdx),     // [stk.idx:u8] +var
     OP(LoadArgVar, ArgIdx),     // [arg.idx:u8] +var
     OP(LoadResultVar, None),    // +var
+    OP(LoadVarErr, None),       //
     // --- end undoable loaders
     OP(LoadMember, StateIdx),   // [stateobj.idx:u8] -stateobj +var
     OP(Deref, None),            // -ref +var
@@ -196,12 +197,12 @@ OpInfo opTable[] =
     OP(JumpAnd, Jump16),        // [dst:s16] (-)bool
     OP(JumpOr, Jump16),         // [dst:s16] (-)bool
 
-    OP(ChildCall, State),       // [State*] -var -var ... +var
-    OP(SiblingCall, State),     // [State*] -var -var ... +var
-    OP(StaticCall, State),      // [State*] -var -var ... +var
-    OP(MethodCall, State),      // [State*] -var -var -obj ... +var
-    OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... +var
-    OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr +var
+    OP(ChildCall, State),       // [State*] -var -var ... {+var}
+    OP(SiblingCall, State),     // [State*] -var -var ... {+var}
+    OP(StaticCall, State),      // [State*] -var -var ... {+var}
+    OP(MethodCall, State),      // [State*] -var -var -obj ... {+var}
+    OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... {+var}
+    OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr {+var}
 
     // Misc. builtins
     OP(LineNum, LineNum),       // [linenum:int]

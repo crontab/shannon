@@ -16,9 +16,9 @@ assert (1 xor 3) == 2
 assert (1 or 2) == 3
 
 // DEFINITIONS
-def type nums = one, two, three
+def type nums = (one, two, three)
 // error: def nums badnum = 5 as nums
-def dow = Mon, Tue, Wed, Thu, Fri, Sat, Sun
+def dow = (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
 def intvec = int *[]
 def numvec = int *[nums]
 def charset = void *^[char]
@@ -74,6 +74,9 @@ assert lo(v1) == 0 and hi(v1) == 1
 assert lo(char) == 0 and hi(char) == 255
 assert hi([]) == -1
 
+def cc1 = 1
+def cc2 = result.cc1
+assert cc2 == 1
 
 // ASSIGNMENTS, DEL, INS
 
@@ -254,25 +257,25 @@ assert vec1[0..] == vec1
 var void ncont1()... = {}
 
 // TYPECASTS
-begin: assert 1 as char == '\x01'
+begin: assert (1 as char) == '\x01'
 begin:
-    assert 'a' as int == 97
+    assert ('a' as int) == 97
 var any v10 = 0
 begin
 // Hm
 {
-    assert v10 as nums == one
-    assert 1 is system.int and 'abc' is str
-    assert not 1 is str and not 'abc' is int
-    assert v10 is int and not v10 is str
+    assert (v10 as nums) == one
+    assert (1 is system.int) and ('abc' is str)
+    assert not (1 is str) and not ('abc' is int)
+    assert (v10 is int) and not (v10 is str)
     assert v10 is any
-    assert v10 as nums is nums
-    begin { assert 'a' as str == 'a' and ch1 as str == 'z' }
+    assert (v10 as nums) is nums
+    begin { assert ('a' as str) == 'a' and (ch1 as str) == 'z' }
 
     var any anyv = [0, 1, 2]
     var int intv[] = anyv as int*[]
     assert intv[1] == 1
-    def enumv = int *[hoo, haa, hee]
+    def enumv = int *[(hoo, haa, hee)]
     def enumv enumvv = {hoo = 1, haa = 0, hoo = 3}
     assert typeof enumvv[hoo] == int
 }
@@ -295,7 +298,7 @@ begin
     var b1 = 2
     var b2 = 3
     def s0 = 'xyz'
-    def nums = zero, one, two, three, four
+    def nums = (zero, one, two, three, four)
     assert b1 == 2 and b2 == 3 and s0 == 'xyz' and one == 1 as nums
 }
 assert b1 == 0 and s0 == 'abc' and one == 0 as nums
@@ -699,9 +702,6 @@ var intfunc intfp1 = max
 assert intfp(20, 10) == 10
 assert intfp1(20, 10) == 20
 
-var min minvar = 1
-assert typeof minvar == int
-
 assignstr('klm')
 assert fpstr == 'klm'
 var voidfp = assignstr
@@ -723,11 +723,16 @@ assert cpint == 1
 
 def incfunc = int *(int)...
 def incd = int *(int i) { result = i + 1 }
-var incd incdv = 1
-assert incdv is int
 var incvar = int *(int i) { result = i + 1 }
 assert incvar(100) == 101
 assert incvar is incfunc
+
+// static call via an object
+assert result.incd(2) == 3
+
+// static call at compile time
+def ctcall = max(10, 20)
+assert ctcall == 20
 
 // OOP
 
@@ -738,7 +743,7 @@ class point(int x, int y)
     def cpt = 50
     var x
     var y
-    
+
     begin {
         var x = 0
     }
@@ -756,6 +761,9 @@ class point(int x, int y)
 
         move(double(dx), double(dy))
     }
+
+    def int pstatic(int)
+        { result = 10 }
 }
 
 var p = point(10, 20)
@@ -766,7 +774,10 @@ assert p.x == 10 and p.y == 20
 assert p2.x == 100 and p2.y == 200
 assert p3.x == 1000 and p3.y == 2000
 assert p.cpt == 50 and p2.cpt == 50
-assert point.cpt == 50
+def cpt = point.cpt
+assert cpt == 50
+// error: var pmove = point.move
+// error: point.move(0, 1)
 
 var point pnull = {}
 assert not pnull? and p?
@@ -776,5 +787,13 @@ assert p.x == 15 and p.y == 30
 // point.move(5, 5)
 p.move2(5, 10)
 assert p.x == 25 and p.y == 50
+
+def static_point = point(1, 5)
+assert static_point.x == 1 and static_point.y == 5
+
+assert point.pstatic(0) == 10
+assert p.pstatic(0) == 10
+assert static_point.pstatic(0) == 10
+
 
 dump system.__program_result
