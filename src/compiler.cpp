@@ -41,8 +41,8 @@ void Compiler::LoopInfo::resolveBreakJumps()
 
 
 Compiler::Compiler(Context& c, Module* mod, buffifo* f)
-    : Parser(f), context(c), module(mod), scope(NULL),
-      state(NULL), loopInfo(NULL)  { }
+    : Parser(f), context(c), constStack(c.options.stackSize),
+      module(mod), scope(NULL), state(NULL), loopInfo(NULL)  { }
 
 
 Compiler::~Compiler()
@@ -59,7 +59,7 @@ Type* Compiler::getTypeAndIdent(str* ident)
             goto ICantBelieveIUsedAGotoStatement;
         undoIdent(*ident);
     }
-    type = getTypeValue(true);
+    type = getTypeValue(/* true */);
     *ident = getIdentifier();
     type = getTypeDerivators(type);
 ICantBelieveIUsedAGotoStatement:

@@ -28,9 +28,9 @@ single-block ::= ':' [ <SEP> ] statement
 
 multi-block ::= [ <SEP> ] '{' [ <SEP> ] { statement } '}' 
 
-definition ::= 'def' [ type-name ] ident { type-derivator } '=' const-expr <SEP>
+definition ::= 'def' [ type-expr ] ident { type-derivator } '=' const-expr <SEP>
 
-var-def ::= 'var' [ type-name ] ident { type-derivator } '=' expr <SEP>
+var-def ::= 'var' [ type-expr ] ident { type-derivator } '=' expr <SEP>
 
 sub-block ::= 'begin' block
 
@@ -71,13 +71,13 @@ insert ::= 'ins' designator '=' expr
 
 # ---------- Const Expression
 
-const-expr ::= subrange-type | enum-type | type-spec | expr
+const-expr ::= subrange-type | enum-type | expr
 
 subrange-type ::= expr '..' expr
 
-enum-type ::= ident { ',' ident }
+enum-type ::= '(' ident { ',' ident } ')'  -- this is not correct
 
-type-name ::= designator
+type-expr ::= const-expr
 
 
 # ---------- Expression
@@ -99,7 +99,7 @@ term ::= cat-expr { ( '*' | '/' | '%' ) cat-expr }
 
 cat-expr ::= factor { '|' factor }
 
-factor ::= [ '-' ] designator [ '?' ] [ ( 'as' | 'is' ) type-name ]
+factor ::= [ '-' ] designator [ '?' ] [ ( 'as' | 'is' ) type-expr ]
 
 designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
     '(' [ actual-args ] ')' }
@@ -130,7 +130,7 @@ state-derivator ::= formal-args multi-block
 
 formal-args ::= '(' formal-arg { ',' formal-arg } ')'
 
-formal-arg ::= type-name [ ident ]
+formal-arg ::= type-expr [ ident ]
 
 index-expr ::= expr [ '..' [ expr ] ]
 

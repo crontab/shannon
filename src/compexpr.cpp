@@ -42,7 +42,7 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
     {
         do
         {
-            Type* argType = getTypeValue(true);
+            Type* argType = getTypeValue(/* true */);
             str ident;
             if (token == tokIdent)
             {
@@ -87,7 +87,7 @@ Type* Compiler::getTypeDerivators(Type* type)
 
         else
         {
-            Type* indexType = getTypeValue(false);
+            Type* indexType = getTypeValue(/* false */);
             expect(tokRSquare, "']'");
             if (indexType->isVoid())
                 return getTypeDerivators(type)->deriveVec(state);
@@ -350,7 +350,18 @@ void Compiler::atom(Type* typeHint)
 
     else if (skipIf(tokLParen))
     {
+        if (codegen->isCompileTime() && token == tokIdent)  // Enumeration?
+        {
+            str ident = strValue;
+            if (next() == tokComma)
+            {
+                codegen->loadTypeRef(getEnumeration(ident));
+                goto skipExpr;
+            }
+            undoIdent(ident);
+        }
         expression(typeHint);
+skipExpr:
         skipRParen();
     }
 
@@ -415,10 +426,13 @@ void Compiler::designator(Type* typeHint)
         else if (skipIf(tokLParen))
         {
             Type* type = codegen->getTopType();
-            if (!type->isFuncPtr())
+            if (type->isFuncPtr())
+            {
+                actualArgs(PFuncPtr(type));
+                codegen->call(PFuncPtr(type));    // May throw evoidfunc()
+            }
+            else
                 error("Invalid function call");
-            actualArgs(PFuncPtr(type));
-            codegen->call(PFuncPtr(type));    // May throw evoidfunc()
         }
 
         else
@@ -444,12 +458,12 @@ void Compiler::factor(Type* typeHint)
         codegen->arithmUnary(opNeg);
     if (skipIf(tokAs))
     {
-        Type* type = getTypeValue(true);
+        Type* type = getTypeValue(/* true */);
         // TODO: default value in parens?
         codegen->explicitCast(type);
     }
     if (skipIf(tokIs))
-        codegen->isType(getTypeValue(true));
+        codegen->isType(getTypeValue(/* true */));
 }
 
 
@@ -634,70 +648,50 @@ void Compiler::expression(Type* expectType)
 
 Type* Compiler::getConstValue(Type* expectType, variant& result)
 {
-    if (token == tokIdent)  // Enumeration?
-    {
-        str ident = strValue;
-        if (next() == tokComma)
-        {
-            result = getEnumeration(ident);
-            return defTypeRef;
-        }
-        undoIdent(ident);
-    }
-
     CodeSeg constCode(NULL);
     CodeGen constCodeGen(constCode, module, state, true);
     CodeGen* prevCodeGen = exchange(codegen, &constCodeGen);
     Type* resultType = NULL;
     try
     {
-        // We don't pass defTypeRef as an expected type because we may have a
-        // range type expression, in which case expression() below evaluates
-        // to an Ordinal value.
-        expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
+        // We don't pass expectType here because we may have a subrange type 
+        // expression, in which case expression() below evaluates to an Ordinal 
+        expression(NULL);
 
         if (skipIf(tokRange))
         {
             expression(codegen->getTopType());
             codegen->mkRange();
-        }
-
-        if (codegen->getTopType()->isReference())
-            error("References not allowed in const expressions");
-
-        resultType = constCodeGen.runConstExpr(result);
-        codegen = prevCodeGen;
-
-        if (resultType->isRange())
-        {
+            resultType = constCodeGen.runConstExpr(constStack, result);
+            if (expectType && !expectType->isTypeRef())
+                error("Subrange type not expected here");
             result = state->registerType(PRange(resultType)->elem->createSubrange(result._range()));
             resultType = defTypeRef;
         }
-
-        if (expectType && expectType->isTypeRef() && !resultType->isTypeRef())
-            error("Type reference expected");
+        else
+        {
+            if (expectType)
+                codegen->implicitCast(expectType, "Type mismatch in const expression");
+            else if (codegen->getTopType()->isFuncPtr())
+                codegen->implicitCast(defTypeRef, "Invalid use of function in const expression");
+            resultType = constCodeGen.runConstExpr(constStack, result);
+        }
     }
     catch(exception&)
     {
         codegen = prevCodeGen;
         throw;
     }
+
+    codegen = prevCodeGen;
     return resultType;
 }
 
 
-Type* Compiler::getTypeValue(bool atomic)
+Type* Compiler::getTypeValue()
 {
-    if (atomic)
-    {
-        designator(defTypeRef);
-        return codegen->undoTypeRef();
-    }
-    else
-    {
-        variant result;
-        getConstValue(defTypeRef, result);
-        return cast<Type*>(result._rtobj());
-    }
+    variant result;
+    getConstValue(defTypeRef, result);
+    return cast<Type*>(result._rtobj());
 }
 

@@ -6,13 +6,11 @@
   but useful. Many builtins can be defined with var arguments; also many
   opcodes can now be implemented with builtins.
 
-* External function defs: syntax?
+* External function defs: syntax? def int v() #extern
 
 * Automatic function return type (very questionable)
 
 * Directive: def #static int inc()...
-
-* Static functions can be called at compile time?
 
 * Inheritance, virtual calls, compatibility rules. Syntax?
 
