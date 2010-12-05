@@ -104,14 +104,16 @@ factor ::= [ '-' ] designator [ '?' ] [ ( 'as' | 'is' ) type-expr ]
 designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
     '(' [ actual-args ] ')' }
 
-atom ::= ident | number | string-literal | vec-ctor | dict-ctor | if-func |
-    typeof | type-spec | 'this' | '(' expr ')'
+atom ::= ident | number | string-literal | vec-ctor | dict-ctor | fifo-ctor |
+    if-func | typeof | type-spec | 'this' | '(' expr ')'
 
 vec-ctor ::= '[' [ expr { ',' expr } ] ']'
 
 dict-ctor ::= '{' [ dict-elem { ',' dict-elem } ] '}'
 
 dict-elem ::= expr [ '=' expr ]
+
+fifo-ctor ::= '<' [ expr { ',' expr } ] '>'
 
 if-func ::= 'if' '(' expr ',' expr ',' expr ')'
 

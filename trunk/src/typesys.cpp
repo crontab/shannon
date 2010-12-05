@@ -233,6 +233,9 @@ bool Type::isByteDict() const
 bool Type::isCharFifo() const
     { return isAnyFifo() && PFifo(this)->elem->isChar(); }
 
+bool Type::isFifo(Type* elem) const
+    { return isAnyFifo() && elem->identicalTo(PFifo(this)->elem); }
+
 bool Type::isContainer(Type* idx, Type* elem) const
     { return isAnyCont() && elem->identicalTo(PContainer(this)->elem)
          && idx->identicalTo(PContainer(this)->index); }
@@ -342,7 +345,7 @@ Fifo* Type::deriveFifo(State* h)
         return queenBee->defCharFifo;
     else
         // TODO: lookup existing fifo types in h
-        return h->registerType(new Fifo(this));
+        return h->getFifoType(this);
 }
 
 
@@ -1066,6 +1069,19 @@ Container* State::getContainerType(Type* idx, Type* elem)
             return PContainer(t);
     }
     return registerType(new Container(idx, elem));
+}
+
+
+Fifo* State::getFifoType(Type* elem)
+{
+    // TODO: replace linear search with something faster?
+    for (memint i = 0; i < types.size(); i++)
+    {
+        Type* t = types[i];
+        if (t->isFifo(elem))
+            return PFifo(t);
+    }
+    return registerType(new Fifo(elem));
 }
 
 

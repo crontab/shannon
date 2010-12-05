@@ -5,12 +5,15 @@
 inline bool hasTypeArg(OpCode op)
 {
     OpArgType arg = opTable[op].arg;
-    return arg == argType || arg == argState || arg == argFarState;
+    return arg >= argType && arg <= argFifo;
 }
 
 
 inline bool hasStateArg(OpCode op)
-    { return opTable[op].arg == argState; }
+{
+    OpArgType arg = opTable[op].arg;
+    return arg == argState || arg == argFarState;
+}
 
 
 // --- Code Segment -------------------------------------------------------- //
@@ -188,7 +191,10 @@ bool CodeGen::tryImplicitCast(Type* to)
     if (from->isNullCont())
     {
         undoSubexpr();
-        loadEmptyConst(to);
+        if (to->isAnyFifo())
+            loadFifo(PFifo(to));
+        else
+            loadEmptyConst(to);
         return true;
     }
 
@@ -1118,6 +1124,33 @@ void CodeGen::inRange2(bool isCaseLabel)
     if (!elem->isAnyOrd() || !left->isAnyOrd() || !right->isAnyOrd())
         error("Ordinal type expected");
     addOp(queenBee->defBool, isCaseLabel ? opCaseRange : opInRange2);
+}
+
+
+void CodeGen::loadFifo(Fifo* type)
+{
+    addOp<Fifo*>(type, type->isCharFifo() ? opLoadCharFifo : opLoadVarFifo, type);
+}
+
+
+Fifo* CodeGen::elemToFifo()
+{
+    Type* elem = stkPop();
+    Fifo* fifoType = elem->deriveFifo(codeOwner);
+    addOp<Fifo*>(fifoType, opElemToFifo, fifoType);
+    return fifoType;
+}
+
+
+void CodeGen::fifoAddElem()
+{
+    Type* fifoType = stkType(2);
+    if (!fifoType->isAnyFifo())
+        error("Fifo type expected");
+    implicitCast(PFifo(fifoType)->elem, "Fifo element type mismatch");
+    stkPop();
+    stkPop();
+    addOp(fifoType, opFifoAddElem);
 }
 
 

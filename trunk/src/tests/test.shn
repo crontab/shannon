@@ -796,4 +796,11 @@ assert p.pstatic(0) == 10
 assert static_point.pstatic(0) == 10
 
 
+// FIFOs
+
+var char chfz<> = <>
+var chf = <'a', 'b', 'c'>
+// dump chfz, chf, sio
+assert not chfz? and chf?
+
 dump system.__program_result

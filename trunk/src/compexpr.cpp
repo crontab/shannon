@@ -224,6 +224,30 @@ void Compiler::vectorCtor(Type* typeHint)
 }
 
 
+void Compiler::fifoCtor(Type* typeHint)
+{
+    if (typeHint && !typeHint->isAnyFifo())
+        error("Fifo constructor not expected here");
+    Fifo* fifoType = PFifo(typeHint);
+    if (skipIf(tokRAngle))
+    {
+        if (fifoType == NULL)
+            codegen->loadEmptyConst(queenBee->defNullCont);
+        else
+            codegen->loadFifo(fifoType);
+        return;
+    }
+    expression(fifoType ? fifoType->elem : NULL);
+    fifoType = codegen->elemToFifo();
+    while (skipIf(tokComma))
+    {
+        expression(fifoType->elem);
+        codegen->fifoAddElem();
+    }
+    expect(tokRAngle, "'>'");
+}
+
+
 void Compiler::dictCtor(Type* typeHint)
 {
     if (skipIf(tokRCurly))
@@ -367,6 +391,9 @@ skipExpr:
 
     else if (skipIf(tokLSquare))
         vectorCtor(typeHint);
+
+    else if (skipIf(tokLAngle))
+        fifoCtor(typeHint);
 
     else if (skipIf(tokLCurly))
         dictCtor(typeHint);

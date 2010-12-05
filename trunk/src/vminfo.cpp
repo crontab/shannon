@@ -7,7 +7,9 @@
 
 umemint opArgSizes[argMax] =
     {
-      0, sizeof(Type*), sizeof(State*), sizeof(State*) + sizeof(uchar), sizeof(uchar), sizeof(integer), sizeof(str), 
+      0,
+      sizeof(Type*), sizeof(State*), sizeof(State*) + sizeof(uchar), sizeof(Fifo*),
+      sizeof(uchar), sizeof(integer), sizeof(str), 
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer),
@@ -42,6 +44,8 @@ OpInfo opTable[] =
     OP(LoadInnerFuncPtr, State),// [State*] +funcptr
     OP(LoadStaticFuncPtr, State),// [State*] +funcptr
     OP(LoadFuncPtrErr, State),  // [State*] +funcptr
+    OP(LoadCharFifo, Fifo),     // [Fifo*] +fifo
+    OP(LoadVarFifo, Fifo),      // [Fifo*] +fifo
 
     // --- 3. DESIGNATOR LOADERS
     OP(LoadInnerVar, InnerIdx), // [inner.idx:u8] +var
@@ -153,7 +157,13 @@ OpInfo opTable[] =
     OP(DictElemByIdx, None),    // -int -dict +var
     OP(DictKeyByIdx, None),     // -int -dict +var
 
-    // --- 9. ARITHMETIC
+    // --- 9. FIFOS
+    OP(ElemToFifo, Fifo),       // [Fifo*] -var +fifo
+    OP(FifoAddElem, None),      // -var -fifo +fifo
+    OP(FifoDeqChar, None),      // -fifo +char
+    OP(FifoDeqVar, None),       // -fifo +char
+
+    // --- 10. ARITHMETIC
     OP(Add, None),              // -int -int +int
     OP(Sub, None),              // -int -int +int
     OP(Mul, None),              // -int -int +int
@@ -173,7 +183,7 @@ OpInfo opTable[] =
     OP(DivAssign, None),        // -int -ptr -obj
     OP(ModAssign, None),        // -int -ptr -obj
 
-    // --- 10. BOOLEAN
+    // --- 11. BOOLEAN
     OP(CmpOrd, None),           // -int, -int, +{-1,0,1}
     OP(CmpStr, None),           // -str, -str, +{-1,0,1}
     OP(CmpVar, None),           // -var, -var, +{0,1}
@@ -190,7 +200,7 @@ OpInfo opTable[] =
     OP(StkVarGt, StkIdx),       // [stk.idx:u8] -int +bool
     OP(StkVarGe, StkIdx),       // [stk.idx:u8] -int +bool
 
-    // --- 11. JUMPS, CALLS
+    // --- 12. JUMPS, CALLS
     OP(Jump, Jump16),           // [dst:s16]
     OP(JumpFalse, Jump16),      // [dst:s16] -bool
     OP(JumpTrue, Jump16),       // [dst:s16] -bool
@@ -204,7 +214,7 @@ OpInfo opTable[] =
     OP(FarMethodCall, FarState),// [State*, datasegidx:u8] -var -var -obj ... {+var}
     OP(Call, UInt8),            // [argcount:u8] -var -var -funcptr {+var}
 
-    // Misc. builtins
+    // --- 13. DEBUGGING, DIAGNOSTICS
     OP(LineNum, LineNum),       // [linenum:int]
     OP(Assert, Assert),         // [State*, linenum:int, cond:str] -bool
     OP(Dump, Dump),             // [expr:str, type:Type*] -var
@@ -286,7 +296,8 @@ void CodeSeg::dump(fifo& stm) const
             switch (info.arg)
             {
                 case argNone:       break;
-                case argType:       ADV(Type*)->dumpDef(stm); break;
+                case argType:
+                case argFifo:       ADV(Type*)->dumpDef(stm); break;
                 case argState:      ADV(State*)->fqName(stm); break;
                 case argFarState:   ADV(State*)->fqName(stm); stm << "[ds:" << ADV(uchar) << ']'; break;
                 case argUInt8:      stm << to_quoted(*ip); stm << " (" << int(ADV(uchar)) << ')'; break;
