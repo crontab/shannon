@@ -272,6 +272,7 @@ public:
 
     bool isAnyFifo() const      { return typeId == FIFO; }
     bool isCharFifo() const;
+    bool isFifo(Type*) const;
 
     bool isSelfStub() const     { return typeId == SELFSTUB; }
     bool isAnyState() const     { return typeId == STATE; }
@@ -460,11 +461,10 @@ public:
 
 // --- Fifo ---------------------------------------------------------------- //
 
-// TODO: Fifo should be derived from State so that members can be accessed
 
 class Fifo: public Type
 {
-    friend class Type;
+    friend class State;
     friend class QueenBee;
 protected:
     Fifo(Type*);
@@ -593,6 +593,7 @@ public:
         T* registerType(T* t)
             { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
+    Fifo* getFifoType(Type* elem);
     CodeSeg* getCodeSeg() const;
     const uchar* getCodeStart() const;
     // TODO: identicalTo(), canAssignTo()

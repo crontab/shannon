@@ -1029,6 +1029,7 @@ protected:
     void _init(const vardict& v)        { _init(DICT, v.obj); }
     void _init(reference* o);
     void _init(rtobject* o)             { _init(RTOBJ, o); }
+    void _init(fifo* o);
     void _init(stateobj* o);
     void _init(const variant& v);
     void _init(const podvar* v);
@@ -1077,6 +1078,7 @@ public:
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     stateobj*   _stateobj() const;
     funcptr*    _funcptr() const;
+    fifo*       _fifo() const;
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
@@ -1272,6 +1274,8 @@ const int _varsize = int(sizeof(variant));
 // implementation (see "Characetr FIFO operations" below).
 class fifo: public rtobject
 {
+    // friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
+
     fifo& operator<< (bool);   // compiler traps
     fifo& operator<< (void*);
     fifo& operator<< (object*);
@@ -1355,6 +1359,9 @@ public:
 };
 
 const char endl = '\n';
+
+inline void variant::_init(fifo* f)  { _init(RTOBJ, f); }
+inline fifo* variant::_fifo() const  { return cast<fifo*>(_rtobj()); }
 
 
 // The memfifo class implements a linked list of "chunks" in memory, where
@@ -1517,7 +1524,7 @@ public:
 class outtext: public buffifo
 {
 protected:
-    enum { BUF_SIZE = 2048 * int(sizeof(integer)) };
+    enum { BUF_SIZE = 2048 * sizeof(integer) };
 
     str file_name;
     str  filebuf;

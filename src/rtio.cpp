@@ -14,7 +14,7 @@ fifo::fifo(Type* rt, bool is_char)
 fifo::~fifo()
     { }
 
-void fifo::dump(fifo& stm) const        { stm << "<fifo>"; }
+void fifo::dump(fifo& stm) const        { stm << "fifo:" << get_name(); }
 void fifo::_empty_err()                 { throw efifo("FIFO empty"); }
 void fifo::_wronly_err()                { throw efifo("FIFO is write-only"); }
 void fifo::_rdonly_err()                { throw efifo("FIFO is read-only"); }
@@ -98,21 +98,6 @@ void fifo::skip_eol()
         get();
 }
 
-/*
-int fifo::skip_indent()
-{
-    static const charset ws = " \t";
-    int result = 0;
-    str s = deq(ws);
-    for (str::const_iterator p = s.begin(); p != s.end(); p++)
-        switch (*p)
-        {
-        case ' ': result++; break;
-        case '\t': result = ((result / TAB_SIZE) + 1) * TAB_SIZE; break;
-        }
-    return result;
-}
-*/
 
 void fifo::var_eat()
 {
@@ -644,7 +629,7 @@ void outtext::flush()
 
 
 stdfile::stdfile(int infd, int outfd)
-    : intext(NULL, "<std>"), _ofd(outfd)
+    : intext(NULL, "<stdio>"), _ofd(outfd)
 {
     _fd = infd;
     if (infd == -1)

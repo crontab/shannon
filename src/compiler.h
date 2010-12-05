@@ -48,6 +48,7 @@ public:
     void builtin(Builtin*);
     void identifier(str);
     void vectorCtor(Type* type);
+    void fifoCtor(Type* type);
     void dictCtor(Type* type);
     void typeOf();
     void ifFunc();

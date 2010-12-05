@@ -229,6 +229,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadFuncPtrErr:
             funcPtrErr();
             break;
+        case opLoadCharFifo:
+            PUSH(new memfifo(ADV(Fifo*), true));
+            break;
+        case opLoadVarFifo:
+            PUSH(new memfifo(ADV(Fifo*), false));
+            break;
 
         // --- 3. DESIGNATOR LOADERS -----------------------------------------
         case opLoadInnerVar:
@@ -695,9 +701,30 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             POPPOD();
             break;
 
+        // --- 9. FIFOS ------------------------------------------------------
+        case opElemToFifo:
+            {
+                Fifo* t = ADV(Fifo*);
+                objptr<fifo> f = new memfifo(t, t->elem->isChar());
+                f->var_enq(*stk);
+                *stk = f.get();
+            }
+            break;
+        case opFifoAddElem:
+            (stk - 1)->_fifo()->var_enq(*stk);
+            POP();
+            break;
+        case opFifoDeqChar:
+            *stk = stk->_fifo()->get();
+            break;
+        case opFifoDeqVar:
+            {
+                objptr<fifo> f = stk->_fifo(); // TODO: more optimal copying
+                f->var_deq(*stk);
+            }
+            break;
 
-        // --- 9. ARITHMETIC -------------------------------------------------
-
+        // --- 10. ARITHMETIC ------------------------------------------------
 #define BINARY_INT(op)  { (stk - 1)->_int() op stk->_int(); POPPOD(); }
 #define UNARY_INT(op)   { stk->_int() = op stk->_int(); }
 #define INPLACE_INT(op) { (stk - 1)->_ptr()->_int() op stk->_int(); \
@@ -723,7 +750,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opDivAssign:   INPLACE_INT(/=); break;
         case opModAssign:   INPLACE_INT(%=); break;
 
-        // --- 10. BOOLEAN ---------------------------------------------------
+        // --- 11. BOOLEAN ---------------------------------------------------
         case opCmpOrd:
             (stk - 1)->_int() -= stk->_int();
             POPPOD();
@@ -760,7 +787,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opStkVarGe:    *stk = int((basep + ADV(uchar))->_int() >= stk->_int()); break;
 
 
-        // --- 11. JUMPS, CALLS ----------------------------------------------
+        // --- 12. JUMPS, CALLS ----------------------------------------------
         case opJump:
             {
                 // Beware of strange behavior of the GCC optimizer: this should be done in 2 steps
@@ -859,7 +886,7 @@ farMethodCall:
             goto anyCall;
 
 
-        // --- 12. DEBUGGING, DIAGNOSTICS ------------------------------------
+        // --- 13. DEBUGGING, DIAGNOSTICS ------------------------------------
         case opLineNum:
             ADV(integer);
             break;

@@ -42,6 +42,8 @@ enum OpCode
     opLoadInnerFuncPtr, // [State*] +funcptr
     opLoadStaticFuncPtr,// [State*] +funcptr
     opLoadFuncPtrErr,   // [State*] +funcptr
+    opLoadCharFifo,     // [Fifo*] +fifo
+    opLoadVarFifo,      // [Fifo*] +fifo
 
     // --- 3. DESIGNATOR LOADERS
     // --- begin grounded loaders
@@ -156,7 +158,14 @@ enum OpCode
     opDictElemByIdx,    // -int -dict +var
     opDictKeyByIdx,     // -int -dict +var
 
-    // --- 9. ARITHMETIC
+    // --- 9. FIFOS
+    // opLoadCharFifo and opLoadVarFifo are primary loaders, defined in section [2].
+    opElemToFifo,       // [Fifo*] -var +fifo
+    opFifoAddElem,      // -var -fifo +fifo
+    opFifoDeqChar,      // -fifo +char
+    opFifoDeqVar,       // -fifo +char
+
+    // --- 10. ARITHMETIC
     opAdd,              // -int -int +int
     opSub,              // -int -int +int
     opMul,              // -int -int +int
@@ -178,7 +187,7 @@ enum OpCode
     opDivAssign,        // -int -ptr -obj
     opModAssign,        // -int -ptr -obj
 
-    // --- 10. BOOLEAN
+    // --- 11. BOOLEAN
     opCmpOrd,           // -int -int +{-1,0,1}
     opCmpStr,           // -str -str +{-1,0,1}
     opCmpVar,           // -var -var +{0,1}
@@ -198,7 +207,7 @@ enum OpCode
     opStkVarGt,         // [stk.idx:u8] -int +bool
     opStkVarGe,         // [stk.idx:u8] -int +bool
 
-    // --- 11. JUMPS, CALLS
+    // --- 12. JUMPS, CALLS
     // Jumps; [dst] is a relative 16-bit offset
     opJump,             // [dst:s16]
     opJumpFalse,        // [dst:s16] -bool
@@ -215,7 +224,7 @@ enum OpCode
     opFarMethodCall,    // [State*, datasegidx:u8] -var -var -obj ... {+var}
     opCall,             // [argcount:u8] -var -var -funcptr {+var}
 
-    // Misc. builtins
+    // --- 13. DEBUGGING, DIAGNOSTICS
     opLineNum,          // [linenum:int]
     opAssert,           // [State*, linenum:int, cond:str] -bool
     opDump,             // [expr:str, type:Type*] -var
@@ -250,8 +259,9 @@ inline bool hasTypeArg(OpCode op);
 
 
 enum OpArgType
-    { argNone, argType, argState, argFarState, argUInt8, argInt, argStr, 
-      argVarType8, argDefinition,
+    { argNone,
+      argType, argState, argFarState, argFifo, // order is important, see hasTypeArg()
+      argUInt8, argInt, argStr, argVarType8, argDefinition,
       argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
       argJump16, argLineNum, argAssert, argDump,
       argMax };
@@ -474,6 +484,9 @@ public:
     void inBounds();
     void inRange();
     void inRange2(bool isCaseLabel = false);
+    void loadFifo(Fifo*);
+    Fifo* elemToFifo();
+    void fifoAddElem();
 
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
