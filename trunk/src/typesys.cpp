@@ -36,7 +36,7 @@ void Symbol::dump(fifo& stm) const
     if (type)
         type->dumpDef(stm);
     else
-        stm << "<var>";
+        stm << "var";
     if (!name.empty())
         stm << ' ' << name;
 }
@@ -68,10 +68,8 @@ Type* Definition::getAliasedType() const
 Variable::Variable(const str& n, SymbolId sid, Type* t, memint i, State* h)
     : Symbol(n, sid, t, h), id(i)  { }
 
-
 Variable::~Variable()
     { }
-
 
 StkVar::StkVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, STKVAR, t, i, h)  { assert(i >= 0); }
@@ -84,7 +82,6 @@ ResultVar::ResultVar(Type* t, State* h)
 
 InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
-
 
 FormalArg::FormalArg(const str& n, Type* t)
     : Symbol(n, FORMALARG, t, NULL)  { }
@@ -210,28 +207,23 @@ Type::~Type()
 bool Type::isByte() const
     { return isAnyOrd() && POrdinal(this)->isByte(); }
 
-
 bool Type::isBit() const
     { return isAnyOrd() && POrdinal(this)->isBit(); }
-
 
 bool Type::isFullChar() const
     { return isChar() && POrdinal(this)->isFullChar(); }
 
-
 bool Type::isByteVec() const
     { return isAnyVec() && PContainer(this)->hasByteElem(); }
-
 
 bool Type::isByteSet() const
     { return isAnySet() && PContainer(this)->hasByteIndex(); }
 
-
 bool Type::isByteDict() const
     { return isAnyDict() && PContainer(this)->hasByteIndex(); }
 
-bool Type::isCharFifo() const
-    { return isAnyFifo() && PFifo(this)->elem->isChar(); }
+bool Type::isByteFifo() const
+    { return isAnyFifo() && PFifo(this)->elem->isByte(); }
 
 bool Type::isFifo(Type* elem) const
     { return isAnyFifo() && elem->identicalTo(PFifo(this)->elem); }
@@ -245,7 +237,6 @@ bool Type::isVectorOf(Type* elem) const
 
 bool Type::identicalTo(Type* t) const
     { return t == this; }
-
 
 bool Type::canAssignTo(Type* t) const
     { return identicalTo(t); }
@@ -660,9 +651,11 @@ void Range::dump(fifo& stm) const
 
 void Range::dumpValue(fifo& stm, const variant& v) const
 {
+    stm << '[';
     elem->dumpValue(stm, v.as_range().left());
     stm << "..";
     elem->dumpValue(stm, v.as_range().right());
+    stm << ']';
 }
 
 
@@ -863,22 +856,37 @@ State::State(State* par, FuncPtr* proto)
       complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), resultVar(NULL),
-      codeseg(new CodeSeg(this)), externFunc(NULL),
-      popArgCount(0), returns(false), varCount(0)
+      codeseg(new CodeSeg(this)), externFunc(NULL), varCount(0)
+    { setup(); }
+
+
+State::State(State* par, FuncPtr* proto, ExternFuncProto func)
+    : Type(STATE), Scope(false, par),
+      complete(true), innerObjUsed(0), outsideObjectsUsed(0),
+      parent(par), parentModule(getParentModule(this)),
+      prototype(proto), resultVar(NULL),
+      codeseg(NULL), externFunc(func), varCount(0)
+    { setup(); }
+
+
+void State::setup()
 {
     // Is this a 'self' state?
     if (prototype->returnType->isSelfStub())
         prototype->resolveSelfType(this);
-    // Register all formal args as actual args within the local scope,
-    // including the return var
     popArgCount = prototype->getPopArgs();
     returns = !prototype->isVoidFunc();
-    if (!prototype->isVoidFunc())
-        addResultVar(prototype->returnType);
-    for (memint i = 0; i < popArgCount; i++)
+    if (externFunc == NULL)
     {
-        FormalArg* arg = prototype->formalArgs[i];
-        addArgument(arg->name, arg->type, popArgCount - i);
+        // Register all formal args as actual args within the local scope,
+        // including the return var (not needed for external functions)
+        if (!prototype->isVoidFunc())
+            addResultVar(prototype->returnType);
+        for (memint i = 0; i < popArgCount; i++)
+        {
+            FormalArg* arg = prototype->formalArgs[i];
+            addArgument(arg->name, arg->type, popArgCount - i);
+        }
     }
 }
 
@@ -1085,6 +1093,28 @@ Fifo* State::getFifoType(Type* elem)
 }
 
 
+FuncPtr* State::registerProto(Type* ret)
+{
+    return registerType<FuncPtr>(new FuncPtr(ret));
+}
+
+
+FuncPtr* State::registerProto(Type* ret, Type* arg1)
+{
+    FuncPtr* proto = registerProto(ret);
+    proto->addFormalArg("", arg1);
+    return proto;
+}
+
+
+FuncPtr* State::registerProto(Type* ret, Type* arg1, Type* arg2)
+{
+    FuncPtr* proto = registerProto(ret, arg1);
+    proto->addFormalArg("", arg2);
+    return proto;
+}
+
+
 // --- Module -------------------------------------------------------------- //
 
 
@@ -1098,7 +1128,6 @@ Module::Module(const str& n, const str& f)
 
 Module::~Module()
 {
-    builtins.release_all();
     codeSegs.release_all();
 }
 
@@ -1154,20 +1183,6 @@ void Module::registerCodeSeg(CodeSeg* c)
     { codeSegs.push_back(c->grab<CodeSeg>()); }
 
 
-Builtin* Module::addBuiltin(Builtin* b)
-{
-    builtins.push_back(b->grab<Builtin>());
-    addUnique(b);
-    return b;
-}
-
-
-Builtin* Module::addBuiltin(const str& n, Builtin::CompileFunc f, FuncPtr* p)
-{
-    return addBuiltin(new Builtin(n, f, p, this));
-}
-
-
 // --- QueenBee ------------------------------------------------------------ //
 
 
@@ -1213,12 +1228,27 @@ QueenBee::QueenBee()
 
     // Built-ins:
     // NULL argument means anything goes, the builtin parser will take care of 
-    // type checking.
-    FuncPtr* proto1 = registerType<FuncPtr>(new FuncPtr(defInt));
-    proto1->addFormalArg("arg", NULL);
+    // type checking. Return type doesn't matter; the builtin parser functions
+    // leave the actual result types on the simulation stack anyway.
+    // TODO: skip() eol() line() skipln() look() fmt() read() write()
+    // TODO: infile() outfile()
+    FuncPtr* proto1 = registerProto(defVariant, NULL);
+    FuncPtr* proto2 = registerProto(defVariant, NULL, NULL);
     addBuiltin("len", compileLen, proto1);
     addBuiltin("lo", compileLo, proto1);
     addBuiltin("hi", compileHi, proto1);
+    addBuiltin("_str", compileToStr, proto1);
+
+    addBuiltin("enq", compileEnq, proto2);
+    addBuiltin("deq", compileDeq, proto1);
+    addBuiltin("token", compileToken, proto2);
+
+    skipFunc = registerType(new State(this,
+        registerProto(defVoid, NULL, NULL), shn_skipset));
+    addBuiltin("skip", compileSkip, skipFunc->prototype);
+
+    addTypeAlias("strfifo", registerType(new State(this,
+        registerProto(defCharFifo, defStr), shn_strfifo)));
 
     getCodeSeg()->close();
     setComplete();
@@ -1226,7 +1256,7 @@ QueenBee::QueenBee()
 
 
 QueenBee::~QueenBee()
-    { }
+    { builtins.release_all(); }
 
 
 stateobj* QueenBee::newInstance()
@@ -1239,6 +1269,21 @@ stateobj* QueenBee::newInstance()
     *inst->member(sioVar->id) = &sio;
     *inst->member(serrVar->id) = &serr;
     return inst;
+}
+
+
+Builtin* QueenBee::addBuiltin(Builtin* b)
+{
+    builtins.push_back(b->grab<Builtin>());
+    addUnique(b);
+    builtinScope.add(b); // note: doesn't throw
+    return b;
+}
+
+
+Builtin* QueenBee::addBuiltin(const str& n, Builtin::CompileFunc f, FuncPtr* p)
+{
+    return addBuiltin(new Builtin(n, f, p, this));
 }
 
 

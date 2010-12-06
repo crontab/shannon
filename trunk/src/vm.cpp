@@ -378,6 +378,13 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opIsType:
             *stk = int(ADV(Type*)->isCompatibleWith(*stk));
             break;
+        case opToStr:
+            {
+                strfifo f(NULL);
+                ADV(Type*)->dumpValue(f, *stk);
+                *stk = f.all();
+            }
+            break;
 
 
         // --- 6. STRINGS, VECTORS -------------------------------------------
@@ -586,6 +593,12 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             (stk - 1)->_int() = stk->_range().contains((stk - 1)->_int());
             POP();
             break;
+        case opRangeLo:
+            *stk = stk->_range().left();
+            break;
+        case opRangeHi:
+            *stk = stk->_range().right();
+            break;
         case opInRange2:
             {
                 integer i = (stk - 2)->_int();
@@ -702,16 +715,30 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
 
         // --- 9. FIFOS ------------------------------------------------------
-        case opElemToFifo:
+        case opElemToFifo:  // used in the fifo ctor <...>
             {
                 Fifo* t = ADV(Fifo*);
-                objptr<fifo> f = new memfifo(t, t->elem->isChar());
-                f->var_enq(*stk);
-                *stk = f.get();
+                objptr<fifo> f = new memfifo(t, t->isByteFifo());
+                if (f->is_char_fifo())
+                    { f->enq_char(stk->_uchar()); POPPOD(); }
+                else
+                    INITPOP(f->enq_var());
+                PUSH(f.get());
             }
             break;
-        case opFifoAddElem:
-            (stk - 1)->_fifo()->var_enq(*stk);
+        case opFifoEnqChar:
+            (stk - 1)->_fifo()->enq_char(stk->_uchar());
+            POPPOD();
+            break;
+        case opFifoEnqVar:
+            INITPOP((stk - 1)->_fifo()->enq_var());
+            break;
+        case opFifoEnqChars:
+            (stk - 1)->_fifo()->enq(stk->_str());
+            POP();
+            break;
+        case opFifoEnqVars:
+            (stk - 1)->_fifo()->enq(stk->_vec());
             POP();
             break;
         case opFifoDeqChar:
@@ -719,9 +746,14 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opFifoDeqVar:
             {
-                objptr<fifo> f = stk->_fifo(); // TODO: more optimal copying
-                f->var_deq(*stk);
+                variant f;
+                INITPOP(&f);
+                f._fifo()->deq_var(++stk);
             }
+            break;
+        case opFifoCharToken:
+            *(stk - 1) = (stk - 1)->_fifo()->token(stk->_ordset().get_charset());
+            POP();
             break;
 
         // --- 10. ARITHMETIC ------------------------------------------------

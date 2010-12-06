@@ -154,16 +154,11 @@ void CodeGen::undoSubexpr()
 }
 
 
-bool CodeGen::lastWasFuncCall()
-{
-    return isCaller(codeseg.opAt(stkLoaderOffs()));
-}
-
+bool CodeGen::canDiscardValue()
+    { return isDiscardable(codeseg.opAt(stkLoaderOffs())); }
 
 void CodeGen::stkReplaceType(Type* t)
-{
-    simStack.backw().type = t;
-}
+    { simStack.backw().type = t; }
 
 
 bool CodeGen::tryImplicitCast(Type* to)
@@ -275,6 +270,10 @@ void CodeGen::mkRange()
     stkPop();
     addOp(POrdinal(left)->getRangeType(), opMkRange);
 }
+
+
+void CodeGen::toStr()
+    { addOp<Type*>(queenBee->defStr, opToStr, stkPop()); }
 
 
 void CodeGen::deinitLocalVar(Variable* var)
@@ -627,28 +626,8 @@ void CodeGen::loadVariable(Variable* var)
 }
 
 
-void CodeGen::loadDotMember(const str& ident)
-{
-    Type* type = stkType();
-    if (type->isFuncPtr())
-    {
-        // Scope resolution: we have a state name followed by '.', but because
-        // state names are by default transformed into function pointers, we 
-        // need to roll it back
-        implicitCast(defTypeRef, "Invalid member selection");
-        loadSymbol(undoStateRef()->findShallow(ident));
-    }
-    else if (type->isAnyState())
-        // State object (variable or subexpr) on the stack followed by '.' and member:
-        loadMember(PState(type), PState(type)->findShallow(ident));
-    else
-        error("Invalid member selection");
-}
-
-
 void CodeGen::loadMember(State* hostStateType, Symbol* sym)
 {
-    // Here the scope is known to be a State, but is not used actually
     assert(hostStateType == stkType());
     if (sym->host != hostStateType)  // shouldn't happen
         fatal(0x600c, "Invalid member selection");
@@ -659,48 +638,52 @@ void CodeGen::loadMember(State* hostStateType, Symbol* sym)
         Definition* def = PDefinition(sym);
         Type* type = def->getAliasedType();
         if (type && type->isAnyState())
-        {
-            State* stateType = PState(type);
-            if (stateType->isStatic())
-            {
-                undoSubexpr();
-                addOp(stateType->prototype, opLoadStaticFuncPtr, stateType);
-            }
-            else if (isCompileTime())
-            {
-                undoSubexpr();
-                addOp(stateType->prototype, opLoadFuncPtrErr, stateType);
-            }
-            else
-            {
-                stkPop();
-                codeOwner->useOutsideObject();
-                Module* targetModule = stateType->parentModule;
-                if (targetModule == codeOwner->parentModule) // near call
-                    addOp<State*>(stateType->prototype, opMkFuncPtr, stateType);
-                else
-                {
-                    // For far calls/funcptrs a data segment object should be provided
-                    // as well: we do this by providing the ID of a corresponding
-                    // module instance variable:
-                    InnerVar* moduleVar = codeOwner->parentModule->findUsedModuleVar(targetModule);
-                    if (moduleVar == NULL)
-                        error("Function call impossible within this context");
-                    addOp<State*>(stateType->prototype, opMkFarFuncPtr, stateType);
-                    add<uchar>(moduleVar->id);
-                }
-            }
-        }
+            loadMember(hostStateType, PState(type));
         else
         {
-            // Any previous scope and object loads are not needed since this is
-            // a definition:
             undoSubexpr();
             loadDefinition(def);
         }
     }
     else
         notimpl();
+}
+
+
+void CodeGen::loadMember(State* hostStateType, State* stateType)
+{
+    assert(hostStateType == stkType());
+    if (stateType->parent != hostStateType)  // shouldn't happen
+        fatal(0x600d, "Invalid member state selection");
+    if (stateType->isStatic())
+    {
+        undoSubexpr();
+        addOp(stateType->prototype, opLoadStaticFuncPtr, stateType);
+    }
+    else if (isCompileTime())
+    {
+        undoSubexpr();
+        addOp(stateType->prototype, opLoadFuncPtrErr, stateType);
+    }
+    else
+    {
+        stkPop();  // host
+        codeOwner->useOutsideObject();
+        Module* targetModule = stateType->parentModule;
+        if (targetModule == codeOwner->parentModule) // near call
+            addOp<State*>(stateType->prototype, opMkFuncPtr, stateType);
+        else
+        {
+            // For far calls/funcptrs a data segment object should be provided
+            // as well: we do this by providing the ID of a corresponding
+            // module instance variable:
+            InnerVar* moduleVar = codeOwner->parentModule->findUsedModuleVar(targetModule);
+            if (moduleVar == NULL)
+                error("Function call impossible within this context");
+            addOp<State*>(stateType->prototype, opMkFarFuncPtr, stateType);
+            add<uchar>(moduleVar->id);
+        }
+    }
 }
 
 
@@ -917,6 +900,11 @@ void CodeGen::lo()
         undoSubexpr();
         loadConst(queenBee->defInt, 0);
     }
+    else if (type->isRange())
+    {
+        stkPop();
+        addOp(queenBee->defInt, opRangeLo);
+    }
     else
         error("lo() expects vector, string or ordinal type reference");
 }
@@ -936,6 +924,11 @@ void CodeGen::hi()
     {
         stkPop();
         addOp(queenBee->defInt, type->isByteVec() ? opStrHi : opVecHi);
+    }
+    else if (type->isRange())
+    {
+        stkPop();
+        addOp(queenBee->defInt, opRangeHi);
     }
     else
         error("hi() expects vector, string or ordinal type reference");
@@ -1129,7 +1122,7 @@ void CodeGen::inRange2(bool isCaseLabel)
 
 void CodeGen::loadFifo(Fifo* type)
 {
-    addOp<Fifo*>(type, type->isCharFifo() ? opLoadCharFifo : opLoadVarFifo, type);
+    addOp<Fifo*>(type, type->isByteFifo() ? opLoadCharFifo : opLoadVarFifo, type);
 }
 
 
@@ -1142,7 +1135,7 @@ Fifo* CodeGen::elemToFifo()
 }
 
 
-void CodeGen::fifoAddElem()
+void CodeGen::fifoEnq()
 {
     Type* fifoType = stkType(2);
     if (!fifoType->isAnyFifo())
@@ -1150,7 +1143,54 @@ void CodeGen::fifoAddElem()
     implicitCast(PFifo(fifoType)->elem, "Fifo element type mismatch");
     stkPop();
     stkPop();
-    addOp(fifoType, opFifoAddElem);
+    addOp(fifoType, fifoType->isByteFifo() ? opFifoEnqChar : opFifoEnqVar);
+}
+
+
+void CodeGen::fifoPush()
+{
+    Type* fifoType = stkType(2);
+    if (!fifoType->isAnyFifo())
+        error("'<<' expects FIFO type");
+    Type* right = stkType();
+    // TODO: what about conversions like in C++? probably Nah.
+    if (right->isVectorOf(PFifo(fifoType)->elem))
+    {
+        stkPop();
+        stkPop();
+        addOp(fifoType, fifoType->isByteFifo() ? opFifoEnqChars : opFifoEnqVars);
+    }
+    else if (tryImplicitCast(PFifo(fifoType)->elem))
+        fifoEnq();
+    else
+        error("FIFO element type mismatch");
+}
+
+
+void CodeGen::fifoDeq()
+{
+    Type* fifoType = stkType();
+    if (!fifoType->isAnyFifo())
+        error("Fifo type expected");
+    stkPop();
+    addOp(PFifo(fifoType)->elem,
+        fifoType->isByteFifo() ? opFifoDeqChar : opFifoDeqVar);
+}
+
+
+void CodeGen::fifoToken()
+{
+    Type* setType = stkType();
+    if (!setType->isByteSet())
+        error("Small ordinal set expected");
+    Type* fifoType = stkType(2);
+    if (!fifoType->isByteFifo())
+        error("Small ordinal FIFO expected");
+    if (!PContainer(setType)->index->canAssignTo(PFifo(fifoType)->elem))
+        error("Set and FIFO element type mismatch");
+    stkPop();
+    stkPop();
+    addOp(PFifo(fifoType)->elem->deriveVec(typeReg), opFifoCharToken);
 }
 
 
@@ -1533,29 +1573,6 @@ void CodeGen::deleteContainerElem()
 }
 
 
-void CodeGen::fifoPush()
-{
-    Type* left = stkType(2);
-    if (!left->isAnyFifo())
-        error("'<<' expects FIFO type");
-    Type* right = stkType();
-    // TODO: call a builtin
-    // TODO: what about conversions like in C++? probably Nah.
-    if (right->isVectorOf(PFifo(left)->elem))
-    {
-        notimpl();
-    }
-    else if (tryImplicitCast(PFifo(left)->elem))
-    {
-        notimpl();
-    }
-    else
-        error("FIFO element type mismatch");
-    stkPop();
-    // Leave the FIFO object
-}
-
-
 // --- FUNCTIONS, CALLS ---------------------------------------------------- //
 
 
@@ -1605,7 +1622,8 @@ void CodeGen::_popArgs(FuncPtr* proto)
     for (memint i = proto->formalArgs.size(); i--; )
     {
 #ifdef DEBUG
-        if (!stkType()->canAssignTo(proto->formalArgs[i]->type))
+        Type* argType = proto->formalArgs[i]->type;
+        if (argType && !stkType()->canAssignTo(argType))
             error("Argument type mismatch");  // shouldn't happen, checked by the compiler earlier
 #endif
         stkPop();
@@ -1657,6 +1675,19 @@ void CodeGen::call(FuncPtr* proto)
         else
             addOp<uchar>(proto->returnType, opCall, proto->getPopArgs());
     }
+}
+
+
+void CodeGen::staticCall(State* callee)
+{
+    _popArgs(callee->prototype);
+    if (callee->prototype->isVoidFunc())
+    {
+        addOp<State*>(opStaticCall, callee);
+        throw evoidfunc();
+    }
+    else
+        addOp<State*>(callee->prototype->returnType, opStaticCall, callee);
 }
 
 

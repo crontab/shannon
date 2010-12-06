@@ -143,7 +143,7 @@ public:
 class Builtin: public Symbol
 {
 public:
-    typedef void (*CompileFunc)(Compiler*, Builtin*);
+    typedef void (*CompileFunc)(Compiler*);
 
     CompileFunc const compileFunc;
     FuncPtr* const prototype; // optional
@@ -271,7 +271,7 @@ public:
     bool isVectorOf(Type* elem) const;
 
     bool isAnyFifo() const      { return typeId == FIFO; }
-    bool isCharFifo() const;
+    bool isByteFifo() const;
     bool isFifo(Type*) const;
 
     bool isSelfStub() const     { return typeId == SELFSTUB; }
@@ -473,6 +473,8 @@ public:
     ~Fifo();
     void dump(fifo&) const;
     bool identicalTo(Type*) const;
+    bool isByteFifo() const
+        { return elem->isByte(); }
 };
 
 
@@ -522,7 +524,7 @@ public:
 typedef void (*ExternFuncProto)(variant* result, stateobj* outerobj, variant args[]);
 
 // "i" below is 1-based; arguments are numbered from right to left
-#define EXTERN_ARG(i) (args-(i))
+#define SHN_ARG(i) (args-(i))
 
 
 class State: public Type, public Scope
@@ -535,6 +537,7 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<ArgVar> args;            // owned, copied from prototype
 
+    void setup();
     InnerVar* addInnerVar(InnerVar*);
     static Module* getParentModule(State*);
 
@@ -553,7 +556,7 @@ public:
 
     // Code (for extern functions codeseg contains stub code, otherwise, just the main code)
     objptr<object> codeseg;
-    ExternFuncProto externFunc;
+    ExternFuncProto const externFunc;
 
     // VM helpers:
     memint popArgCount;
@@ -561,6 +564,7 @@ public:
     memint varCount;
 
     State(State* parent, FuncPtr*);
+    State(State* parent, FuncPtr*, ExternFuncProto);
     ~State();
     void fqName(fifo&) const;
     void dump(fifo&) const;
@@ -594,6 +598,9 @@ public:
             { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
     Fifo* getFifoType(Type* elem);
+    FuncPtr* registerProto(Type* ret);
+    FuncPtr* registerProto(Type* ret, Type* arg1);
+    FuncPtr* registerProto(Type* ret, Type* arg1, Type* arg2);
     CodeSeg* getCodeSeg() const;
     const uchar* getCodeStart() const;
     // TODO: identicalTo(), canAssignTo()
@@ -620,7 +627,6 @@ class Module: public State
 protected:
     strvec constStrings;
     objvec<CodeSeg> codeSegs;   // for dumps
-    objvec<Builtin> builtins;
 public:
     str const filePath;
     objvec<InnerVar> usedModuleVars; // used module instances are stored in static vars
@@ -632,8 +638,6 @@ public:
     InnerVar* findUsedModuleVar(Module*);
     void registerString(str&); // registers a string literal for use at run-time
     void registerCodeSeg(CodeSeg* c); // collected here for dumps
-    Builtin* addBuiltin(Builtin*);
-    Builtin* addBuiltin(const str&, Builtin::CompileFunc, FuncPtr*);
 };
 
 
@@ -645,9 +649,13 @@ class QueenBee: public Module
     typedef Module parent;
     friend void initTypeSys();
 protected:
+    symtbl<Builtin> builtinScope;
+    objvec<Builtin> builtins;
     QueenBee();
     ~QueenBee();
     stateobj* newInstance(); // override
+    Builtin* addBuiltin(Builtin*);
+    Builtin* addBuiltin(const str&, Builtin::CompileFunc, FuncPtr*);
 public:
     Variant* const defVariant;
     Ordinal* const defInt;
@@ -662,6 +670,9 @@ public:
     Variable* sioVar;
     Variable* serrVar;
     Variable* resultVar;
+    State* skipFunc;
+    Builtin* findBuiltin(const str& ident)  // returns Builtin* or NULL
+        { return builtinScope.find(ident); }
 };
 
 

@@ -53,15 +53,16 @@ def t4 = {(5 as byte)..15, 17}
 def t5 = {two..three}
 def d0 = {'one' = 1, 'two' = 2}
 def d1 = {'a' = 'Letter A', 'b' = 'Letter B'}
+def byte cbv[] = [0, 1] | 2 | 3 | [] | [4]
 
 assert true ; assert s0 == 'abc'
 assert i0 == 10
 assert v5 == v5a
 assert v1 == 'ab' and len(v1) == 2
 assert v2[0] == 'a' and v2[1] == 'b' and v2[3] == 'd' and v2[6] == 'g'
-assert len(v2) == 7
+assert v2.len() == 7
 assert -len(v2) == -7
-assert len(v4) == 0 and len(vnull) == 0
+assert len(v4) == 0 and vnull.len() == 0
 assert v6[0] == 5 and 6 == v6[1] and len(v6) == 2
 assert v8[0] == 10 and v8[1] == 11
 assert v9[0] == 12 and v9[1] == 13
@@ -70,9 +71,9 @@ assert d1['a'] == 'Letter A' and d1['b'] == 'Letter B'
 assert i0? and v5? and n0? and not one? and not false? and not s1? and v2?
 assert 'a' in identChars and not '?' in identChars
 assert (int *[] *[str]) == (intvec *[str])
-assert lo(v1) == 0 and hi(v1) == 1
-assert lo(char) == 0 and hi(char) == 255
-assert hi([]) == -1
+assert lo(v1) == 0 and v1.hi() == 1
+assert lo(char) == 0 and char.hi() == 255
+assert [].hi() == -1
 
 def cc1 = 1
 def cc2 = result.cc1
@@ -242,6 +243,7 @@ assert 1 in 0..10 and 1 in [0..10]
 assert not -1 in 0..10 and not -1 in [0..10]
 assert rng1 == [0..999]
 assert 1 in rng2
+assert rng1.hi() == 999 and lo(rng2) == 0
 
 var char rng3[..] = ['A'..'Z']
 assert 'B' in rng3
@@ -255,6 +257,10 @@ assert len(vec1[1..]) == 2 and vec1[1..][1] == 'ghi'
 assert vec1[0..] == vec1
 
 var void ncont1()... = {}
+
+assert 1._str() == '1'
+assert {'A'..'Z'}._str() == '{\'A\'..\'Z\'}'
+assert rng1._str() == '[0..999]'
 
 // TYPECASTS
 begin: assert (1 as char) == '\x01'
@@ -802,5 +808,26 @@ var char chfz<> = <>
 var chf = <'a', 'b', 'c'>
 // dump chfz, chf, sio
 assert not chfz? and chf?
+assert chf.deq() == 'a' and deq(chf) == 'b'
+chf.enq('d').enq('e')
+assert chf.deq() == 'c' and deq(chf) == 'd' and chf.deq() == 'e'
+assert not chf?
+chf << 'fgh' << 'i' << 'jk'
+assert chf.deq() == 'f'
+
+// "fifo empty" error: var deqv = chfz.deq()
+var strf = <'one', 'two', 'three'>
+assert strf.deq() == 'one' and strf.deq() == 'two'
+
+var chf2 = strfifo('Hello, FIFO!')
+assert chf2.deq() == 'H'
+assert chf2.token({'a'..'z'}) == 'ello'
+chf2.skip({',', ' '})
+assert chf2.deq() == 'F'
+
+var numf = <one, three, three, two>
+assert numf.deq() == one and numf.deq() == three
+var numft = numf.token({three})
+assert numft.len() == 1 and numft[0] == three
 
 dump system.__program_result

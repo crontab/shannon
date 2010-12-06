@@ -47,12 +47,13 @@ public:
     Type* getEnumeration(const str& firstIdent);
     void builtin(Builtin*);
     void identifier(str);
+    void dotIdentifier(str);
     void vectorCtor(Type* type);
     void fifoCtor(Type* type);
     void dictCtor(Type* type);
     void typeOf();
     void ifFunc();
-    void actualArgs(FuncPtr*);
+    void actualArgs(FuncPtr*, bool skipFirst = false);
     void atom(Type*);
     void designator(Type*);
     void factor(Type*);

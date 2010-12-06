@@ -126,7 +126,7 @@ void Compiler::builtin(Builtin* b)
         skipLParen();
         actualArgs(b->prototype);
     }
-    b->compileFunc(this, b);
+    b->compileFunc(this);
 }
 
 
@@ -177,6 +177,41 @@ void Compiler::identifier(str ident)
     }
 
     throw EUnknownIdent(ident);
+}
+
+
+void Compiler::dotIdentifier(str ident)
+{
+    Type* type = codegen->getTopType();
+    Builtin* b = queenBee->findBuiltin(ident);
+    if (b)
+    {
+        // See if the first formal arg of the builtin matches the current top stack item
+        if (b->prototype->formalArgs.size() == 0)
+            error("Invalid builtin call");
+        Type* firstArgType = b->prototype->formalArgs[0]->type;
+        if (firstArgType)
+            codegen->implicitCast(firstArgType, "Builtin not applicable to this type");
+        if (b->prototype)
+        {
+            skipLParen();
+            actualArgs(b->prototype, true);
+        }
+        b->compileFunc(this);
+    }
+    else if (type->isFuncPtr())
+    {
+        // Scope resolution: we have a state name followed by '.', but because
+        // state names are by default transformed into function pointers, we 
+        // need to roll it back
+        codegen->implicitCast(defTypeRef, "Invalid member selection");
+        codegen->loadSymbol(codegen->undoStateRef()->findShallow(ident));
+    }
+    else if (type->isAnyState())
+        // State object (variable or subexpr) on the stack followed by '.' and member:
+        codegen->loadMember(PState(type), PState(type)->findShallow(ident));
+    else
+        error("Invalid member selection");
 }
 
 
@@ -242,7 +277,7 @@ void Compiler::fifoCtor(Type* typeHint)
     while (skipIf(tokComma))
     {
         expression(fifoType->elem);
-        codegen->fifoAddElem();
+        codegen->fifoEnq();
     }
     expect(tokRAngle, "'>'");
 }
@@ -332,16 +367,26 @@ void Compiler::ifFunc()
 }
 
 
-void Compiler::actualArgs(FuncPtr* proto)
+void Compiler::actualArgs(FuncPtr* proto, bool skipFirst)
 {
-    for (memint i = 0; i < proto->formalArgs.size(); i++)
+    // skipFirst is foor member-style builtin calls
+    memint i = int(skipFirst);
+    if (token != tokRParen)
     {
-        if (i > 0)
-            expect(tokComma, "','");
-        FormalArg* arg = proto->formalArgs[i];
-        expression(arg->type);
+        do
+        {
+            if (i >= proto->formalArgs.size())
+                error("Too many arguments");
+            // TODO: improve 'type mismatch' error message; note however that
+            // it's important to pass the arg type to expression()
+            expression(proto->formalArgs[i]->type);
+            i++;
+        }
+        while (skipIf(tokComma));
     }
     skipRParen();
+    if (i < proto->formalArgs.size())
+        error("Too few arguments");
 }
 
 
@@ -430,7 +475,7 @@ void Compiler::designator(Type* typeHint)
         if (skipIf(tokPeriod))
         {
             codegen->deref();
-            codegen->loadDotMember(getIdentifier());
+            dotIdentifier(getIdentifier());
         }
 
         else if (skipIf(tokLSquare))
@@ -683,7 +728,7 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
     {
         // We don't pass expectType here because we may have a subrange type 
         // expression, in which case expression() below evaluates to an Ordinal 
-        expression(NULL);
+        expression(expectType == NULL || expectType->isTypeRef() ? NULL : expectType);
 
         if (skipIf(tokRange))
         {
@@ -697,8 +742,8 @@ Type* Compiler::getConstValue(Type* expectType, variant& result)
         }
         else
         {
-            if (expectType)
-                codegen->implicitCast(expectType, "Type mismatch in const expression");
+            if (expectType && expectType->isTypeRef())
+                codegen->implicitCast(defTypeRef, "Type mismatch in const expression");
             else if (codegen->getTopType()->isFuncPtr())
                 codegen->implicitCast(defTypeRef, "Invalid use of function in const expression");
             resultType = constCodeGen.runConstExpr(constStack, result);

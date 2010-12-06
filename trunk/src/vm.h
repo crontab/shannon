@@ -90,6 +90,7 @@ enum OpCode
     opPopPod,           // -int
     opCast,             // [Type*] -var +var
     opIsType,           // [Type*] -var +bool
+    opToStr,            // [Type*] -var +str
 
     // --- 6. STRINGS, VECTORS
     opChrToStr,         // -char +str
@@ -133,6 +134,8 @@ enum OpCode
     opInByteSet,        // -set -int +bool
     opInBounds,         // [Ordinal*] -int +bool
     opInRange,          // -range -int +bool
+    opRangeLo,          // -range +int
+    opRangeHi,          // -range +int
     opInRange2,         // -int -int -int +bool
     opSetElem,          // -var -set +void
     opByteSetElem,      // -int -set +void
@@ -161,9 +164,13 @@ enum OpCode
     // --- 9. FIFOS
     // opLoadCharFifo and opLoadVarFifo are primary loaders, defined in section [2].
     opElemToFifo,       // [Fifo*] -var +fifo
-    opFifoAddElem,      // -var -fifo +fifo
+    opFifoEnqChar,      // -char -fifo +fifo
+    opFifoEnqVar,       // -var -fifo +fifo
+    opFifoEnqChars,     // -str -fifo +fifo
+    opFifoEnqVars,      // -vec -fifo +fifo
     opFifoDeqChar,      // -fifo +char
     opFifoDeqVar,       // -fifo +char
+    opFifoCharToken,    // -charset -fifo +str
 
     // --- 10. ARITHMETIC
     opAdd,              // -int -int +int
@@ -251,6 +258,9 @@ inline bool isBoolJump(OpCode op)
 
 inline bool isCaller(OpCode op)
     { return op >= opChildCall && op <= opCall; }
+
+inline bool isDiscardable(OpCode op)
+    { return isCaller(op) || op == opFifoEnqChar || op == opFifoEnqVar; }
 
 inline bool hasTypeArg(OpCode op);
 
@@ -417,13 +427,14 @@ public:
     memint getLocals()          { return locals; }
     State* getCodeOwner()       { return codeOwner; }
     Type* getTopType()          { return stkType(); }
+    Type* getTopType(memint i)  { return stkType(i); }
     void justForget()           { stkPop(); } // for branching in the if() function
     memint getCurrentOffs()     { return codeseg.size(); }
     void undoSubexpr();
     Type* undoTypeRef();
     State* undoStateRef();
     Ordinal* undoOrdTypeRef();
-    bool lastWasFuncCall();
+    bool canDiscardValue();
     void deinitLocalVar(Variable*);
     void deinitFrame(memint baseLevel); // doesn't change the sim stack
     void popValue();
@@ -432,6 +443,7 @@ public:
     void explicitCast(Type*);
     void isType(Type*);
     void mkRange();
+    void toStr();
 
     memint prolog();
     void epilog(memint prologOffs);
@@ -452,8 +464,8 @@ public:
     void loadResultVar(ResultVar* var);
     void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
-    void loadDotMember(const str&);
     void loadMember(State*, Symbol*);
+    void loadMember(State*, State*);
     void loadMember(State*, Variable*);
     void loadThis();
     void loadDataSeg();
@@ -486,7 +498,10 @@ public:
     void inRange2(bool isCaseLabel = false);
     void loadFifo(Fifo*);
     Fifo* elemToFifo();
-    void fifoAddElem();
+    void fifoEnq();
+    void fifoPush();
+    void fifoDeq();
+    void fifoToken();
 
     void arithmBinary(OpCode op);
     void arithmUnary(OpCode op);
@@ -519,10 +534,10 @@ public:
     str insLvalue();
     void insAssign(const str& storerCode);
     void deleteContainerElem();
-    void fifoPush();
 
     void _popArgs(FuncPtr*);
     void call(FuncPtr*);
+    void staticCall(State*);
 
     void end();
     Type* runConstExpr(rtstack& constStack, variant& result); // defined in vm.cpp
