@@ -119,12 +119,12 @@ Type* Compiler::getTypeDerivators(Type* type)
 }
 
 
-void Compiler::builtin(Builtin* b)
+void Compiler::builtin(Builtin* b, bool skipFirst)
 {
     if (b->prototype)
     {
         skipLParen();
-        actualArgs(b->prototype);
+        actualArgs(b->prototype, skipFirst);
     }
     b->compileFunc(this);
 }
@@ -192,12 +192,7 @@ void Compiler::dotIdentifier(str ident)
         Type* firstArgType = b->prototype->formalArgs[0]->type;
         if (firstArgType)
             codegen->implicitCast(firstArgType, "Builtin not applicable to this type");
-        if (b->prototype)
-        {
-            skipLParen();
-            actualArgs(b->prototype, true);
-        }
-        b->compileFunc(this);
+        builtin(b, true);
     }
     else if (type->isFuncPtr())
     {
