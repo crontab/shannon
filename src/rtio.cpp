@@ -8,22 +8,28 @@ int intext::BUF_SIZE = 4096 * int(sizeof(integer));
 #endif
 
 
+static charset eolchars = ~charset("\r\n");
+
+
 fifo::fifo(Type* rt, bool is_char)
-    : rtobject(rt), _is_char_fifo(is_char)  { }
+    : rtobject(rt), max_token(0), _is_char_fifo(is_char)  { }
 
 fifo::~fifo()
     { }
 
 void fifo::dump(fifo& stm) const        { stm << "fifo:" << get_name(); }
 void fifo::_empty_err()                 { throw efifo("FIFO empty"); }
+void fifo::_full_err()                  { throw efifo("FIFO full"); }
 void fifo::_wronly_err()                { throw efifo("FIFO is write-only"); }
 void fifo::_rdonly_err()                { throw efifo("FIFO is read-only"); }
 void fifo::_fifo_type_err()             { fatal(0x2001, "FIFO type mismatch"); }
+void fifo::_token_err()                 { throw efifo("Token too long"); }
 const char* fifo::get_tail()            { _wronly_err(); return NULL; }
 const char* fifo::get_tail(memint*)     { _wronly_err(); return NULL; }
 void fifo::deq_bytes(memint)            { _wronly_err(); }
 variant* fifo::enq_var()                { _rdonly_err(); return NULL; }
-memint fifo::enq_chars(const char*, memint)  { _rdonly_err(); return 0; }
+void fifo::enq_char(char)               { _rdonly_err(); }
+memint fifo::enq_chars(const char*, memint) { _rdonly_err(); return 0; }
 bool fifo::empty() const                { _rdonly_err(); return true; }
 void fifo::flush()                      { }
 
@@ -99,6 +105,16 @@ void fifo::skip_eol()
 }
 
 
+void fifo::deq_var(variant* v)
+{
+    _req_non_empty(false);
+    *(podvar*)v = *(podvar*)get_tail();
+    deq_bytes(_varsize);
+}
+
+
+#ifdef DEBUG
+// Used only in unit tests
 void fifo::var_eat()
 {
     if (is_char_fifo())
@@ -129,10 +145,8 @@ void fifo::var_deq(variant& v)
         v = get();
     else
     {
-        _req_non_empty();
         v.clear();
-        memcpy((char*)&v, get_tail(), _varsize);
-        deq_bytes(_varsize);
+        deq_var(&v);
     }
 }
 
@@ -151,6 +165,7 @@ void fifo::var_enq(const variant& v)
     else
         ::new(enq_var()) variant(v);
 }
+#endif
 
 
 str fifo::deq(memint count)
@@ -178,6 +193,7 @@ str fifo::deq(memint count)
 void fifo::_token(const charset& chars, str* result)
 {
     _req(true);
+    memint total = 0;
     while (1)
     {
         memint avail;
@@ -191,6 +207,12 @@ void fifo::_token(const charset& chars, str* result)
         memint count = p - b;
         if (count == 0)
             break;
+        if (max_token > 0)
+        {
+            total += count;
+            if (total > max_token)
+                _token_err();
+        }
         if (result != NULL)
             result->append(b, count);
         deq_bytes(count);
@@ -202,9 +224,8 @@ void fifo::_token(const charset& chars, str* result)
 
 str fifo::line()
 {
-    static charset linechars = ~charset("\r\n");
     str result;
-    _token(linechars, &result);
+    _token(eolchars, &result);
     skip_eol();
     return result;
 }
@@ -212,9 +233,15 @@ str fifo::line()
 
 void fifo::enq(const char* s)   { if (s != NULL) enq(s, strlen(s)); }
 void fifo::enq(const str& s)    { enq_chars(s.data(), s.size()); }
-void fifo::enq(char c)          { enq_chars(&c, 1); }
-void fifo::enq(uchar c)         { enq_chars((char*)&c, 1); }
 void fifo::enq(large i)         { enq(to_string(i)); }
+
+
+void fifo::enq(const varvec& v)
+{
+    _req(false);
+    for (memint i = 0; i < v.size() - 1; i++)
+        new(enq_var()) variant(v[i]);
+}
 
 
 // --- memfifo ------------------------------------------------------------- //
@@ -225,7 +252,7 @@ memfifo::memfifo(Type* rt, bool ch)
 
 
 memfifo::~memfifo()                     { try { clear(); } catch(exception&) { } }
-inline const char* memfifo::get_tail()  { return tail->data + tail_offs; }
+inline const char* memfifo::get_tail()  { return tail ? (tail->data + tail_offs) : NULL; }
 inline bool memfifo::empty() const      { return tail == NULL; }
 inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(_varsize); }
 str memfifo::get_name() const           { return "<memfifo>"; }
@@ -337,6 +364,13 @@ char* memfifo::enq_space(memint count)
 }
 
 
+void memfifo::enq_char(char c)
+{
+    _req(true);
+    *enq_space(1) = c;
+}
+
+
 memint memfifo::enq_chars(const char* p, memint count)
 {
     _req(true);
@@ -428,6 +462,18 @@ char* buffifo::enq_space(memint count)
     char* result = buffer + bufhead;
     bufhead += count;
     return result;
+}
+
+
+void buffifo::enq_char(char c)
+{
+    _req(true);
+    assert(buftail <= bufhead && bufhead <= bufsize);
+    if (bufhead + 1 > bufsize)
+        flush();
+    assert(bufhead + 1 <= bufsize);
+    buffer[bufhead] = c;
+    bufhead++;
 }
 
 
@@ -637,10 +683,11 @@ stdfile::stdfile(int infd, int outfd)
     _mkstatic();
 }
 
-
 stdfile::~stdfile()
     { }
 
+void stdfile::enq_char(char c)
+    { if (::write(_ofd, &c, 1) < 1) _full_err(); }
 
 memint stdfile::enq_chars(const char* p, memint count)
     { return ::write(_ofd, p, count); }

@@ -946,6 +946,7 @@ str to_displayable(const str& s)
 
 // --- ordset -------------------------------------------------------------- //
 
+charset ordset::empty_charset;
 
 ordset::ordset(integer v)
     : obj(new setobj())  { obj->set.include(int(v)); }

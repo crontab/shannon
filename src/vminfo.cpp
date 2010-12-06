@@ -90,6 +90,7 @@ OpInfo opTable[] =
     OP(PopPod, None),           // -int
     OP(Cast, Type),             // [Type*] -var +var
     OP(IsType, Type),           // [Type*] -var +bool
+    OP(ToStr, Type),            // [Type*] -var +str
 
     // --- 6. STRINGS, VECTORS
     OP(ChrToStr, None),         // -int +str
@@ -132,6 +133,8 @@ OpInfo opTable[] =
     OP(InByteSet, None),        // -set -int +bool
     OP(InBounds, Type),         // [Ordinal*] -int +bool
     OP(InRange, None),          // -range -int +bool
+    OP(RangeLo, None),          // -range +int
+    OP(RangeHi, None),          // -range +int
     OP(InRange2, None),         // -int -int -int +bool
     OP(SetElem, None),          // -var -set +void
     OP(ByteSetElem, None),      // -int -set +void
@@ -159,9 +162,13 @@ OpInfo opTable[] =
 
     // --- 9. FIFOS
     OP(ElemToFifo, Fifo),       // [Fifo*] -var +fifo
-    OP(FifoAddElem, None),      // -var -fifo +fifo
+    OP(FifoEnqChar, None),      // -char -fifo +fifo
+    OP(FifoEnqVar, None),       // -var -fifo +fifo
+    OP(FifoEnqChars, None),     // -str -fifo +fifo
+    OP(FifoEnqVars, None),      // -vec -fifo +fifo
     OP(FifoDeqChar, None),      // -fifo +char
     OP(FifoDeqVar, None),       // -fifo +char
+    OP(FifoCharToken, None),    // -charset -fifo +str
 
     // --- 10. ARITHMETIC
     OP(Add, None),              // -int -int +int

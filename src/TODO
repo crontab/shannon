@@ -1,6 +1,5 @@
 
-* Builtins can be called both as methods and functions: len(s) and
-  s.len() is the same? Don't know.
+* return, goto
 
 * 'var' arguments: pass a grounded reference (l-value actually): limited
   but useful. Many builtins can be defined with var arguments; also many
@@ -10,29 +9,23 @@
 
 * Automatic function return type (very questionable)
 
+* Default function parameters, named arguments (?)
+
 * Directive: def #static int inc()...
 
 * Inheritance, virtual calls, compatibility rules. Syntax?
 
-* Allow static calls via a type instead of an object
-
-* Enqueue and dequeue operators: << and >>, almost like the iostream
-  operators in C++. The leftmost operand is always a fifo.
-
-* return, goto
+* Dequeue operator >> -- does it make sense when there's deq()? Don't
+  think so.
 
 * Properties
 
 * Operator 'in' for vectors? 'lin'?
 
-* Procedures, pipes. Procedures are declared as, e.g. def <char, char>
-  convert() ...
+* Procedures, pipes. Procedures are declared as, e.g.
+  def void convert <char, char> () ...
 
 * Exceptions
-
-* Anonymous functions
-
-* Tiny set implementation?
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will
   work for dynamic states too (?). Also, the ability to iterate over all
@@ -59,11 +52,16 @@
   So a struct descriptor is a vector of types?
 
 * Operator 'split': a combination of 'case' and 'while' for fifos (?)
+  Or maybe switch i = ... with semantics similar to 'for'?
+
+* For loop for fifos?
 
 * Ordinal set operations: inversion (not), union (or), intersection
   (and), subtraction (-)
 
 * Run-time range checking (as well as compile-time)
+
+* Tiny set implementation?
 
 * HTML/XML embedded mode, also arbitrary text embedded mode
 
@@ -82,8 +80,6 @@
   possible.
 
 * Floating point type
-
-* Default function parameters, named arguments
 
 * Multidimensional arrays implemented as a single vector with "flat"
   indexing?

@@ -788,6 +788,7 @@ class ordset
 {
     friend class variant;
 protected:
+    static charset empty_charset;
     struct setobj: public object
     {
         charset set;
@@ -812,6 +813,7 @@ public:
     void find_insert(integer v);
     void find_insert(integer l, integer h);
     void find_erase(integer v);
+    const charset& get_charset() const      { return obj.empty() ? empty_charset : obj->set; }
 };
 
 
@@ -1274,7 +1276,7 @@ const int _varsize = int(sizeof(variant));
 // implementation (see "Characetr FIFO operations" below).
 class fifo: public rtobject
 {
-    // friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
+    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
 
     fifo& operator<< (bool);   // compiler traps
     fifo& operator<< (void*);
@@ -1282,14 +1284,15 @@ class fifo: public rtobject
     fifo& operator<< (rtobject* o); //      { o->dump(*this); return *this; }
 
 protected:
-    enum { TAB_SIZE = 8 };
-
+    memint max_token;  // 4096
     bool _is_char_fifo;
 
     static void _empty_err();
+    static void _full_err();
     static void _wronly_err();
     static void _rdonly_err();
     static void _fifo_type_err();
+    static void _token_err();
     void _req(bool req_char) const      { if (req_char != _is_char_fifo) _fifo_type_err(); }
     void _req_non_empty() const;
     void _req_non_empty(bool _char) const;
@@ -1303,9 +1306,11 @@ protected:
     virtual const char* get_tail(memint*);   // ... also return the length
     virtual void deq_bytes(memint);          // Discard n consecutive bytes returned by get_tail()
     virtual variant* enq_var();              // Reserve uninitialized space for a variant
+    virtual void enq_char(char);             // Push one char, char fifo only
     virtual memint enq_chars(const char*, memint); // Push arbitrary number of bytes, return actual number, char fifo only
 
     void _token(const charset& chars, str* result);
+    void deq_var(variant*);  // dequeue variant to uninitialized area, for internal use
 
 public:
     fifo(Type*, bool is_char);
@@ -1344,9 +1349,10 @@ public:
     memint enq(const char* p, memint count)  { return enq_chars(p, count); }
     void enq(const char* s);
     void enq(const str& s);
-    void enq(char c);
-    void enq(uchar c);
+    void enq(char c)                    { enq_char(c); }
+    void enq(uchar c)                   { enq_char(c); }
     void enq(large i);
+    void enq(const varvec&);
 
     fifo& operator<< (const char* s)    { enq(s); return *this; }
     fifo& operator<< (const str& s)     { enq(s); return *this; }
@@ -1408,6 +1414,7 @@ protected:
     const char* get_tail(memint*);
     void deq_bytes(memint);
     variant* enq_var();
+    void enq_char(char);
     memint enq_chars(const char*, memint);
 
     char* enq_space(memint);
@@ -1452,6 +1459,7 @@ protected:
     const char* get_tail(memint*);
     void deq_bytes(memint);
     variant* enq_var();
+    void enq_char(char);
     memint enq_chars(const char*, memint);
 
     char* enq_space(memint);
@@ -1548,7 +1556,8 @@ class stdfile: public intext
 {
 protected:
     int _ofd;
-    virtual memint enq_chars(const char*, memint);
+    void enq_char(char);
+    memint enq_chars(const char*, memint);
 public:
     stdfile(int infd, int outfd);
     ~stdfile();

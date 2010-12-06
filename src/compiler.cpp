@@ -321,7 +321,7 @@ void Compiler::otherStatement()
 
     if (codegen->getStackLevel() == stkLevel + 1)
     {
-        if (codegen->lastWasFuncCall())
+        if (codegen->canDiscardValue())
             codegen->popValue();
         else
             error("Unused value in statement");
