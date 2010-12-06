@@ -45,7 +45,7 @@ public:
     Type* getStateDerivator(Type*, bool allowProto);
     Type* getTypeDerivators(Type*);
     Type* getEnumeration(const str& firstIdent);
-    void builtin(Builtin*);
+    void builtin(Builtin*, bool skipFirst = false);
     void identifier(str);
     void dotIdentifier(str);
     void vectorCtor(Type* type);
