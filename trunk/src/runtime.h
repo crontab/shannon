@@ -1334,6 +1334,8 @@ public:
     // Character FIFO operations
     bool is_char_fifo() const           { return _is_char_fifo; }
     int preview(); // returns -1 on eof
+    char look()
+        { int c = preview(); if (c == -1) _empty_err(); return c; }
     uchar get();
     bool get_if(char c);
     str  deq(memint);  // CHAR_ALL, CHAR_SOME can be specified
@@ -1365,6 +1367,7 @@ public:
 };
 
 const char endl = '\n';
+extern charset non_eol_chars;
 
 inline void variant::_init(fifo* f)  { _init(RTOBJ, f); }
 inline fifo* variant::_fifo() const  { return cast<fifo*>(_rtobj()); }

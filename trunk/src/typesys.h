@@ -143,12 +143,14 @@ public:
 class Builtin: public Symbol
 {
 public:
-    typedef void (*CompileFunc)(Compiler*);
+    typedef void (*CompileFunc)(Compiler*, Builtin*);
 
-    CompileFunc const compileFunc;
-    FuncPtr* const prototype; // optional
+    CompileFunc const compile;   // either call the compiler function
+    State* const staticFunc;     // ... or generate a static call to this function
+    FuncPtr* const prototype;    // optional
 
     Builtin(const str&, CompileFunc, FuncPtr*, State*);
+    Builtin(const str&, CompileFunc, State*, State*);
     ~Builtin();
     void dump(fifo&) const;
 };
@@ -656,6 +658,8 @@ protected:
     stateobj* newInstance(); // override
     Builtin* addBuiltin(Builtin*);
     Builtin* addBuiltin(const str&, Builtin::CompileFunc, FuncPtr*);
+    Builtin* addBuiltin(const str&, Builtin::CompileFunc, State*);
+    State* registerState(FuncPtr* proto, ExternFuncProto);
 public:
     Variant* const defVariant;
     Ordinal* const defInt;
@@ -670,7 +674,6 @@ public:
     Variable* sioVar;
     Variable* serrVar;
     Variable* resultVar;
-    State* skipFunc;
     Builtin* findBuiltin(const str& ident)  // returns Builtin* or NULL
         { return builtinScope.find(ident); }
 };

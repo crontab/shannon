@@ -91,8 +91,10 @@ FormalArg::FormalArg(const str& n, Type* t)
 
 
 Builtin::Builtin(const str& n, CompileFunc f, FuncPtr* p, State* h)
-    : Symbol(n, BUILTIN, NULL, h), compileFunc(f), prototype(p)  { }
+    : Symbol(n, BUILTIN, NULL, h), compile(f), staticFunc(NULL), prototype(p)  { }
 
+Builtin::Builtin(const str& n, CompileFunc f, State* s, State* h)
+    : Symbol(n, BUILTIN, NULL, h), compile(f), staticFunc(s), prototype(s->prototype)  { }
 
 Builtin::~Builtin()
     { }
@@ -1230,7 +1232,7 @@ QueenBee::QueenBee()
     // NULL argument means anything goes, the builtin parser will take care of 
     // type checking. Return type doesn't matter; the builtin parser functions
     // leave the actual result types on the simulation stack anyway.
-    // TODO: skip() eol() line() skipln() look() fmt() read() write()
+    // TODO: fmt() read() write()
     // TODO: infile() outfile()
     FuncPtr* proto1 = registerProto(defVariant, NULL);
     FuncPtr* proto2 = registerProto(defVariant, NULL, NULL);
@@ -1238,17 +1240,23 @@ QueenBee::QueenBee()
     addBuiltin("lo", compileLo, proto1);
     addBuiltin("hi", compileHi, proto1);
     addBuiltin("_str", compileToStr, proto1);
-
     addBuiltin("enq", compileEnq, proto2);
     addBuiltin("deq", compileDeq, proto1);
     addBuiltin("token", compileToken, proto2);
 
-    skipFunc = registerType(new State(this,
-        registerProto(defVoid, NULL, NULL), shn_skipset));
-    addBuiltin("skip", compileSkip, skipFunc->prototype);
+    addBuiltin("skip", compileSkip,
+        registerState(registerProto(defVoid, NULL, NULL), shn_skipset));
+    addBuiltin("eol", NULL,
+        registerState(registerProto(defBool, defCharFifo), shn_eol));
+    addBuiltin("line", NULL,
+        registerState(registerProto(defStr, defCharFifo), shn_line));
+    addBuiltin("skipln", NULL,
+        registerState(registerProto(defVoid, defCharFifo), shn_skipln));
+    addBuiltin("look", NULL,
+        registerState(registerProto(defChar, defCharFifo), shn_look));
 
-    addTypeAlias("strfifo", registerType(new State(this,
-        registerProto(defCharFifo, defStr), shn_strfifo)));
+    addTypeAlias("strfifo",
+        registerState(registerProto(defCharFifo, defStr), shn_strfifo));
 
     getCodeSeg()->close();
     setComplete();
@@ -1284,6 +1292,18 @@ Builtin* QueenBee::addBuiltin(Builtin* b)
 Builtin* QueenBee::addBuiltin(const str& n, Builtin::CompileFunc f, FuncPtr* p)
 {
     return addBuiltin(new Builtin(n, f, p, this));
+}
+
+
+Builtin* QueenBee::addBuiltin(const str& n, Builtin::CompileFunc f, State* s)
+{
+    return addBuiltin(new Builtin(n, f, s, this));
+}
+
+
+State* QueenBee::registerState(FuncPtr* proto, ExternFuncProto ext)
+{
+    return registerType(new State(this, proto, ext));
 }
 
 

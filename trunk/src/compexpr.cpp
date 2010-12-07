@@ -126,7 +126,10 @@ void Compiler::builtin(Builtin* b, bool skipFirst)
         skipLParen();
         actualArgs(b->prototype, skipFirst);
     }
-    b->compileFunc(this);
+    if (b->compile)
+        b->compile(this, b);
+    else
+        codegen->staticCall(b->staticFunc);
 }
 
 
