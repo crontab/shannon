@@ -97,6 +97,8 @@ Keywords::kwinfo Keywords::keywords[] =
 InputRecorder::InputRecorder()
     : buf(NULL), offs(0), prevpos(0)  { }
 
+InputRecorder::~InputRecorder() throw()
+    { }
 
 void InputRecorder::event(char* newbuf, memint newtail, memint)
 {

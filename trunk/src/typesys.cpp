@@ -12,11 +12,11 @@ static void error(const char* msg)
 // --- Symbols & Scope ----------------------------------------------------- //
 
 
-Symbol::Symbol(const str& n, SymbolId id, Type* t, State* h)
+Symbol::Symbol(const str& n, SymbolId id, Type* t, State* h) throw()
     : symbol(n), symbolId(id), type(t), host(h)  { }
 
 
-Symbol::~Symbol()
+Symbol::~Symbol() throw()
     { }
 
 
@@ -45,11 +45,11 @@ void Symbol::dump(fifo& stm) const
 // --- //
 
 
-Definition::Definition(const str& n, Type* t, const variant& v, State* h)
+Definition::Definition(const str& n, Type* t, const variant& v, State* h) throw()
     : Symbol(n, DEFINITION, t, h), value(v) { }
 
 
-Definition::~Definition()
+Definition::~Definition() throw()
     { }
 
 
@@ -65,10 +65,10 @@ Type* Definition::getAliasedType() const
 // --- //
 
 
-Variable::Variable(const str& n, SymbolId sid, Type* t, memint i, State* h)
+Variable::Variable(const str& n, SymbolId sid, Type* t, memint i, State* h) throw()
     : Symbol(n, sid, t, h), id(i)  { }
 
-Variable::~Variable()
+Variable::~Variable() throw()
     { }
 
 StkVar::StkVar(const str& n, Type* t, memint i, State* h)
@@ -83,23 +83,26 @@ ResultVar::ResultVar(Type* t, State* h)
 InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
-FormalArg::FormalArg(const str& n, Type* t)
+FormalArg::FormalArg(const str& n, Type* t) throw()
     : Symbol(n, FORMALARG, t, NULL), hasDefValue(false), defValue()  { }
 
-FormalArg::FormalArg(const str& n, Type* t, const variant& d)
+FormalArg::FormalArg(const str& n, Type* t, const variant& d) throw()
     : Symbol(n, FORMALARG, t, NULL), hasDefValue(true), defValue(d)  { }
+
+FormalArg::~FormalArg() throw()
+    { }
 
 
 // --- //
 
 
-Builtin::Builtin(const str& n, CompileFunc f, FuncPtr* p, State* h)
+Builtin::Builtin(const str& n, CompileFunc f, FuncPtr* p, State* h) throw()
     : Symbol(n, BUILTIN, NULL, h), compile(f), staticFunc(NULL), prototype(p)  { }
 
-Builtin::Builtin(const str& n, CompileFunc f, State* s, State* h)
+Builtin::Builtin(const str& n, CompileFunc f, State* s, State* h) throw()
     : Symbol(n, BUILTIN, NULL, h), compile(f), staticFunc(s), prototype(s->prototype)  { }
 
-Builtin::~Builtin()
+Builtin::~Builtin() throw()
     { }
 
 
@@ -131,10 +134,6 @@ const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 // --- //
 
 
-Scope::~Scope()
-    { }
-
-
 void Scope::addUnique(Symbol* s)
 {
     if (!symbols.add(s))
@@ -162,11 +161,11 @@ Symbol* Scope::findShallow(const str& ident) const
 // --- //
 
 
-BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
+BlockScope::BlockScope(Scope* _outer, CodeGen* _gen) throw()
     : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
-BlockScope::~BlockScope()
+BlockScope::~BlockScope() throw()
     { stkVars.release_all(); }
 
 
@@ -192,7 +191,7 @@ StkVar* BlockScope::addStkVar(const str& n, Type* t)
 // --- Type ---------------------------------------------------------------- //
 
 
-Type::Type(TypeId id)
+Type::Type(TypeId id) throw()
     : rtobject(id == TYPEREF ? this : defTypeRef), refType(NULL), // ptrType(NULL),
       host(NULL), defName(), typeId(id)
 {
@@ -201,7 +200,7 @@ Type::Type(TypeId id)
 }
 
 
-Type::~Type()
+Type::~Type() throw()
     { }
 
 
@@ -467,8 +466,8 @@ void dumpVariant(fifo& stm, const variant& v, Type* type)
 // --- General Types ------------------------------------------------------- //
 
 
-TypeReference::TypeReference(): Type(TYPEREF)  { }
-TypeReference::~TypeReference()  { }
+TypeReference::TypeReference() throw(): Type(TYPEREF)  { }
+TypeReference::~TypeReference() throw() { }
 
 void TypeReference::dumpValue(fifo& stm, const variant& v) const
 {
@@ -477,19 +476,19 @@ void TypeReference::dumpValue(fifo& stm, const variant& v) const
 }
 
 
-Void::Void(): Type(VOID)  { }
-Void::~Void()  { }
+Void::Void() throw(): Type(VOID)  { }
+Void::~Void() throw() { }
 
 
-Variant::Variant(): Type(VARIANT)  { }
-Variant::~Variant()  { }
+Variant::Variant() throw(): Type(VARIANT)  { }
+Variant::~Variant() throw() { }
 
 
-Reference::Reference(Type* _to)
+Reference::Reference(Type* _to) throw()
     : Type(REF), to(_to)  { }
 
 
-Reference::~Reference()
+Reference::~Reference() throw()
     { }
 
 
@@ -514,12 +513,12 @@ bool Reference::canAssignTo(Type* t) const
 // --- Ordinals ------------------------------------------------------------ //
 
 
-Ordinal::Ordinal(TypeId id, integer l, integer r)
+Ordinal::Ordinal(TypeId id, integer l, integer r) throw()
     : Type(id), rangeType(new Range(this)), left(l), right(r)
         { assert(isAnyOrd()); }
 
 
-Ordinal::~Ordinal()
+Ordinal::~Ordinal() throw()
     { }
 
 
@@ -579,11 +578,11 @@ Enumeration::Enumeration(const EnumValues& v, integer l, integer r)
     : Ordinal(ENUM, l, r), values(v)  { }
 
 
-Enumeration::Enumeration()
+Enumeration::Enumeration() throw()
     : Ordinal(ENUM, 0, -1)  { }
 
 
-Enumeration::~Enumeration()
+Enumeration::~Enumeration() throw()
     { }
 
 
@@ -637,10 +636,10 @@ bool Enumeration::canAssignTo(Type* t) const
 // --- //
 
 
-Range::Range(Ordinal* e)
+Range::Range(Ordinal* e) throw()
     : Type(RANGE), elem(e)  { }
 
-Range::~Range()
+Range::~Range() throw()
     { }
 
 
@@ -672,7 +671,7 @@ bool Range::canAssignTo(Type* t) const
 // --- Containers ---------------------------------------------------------- //
 
 
-Type::TypeId Type::contType(Type* i, Type* e)
+Type::TypeId Type::contType(Type* i, Type* e) throw()
 {
     if (i->isVoid())
         if (e->isVoid())
@@ -686,11 +685,11 @@ Type::TypeId Type::contType(Type* i, Type* e)
 }
 
 
-Container::Container(Type* i, Type* e)
+Container::Container(Type* i, Type* e) throw()
     : Type(contType(i, e)), index(i), elem(e)  { }
 
 
-Container::~Container()
+Container::~Container() throw()
     { }
 
 
@@ -748,11 +747,11 @@ bool Container::identicalTo(Type* t) const
 // --- Fifo ---------------------------------------------------------------- //
 
 
-Fifo::Fifo(Type* e)
+Fifo::Fifo(Type* e) throw()
     : Type(FIFO), elem(e)  { }
 
 
-Fifo::~Fifo()
+Fifo::~Fifo() throw()
     { }
 
 
@@ -767,11 +766,11 @@ bool Fifo::identicalTo(Type* t) const
 // --- Prototype ----------------------------------------------------------- //
 
 
-FuncPtr::FuncPtr(Type* r)
+FuncPtr::FuncPtr(Type* r) throw()
     : Type(FUNCPTR), returnType(r)  { }
 
 
-FuncPtr::~FuncPtr()
+FuncPtr::~FuncPtr() throw()
     { formalArgs.release_all(); }
 
 
@@ -846,10 +845,10 @@ FormalArg* FuncPtr::addFormalArg(const str& n, Type* t, const variant& d)
 // --- SelfStub ------------------------------------------------------------ //
 
 
-SelfStub::SelfStub()
+SelfStub::SelfStub() throw()
     : Type(SELFSTUB) { }
 
-SelfStub::~SelfStub()
+SelfStub::~SelfStub() throw()
     { }
 
 bool SelfStub::identicalTo(Type*) const
@@ -862,7 +861,7 @@ bool SelfStub::canAssignTo(Type*) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* par, FuncPtr* proto)
+State::State(State* par, FuncPtr* proto) throw()
     : Type(STATE), Scope(par),
       complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
@@ -871,7 +870,7 @@ State::State(State* par, FuncPtr* proto)
     { setup(); }
 
 
-State::State(State* par, FuncPtr* proto, ExternFuncProto func)
+State::State(State* par, FuncPtr* proto, ExternFuncProto func) throw()
     : Type(STATE), Scope(par),
       complete(true), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
@@ -902,7 +901,7 @@ void State::setup()
 }
 
 
-State::~State()
+State::~State() throw()
 {
     args.release_all();
     innerVars.release_all();
@@ -925,11 +924,12 @@ void State::fqName(fifo& stm) const
 }
 
 
-Module* State::getParentModule(State* m)
+Module* State::getParentModule(State* m) throw()
 {
     while (m->parent)
         m = m->parent;
-    return PModule(m);
+    // assert(m->isModule());
+    return PModule(m); // TODO: cast<> doesn't work! why?
 }
 
 
@@ -981,7 +981,7 @@ void State::dumpAll(fifo& stm) const
 }
 
 
-Type* State::_registerType(Type* t, Definition* d)
+Type* State::_registerType(Type* t, Definition* d) throw()
 {
     if (t->host == NULL)
     {
@@ -1129,7 +1129,7 @@ FuncPtr* State::registerProto(Type* ret, Type* arg1, Type* arg2)
 // --- Module -------------------------------------------------------------- //
 
 
-Module::Module(const str& n, const str& f)
+Module::Module(const str& n, const str& f) throw()
     : State(NULL, new FuncPtr(this)), filePath(f)
 {
     defName = n;
@@ -1137,7 +1137,7 @@ Module::Module(const str& n, const str& f)
 }
 
 
-Module::~Module()
+Module::~Module() throw()
 {
     codeSegs.release_all();
 }
@@ -1272,7 +1272,7 @@ QueenBee::QueenBee()
 }
 
 
-QueenBee::~QueenBee()
+QueenBee::~QueenBee() throw()
     { builtins.release_all(); }
 
 

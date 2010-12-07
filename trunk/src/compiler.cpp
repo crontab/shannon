@@ -3,12 +3,12 @@
 #include "compiler.h"
 
 
-Compiler::AutoScope::AutoScope(Compiler* c)
+Compiler::AutoScope::AutoScope(Compiler* c) throw()
     : BlockScope(c->scope, c->codegen), compiler(c)
         { compiler->scope = this; }
 
 
-Compiler::AutoScope::~AutoScope()
+Compiler::AutoScope::~AutoScope() throw()
         { compiler->scope = outer; }
 
 
@@ -20,12 +20,12 @@ StkVar* Compiler::AutoScope::addInitStkVar(const str& name, Type* type)
 }
 
 
-Compiler::ReturnInfo::ReturnInfo(Compiler& c)
+Compiler::ReturnInfo::ReturnInfo(Compiler& c) throw()
     : compiler(c), prev(c.returnInfo), topLevelReturned(false), jumps()
         { compiler.returnInfo = this; }
 
 
-Compiler::ReturnInfo::~ReturnInfo()
+Compiler::ReturnInfo::~ReturnInfo() throw()
     { compiler.returnInfo = prev; }
 
 
@@ -37,7 +37,7 @@ void Compiler::ReturnInfo::resolveJumps()
 }
 
 
-Compiler::LoopInfo::LoopInfo(Compiler& c)
+Compiler::LoopInfo::LoopInfo(Compiler& c) throw()
     : compiler(c), prev(c.loopInfo),
       stackLevel(c.codegen->getStackLevel()),
       continueTarget(c.codegen->getCurrentOffs()),
@@ -45,7 +45,7 @@ Compiler::LoopInfo::LoopInfo(Compiler& c)
         { compiler.loopInfo = this; }
 
 
-Compiler::LoopInfo::~LoopInfo()
+Compiler::LoopInfo::~LoopInfo() throw()
     { compiler.loopInfo = prev; }
 
 

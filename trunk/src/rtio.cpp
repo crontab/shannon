@@ -11,10 +11,10 @@ int intext::BUF_SIZE = 4096 * int(sizeof(integer));
 charset non_eol_chars = ~charset("\r\n");
 
 
-fifo::fifo(Type* rt, bool is_char)
+fifo::fifo(Type* rt, bool is_char) throw()
     : rtobject(rt), max_token(0), _is_char_fifo(is_char)  { }
 
-fifo::~fifo()
+fifo::~fifo() throw()
     { }
 
 void fifo::dump(fifo& stm) const        { stm << "fifo:" << get_name(); }
@@ -247,11 +247,11 @@ void fifo::enq(const varvec& v)
 // --- memfifo ------------------------------------------------------------- //
 
 
-memfifo::memfifo(Type* rt, bool ch)
+memfifo::memfifo(Type* rt, bool ch) throw()
     : fifo(rt, ch), head(NULL), tail(NULL), head_offs(0), tail_offs(0)  { }
 
 
-memfifo::~memfifo()                     { try { clear(); } catch(exception&) { } }
+memfifo::~memfifo() throw()             { try { clear(); } catch(exception&) { } }
 inline const char* memfifo::get_tail()  { return tail ? (tail->data + tail_offs) : NULL; }
 inline bool memfifo::empty() const      { return tail == NULL; }
 inline variant* memfifo::enq_var()      { _req(false); return (variant*)enq_space(_varsize); }
@@ -391,11 +391,11 @@ memint memfifo::enq_chars(const char* p, memint count)
 // --- buffifo ------------------------------------------------------------- //
 
 
-buffifo::buffifo(Type* rt, bool is_char)
+buffifo::buffifo(Type* rt, bool is_char) throw()
   : fifo(rt, is_char), buffer(NULL), bufsize(0), bufhead(0), buftail(0), buforig(0),
     event(NULL)  { }
 
-buffifo::~buffifo()  { }
+buffifo::~buffifo() throw() { }
 bool buffifo::empty() const { _wronly_err(); return true; }
 void buffifo::flush() { _rdonly_err(); }
 
@@ -514,12 +514,12 @@ bufevent* buffifo::set_bufevent(bufevent* e)
 // --- strfifo ------------------------------------------------------------- //
 
 
-strfifo::strfifo(Type* rt)          : buffifo(rt, true), string()  {}
-strfifo::~strfifo()                 { }
+strfifo::strfifo(Type* rt) throw()  : buffifo(rt, true), string()  {}
+strfifo::~strfifo() throw()         { }
 str strfifo::get_name() const       { return "<strfifo>"; }
 
 
-strfifo::strfifo(Type* rt, const str& s)
+strfifo::strfifo(Type* rt, const str& s) throw()
     : buffifo(rt, true), string(s)
 {
     buffer = (char*)s.data();
@@ -574,10 +574,10 @@ str strfifo::all() const
 #endif
 
 
-intext::intext(Type* rt, const str& fn)
+intext::intext(Type* rt, const str& fn) throw()
     : buffifo(rt, true), file_name(fn), _fd(-1), _eof(false)  { }
 
-intext::~intext()               { if (_fd > 2) ::close(_fd); }
+intext::~intext() throw()       { if (_fd > 2) ::close(_fd); }
 void intext::error(int code)    { _eof = true; throw esyserr(code, file_name); }
 str intext::get_name() const    { return file_name; }
 
@@ -622,7 +622,7 @@ bool intext::empty() const
 // --- outtext -------------------------------------------------------------- //
 
 
-outtext::outtext(Type* rt, const str& fn)
+outtext::outtext(Type* rt, const str& fn) throw()
     : buffifo(rt, true), file_name(fn), _fd(-1), _err(false)
 {
     filebuf.resize(outtext::BUF_SIZE);
@@ -631,7 +631,7 @@ outtext::outtext(Type* rt, const str& fn)
 }
 
 
-outtext::~outtext()
+outtext::~outtext() throw()
 {
     try
         { flush(); }
@@ -674,7 +674,7 @@ void outtext::flush()
 // --- stdfile ------------------------------------------------------------- //
 
 
-stdfile::stdfile(int infd, int outfd)
+stdfile::stdfile(int infd, int outfd) throw()
     : intext(NULL, "<stdio>"), _ofd(outfd)
 {
     _fd = infd;
@@ -683,7 +683,7 @@ stdfile::stdfile(int infd, int outfd)
     _mkstatic();
 }
 
-stdfile::~stdfile()
+stdfile::~stdfile() throw()
     { }
 
 void stdfile::enq_char(char c)
