@@ -8,7 +8,7 @@ int intext::BUF_SIZE = 4096 * int(sizeof(integer));
 #endif
 
 
-static charset eolchars = ~charset("\r\n");
+charset non_eol_chars = ~charset("\r\n");
 
 
 fifo::fifo(Type* rt, bool is_char)
@@ -225,7 +225,7 @@ void fifo::_token(const charset& chars, str* result)
 str fifo::line()
 {
     str result;
-    _token(eolchars, &result);
+    _token(non_eol_chars, &result);
     skip_eol();
     return result;
 }

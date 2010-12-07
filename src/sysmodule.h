@@ -14,17 +14,22 @@
 
 class Compiler;
 
-void compileLen(Compiler*);
-void compileLo(Compiler*);
-void compileHi(Compiler*);
-void compileToStr(Compiler*);
-void compileEnq(Compiler*);
-void compileDeq(Compiler*);
-void compileToken(Compiler*);
-void compileSkip(Compiler*);
+void compileLen(Compiler*, Builtin*);
+void compileLo(Compiler*, Builtin*);
+void compileHi(Compiler*, Builtin*);
+void compileToStr(Compiler*, Builtin*);
+void compileEnq(Compiler*, Builtin*);
+void compileDeq(Compiler*, Builtin*);
+void compileToken(Compiler*, Builtin*);
+void compileSkip(Compiler*, Builtin*);
+
+void shn_skipset(variant*, stateobj*, variant[]);
+void shn_eol(variant*, stateobj*, variant[]);
+void shn_line(variant*, stateobj*, variant[]);
+void shn_skipln(variant*, stateobj*, variant[]);
+void shn_look(variant*, stateobj*, variant[]);
 
 void shn_strfifo(variant*, stateobj*, variant[]);
-void shn_skipset(variant*, stateobj*, variant[]);
 
 
 #endif // __BUILTINS_H

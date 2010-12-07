@@ -14,6 +14,7 @@
 * Directive: def #static int inc()...
 
 * Inheritance, virtual calls, compatibility rules. Syntax?
+  class point3d() ::point()
 
 * Dequeue operator >> -- does it make sense when there's deq()? Don't
   think so.
@@ -23,7 +24,7 @@
 * Operator 'in' for vectors? 'lin'?
 
 * Procedures, pipes. Procedures are declared as, e.g.
-  def void convert <char, char> () ...
+  def void convert() <char, char> ...
 
 * Exceptions
 

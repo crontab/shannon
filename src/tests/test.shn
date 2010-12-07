@@ -819,11 +819,21 @@ assert chf.deq() == 'f'
 var strf = <'one', 'two', 'three'>
 assert strf.deq() == 'one' and strf.deq() == 'two'
 
-var chf2 = strfifo('Hello, FIFO!')
+var chf2 = strfifo('Hello, FIFO!\nWell, hello, Hovik.\nHey! Howdy man?\nLike a FIFO')
 assert chf2.deq() == 'H'
 assert chf2.token({'a'..'z'}) == 'ello'
 chf2.skip({',', ' '})
 assert chf2.deq() == 'F'
+assert chf2.token({'A'..'Z', '!'}) == 'IFO!'
+assert chf2.eol()
+chf2.skipln()
+assert chf2.line() == 'Well, hello, Hovik.'
+assert chf2.deq() == 'H'
+chf2.skipln()
+assert chf2.look() == 'L'
+assert chf2.line() == 'Like a FIFO'
+assert not chf2?
+
 
 var numf = <one, three, three, two>
 assert numf.deq() == one and numf.deq() == three
