@@ -18,9 +18,9 @@
 
 program ::= { statement } <EOF>
 
-statement ::= definition | var-def | sub-block | builtin | other-statement |
+statement ::= definition | var-def | sub-block | builtin | assignment | fifo-push |
      if-block | case-block | while-block | for-block | 'break' | 'continue' |
-     delete | insert
+     return | delete | insert
 
 block ::= single-block | multi-block
 
@@ -42,15 +42,11 @@ dump ::= 'dump' expr { ',' expr } <SEP>
 
 exit ::= 'exit' expr <SEP>
 
-other-statement ::= assignment | fifo-push | fifo-pull
-
 assignment ::= designator [ assignment-opr expr ] <SEP>
 
 assignment-opr = '=' | '+=' | '-=' | '*= ' | '/=' | '%=' | '|='
 
-fifo-push ::= expr '<<' expr { '<<' expr }
-
-fifo-pull ::= expr '>>' designator { '>>' designator }
+fifo-push ::= expr '<<' expr { '<<' expr } <SEP>
 
 if-block ::= 'if' expr block { 'elif' expr block } [ 'else' block ]
 
@@ -64,9 +60,11 @@ while-block ::= 'while' expr block
 
 for-block ::= 'for' ident [ ',' ident ] '=' expr [ '..' expr ] block
 
-delete ::= 'del' designator
+return ::= 'return' [ expr ] <SEP>
 
-insert ::= 'ins' designator '=' expr
+delete ::= 'del' designator <SEP>
+
+insert ::= 'ins' designator '=' expr <SEP>
 
 
 # ---------- Const Expression
@@ -104,8 +102,8 @@ factor ::= [ '-' ] designator [ '?' ] [ ( 'as' | 'is' ) type-expr ]
 designator ::= [ '@' ] atom { '.' ident | '[' index-expr ']' |
     '(' [ actual-args ] ')' }
 
-atom ::= ident | number | string-literal | vec-ctor | dict-ctor | fifo-ctor |
-    if-func | typeof | type-spec | 'this' | '(' expr ')'
+atom ::= ident | number | string-literal | vec-ctor | dict-ctor |
+    fifo-ctor | range-ctor | if-func | typeof | type-spec | 'this' | '(' expr ')'
 
 vec-ctor ::= '[' [ expr { ',' expr } ] ']'
 
@@ -114,6 +112,8 @@ dict-ctor ::= '{' [ dict-elem { ',' dict-elem } ] '}'
 dict-elem ::= expr [ '=' expr ]
 
 fifo-ctor ::= '<' [ expr { ',' expr } ] '>'
+
+range-ctor ::= '[' expr '..' expr ']'
 
 if-func ::= 'if' '(' expr ',' expr ',' expr ')'
 
@@ -132,11 +132,11 @@ state-derivator ::= formal-args multi-block
 
 formal-args ::= '(' formal-arg { ',' formal-arg } ')'
 
-formal-arg ::= type-expr [ ident ]
+formal-arg ::= type-expr [ ident ] [ '=' const-expr ]
 
 index-expr ::= expr [ '..' [ expr ] ]
 
-actual-args ::= expr { ',' expr }
+actual-args ::= expr { ',' [ expr ] }
 
 
 # ---------- Basic elements

@@ -84,7 +84,10 @@ InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
 FormalArg::FormalArg(const str& n, Type* t)
-    : Symbol(n, FORMALARG, t, NULL)  { }
+    : Symbol(n, FORMALARG, t, NULL), hasDefValue(false), defValue()  { }
+
+FormalArg::FormalArg(const str& n, Type* t, const variant& d)
+    : Symbol(n, FORMALARG, t, NULL), hasDefValue(true), defValue(d)  { }
 
 
 // --- //
@@ -826,7 +829,15 @@ bool FuncPtr::canAssignTo(FuncPtr* t) const
 
 FormalArg* FuncPtr::addFormalArg(const str& n, Type* t)
 {
-    objptr<FormalArg> arg = new FormalArg(n, t);
+    FormalArg* arg = new FormalArg(n, t);
+    formalArgs.push_back(arg->grab<FormalArg>());
+    return arg;
+}
+
+
+FormalArg* FuncPtr::addFormalArg(const str& n, Type* t, const variant& d)
+{
+    FormalArg* arg = new FormalArg(n, t, d);
     formalArgs.push_back(arg->grab<FormalArg>());
     return arg;
 }

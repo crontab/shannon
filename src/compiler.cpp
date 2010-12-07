@@ -663,7 +663,6 @@ void Compiler::stateBody(State* newState)
     scope = saveScope;
     state = saveState;
     codegen = saveCodeGen;
-    newCodeGen.end();
     newState->setComplete();
     module->registerCodeSeg(newState->getCodeSeg());
 }
@@ -715,7 +714,6 @@ void Compiler::compileModule()
         s += e.what();
         error(s);
     }
-    mainCodeGen.end();
     module->setComplete();
     module->registerCodeSeg(module->getCodeSeg());
 }

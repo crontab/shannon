@@ -49,7 +49,14 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
                 ident = getIdentifier();
                 argType = getTypeDerivators(argType);
             }
-            proto->addFormalArg(ident, argType);
+            if (skipIf(tokAssign))
+            {
+                variant defValue;
+                getConstValue(argType, defValue);
+                proto->addFormalArg(ident, argType, defValue);
+            }
+            else
+                proto->addFormalArg(ident, argType);
         }
         while (skipIf(tokComma));
         skipRParen();
@@ -367,7 +374,7 @@ void Compiler::ifFunc()
 
 void Compiler::actualArgs(FuncPtr* proto, bool skipFirst)
 {
-    // skipFirst is foor member-style builtin calls
+    // skipFirst is for member-style builtin calls
     memint i = int(skipFirst);
     if (token != tokRParen)
     {
@@ -375,16 +382,28 @@ void Compiler::actualArgs(FuncPtr* proto, bool skipFirst)
         {
             if (i >= proto->formalArgs.size())
                 error("Too many arguments");
-            // TODO: improve 'type mismatch' error message; note however that
-            // it's important to pass the arg type to expression()
-            expression(proto->formalArgs[i]->type);
+            FormalArg* arg = proto->formalArgs[i];
+            if (arg->hasDefValue && (token == tokComma || token == tokRParen))
+                codegen->loadConst(arg->type, arg->defValue);
+            else
+            {
+                // TODO: improve 'type mismatch' error message; note however that
+                // it's important to pass the arg type to expression()
+                expression(arg->type);
+            }
             i++;
         }
         while (skipIf(tokComma));
     }
     skipRParen();
-    if (i < proto->formalArgs.size())
-        error("Too few arguments");
+    while (i < proto->formalArgs.size())
+    {
+        FormalArg* arg = proto->formalArgs[i];
+        if (!arg->hasDefValue)
+            error("Too few arguments");
+        codegen->loadConst(arg->type, arg->defValue);
+        i++;
+    }
 }
 
 
