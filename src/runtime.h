@@ -834,17 +834,16 @@ protected:
 public:
     range(integer, integer);
     ~range();
+    bool empty() const
+        { return obj.empty(); }
     integer left() const
         { return obj->left; }
     integer right() const
         { return obj->right; }
     bool contains(integer v)
-        { return v >= obj->left && v <= obj->right; }
-    bool empty() const
-        { return obj->left > obj->right; }
+        { return !obj.empty() && (v >= obj->left && v <= obj->right); }
     memint compare(const range& r) const;
-    bool operator ==(const range& r) const
-        { return obj->left == r.obj->left && obj->right == r.obj->right; }
+    bool operator ==(const range& r) const;
 };
 
 
@@ -951,6 +950,13 @@ public:
     esyserr(int icode, const str& iArg = "") throw();
     ~esyserr() throw();
 };
+
+
+void nullptrerr();
+
+template <class T>
+    inline T* CHKPTR(T* p)
+        { if (p == NULL) nullptrerr(); return p; }
 
 
 // --- variant ------------------------------------------------------------- //
@@ -1064,6 +1070,7 @@ public:
     bool is_vec() const                 { return type == VEC; }
     bool is_null() const                { return type == VOID; }
     bool is_anyobj() const              { return type >= ANYOBJ; }
+    bool is_null_obj() const            { return is_anyobj() && val._obj == NULL; }
 
     // Fast "unsafe" access methods; checked for correctness only in DEBUG mode
     bool        _bool()           const { _dbg(ORD); return val._ord; }
@@ -1076,11 +1083,11 @@ public:
     const varset& _set()          const { _dbg(SET); return *(varset*)&val._obj; }
     const ordset& _ordset()       const { _dbg(ORDSET); return *(ordset*)&val._obj; }
     const vardict& _dict()        const { _dbg(DICT); return *(vardict*)&val._obj; }
-    reference*  _ref()            const { _dbg(REF); return val._ref; }
+    reference*  _ref()            const { _dbg(REF); return CHKPTR(val._ref); }
     rtobject*   _rtobj()          const { _dbg(RTOBJ); return val._rtobj; }
     stateobj*   _stateobj() const;
     funcptr*    _funcptr() const;
-    fifo*       _fifo() const;
+    fifo*       _fifo() const; // checks for NULL
     object*     _anyobj()         const { _dbg_anyobj(); return val._obj; }
     integer&    _int()                  { _dbg(ORD); return val._ord; }
     str&        _str()                  { _dbg(STR); return *(str*)&val._obj; }
@@ -1090,7 +1097,7 @@ public:
     ordset&     _ordset()               { _dbg(ORDSET); return *(ordset*)&val._obj; }
     vardict&    _dict()                 { _dbg(DICT); return *(vardict*)&val._obj; }
 
-    // Safer access methods; may throw an exception
+    // Safer access methods; may throw
     bool        as_bool()         const { _req(ORD); return _bool(); }
     uchar       as_uchar()        const { _req(ORD); return _uchar(); }
     integer     as_ord()          const { _req(ORD); return _int(); }
@@ -1370,7 +1377,7 @@ const char endl = '\n';
 extern charset non_eol_chars;
 
 inline void variant::_init(fifo* f)  { _init(RTOBJ, f); }
-inline fifo* variant::_fifo() const  { return cast<fifo*>(_rtobj()); }
+inline fifo* variant::_fifo() const  { return cast<fifo*>(CHKPTR(_rtobj())); }
 
 
 // The memfifo class implements a linked list of "chunks" in memory, where

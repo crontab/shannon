@@ -279,7 +279,8 @@ void CodeSeg::dump(fifo& stm) const
         return;
     const uchar* beginip = (const uchar*)code.data();
     const uchar* ip = beginip;
-    while (1)
+    const uchar* endip = beginip + code.size();
+    while (ip < endip)
     {
         if (*ip >= opMaxCode)
             fatal(0x5101, "Corrupt code");
@@ -329,8 +330,6 @@ void CodeSeg::dump(fifo& stm) const
             }
         }
         stm << endl;
-        if (info.op == opEnd)
-            break;
     }
 }
 

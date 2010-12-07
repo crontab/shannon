@@ -178,14 +178,12 @@ class Scope
 {
     friend void test_typesys();
 protected:
-    bool const local;
     symtbl<Symbol> symbols;          // symbol table for search
 public:
     Scope* const outer;
-    Scope(bool local, Scope* outer);
+    Scope(Scope* _outer)
+        : outer(_outer) { }
     ~Scope();
-    bool isLocal() const        { return local; }
-    bool isStateScope() const   { return !local; }
     void addUnique(Symbol*);
     void replaceSymbol(Symbol*);
     Symbol* find(const str& ident) const            // returns NULL or Symbol

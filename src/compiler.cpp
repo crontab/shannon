@@ -20,29 +20,47 @@ StkVar* Compiler::AutoScope::addInitStkVar(const str& name, Type* type)
 }
 
 
+Compiler::ReturnInfo::ReturnInfo(Compiler& c)
+    : compiler(c), prev(c.returnInfo), topLevelReturned(false), jumps()
+        { compiler.returnInfo = this; }
+
+
+Compiler::ReturnInfo::~ReturnInfo()
+    { compiler.returnInfo = prev; }
+
+
+void Compiler::ReturnInfo::resolveJumps()
+{
+    for (memint i = 0; i < jumps.size(); i++)
+        compiler.codegen->resolveJump(jumps[i]);
+    jumps.clear();
+}
+
+
 Compiler::LoopInfo::LoopInfo(Compiler& c)
-    : compiler(c), prevLoopInfo(c.loopInfo),
+    : compiler(c), prev(c.loopInfo),
       stackLevel(c.codegen->getStackLevel()),
       continueTarget(c.codegen->getCurrentOffs()),
-      breakJumps()
+      jumps()
         { compiler.loopInfo = this; }
 
 
 Compiler::LoopInfo::~LoopInfo()
-    { compiler.loopInfo = prevLoopInfo; }
+    { compiler.loopInfo = prev; }
 
 
-void Compiler::LoopInfo::resolveBreakJumps()
+void Compiler::LoopInfo::resolveJumps()
 {
-    for (memint i = 0; i < breakJumps.size(); i++)
-        compiler.codegen->resolveJump(breakJumps[i]);
-    breakJumps.clear();
+    for (memint i = 0; i < jumps.size(); i++)
+        compiler.codegen->resolveJump(jumps[i]);
+    jumps.clear();
 }
 
 
 Compiler::Compiler(Context& c, Module* mod, buffifo* f)
     : Parser(f), context(c), constStack(c.options.stackSize),
-      module(mod), scope(NULL), state(NULL), loopInfo(NULL)  { }
+      module(mod), scope(NULL), state(NULL),
+      loopInfo(NULL), returnInfo(NULL)  { }
 
 
 Compiler::~Compiler()
@@ -104,7 +122,7 @@ void Compiler::variable()
     if (isEos())
     {
         // Argument reclamation
-        if (!scope->isStateScope())
+        if (!isStateScope())
             error("Argument reclamation not allowed here");
         Symbol* sym = state->findShallow(ident);
         if (!sym->isArgVar())
@@ -124,12 +142,12 @@ void Compiler::variable()
             type = codegen->getTopType();
         if (type->isNullCont())
             error("Type undefined (null container)");
-        if (scope->isLocal())
+        if (isLocalScope())
         {
             StkVar* var = PBlockScope(scope)->addStkVar(ident, type);
             codegen->initStkVar(var);
         }
-        else if (scope->isStateScope())
+        else if (isStateScope())
         {
             InnerVar* var = state->addInnerVar(ident, type);
             codegen->initInnerVar(var);
@@ -138,6 +156,16 @@ void Compiler::variable()
             notimpl();
     }
     skipEos();
+}
+
+
+void Compiler::statementList()
+{
+    while (!isBlockEnd() && !(isModuleScope() && eof()))
+    {
+        singleStatement();
+        skipWsSeps();
+    }
 }
 
 
@@ -151,7 +179,7 @@ void Compiler::singleOrMultiBlock()
     else
     {
         skipMultiBlockBegin("':' or '{'");
-        statementList(false);
+        statementList();
         skipMultiBlockEnd();
     }
 }
@@ -168,11 +196,15 @@ void Compiler::nestedBlock()
 
 void Compiler::singleStatement()
 {
+    if (skipIf(tokSemi))
+        return;
+
+    if (isStateScope() && returnInfo->topLevelReturned)
+        error("Statement after 'return'");
     if (context.options.lineNumbers)
         codegen->linenum(getLineNum());
-    if (skipIf(tokSemi))
-        ;
-    else if (skipIf(tokDef))
+
+    if (skipIf(tokDef))
         definition();
     else if (skipIf(tokClass))
         classDef();
@@ -192,6 +224,8 @@ void Compiler::singleStatement()
         doContinue();
     else if (skipIf(tokBreak))
         doBreak();
+    else if (skipIf(tokReturn))
+        doReturn();
     else if (skipIf(tokDel))
         doDel();
     else if (skipIf(tokIns))
@@ -204,17 +238,8 @@ void Compiler::singleStatement()
         programExit();
     else
         otherStatement();
+
     codegen->endStatement();
-}
-
-
-void Compiler::statementList(bool topLevel)
-{
-    while (!isBlockEnd() && !(topLevel && eof()))
-    {
-        singleStatement();
-        skipWsSeps();
-    }
 }
 
 
@@ -345,6 +370,7 @@ void Compiler::doDel()
 {
     designator(NULL);
     codegen->deleteContainerElem();
+    skipEos();
 }
 
 
@@ -409,7 +435,7 @@ void Compiler::whileBlock()
     nestedBlock();
     codegen->jump(loop.continueTarget);
     codegen->resolveJump(out);
-    loop.resolveBreakJumps();
+    loop.resolveJumps();
 }
 
 
@@ -420,7 +446,7 @@ void Compiler::forBlockTail(StkVar* ctlVar, memint outJumpOffs, memint incJumpOf
     codegen->incStkVar(ctlVar);
     codegen->jump(loopInfo->continueTarget);
     codegen->resolveJump(outJumpOffs);
-    loopInfo->resolveBreakJumps();
+    loopInfo->resolveJumps();
 }
 
 
@@ -577,6 +603,7 @@ void Compiler::doContinue()
         error("'continue' not within loop");
     codegen->deinitFrame(loopInfo->stackLevel);
     codegen->jump(loopInfo->continueTarget);
+    skipEos();
 }
 
 
@@ -585,7 +612,30 @@ void Compiler::doBreak()
     if (loopInfo == NULL)
         error("'break' not within loop");
     codegen->deinitFrame(loopInfo->stackLevel);
-    loopInfo->breakJumps.push_back(codegen->jumpForward());
+    loopInfo->jumps.push_back(codegen->jumpForward());
+    skipEos();
+}
+
+
+void Compiler::doReturn()
+{
+    if (!state->isConstructor() && !state->prototype->isVoidFunc() && !isEos())
+    {
+        expression(state->prototype->returnType);
+        codegen->storeResultVar();
+    }
+    skipEos();
+    if (isStateScope())
+        // Don't generate a jump at the end of a function body (and make sure
+        // there are no statements beyond this point)
+        returnInfo->topLevelReturned = true;
+    else
+    {
+#ifdef DEBUG
+        codegen->deinitFrame(state->varCount);
+#endif
+        returnInfo->jumps.push_back(codegen->jumpForward());
+    }
 }
 
 
@@ -597,11 +647,10 @@ void Compiler::stateBody(State* newState)
     Scope* saveScope = exchange(scope, cast<Scope*>(newState));
     try
     {
+        ReturnInfo ret(*this);
         memint prologOffs = codegen->prolog();
         singleOrMultiBlock();
-        // skipMultiBlockBegin("'{'");
-        // statementList(false);
-        // skipMultiBlockEnd();
+        ret.resolveJumps();
         codegen->epilog(prologOffs);
     }
     catch (exception&)
@@ -633,11 +682,13 @@ void Compiler::compileModule()
     {
         try
         {
+            ReturnInfo ret(*this);
             memint prologOffs = codegen->prolog();
             next();
             skipWsSeps();
-            statementList(true);
+            statementList();
             expect(tokEof, "End of file");
+            ret.resolveJumps();
             codegen->epilog(prologOffs);
         }
         catch (EDuplicate& e)
@@ -664,7 +715,6 @@ void Compiler::compileModule()
         s += e.what();
         error(s);
     }
-
     mainCodeGen.end();
     module->setComplete();
     module->registerCodeSeg(module->getCodeSeg());

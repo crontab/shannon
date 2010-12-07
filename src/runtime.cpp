@@ -986,7 +986,7 @@ void ordset::find_erase(integer v)              { if (!empty()) _getunique().exc
 
 
 range::range(integer l, integer r)
-    : obj(new rangeobj(l, r))  { }
+    : obj(l > r ? NULL : new rangeobj(l, r))  { }
 
 range::~range()
     { }
@@ -994,16 +994,30 @@ range::~range()
 
 memint range::compare(const range& r) const
 {
-    integer d = left() - r.left();
+    if (empty())
+        return r.empty() ? 0 : -1;
+    if (r.empty())
+        return 1;
+    integer d = obj->left - r.obj->left;
     if (d < 0)
         return -1;
     else if (d > 0)
         return 1;
     else
     {
-        d = right() - r.right();
+        d = obj->right - r.obj->right;
         return d < 0 ? -1 : d > 0 ? 1 : 0;
     }
+}
+
+
+bool range::operator ==(const range& r) const
+{
+    if (empty())
+        return r.empty();
+    if (r.empty())
+        return false;
+    return obj->left == r.obj->left && obj->right == r.obj->right;
 }
 
 
@@ -1107,6 +1121,10 @@ esyserr::esyserr(int code, const str& arg) throw()
 
 
 esyserr::~esyserr() throw()  { }
+
+
+void nullptrerr()
+    { throw emessage("Uninitialized object"); }
 
 
 // --- variant ------------------------------------------------------------- //
