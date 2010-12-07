@@ -1603,7 +1603,7 @@ void CodeGen::epilog(memint prologOffs)
         // Prolog code is not needed if either there are no inner vars or
         // innerobj wasn't used in the code. Note that inner vars are not
         // necessarily loaded via innerobj, these are separate independent
-        // conditions
+        // conditions. Note also that no code should be generated beyond this.
         if (codeOwner->varCount == 0 || !codeOwner->innerObjUsedSoFar())
             codeseg.eraseOp(prologOffs);
 #ifdef DEBUG
@@ -1613,6 +1613,7 @@ void CodeGen::epilog(memint prologOffs)
 #endif
             addOp<State*>(opLeaveFunc, codeOwner);
     }
+    end();
 }
 
 

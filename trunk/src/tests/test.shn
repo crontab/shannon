@@ -699,6 +699,20 @@ def char rettest1()
         return
 }
 
+// Default args
+
+def void defarg1(int i, int j = 1, str k = 'hoohoo')
+{
+    if j == 1:
+        assert k == 'hoohoo'
+    else:
+        assert k == 'moomoo'
+}
+
+defarg1(0, 0, 'moomoo')
+defarg1(0, ,)
+defarg1(0, 1)
+defarg1(0)
 
 // Argument reclamation
 

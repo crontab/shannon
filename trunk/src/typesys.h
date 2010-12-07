@@ -136,7 +136,10 @@ public:
 class FormalArg: public Symbol
 {
 public:
+    bool const hasDefValue;
+    variant const defValue;
     FormalArg(const str&, Type*);
+    FormalArg(const str&, Type*, const variant&);
 };
 
 
@@ -495,6 +498,7 @@ public:
     bool canAssignTo(Type*) const; // override
     bool canAssignTo(FuncPtr* t) const;
     FormalArg* addFormalArg(const str&, Type*);
+    FormalArg* addFormalArg(const str&, Type*, const variant&);
     void resolveSelfType(State*);
     int getPopArgs() const
         { return formalArgs.size(); }
