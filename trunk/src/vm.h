@@ -322,7 +322,7 @@ public:
     memint opLenAt(memint offs) const;
 
     jumpoffs& jumpOffsAt(memint i)
-        { assert(isJump(OpCode(at<uchar>(i)))); return atw<jumpoffs>(i + 1); }
+        { assert(isJump(opAt(i))); return atw<jumpoffs>(i + 1); }
 
     Type* typeArgAt(memint i) const;
     State* stateArgAt(memint i) const    { return cast<State*>(typeArgAt(i)); }
@@ -445,9 +445,6 @@ public:
     void mkRange();
     void toStr();
 
-    memint prolog();
-    void epilog(memint prologOffs);
-
     bool deref();
     void mkref();
     void nonEmpty();
@@ -469,6 +466,8 @@ public:
     void loadMember(State*, Variable*);
     void loadThis();
     void loadDataSeg();
+    void storeResultVar()
+        { stkPop(); addOp(opStoreResultVar); }
 
     void initStkVar(StkVar*);
     void initInnerVar(InnerVar*);
@@ -535,6 +534,8 @@ public:
     void insAssign(const str& storerCode);
     void deleteContainerElem();
 
+    memint prolog();
+    void epilog(memint prologOffs);
     void _popArgs(FuncPtr*);
     void call(FuncPtr*);
     void staticCall(State*);

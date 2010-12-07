@@ -76,7 +76,7 @@ assert lo(char) == 0 and char.hi() == 255
 assert [].hi() == -1
 
 def cc1 = 1
-def cc2 = result.cc1
+def cc2 = __result.cc1
 assert cc2 == 1
 
 // ASSIGNMENTS, DEL, INS
@@ -261,6 +261,14 @@ var void ncont1()... = {}
 assert 1._str() == '1'
 assert {'A'..'Z'}._str() == '{\'A\'..\'Z\'}'
 assert rng1._str() == '[0..999]'
+
+var char rng4[..] = []
+assert not 'a' in rng4
+// exception: dump rng4.lo()
+var char ref4^ = []
+assert (ref4 as int) == 0
+var (void *()...) funcp4 = []
+// exception: funcp4()
 
 // TYPECASTS
 begin: assert (1 as char) == '\x01'
@@ -574,14 +582,15 @@ var inc_call_count = 0
 
 def inc = int *(int i)
 {
-    result = i + 1
+    __result = i + 1
     inc_call_count = inc_call_count + 1
 }
 
 var incv = int *(int i)
 {
-    result = i + 1
     inc_call_count = inc_call_count + 1
+    return i + 1
+    // error: i = 0
 }
 
 var rr1 = inc(5)
@@ -615,8 +624,8 @@ def int avg(int a, int b, str s)
 {
     var t = wi
     assert t == wi
-    result = (a + b) / 2
     str2 = s
+    return (a + b) / 2
 }
 
 
@@ -651,7 +660,7 @@ assert loc3 == 4
 
 var statv = 1
 def int nonstatf():
-    result = statv
+    return statv
 assert nonstatf() == 1
 
 def void shouldnt_be_statf(): assert nonstatf() == 1
@@ -678,6 +687,18 @@ def void nested1(int vn2)
 nested1(4)
 assert vn1 == 2
 
+// Return
+def char rettest1()
+{
+    var x = 1
+    begin {
+        var y = 2
+        return 'a'
+    }
+    if x == 1:
+        return
+}
+
 
 // Argument reclamation
 
@@ -698,8 +719,8 @@ var fpstr = ''
 def intfunc = int *(int, int)...
 def voidfunc = void *(str)...
 
-def int min(int a, int b) { result = if(a < b, a, b) }
-def int max(int a, int b) { result = if(a > b, a, b) }
+def int min(int a, int b) { return if(a < b, a, b) }
+def int max(int a, int b): __result = if(a > b, a, b)
 def void assignstr(str s) { fpstr = s }
 
 assert min(2, 1) == 1
@@ -728,13 +749,13 @@ var intclass ic = cp(1)
 assert cpint == 1
 
 def incfunc = int *(int)...
-def incd = int *(int i) { result = i + 1 }
-var incvar = int *(int i) { result = i + 1 }
+def incd = int *(int i) { return i + 1 }
+var incvar = int *(int i) { __result = i + 1 }
 assert incvar(100) == 101
 assert incvar is incfunc
 
 // static call via an object
-assert result.incd(2) == 3
+assert __result.incd(2) == 3
 
 // static call at compile time
 def ctcall = max(10, 20)
@@ -763,18 +784,18 @@ class point(int x, int y)
     def void move2(int dx, int dy)
     {
         def int double(int i)
-            { result = i * pst }
+            { return i * pst; }
 
         move(double(dx), double(dy))
     }
 
-    def int pstatic(int)
-        { result = 10 }
+    def int pstatic(int):
+        return 10
 }
 
 var p = point(10, 20)
 var point p2 = point(100, 200)
-var point p3 = result.point(1000, 2000)
+var point p3 = __result.point(1000, 2000)
 
 assert p.x == 10 and p.y == 20
 assert p2.x == 100 and p2.y == 200
@@ -833,7 +854,6 @@ chf2.skipln()
 assert chf2.look() == 'L'
 assert chf2.line() == 'Like a FIFO'
 assert not chf2?
-
 
 var numf = <one, three, three, two>
 assert numf.deq() == one and numf.deq() == three

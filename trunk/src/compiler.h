@@ -19,17 +19,27 @@ class Compiler: public Parser
         StkVar* addInitStkVar(const str&, Type*);
     };
 
+    struct ReturnInfo
+    {
+        Compiler& compiler;
+        ReturnInfo* prev;
+        bool topLevelReturned;
+        podvec<memint> jumps;
+        ReturnInfo(Compiler&);
+        ~ReturnInfo();
+        void resolveJumps();
+    };
+
     struct LoopInfo
     {
         Compiler& compiler;
-        LoopInfo* prevLoopInfo;
+        LoopInfo* prev;
         memint stackLevel;
         memint continueTarget;
-        podvec<memint> breakJumps;
-
+        podvec<memint> jumps;
         LoopInfo(Compiler& c);
         ~LoopInfo();
-        void resolveBreakJumps();
+        void resolveJumps();
     };
 
 public:
@@ -40,6 +50,14 @@ public:
     Scope* scope;           // for looking up symbols, can be local or state scope
     State* state;           // for this-vars, type objects and definitions
     LoopInfo* loopInfo;
+    ReturnInfo* returnInfo;
+
+    bool isLocalScope() const
+        { return scope != state; }
+    bool isStateScope() const
+        { return scope == state; }
+    bool isModuleScope() const
+        { return scope == module; }
 
     // in compexpr.cpp
     Type* getStateDerivator(Type*, bool allowProto);
@@ -82,7 +100,7 @@ public:
     void singleOrMultiBlock();
     void nestedBlock();
     void singleStatement();
-    void statementList(bool topLevel);
+    void statementList();
     void ifBlock();
     void caseValue(Type*);
     void caseLabel(Type*);
@@ -92,6 +110,7 @@ public:
     void forBlock();
     void doContinue();
     void doBreak();
+    void doReturn();
     void stateBody(State*);
 
     void compileModule();

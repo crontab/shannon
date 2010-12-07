@@ -33,9 +33,6 @@ static void constExprErr()
 static void funcPtrErr()
     { throw emessage("Invalid use of function in const expression"); }
 
-static void nullPointerErr()
-    { throw emessage("Uninitialized object"); }
-
 static void localObjErr()
     { throw emessage("Local object is locked"); }
 
@@ -112,9 +109,6 @@ template <class T>
 
 inline void INITAT(variant* dest, integer l, integer r)
     { ::new(dest) variant(l, r); }
-
-inline void CHKOBJ(rtobject* obj)
-    { if (obj == NULL) nullPointerErr(); }
 
 
 void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
@@ -241,8 +235,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             PUSH(*(innerobj->member(ADV(uchar))));
             break;
         case opLoadOuterVar:
-            CHKOBJ(outerobj);
-            PUSH(*(outerobj->member(ADV(uchar))));
+            PUSH(*(CHKPTR(outerobj)->member(ADV(uchar))));
             break;
         case opLoadStkVar:
             PUSH(*(basep + ADV(uchar)));
@@ -258,11 +251,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
 
         case opLoadMember:
-            {
-                stateobj* obj = stk->_stateobj();
-                CHKOBJ(obj);
-                *stk = *obj->member(ADV(uchar));
-            }
+            *stk = *(CHKPTR(stk->_stateobj())->member(ADV(uchar)));
             break;
         case opDeref:
             {
@@ -278,15 +267,14 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opLeaOuterVar:
             PUSH((rtobject*)NULL);  // again, an outer var is "grounded" and thus locked too
-            CHKOBJ(outerobj);
-            PUSH(outerobj->member(ADV(uchar)));
+            PUSH(CHKPTR(outerobj)->member(ADV(uchar)));
             break;
         case opLeaStkVar:
             PUSH((rtobject*)NULL);  // same for stack-local vars
             PUSH(basep + ADV(uchar));
             break;
         case opLeaArgVar:
-            PUSH((rtobject*)NULL);  // same for stack-local vars
+            PUSH((rtobject*)NULL);  // same for arguments
             PUSH(argp - ADV(uchar));
             break;
         case opLeaResultVar:
@@ -294,14 +282,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             PUSH(result);
             break;
         case opLeaMember:
-            {
-                stateobj* obj = stk->_stateobj();
-                CHKOBJ(obj);
-                PUSH(obj->member(ADV(uchar)));
-            }
+            PUSH(CHKPTR(stk->_stateobj())->member(ADV(uchar)));
             break;
         case opLeaRef:
-            PUSH(&stk->_ref()->var);
+            PUSH(&(stk->_ref()->var));
             break;
 
 
@@ -316,8 +300,7 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             POPTO(innerobj->member(ADV(uchar)));
             break;
         case opStoreOuterVar:
-            CHKOBJ(outerobj);
-            POPTO(outerobj->member(ADV(uchar)));
+            POPTO(CHKPTR(outerobj)->member(ADV(uchar)));
             break;
         case opStoreStkVar:
             POPTO(basep + ADV(uchar));
@@ -329,15 +312,11 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             POPTO(result);
             break;
         case opStoreMember:
-            {
-                stateobj* obj = (stk - 1)->_stateobj();
-                CHKOBJ(obj);
-                POPTO(obj->member(ADV(uchar)));
-                POP();
-            }
+            POPTO(CHKPTR((stk - 1)->_stateobj())->member(ADV(uchar)));
+            POP();
             break;
         case opStoreRef:
-            POPTO(&((stk - 1)->_ref()->var));
+            POPTO(&(stk - 1)->_ref()->var);
             POP();
             break;
 
@@ -594,9 +573,11 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             POP();
             break;
         case opRangeLo:
+            CHKPTR(stk->_anyobj());
             *stk = stk->_range().left();
             break;
         case opRangeHi:
+            CHKPTR(stk->_anyobj());
             *stk = stk->_range().right();
             break;
         case opInRange2:
@@ -909,7 +890,7 @@ farMethodCall:
         case opCall:
             {
                 funcptr* callfp = (stk - ADV(uchar))->_funcptr();
-                CHKOBJ(callfp);
+                CHKPTR(callfp);
                 callee = callfp->state;
                 popArgCount = callee->popArgCount + 1;
                 callds = callfp->dataseg;

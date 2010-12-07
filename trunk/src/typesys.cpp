@@ -78,7 +78,7 @@ ArgVar::ArgVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, ARGVAR, t, i, h)  { assert(i >= 0); }
 
 ResultVar::ResultVar(Type* t, State* h)
-    : Variable("result", RESULTVAR, t, 0, h)  { }
+    : Variable("__result", RESULTVAR, t, 0, h)  { }
 
 InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
@@ -128,10 +128,6 @@ const char* EUnknownIdent::what() throw()  { return "Unknown identifier"; }
 // --- //
 
 
-Scope::Scope(bool _local, Scope* _outer)
-    : local(_local), outer(_outer)  { }
-
-
 Scope::~Scope()
     { }
 
@@ -164,7 +160,7 @@ Symbol* Scope::findShallow(const str& ident) const
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen)
-    : Scope(true, _outer), startId(_gen->getLocals()), gen(_gen)  { }
+    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
 
 
 BlockScope::~BlockScope()
@@ -440,7 +436,9 @@ static void dumpDict(fifo& stm, const vardict& d, Type* keyType = NULL, Type* va
 
 void dumpVariant(fifo& stm, const variant& v, Type* type)
 {
-    if (type)
+    if (v.is_null_obj())
+        stm << "[]";
+    else if (type)
         type->dumpValue(stm, v);
     else
     {
@@ -854,7 +852,7 @@ bool SelfStub::canAssignTo(Type*) const
 
 
 State::State(State* par, FuncPtr* proto)
-    : Type(STATE), Scope(false, par),
+    : Type(STATE), Scope(par),
       complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), resultVar(NULL),
@@ -863,7 +861,7 @@ State::State(State* par, FuncPtr* proto)
 
 
 State::State(State* par, FuncPtr* proto, ExternFuncProto func)
-    : Type(STATE), Scope(false, par),
+    : Type(STATE), Scope(par),
       complete(true), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), resultVar(NULL),
@@ -1027,7 +1025,7 @@ void State::addResultVar(Type* t)
 {
     assert(resultVar.empty());
     resultVar = new ResultVar(t, this);
-    if (!resultVar->name.empty()) // currently set to "result"
+    if (!resultVar->name.empty()) // currently set to "__result"
         addUnique(resultVar);
 }
 

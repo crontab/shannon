@@ -1,5 +1,5 @@
 
-* return, goto
+* goto
 
 * 'var' arguments: pass a grounded reference (l-value actually): limited
   but useful. Many builtins can be defined with var arguments; also many
@@ -26,7 +26,8 @@
 * Procedures, pipes. Procedures are declared as, e.g.
   def void convert() <char, char> ...
 
-* Exceptions
+* Exceptions: there is no 'throw' keyword, just calling an exception ctor
+  throws one
 
 * Alternate syntax for string keys in dictionaries: dict->key. This will
   work for dynamic states too (?). Also, the ability to iterate over all
