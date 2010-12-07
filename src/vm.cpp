@@ -963,9 +963,11 @@ Type* CodeGen::runConstExpr(rtstack& constStack, variant& result)
 // --- Execution Context --------------------------------------------------- //
 
 
-ModuleInstance::ModuleInstance(Module* m)
+ModuleInstance::ModuleInstance(Module* m) throw()
     : symbol(m->getName()), module(m), obj()  { }
 
+ModuleInstance::~ModuleInstance() throw()
+    { }
 
 void ModuleInstance::run(Context* context, rtstack& stack)
 {
@@ -1003,7 +1005,7 @@ void ModuleInstance::finalize()
 }
 
 
-CompilerOptions::CompilerOptions()
+CompilerOptions::CompilerOptions() throw()
   : enableDump(true), enableAssert(true), lineNumbers(true),
     vmListing(true), compileOnly(false), stackSize(8192)
         { modulePath.push_back("./"); }

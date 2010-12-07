@@ -62,6 +62,7 @@ protected:
 public:
     str data;
     InputRecorder();
+    ~InputRecorder() throw();
     void event(char* buf, memint tail, memint head);
 };
 

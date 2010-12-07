@@ -25,17 +25,17 @@ protected:
     uchar data[BYTES];
 
 public:
-    charset()                                      { clear(); }
-    charset(const charset& s)                      { assign(s); }
-    charset(const char* setinit)                   { assign(setinit); }
+    charset() throw()                              { clear(); }
+    charset(const charset& s) throw()              { assign(s); }
+    charset(const char* setinit) throw()           { assign(setinit); }
 
-    void assign(const charset& s);
-    void assign(const char* setinit);
-    bool empty() const;
-    void clear()                                   { memset(data, 0, BYTES); }
+    void assign(const charset& s) throw();
+    void assign(const char* setinit) throw();
+    bool empty() const throw();
+    void clear() throw()                           { memset(data, 0, BYTES); }
     void fill()                                    { memset(data, -1, BYTES); }
-    void include(int b)                            { data[uchar(b) / 8] |= uchar(1 << (uchar(b) % 8)); }
-    void include(int min, int max); 
+    void include(int b) throw()                    { data[uchar(b) / 8] |= uchar(1 << (uchar(b) % 8)); }
+    void include(int min, int max) throw(); 
     void exclude(int b)                            { data[uchar(b) / 8] &= uchar(~(1 << (uchar(b) % 8))); }
     void unite(const charset& s);
     void subtract(const charset& s);
@@ -73,8 +73,8 @@ public:
 
 class object
 {
-    object(const object&);
-    void operator= (const object&);
+    object(const object&) throw();
+    void operator= (const object&) throw();
 
 protected:
     atomicint _refcount;
@@ -102,21 +102,21 @@ public:
     // remains uninitialized.
     object* _dup(size_t self, memint extra);
 
-    void _assignto(object*& p);
+    void _assignto(object*& p) throw();
     static object* reallocate(object* p, size_t self, memint extra);
 
     static atomicint allocated; // used only in DEBUG mode
 
     bool isunique() const       { return _refcount == 1; }
-    atomicint release();
-    object* grab()              { pincrement(&_refcount); return this; }
+    atomicint release() throw();
+    object* grab() throw()      { pincrement(&_refcount); return this; }
     template <class T>
         T* grab()               { object::grab(); return (T*)(this); }
     template <class T>
-        void assignto(T*& p)    { _assignto((object*&)p); }
+        void assignto(T*& p) throw() { _assignto((object*&)p); }
 
-    object(): _refcount(0)  { }
-    virtual ~object();
+    object() throw(): _refcount(0)  { }
+    virtual ~object() throw();
 };
 
 
@@ -156,8 +156,8 @@ public:
     bool operator!= (const objptr& p)   { return obj != p.obj; }
     bool operator== (T* o)              { return obj == o; }
     bool operator!= (T* o)              { return obj != o; }
-    void operator= (const objptr& p)    { p.obj->assignto(obj); }
-    void operator= (T* o)               { o->assignto(obj); }
+    void operator= (const objptr& p) throw()   { p.obj->assignto(obj); }
+    void operator= (T* o) throw()              { o->assignto(obj); }
     T& operator* ()                     { return *obj; }
     const T& operator* () const         { return *obj; }
     T* operator-> () const              { return obj; }
@@ -182,11 +182,11 @@ class rtobject: public object
 private:
     Type* _type;
 public:
-    rtobject(Type* t)       : _type(t)  { }
-    ~rtobject();
+    rtobject(Type* t) throw(): _type(t)  { }
+    ~rtobject() throw();
     Type* getType() const   { return _type; }
     void setType(Type* t)   { assert(_type == NULL); _type = t; }
-    void clearType()        { _type = NULL; }
+    void clearType() throw()    { _type = NULL; }
     virtual bool empty() const = 0;
     virtual void dump(fifo&) const = 0;
 };
@@ -208,7 +208,7 @@ protected:
 public:
     // Note: allocate() creates an instance of 'container' while reallocate()
     // never does that and thus it can be used for descendant classes too.
-    static container* allocate(memint cap, memint siz);  // (*)
+    static container* allocate(memint cap, memint siz) throw();  // (*)
     static container* reallocate(container* p, memint newsize);
 
     // Creates a duplicate of a given container without copying the data;
@@ -218,16 +218,16 @@ public:
     // TODO: compact()
 
     static memint _calc_prealloc(memint);
-    container(memint cap, memint siz)
+    container(memint cap, memint siz) throw()
         : object(), _capacity(cap), _size(siz)  { }
 
     static void overflow();
     static void idxerr();
     static void keyerr();
 
-    ~container();
-    virtual void finalize(void*, memint);
-    virtual void copy(void* dest, const void* src, memint);
+    ~container() throw();
+    virtual void finalize(void*, memint) throw();
+    virtual void copy(void* dest, const void* src, memint) throw();
 
     char* data() const              { return (char*)(this + 1); }
     char* data(memint i) const      { return data() + i; }
@@ -267,12 +267,12 @@ protected:
     bool _isunique() const              { return empty() || obj->isunique(); }
     void _dounique();
     char* mkunique()                    { if (!obj->isunique()) _dounique(); return obj->data(); }
-    char* _init(memint len);  // (*)
-    void _init(memint len, char fill);  // (*)
-    void _init(const char*, memint);  // (*)
-    void _init(const bytevec& v)        { obj._init(v.obj); }
-    char* _init(memint pos, memint len, alloc_func);
-    void _init(const bytevec& v, memint pos, memint len, alloc_func);
+    char* _init(memint len) throw();  // (*)
+    void _init(memint len, char fill) throw();  // (*)
+    void _init(const char*, memint) throw();  // (*)
+    void _init(const bytevec& v) throw() { obj._init(v.obj); }
+    char* _init(memint pos, memint len, alloc_func) throw();
+    void _init(const bytevec& v, memint pos, memint len, alloc_func) throw();
 
     char* _insert(memint pos, memint len, alloc_func);
     void _insert(memint pos, const bytevec&, alloc_func);
@@ -282,13 +282,13 @@ protected:
     char* _resize(memint newsize, alloc_func);
 
 public:
-    bytevec(): obj()                    { }
-    bytevec(const bytevec& v)           { _init(v); }
-    bytevec(const char* buf, memint len)    { _init(buf, len); }  // (*)
-    bytevec(memint len, char fill)      { _init(len, fill); }  // (*)
-    ~bytevec()                          { }
+    bytevec() throw(): obj()            { }
+    bytevec(const bytevec& v) throw()   { _init(v); }
+    bytevec(const char* buf, memint len) throw() { _init(buf, len); }  // (*)
+    bytevec(memint len, char fill) throw() { _init(len, fill); }  // (*)
+    ~bytevec() throw()                  { }
 
-    void operator= (const bytevec& v)   { obj = v.obj; }
+    void operator= (const bytevec& v) throw()  { obj = v.obj; }
     bool operator== (const bytevec& v) const { return obj == v.obj; }
     void assign(const char*, memint);
     void clear();
@@ -355,16 +355,16 @@ class str: public bytevec
 protected:
     friend void test_string();
 
-    void _init(const char*);
-    void _init(char c)                      { bytevec::_init(&c, 1); }
+    void _init(const char*) throw();
+    void _init(char c) throw()              { bytevec::_init(&c, 1); }
 
 public:
-    str(): bytevec()                        { }
-    str(const str& s): bytevec(s)           { }
-    str(const char* buf, memint len)        : bytevec(buf, len)  { }
-    str(const char* s)                      { _init(s); }
-    str(memint len, char fill)              { bytevec::_init(len, fill); }
-    str(char c)                             { _init(c); }
+    str() throw(): bytevec()                { }
+    str(const str& s)throw(): bytevec(s)    { }
+    str(const char* buf, memint len) throw(): bytevec(buf, len)  { }
+    str(const char* s) throw()              { _init(s); }
+    str(memint len, char fill) throw()      { bytevec::_init(len, fill); }
+    str(char c) throw()                     { _init(c); }
 
     const char* c_str(); // can actually modify the object
     void push_back(char c)                  { *_append(1, container::allocate) = c; }
@@ -464,8 +464,8 @@ protected:
     typedef bytevec parent;
 
 public:
-    podvec(): parent()                      { }
-    podvec(const podvec& v): parent(v)      { }
+    podvec() throw(): parent()              { }
+    podvec(const podvec& v) throw(): parent(v) { }
 
     bool empty() const                      { return parent::empty(); }
     memint size() const                     { return parent::size() / Tsize; }
@@ -480,7 +480,7 @@ public:
     const T* begin() const                  { return parent::begin<T>(); }
     const T* end() const                    { return parent::end<T>(); }
     void clear()                            { parent::clear(); }
-    void operator= (const podvec& v)        { parent::operator= (v); }
+    void operator= (const podvec& v) throw() { parent::operator= (v); }
     void push_back(const T& t)              { new(_append(Tsize, container::allocate)) T(t); }  // (*)
     void pop_back()                         { parent::pop_back<T>(); }
     void pop_back(T& t)                     { parent::pop_back<T>(t); }
@@ -560,26 +560,26 @@ protected:
     {
     protected:
 
-        void finalize(void* p, memint len)
+        void finalize(void* p, memint len) throw()
         {
             (char*&)p += len - Tsize;
             for ( ; len; len -= Tsize, Tref(p)--)
                 Tptr(p)->~T();
         }
 
-        void copy(void* dest, const void* src, memint len)
+        void copy(void* dest, const void* src, memint len) throw()
         {
             for ( ; len; len -= Tsize, Tref(dest)++, Tref(src)++)
                 new(dest) T(*Tptr(src));
         }
 
-        cont(memint cap, memint siz): container(cap, siz)  { }
+        cont(memint cap, memint siz) throw(): container(cap, siz)  { }
 
     public:
-        static container* allocate(memint cap, memint siz)
+        static container* allocate(memint cap, memint siz) throw()
             { return new(cap) cont(cap, siz); }
 
-        ~cont()
+        ~cont() throw()
             { if (_size) { finalize(data(), _size); _size = 0; } }
     };
 
@@ -587,7 +587,7 @@ protected:
         { parent::_init(v, pos * Tsize, len * Tsize, cont::allocate); }
 
 public:
-    vector(): parent()  { }
+    vector() throw(): parent()  { }
 
     // Override stuff that requires allocation of 'vector::cont'
     void insert(memint pos, const T& t)
@@ -653,7 +653,7 @@ protected:
     typedef T* Tptr;
     typedef Tptr& Tref;
 public:
-    set(): parent()  { }
+    set() throw(): parent()  { }
 };
 
 
@@ -692,11 +692,11 @@ protected:
         { i = 0; return !empty() && obj->keys.bsearch(k, i); }
 
 public:
-    dict()                                  : obj()  { }
-    dict(const dict& d)                     : obj(d.obj)  { }
-    ~dict()                                 { }
+    dict() throw()                          : obj()  { }
+    dict(const dict& d) throw()             : obj(d.obj)  { }
+    ~dict() throw()                         { }
 
-    dict(const Tkey& k, const Tval& v)
+    dict(const Tkey& k, const Tval& v) throw()
         : obj(new dictobj())
     {
         obj->keys.push_back(k);
@@ -798,11 +798,11 @@ protected:
     objptr<setobj> obj;
     charset& _getunique();
 public:
-    ordset()                                : obj()  { }
-    ordset(const ordset& s)                 : obj(s.obj)  { }
-    ordset(integer v);
-    ordset(integer l, integer r);
-    ~ordset()                               { }
+    ordset() throw()                        : obj()  { }
+    ordset(const ordset& s) throw()         : obj(s.obj)  { }
+    ordset(integer v) throw();
+    ordset(integer l, integer r) throw();
+    ~ordset() throw()                       { }
     bool empty() const                      { return obj.empty() || obj->set.empty(); }
     memint compare(const ordset& s) const;
     bool operator== (const ordset& s) const { return compare(s) == 0; }
@@ -832,8 +832,8 @@ protected:
     };
     objptr<rangeobj> obj;
 public:
-    range(integer, integer);
-    ~range();
+    range(integer, integer) throw();
+    ~range() throw();
     bool empty() const
         { return obj.empty(); }
     integer left() const
@@ -858,9 +858,9 @@ class objvec_impl: public podvec<object*>
 protected:
     typedef podvec<object*> parent;
 public:
-    objvec_impl(): parent()  { }
-    objvec_impl(const objvec_impl& s): parent(s)  { }
-    void release_all();
+    objvec_impl() throw(): parent()  { }
+    objvec_impl(const objvec_impl& s) throw(): parent(s)  { }
+    void release_all() throw();
 };
 
 
@@ -870,8 +870,8 @@ class objvec: public objvec_impl
 protected:
     typedef objvec_impl parent;
 public:
-    objvec(): parent()                      { }
-    objvec(const objvec& s): parent(s)      { }
+    objvec() throw(): parent()              { }
+    objvec(const objvec& s) throw(): parent(s) { }
     T* operator[] (memint i) const          { return cast<T*>(parent::operator[](i)); }
     T* at(memint i) const                   { return cast<T*>(parent::at(i)); }
     T* back() const                         { return cast<T*>(parent::back()); }
@@ -886,9 +886,9 @@ class symbol: public object
 {
 public:
     str const name;
-    symbol(const str& s): name(s)  { }
-    symbol(const char* s): name(s)  { }
-    ~symbol();
+    symbol(const str& s) throw(): name(s)  { }
+    symbol(const char* s) throw(): name(s)  { }
+    ~symbol() throw();
 };
 
 
@@ -898,8 +898,8 @@ protected:
     typedef objvec<symbol> parent;
     bool bsearch(const str& key, memint& index) const;
 public:
-    symtbl_impl(): parent()  { }
-    symtbl_impl(const symtbl_impl& s); // : parent(s)  { }
+    symtbl_impl() throw(): parent()  { }
+    symtbl_impl(const symtbl_impl& s) throw();
     symbol* find(const str& name) const; // NULL or symbol*
     bool add(symbol*);
     bool replace(symbol*);
@@ -912,12 +912,12 @@ class symtbl: public symtbl_impl
 protected:
     typedef symtbl_impl parent;
 public:
-    symtbl(): parent()  { }
+    symtbl() throw(): parent()          { }
     memint size() const                 { return parent::size(); }
     T* find(const str& name) const      { return cast<T*>(parent::find(name)); }
     bool add(T* t)                      { return parent::add(t); }
     bool replace(T* t)                  { return parent::replace(t); }
-    void release_all()                  { parent::release_all(); }
+    void release_all() throw()          { parent::release_all(); }
 };
 
 
@@ -1015,49 +1015,49 @@ protected:
     void _dbg(Type) const               { }
     void _dbg_anyobj() const            { }
 #endif
-    void _init()                        { type = VOID; val._all = 0; }
-    void _init(_Void)                   { _init(); }
-    void _init(Type t)                  { type = t; val._all = 0; }
-    void _init(char v)                  { type = ORD; val._ord = uchar(v); }
-    void _init(uchar v)                 { type = ORD; val._ord = v; }
-    void _init(int v)                   { type = ORD; val._ord = v; }
+    void _init() throw()                { type = VOID; val._all = 0; }
+    void _init(_Void) throw()           { _init(); }
+    void _init(Type t) throw()          { type = t; val._all = 0; }
+    void _init(char v) throw()          { type = ORD; val._ord = uchar(v); }
+    void _init(uchar v) throw()         { type = ORD; val._ord = v; }
+    void _init(int v) throw()           { type = ORD; val._ord = v; }
 #ifdef SHN_64
-    void _init(large v)                 { type = ORD; val._ord = v; }
+    void _init(large v) throw()         { type = ORD; val._ord = v; }
 #endif
-    void _init(real v)                  { type = REAL; val._real = v; }
-    void _init(variant* v)              { type = VARPTR; val._ptr = v; }
-    void _init(Type t, object* o)       { type = t; val._obj = o; if (o) o->grab(); }
-    void _init(const str& v)            { _init(STR, v.obj); }
-    void _init(const char* s)           { type = STR; ::new(&val._obj) str(s); }
-    void _init(const range& v)          { _init(RANGE, v.obj); }
-    void _init(integer l, integer r)    { type = RANGE; ::new(&val._obj) range(l, r); }
-    void _init(const varvec& v)         { _init(VEC, v.obj); }
-    void _init(const varset& v)         { _init(SET, v.obj); }
-    void _init(const ordset& v)         { _init(ORDSET, v.obj); }
-    void _init(const vardict& v)        { _init(DICT, v.obj); }
-    void _init(reference* o);
-    void _init(rtobject* o)             { _init(RTOBJ, o); }
-    void _init(fifo* o);
-    void _init(stateobj* o);
-    void _init(const variant& v);
-    void _init(const podvar* v);
+    void _init(real v) throw()          { type = REAL; val._real = v; }
+    void _init(variant* v) throw()      { type = VARPTR; val._ptr = v; }
+    void _init(Type t, object* o) throw() { type = t; val._obj = o; if (o) o->grab(); }
+    void _init(const str& v) throw()    { _init(STR, v.obj); }
+    void _init(const char* s) throw()   { type = STR; ::new(&val._obj) str(s); }
+    void _init(const range& v) throw()  { _init(RANGE, v.obj); }
+    void _init(integer l, integer r) throw() { type = RANGE; ::new(&val._obj) range(l, r); }
+    void _init(const varvec& v) throw() { _init(VEC, v.obj); }
+    void _init(const varset& v) throw() { _init(SET, v.obj); }
+    void _init(const ordset& v) throw() { _init(ORDSET, v.obj); }
+    void _init(const vardict& v) throw() { _init(DICT, v.obj); }
+    void _init(reference* o) throw();
+    void _init(rtobject* o) throw()     { _init(RTOBJ, o); }
+    void _init(fifo* o) throw();
+    void _init(stateobj* o) throw();
+    void _init(const variant& v) throw();
+    void _init(const podvar* v) throw();
 
-    void _fin()                         { if (is_anyobj()) val._obj->release(); }
+    void _fin() throw()                 { if (is_anyobj()) val._obj->release(); }
 
 public:
-    variant()                           { _init(); }
-    variant(Type t)                     { _init(t); }
-    variant(integer l, integer r)       { _init(l, r); }
-    variant(const variant& v)           { _init(v); }
+    variant() throw()                   { _init(); }
+    variant(Type t) throw()             { _init(t); }
+    variant(integer l, integer r) throw() { _init(l, r); }
+    variant(const variant& v) throw()   { _init(v); }
     template <class T>
-        variant(const T& v)             { _init(v); }
-    variant(Type t, object* o)          { _init(t, o); }
-    ~variant()                          { _fin(); }
+        variant(const T& v) throw()     { _init(v); }
+    variant(Type t, object* o) throw()  { _init(t, o); }
+    ~variant() throw()                  { _fin(); }
 
     template <class T>
-        void operator= (const T& v)     { _fin(); _init(v); }
-    void operator= (const variant& v);
-    void clear()                        { _fin(); _init(); }
+        void operator= (const T& v) throw() { _fin(); _init(v); }
+    void operator= (const variant& v) throw();
+    void clear() throw()                { _fin(); _init(); }
     bool empty() const;
 
     memint compare(const variant&) const;
@@ -1069,7 +1069,7 @@ public:
     bool is_str() const                 { return type == STR; }
     bool is_vec() const                 { return type == VEC; }
     bool is_null() const                { return type == VOID; }
-    bool is_anyobj() const              { return type >= ANYOBJ; }
+    bool is_anyobj() const throw()      { return type >= ANYOBJ; }
     bool is_null_obj() const            { return is_anyobj() && val._obj == NULL; }
 
     // Fast "unsafe" access methods; checked for correctness only in DEBUG mode
@@ -1125,7 +1125,7 @@ public:
 
 
 #ifdef SHN_FASTER
-inline void variant::_init(const variant& v)
+inline void variant::_init(const variant& v) throw()
 {
     type = v.type;
     val = v.val;
@@ -1134,7 +1134,7 @@ inline void variant::_init(const variant& v)
 }
 
 
-inline void variant::operator= (const variant& v)
+inline void variant::operator= (const variant& v) throw()
 {
     if (type != v.type || val._all != v.val._all)
         { _fin(); _init(v); }
@@ -1144,7 +1144,7 @@ inline void variant::operator= (const variant& v)
 
 struct podvar { char data[sizeof(variant)]; };
 
-inline void variant::_init(const podvar* v)
+inline void variant::_init(const podvar* v) throw()
     { *(podvar*)this = *v; }
 
 template <>
@@ -1169,14 +1169,14 @@ class reference: public object
 {
 public:
     variant var;
-    reference()  { }
-    reference(const variant& v): var(v)  { }
-    reference(const podvar* v): var(v)  { }
-    ~reference();
+    reference() throw() { }
+    reference(const variant& v) throw(): var(v)  { }
+    reference(const podvar* v) throw(): var(v)  { }
+    ~reference() throw();
 };
 
 
-inline void variant::_init(reference* o)  { _init(REF, o); }
+inline void variant::_init(reference* o) throw() { _init(REF, o); }
 
 
 class State;  // defined in typesys.h
@@ -1196,7 +1196,7 @@ protected:
     memint varcount;
     static void idxerr();
 #endif
-    stateobj(State*); // defined in typesys.h as an inline function
+    stateobj(State*) throw(); // defined in typesys.h as an inline function
 
     // Get zeroed memory so that the destructor works correctly even if the
     // constructor failed in the middle. A zeroed variant is a null variant.
@@ -1219,7 +1219,7 @@ protected:
     }
 
 public:
-    ~stateobj();
+    ~stateobj() throw();
     State* getType() const  { return (State*)parent::getType(); }
 
     bool empty() const;  // override
@@ -1238,8 +1238,8 @@ public:
 };
 
 
-inline void variant::_init(stateobj* o)  { _init(RTOBJ, o); }
-inline stateobj* variant::_stateobj() const  { return cast<stateobj*>(_rtobj()); }
+inline void variant::_init(stateobj* o) throw() { _init(RTOBJ, o); }
+inline stateobj* variant::_stateobj() const { return cast<stateobj*>(_rtobj()); }
 
 
 class funcptr: public rtobject
@@ -1248,8 +1248,8 @@ public:
     stateobj* dataseg;
     objptr<stateobj> outer;
     State* state;
-    funcptr(stateobj* dataseg, stateobj* outer, State* state);
-    ~funcptr();
+    funcptr(stateobj* dataseg, stateobj* outer, State* state) throw();
+    ~funcptr() throw();
     bool empty() const;
     void dump(fifo&) const;
 };
@@ -1260,7 +1260,7 @@ inline funcptr* variant::_funcptr() const  { return cast<funcptr*>(_rtobj()); }
 class rtstack: protected bytevec
 {
 public:
-    rtstack(memint maxSize);
+    rtstack(memint maxSize) throw();
     variant* base()
         { return (variant*)begin(); }
 };
@@ -1320,8 +1320,8 @@ protected:
     void deq_var(variant*);  // dequeue variant to uninitialized area, for internal use
 
 public:
-    fifo(Type*, bool is_char);
-    ~fifo();
+    fifo(Type*, bool is_char) throw();
+    ~fifo() throw();
 
     enum { CHAR_ALL = MEMINT_MAX - 2, CHAR_SOME = MEMINT_MAX - 1 };
 
@@ -1376,7 +1376,7 @@ public:
 const char endl = '\n';
 extern charset non_eol_chars;
 
-inline void variant::_init(fifo* f)  { _init(RTOBJ, f); }
+inline void variant::_init(fifo* f) throw() { _init(RTOBJ, f); }
 inline fifo* variant::_fifo() const  { return cast<fifo*>(CHKPTR(_rtobj())); }
 
 
@@ -1400,15 +1400,14 @@ protected:
     {
         chunk* next;
         char data[0];
-        
 #ifdef DEBUG
-        chunk(): next(NULL)         { pincrement(&object::allocated); }
-        ~chunk()                    { pdecrement(&object::allocated); }
+        chunk() throw(): next(NULL)     { pincrement(&object::allocated); }
+        ~chunk() throw()                { pdecrement(&object::allocated); }
 #else
-        chunk(): next(NULL) { }
+        chunk() throw(): next(NULL)     { }
 #endif
-        void* operator new(size_t)  { return ::pmemalloc(sizeof(chunk) + CHUNK_SIZE); }
-        void operator delete(void* p)  { ::pmemfree(p); }
+        void* operator new(size_t)      { return ::pmemalloc(sizeof(chunk) + CHUNK_SIZE); }
+        void operator delete(void* p)   { ::pmemfree(p); }
     };
 
     chunk* head;    // in
@@ -1431,8 +1430,8 @@ protected:
     memint enq_avail();
 
 public:
-    memfifo(Type*, bool is_char);
-    ~memfifo();
+    memfifo(Type*, bool is_char) throw();
+    ~memfifo() throw();
 
     void clear();
     bool empty() const;     // override
@@ -1478,8 +1477,8 @@ protected:
     void call_bufevent() const;
 
 public:
-    buffifo(Type*, bool is_char);
-    ~buffifo();
+    buffifo(Type*, bool is_char) throw();
+    ~buffifo() throw();
 
     bool empty() const; // throws efifowronly
     void flush(); // throws efifordonly
@@ -1498,9 +1497,9 @@ protected:
     str string;
     void clear();
 public:
-    strfifo(Type*);
-    strfifo(Type*, const str&);
-    ~strfifo();
+    strfifo(Type*) throw();
+    strfifo(Type*, const str&) throw();
+    ~strfifo() throw();
     bool empty() const;     // override
     void flush();           // override
     str get_name() const;   // override
@@ -1530,8 +1529,8 @@ protected:
     void doread();
 
 public:
-    intext(Type*, const str& fn);
-    ~intext();
+    intext(Type*, const str& fn) throw();
+    ~intext() throw();
 
     bool empty() const;     // override
     str get_name() const;   // override
@@ -1552,8 +1551,8 @@ protected:
     void error(int code); // throws esyserr
 
 public:
-    outtext(Type*, const str& fn);
-    ~outtext();
+    outtext(Type*, const str& fn) throw();
+    ~outtext() throw();
 
     void flush();           // override
     str get_name() const;   // override
@@ -1569,8 +1568,8 @@ protected:
     void enq_char(char);
     memint enq_chars(const char*, memint);
 public:
-    stdfile(int infd, int outfd);
-    ~stdfile();
+    stdfile(int infd, int outfd) throw();
+    ~stdfile() throw();
 };
 
 

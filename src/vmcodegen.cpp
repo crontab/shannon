@@ -19,7 +19,7 @@ inline bool hasStateArg(OpCode op)
 // --- Code Segment -------------------------------------------------------- //
 
 
-CodeSeg::CodeSeg(State* s)
+CodeSeg::CodeSeg(State* s) throw()
     : object(), state(s)
 #ifdef DEBUG
     , closed(false)
@@ -27,7 +27,7 @@ CodeSeg::CodeSeg(State* s)
     { }
 
 
-CodeSeg::~CodeSeg()
+CodeSeg::~CodeSeg() throw()
     { }
 
 
@@ -80,7 +80,7 @@ evoidfunc::~evoidfunc() throw() { }
 const char* evoidfunc::what() throw() { return "Void function called"; }
 
 
-CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
+CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime) throw()
     : module(m), codeOwner(c.getStateType()), typeReg(treg), codeseg(c), locals(0),
       prevLoaderOffs(-1), primaryLoaders()
 {
@@ -90,7 +90,7 @@ CodeGen::CodeGen(CodeSeg& c, Module* m, State* treg, bool compileTime)
 }
 
 
-CodeGen::~CodeGen()
+CodeGen::~CodeGen() throw()
     { }
 
 
@@ -529,9 +529,10 @@ static variant::Type typeToVarType(Type* t)
         return t->isByteSet() ? variant::ORDSET : variant::SET;
     case Type::DICT:
         return t->isByteDict() ? variant::VEC : variant::DICT;
+    case Type::FUNCPTR:
     case Type::FIFO:
     case Type::STATE:
-    case Type::FUNCPTR:
+    case Type::MODULE:
         return variant::RTOBJ;
     case Type::SELFSTUB:
         throw emessage("'self' incomplete");

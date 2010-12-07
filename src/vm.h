@@ -333,8 +333,8 @@ public:
     static inline OpArgType opArgType(OpCode op)
         { assert(op < opMaxCode); return opTable[op].arg; }
 
-    CodeSeg(State*);
-    ~CodeSeg();
+    CodeSeg(State*) throw();
+    ~CodeSeg() throw();
 
     State* getStateType() const         { return state; }
     memint size() const                 { return code.size(); }
@@ -418,8 +418,8 @@ protected:
     podvec<memint> primaryLoaders;
 
 public:
-    CodeGen(CodeSeg&, Module* m, State* treg, bool compileTime);
-    ~CodeGen();
+    CodeGen(CodeSeg&, Module* m, State* treg, bool compileTime) throw();
+    ~CodeGen() throw();
 
     memint getStackLevel()      { return simStack.size(); }
     void endStatement()         { primaryLoaders.clear(); }
@@ -566,7 +566,7 @@ struct CompilerOptions
     memint stackSize;
     strvec modulePath;
 
-    CompilerOptions();
+    CompilerOptions() throw();
     void setDebugOpts(bool);
 };
 
@@ -578,7 +578,8 @@ class ModuleInstance: public symbol
 public:
     objptr<Module> module;
     objptr<stateobj> obj;
-    ModuleInstance(Module* m);
+    ModuleInstance(Module* m) throw();
+    ~ModuleInstance() throw();
     void run(Context*, rtstack&);
     void finalize();
 };

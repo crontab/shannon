@@ -13,7 +13,7 @@ static unsigned char rbitmask[8] = {0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0x
 const char charsetesc = '~';
 
 
-void charset::include(int min, int max)
+void charset::include(int min, int max) throw()
 {
     if (uchar(min) > uchar(max))
         return;
@@ -67,7 +67,7 @@ static unsigned parsechar(const char*& p)
 }
 
 
-void charset::assign(const char* p) 
+void charset::assign(const char* p) throw()
 {
     if (*p == '*' && *(p + 1) == 0)
         fill();
@@ -89,11 +89,11 @@ void charset::assign(const char* p)
 }
 
 
-void charset::assign(const charset& s)
+void charset::assign(const charset& s) throw()
     { memcpy(data, s.data, BYTES); }
 
 
-bool charset::empty() const
+bool charset::empty() const throw()
 {
     for(int i = 0; i < WORDS; i++) 
         if (((word*)data)[i] != 0)
@@ -102,7 +102,7 @@ bool charset::empty() const
 }
 
 
-void charset::unite(const charset& s) 
+void charset::unite(const charset& s)
 {
     for(int i = 0; i < WORDS; i++) 
         ((word*)data)[i] |= ((word*)s.data)[i];
@@ -149,7 +149,7 @@ bool charset::le(const charset& s) const
 atomicint object::allocated = 0;
 
 
-object::~object()  { }
+object::~object() throw()  { }
 
 
 void _del_obj(object* o)
@@ -159,7 +159,7 @@ void _del_obj(object* o)
 
 
 #ifndef SHN_FASTER
-atomicint object::release()
+atomicint object::release() throw()
 {
     if (this == NULL)
         return 0;
@@ -172,7 +172,7 @@ atomicint object::release()
 #endif
 
 
-void object::_assignto(object*& p)
+void object::_assignto(object*& p) throw()
 {
     if (p != this)
     {
@@ -237,7 +237,7 @@ object* object::reallocate(object* p, size_t self, memint extra)
 }
 
 
-rtobject::~rtobject()
+rtobject::~rtobject() throw()
     { }
 
 
@@ -256,19 +256,19 @@ void container::keyerr()
     { throw econtainer( "Dictionary key error"); }
 
 
-container::~container()
+container::~container() throw()
     { }  // must call finalize() in descendant classes
 
 
-void container::finalize(void*, memint)
+void container::finalize(void*, memint) throw()
     { }
 
 
-inline void container::copy(void* dest, const void* src, memint len)
+inline void container::copy(void* dest, const void* src, memint len) throw()
     { ::memcpy(dest, src, len); }
 
 
-container* container::allocate(memint cap, memint siz)
+container* container::allocate(memint cap, memint siz) throw()
 {
     assert(siz <= cap);
     assert(siz >= 0);
@@ -321,7 +321,7 @@ container* container::_dup(memint cap, memint siz)
 // --- bytevec ------------------------------------------------------------- //
 
 
-char* bytevec::_init(memint len)
+char* bytevec::_init(memint len) throw()
 {
     chknonneg(len);
     if (len == 0)
@@ -337,21 +337,21 @@ char* bytevec::_init(memint len)
 }
 
 
-void bytevec::_init(memint len, char fill)
+void bytevec::_init(memint len, char fill) throw()
 {
     if (len)
         ::memset(_init(len), fill, len);
 }
 
 
-void bytevec::_init(const char* buf, memint len)
+void bytevec::_init(const char* buf, memint len) throw()
 {
     if (len)
         ::memcpy(_init(len), buf, len);
 }
 
 
-void bytevec::_init(const bytevec& v, memint pos, memint len, alloc_func alloc)
+void bytevec::_init(const bytevec& v, memint pos, memint len, alloc_func alloc) throw()
 {
     v.chkidx(pos);
     v.chkidxa(pos + len);
@@ -590,7 +590,7 @@ void bytevec::resize(memint newsize, char fill)
 // --- str ----------------------------------------------------------------- //
 
 
-void str::_init(const char* buf)
+void str::_init(const char* buf) throw()
     { bytevec::_init(buf, pstrlen(buf)); }
 
 
@@ -946,13 +946,14 @@ str to_displayable(const str& s)
 
 // --- ordset -------------------------------------------------------------- //
 
+
 charset ordset::empty_charset;
 
-ordset::ordset(integer v)
+ordset::ordset(integer v) throw()
     : obj(new setobj())  { obj->set.include(int(v)); }
 
 
-ordset::ordset(integer l, integer r)
+ordset::ordset(integer l, integer r) throw()
     : obj(new setobj())  { obj->set.include(int(l), int(r)); }
 
 
@@ -985,10 +986,10 @@ void ordset::find_erase(integer v)              { if (!empty()) _getunique().exc
 // --- range --------------------------------------------------------------- //
 
 
-range::range(integer l, integer r)
+range::range(integer l, integer r) throw()
     : obj(l > r ? NULL : new rangeobj(l, r))  { }
 
-range::~range()
+range::~range() throw()
     { }
 
 
@@ -1027,7 +1028,7 @@ bool range::operator ==(const range& r) const
 // template class podvec<object*>;
 
 
-void objvec_impl::release_all()
+void objvec_impl::release_all() throw()
 {
     // TODO: more optimal destruction
     for (memint i = size(); i--; )
@@ -1035,7 +1036,7 @@ void objvec_impl::release_all()
 }
 
 
-symbol::~symbol()  { }
+symbol::~symbol() throw()  { }
 
 
 symbol* symtbl_impl::find(const str& name) const
@@ -1144,7 +1145,7 @@ void variant::_range_err()          { throw evariant("Variant range error"); }
 
 
 #ifndef SHN_FASTER
-void variant::_init(const variant& v)
+void variant::_init(const variant& v) throw()
 {
     type = v.type;
     val = v.val;
@@ -1153,7 +1154,7 @@ void variant::_init(const variant& v)
 }
 
 
-void variant::operator= (const variant& v)
+void variant::operator= (const variant& v) throw()
 {
     if (type != v.type || val._all != v.val._all)
         { _fin(); _init(v); }
@@ -1250,11 +1251,11 @@ void stateobj::idxerr()
 #endif
 
 
-reference::~reference()
+reference::~reference() throw()
     { }
 
 
-stateobj::~stateobj()
+stateobj::~stateobj() throw()
     { collapse(); }
 
 
@@ -1284,10 +1285,10 @@ void stateobj::collapse()
 }
 
 
-funcptr::funcptr(stateobj* d, stateobj* o, State* s)
+funcptr::funcptr(stateobj* d, stateobj* o, State* s) throw()
     : rtobject(s->prototype), dataseg(d), outer(o), state(s)  { }
 
-funcptr::~funcptr()
+funcptr::~funcptr() throw()
     { }
 
 bool funcptr::empty() const
@@ -1301,7 +1302,7 @@ void funcptr::dump(fifo& stm) const
 }
 
 
-rtstack::rtstack(memint maxSize)
+rtstack::rtstack(memint maxSize) throw()
 {
     if (maxSize)
         _init(maxSize * sizeof(variant));

@@ -58,7 +58,7 @@ void  operator delete[](void*) throw()   { newdel(); }
 // multi-threaded version with GCC on i386
 
 
-atomicint pincrement(atomicint* target)
+atomicint pincrement(atomicint* target) throw()
 {
     atomicint temp = 1;
     __asm__ __volatile ("lock ; xaddl %0,(%1)" : "+r" (temp) : "r" (target));
@@ -66,7 +66,7 @@ atomicint pincrement(atomicint* target)
 }
 
 
-atomicint pdecrement(atomicint* target)
+atomicint pdecrement(atomicint* target) throw()
 {
     atomicint temp = -1;
     __asm__ __volatile ("lock ; xaddl %0,(%1)" : "+r" (temp) : "r" (target));

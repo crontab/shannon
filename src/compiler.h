@@ -14,8 +14,8 @@ class Compiler: public Parser
     {
         Compiler* compiler;
 
-        AutoScope(Compiler* c);
-        ~AutoScope();
+        AutoScope(Compiler* c) throw();
+        ~AutoScope() throw();
         StkVar* addInitStkVar(const str&, Type*);
     };
 
@@ -25,8 +25,8 @@ class Compiler: public Parser
         ReturnInfo* prev;
         bool topLevelReturned;
         podvec<memint> jumps;
-        ReturnInfo(Compiler&);
-        ~ReturnInfo();
+        ReturnInfo(Compiler&) throw();
+        ~ReturnInfo() throw();
         void resolveJumps();
     };
 
@@ -37,8 +37,8 @@ class Compiler: public Parser
         memint stackLevel;
         memint continueTarget;
         podvec<memint> jumps;
-        LoopInfo(Compiler& c);
-        ~LoopInfo();
+        LoopInfo(Compiler& c) throw();
+        ~LoopInfo() throw();
         void resolveJumps();
     };
 

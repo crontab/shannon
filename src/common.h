@@ -108,22 +108,22 @@ template <class T, class X>
 #endif
 
 
-class noncopyable
+struct noncopyable
 {
-private:
-    noncopyable(const noncopyable&);
-    const noncopyable& operator= (const noncopyable&);
-public:
-    noncopyable() {}
-    ~noncopyable() {}
+    noncopyable(const noncopyable&) throw();  // trap
+    const noncopyable& operator= (const noncopyable&) throw();  // trap
+    noncopyable() throw() {}
+    ~noncopyable() throw() {}
 };
 
 
-struct exception // : public noncopyable -- doesn't work
+struct exception
 {
     exception() throw();
     virtual ~exception() throw();
     virtual const char* what() throw() = 0;
+    exception(const exception&) throw();  // trap
+    const exception& operator= (const exception&) throw();  // trap
 };
 
 
@@ -167,11 +167,11 @@ typedef int atomicint;
 // TODO: the atomic functions below should be 64-bit on a 64-bit platform
 
 #ifndef SHN_THR
-    inline atomicint pincrement(atomicint* target)  { return ++(*target); }
-    inline atomicint pdecrement(atomicint* target)  { return --(*target); }
+    inline atomicint pincrement(atomicint* target) throw() { return ++(*target); }
+    inline atomicint pdecrement(atomicint* target) throw() { return --(*target); }
 #else
-    atomicint pincrement(atomicint* target);
-    atomicint pdecrement(atomicint* target);
+    atomicint pincrement(atomicint* target) throw();
+    atomicint pdecrement(atomicint* target) throw();
 #endif
 
 

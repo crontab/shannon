@@ -66,8 +66,8 @@ public:
     Type* const type;
     State* const host;
 
-    Symbol(const str&, SymbolId, Type*, State*);
-    ~Symbol();
+    Symbol(const str&, SymbolId, Type*, State*) throw();
+    ~Symbol() throw();
 
     void fqName(fifo&) const;
     void dump(fifo&) const;
@@ -87,8 +87,8 @@ class Definition: public Symbol
 {
 public:
     variant const value;
-    Definition(const str&, Type*, const variant&, State*);
-    ~Definition();
+    Definition(const str&, Type*, const variant&, State*) throw();
+    ~Definition() throw();
     Type* getAliasedType() const;
 };
 
@@ -96,10 +96,10 @@ public:
 class Variable: public Symbol
 {
 protected:
-    Variable(const str&, SymbolId, Type*, memint, State*);
+    Variable(const str&, SymbolId, Type*, memint, State*) throw();
 public:
     memint const id;
-    ~Variable();
+    ~Variable() throw();
 };
 
 
@@ -138,8 +138,9 @@ class FormalArg: public Symbol
 public:
     bool const hasDefValue;
     variant const defValue;
-    FormalArg(const str&, Type*);
-    FormalArg(const str&, Type*, const variant&);
+    FormalArg(const str&, Type*) throw();
+    FormalArg(const str&, Type*, const variant&) throw();
+    ~FormalArg() throw();
 };
 
 
@@ -152,9 +153,9 @@ public:
     State* const staticFunc;     // ... or generate a static call to this function
     FuncPtr* const prototype;    // optional
 
-    Builtin(const str&, CompileFunc, FuncPtr*, State*);
-    Builtin(const str&, CompileFunc, State*, State*);
-    ~Builtin();
+    Builtin(const str&, CompileFunc, FuncPtr*, State*) throw();
+    Builtin(const str&, CompileFunc, State*, State*) throw();
+    ~Builtin() throw();
     void dump(fifo&) const;
 };
 
@@ -184,9 +185,9 @@ protected:
     symtbl<Symbol> symbols;          // symbol table for search
 public:
     Scope* const outer;
-    Scope(Scope* _outer)
+    Scope(Scope* _outer) throw()
         : outer(_outer) { }
-    ~Scope();
+    ~Scope() throw()  { }
     void addUnique(Symbol*);
     void replaceSymbol(Symbol*);
     Symbol* find(const str& ident) const            // returns NULL or Symbol
@@ -202,8 +203,8 @@ protected:
     memint startId;
     CodeGen* gen;
 public:
-    BlockScope(Scope* outer, CodeGen*);
-    ~BlockScope();
+    BlockScope(Scope* outer, CodeGen*) throw();
+    ~BlockScope() throw();
     StkVar* addStkVar(const str&, Type*);
     void deinitLocals();    // generates POPs via CodeGen (currently used only in AutoScope)
 };
@@ -230,21 +231,24 @@ public:
         TYPEREF, VOID, VARIANT, REF, RANGE,
         BOOL, CHAR, INT, ENUM,      // ordinal types; see isAnyOrd()
         NULLCONT, VEC, SET, DICT,   // containers; see isAnyCont()
-        FIFO,
-        SELFSTUB, STATE, FUNCPTR };
+        FIFO, SELFSTUB, FUNCPTR,
+        STATE, MODULE               // note isAnyState()
+    };
 
 protected:
     objptr<Reference> refType;
     State* host;    // State that "owns" a given type
     str defName;    // for more readable diagnostics output, but not really needed
 
-    Type(TypeId);
-    static TypeId contType(Type* i, Type* e);
+    Type(TypeId) throw();
+    static TypeId contType(Type* i, Type* e) throw();
+    // void setTypeId(TypeId id)
+    //     { const_cast<TypeId&>(typeId) = id; }
 
 public:
     TypeId const typeId;
 
-    ~Type();
+    ~Type() throw();
 
     bool isTypeRef() const      { return typeId == TYPEREF; }
     bool isVoid() const         { return typeId == VOID; }
@@ -278,9 +282,10 @@ public:
     bool isFifo(Type*) const;
 
     bool isSelfStub() const     { return typeId == SELFSTUB; }
-    bool isAnyState() const     { return typeId == STATE; }
-    bool isState() const        { return typeId == STATE; }
     bool isFuncPtr() const      { return typeId == FUNCPTR; }
+    bool isAnyState() const     { return typeId >= STATE; }
+    bool isState() const        { return typeId == STATE; }
+    bool isModule() const       { return typeId == MODULE; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
 
@@ -317,8 +322,8 @@ class TypeReference: public Type
 {
     friend void initTypeSys();
 protected:
-    TypeReference();
-    ~TypeReference();
+    TypeReference() throw();
+    ~TypeReference() throw();
     void dumpValue(fifo&, const variant&) const;
 };
 
@@ -327,8 +332,8 @@ class Void: public Type
 {
     friend void initTypeSys();
 protected:
-    Void();
-    ~Void();
+    Void() throw();
+    ~Void() throw();
 };
 
 
@@ -336,8 +341,8 @@ class Variant: public Type
 {
     friend class QueenBee;
 protected:
-    Variant();
-    ~Variant();
+    Variant() throw();
+    ~Variant() throw();
 };
 
 
@@ -345,10 +350,10 @@ class Reference: public Type
 {
     friend class Type;
 protected:
-    Reference(Type*);
+    Reference(Type*) throw();
 public:
     Type* const to;
-    ~Reference();
+    ~Reference() throw();
     bool canAssignTo(Type*) const;
     bool identicalTo(Type* t) const;
     void dump(fifo&) const;
@@ -367,8 +372,8 @@ class Ordinal: public Type
 {
     friend class QueenBee;
 protected:
-    Ordinal(TypeId, integer, integer);
-    ~Ordinal();
+    Ordinal(TypeId, integer, integer) throw();
+    ~Ordinal() throw();
     void reassignRight(integer r)
         { assert(r == right + 1); (integer&)right = r; }
     virtual Ordinal* _createSubrange(integer, integer);
@@ -411,8 +416,8 @@ protected:
     Enumeration(const EnumValues&, integer, integer);     // subrange
     Ordinal* _createSubrange(integer, integer);     // override
 public:
-    Enumeration();                          // user-defined enums
-    ~Enumeration();
+    Enumeration() throw();                          // user-defined enums
+    ~Enumeration() throw();
     void dump(fifo&) const;
     void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type* t) const;
@@ -425,8 +430,8 @@ class Range: public Type
 {
     friend class Ordinal;
 protected:
-    Range(Ordinal*);
-    ~Range();
+    Range(Ordinal*) throw();
+    ~Range() throw();
 public:
     Ordinal* const elem;
     void dump(fifo&) const;
@@ -445,13 +450,13 @@ class Container: public Type
     friend class QueenBee;
 
 protected:
-    Container(Type* i, Type* e);
+    Container(Type* i, Type* e) throw();
 
 public:
     Type* const index;
     Type* const elem;
 
-    ~Container();
+    ~Container() throw();
     void dump(fifo&) const;
     void dumpValue(fifo&, const variant&) const;
     bool identicalTo(Type*) const;
@@ -470,10 +475,10 @@ class Fifo: public Type
     friend class State;
     friend class QueenBee;
 protected:
-    Fifo(Type*);
+    Fifo(Type*) throw();
 public:
     Type* const elem;
-    ~Fifo();
+    ~Fifo() throw();
     void dump(fifo&) const;
     bool identicalTo(Type*) const;
     bool isByteFifo() const
@@ -490,8 +495,8 @@ public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
 
-    FuncPtr(Type* retType);
-    ~FuncPtr();
+    FuncPtr(Type* retType) throw();
+    ~FuncPtr() throw();
     void dump(fifo&) const;
     bool identicalTo(Type*) const; // override
     bool identicalTo(FuncPtr* t) const;
@@ -514,8 +519,8 @@ class SelfStub: public Type
 {
     friend class QueenBee;
 protected:
-    SelfStub();
-    ~SelfStub();
+    SelfStub() throw();
+    ~SelfStub() throw();
 public:
     bool identicalTo(Type*) const;
     bool canAssignTo(Type*) const;
@@ -534,7 +539,7 @@ typedef void (*ExternFuncProto)(variant* result, stateobj* outerobj, variant arg
 class State: public Type, public Scope
 {
 protected:
-    Type* _registerType(Type*, Definition* = NULL);
+    Type* _registerType(Type*, Definition* = NULL) throw();
     void addTypeAlias(const str&, Type*);
 
     objvec<Type> types;             // owned
@@ -543,7 +548,7 @@ protected:
 
     void setup();
     InnerVar* addInnerVar(InnerVar*);
-    static Module* getParentModule(State*);
+    static Module* getParentModule(State*) throw();
 
     // Compiler helpers:
     bool complete;
@@ -567,9 +572,9 @@ public:
     bool returns;
     memint varCount;
 
-    State(State* parent, FuncPtr*);
-    State(State* parent, FuncPtr*, ExternFuncProto);
-    ~State();
+    State(State* parent, FuncPtr*) throw();
+    State(State* parent, FuncPtr*, ExternFuncProto) throw();
+    ~State() throw();
     void fqName(fifo&) const;
     void dump(fifo&) const;
     void dumpAll(fifo&) const;
@@ -598,7 +603,7 @@ public:
     InnerVar* reclaimArg(ArgVar*, Type*);
     virtual stateobj* newInstance();
     template <class T>
-        T* registerType(T* t)
+        T* registerType(T* t) throw()
             { return cast<T*>(_registerType(t)); }
     Container* getContainerType(Type* idx, Type* elem);
     Fifo* getFifoType(Type* elem);
@@ -615,7 +620,7 @@ inline void FuncPtr::resolveSelfType(State* state)
     { returnType = state; }
 
 
-inline stateobj::stateobj(State* t)
+inline stateobj::stateobj(State* t) throw()
         : rtobject(t)
 #ifdef DEBUG
           , varcount(t->varCount)
@@ -634,8 +639,8 @@ protected:
 public:
     str const filePath;
     objvec<InnerVar> usedModuleVars; // used module instances are stored in static vars
-    Module(const str& name, const str& filePath);
-    ~Module();
+    Module(const str& name, const str& filePath) throw();
+    ~Module() throw();
     void dump(fifo&) const;
     str getName() const         { return defName; }
     void addUsedModule(Module*);
@@ -656,7 +661,7 @@ protected:
     symtbl<Builtin> builtinScope;
     objvec<Builtin> builtins;
     QueenBee();
-    ~QueenBee();
+    ~QueenBee() throw();
     stateobj* newInstance(); // override
     Builtin* addBuiltin(Builtin*);
     Builtin* addBuiltin(const str&, Builtin::CompileFunc, FuncPtr*);
