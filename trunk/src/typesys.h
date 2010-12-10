@@ -60,7 +60,8 @@ class Compiler; // defined in compiler.h
 class Symbol: public symbol
 {
 public:
-    enum SymbolId { STKVAR, ARGVAR, RESULTVAR, INNERVAR, FORMALARG, DEFINITION, BUILTIN };
+    enum SymbolId { STKVAR, ARGVAR, PTRVAR, RESULTVAR, INNERVAR,
+        FORMALARG, DEFINITION, BUILTIN };
 
     SymbolId const symbolId;
     Type* const type;
@@ -75,6 +76,7 @@ public:
     bool isAnyVar() const           { return symbolId <= INNERVAR; }
     bool isStkVar() const           { return symbolId == STKVAR; }
     bool isArgVar() const           { return symbolId == ARGVAR; }
+    bool isPtrVar() const           { return symbolId == PTRVAR; }
     bool isResultVar() const        { return symbolId == RESULTVAR; }
     bool isInnerVar() const         { return symbolId == INNERVAR; }
     bool isFormalArg() const        { return symbolId == FORMALARG; }
@@ -106,28 +108,35 @@ public:
 class StkVar: public Variable
 {
 public:
-    StkVar(const str&, Type*, memint, State*);
+    StkVar(const str&, Type*, memint, State*) throw();
 };
 
 
 class ArgVar: public Variable
 {
 public:
-    ArgVar(const str&, Type*, memint, State*);
+    ArgVar(const str&, Type*, memint, State*) throw();
+};
+
+
+class PtrVar: public Variable
+{
+public:
+    PtrVar(const str&, Type*, memint, State*) throw();
 };
 
 
 class ResultVar: public Variable
 {
 public:
-    ResultVar(Type*, State*);
+    ResultVar(Type*, State*) throw();
 };
 
 
 class InnerVar: public Variable
 {
 public:
-    InnerVar(const str&, Type*, memint, State*);
+    InnerVar(const str&, Type*, memint, State*) throw();
     Module* getModuleType() const
         { return cast<Module*>(type); }
 };

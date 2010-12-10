@@ -71,16 +71,19 @@ Variable::Variable(const str& n, SymbolId sid, Type* t, memint i, State* h) thro
 Variable::~Variable() throw()
     { }
 
-StkVar::StkVar(const str& n, Type* t, memint i, State* h)
+StkVar::StkVar(const str& n, Type* t, memint i, State* h) throw()
     : Variable(n, STKVAR, t, i, h)  { assert(i >= 0); }
 
-ArgVar::ArgVar(const str& n, Type* t, memint i, State* h)
-    : Variable(n, ARGVAR, t, i, h)  { assert(i >= 0); }
+ArgVar::ArgVar(const str& n, Type* t, memint i, State* h) throw()
+    : Variable(n, ARGVAR, t, i, h)  { assert(i >= 1); }
 
-ResultVar::ResultVar(Type* t, State* h)
+PtrVar::PtrVar(const str& n, Type* t, memint i, State* h) throw()
+    : Variable(n, PTRVAR, t, i, h)  { assert(i >= 1); }
+
+ResultVar::ResultVar(Type* t, State* h) throw()
     : Variable("__result", RESULTVAR, t, 0, h)  { }
 
-InnerVar::InnerVar(const str& n, Type* t, memint i, State* h)
+InnerVar::InnerVar(const str& n, Type* t, memint i, State* h) throw()
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
 FormalArg::FormalArg(const str& n, Type* t) throw()
