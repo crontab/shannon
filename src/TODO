@@ -3,7 +3,7 @@
   but useful. Many builtins can be defined with var arguments; also many
   opcodes can now be implemented with builtins.
 
-* Directive: def #static int inc()...
+* Static directive: def static int inc()...
 
 * Inheritance, virtual calls, compatibility rules. Syntax?
   class point3d(int x, int y, int z) .point(x, y)
