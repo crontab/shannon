@@ -605,6 +605,8 @@ void CodeGen::loadVariable(Variable* var)
             loadStkVar(PStkVar(var));
         else if (var->isArgVar())
             loadArgVar(PArgVar(var));
+        else if (var->isPtrVar())
+            loadPtrVar(PPtrVar(var));
         else if (var->isResultVar())
             loadResultVar(PResultVar(var));
         else if (var->isInnerVar())
@@ -1390,6 +1392,7 @@ static OpCode loaderToStorer(OpCode op)
         case opLoadOuterVar:    return opStoreOuterVar;
         case opLoadStkVar:      return opStoreStkVar;
         case opLoadArgVar:      return opStoreArgVar;
+        case opLoadPtrVar:      return opStorePtrVar;
         case opLoadResultVar:   return opStoreResultVar;
         case opLoadMember:      return opStoreMember;
         case opDeref:           return opStoreRef;
@@ -1413,6 +1416,7 @@ static OpCode loaderToLea(OpCode op)
         case opLoadOuterVar:    return opLeaOuterVar;
         case opLoadStkVar:      return opLeaStkVar;
         case opLoadArgVar:      return opLeaArgVar;
+        case opLoadPtrVar:      return opLeaPtrVar;
         case opLoadResultVar:   return opLeaResultVar;
         case opLoadMember:      return opLeaMember;
         case opDeref:           return opLeaRef;
@@ -1457,6 +1461,22 @@ static OpCode loaderToDeleter(OpCode op)
 }
 
 
+void CodeGen::toLea()
+{
+    // Note that the sim stack doesn't change even though the value is an
+    // effective address (pointer) now
+    memint offs = stkLoaderOffs();
+    codeseg.replaceOpAt(offs, loaderToLea(codeseg.opAt(offs)));
+}
+
+
+void CodeGen::prevToLea()
+{
+    memint offs = stkPrevLoaderOffs();
+    codeseg.replaceOpAt(offs, loaderToLea(codeseg.opAt(offs)));
+}
+
+
 str CodeGen::lvalue()
 {
     memint offs = stkLoaderOffs();
@@ -1472,8 +1492,7 @@ str CodeGen::lvalue()
         // A more complex assignment case: look at the previous loader - it 
         // should be a grounded one, transform it to its LEA equivalent, then
         // transform/move the last loader like in the previous case.
-        memint prev = stkPrevLoaderOffs();
-        codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
+        prevToLea();
     }
     OpCode storer = loaderToStorer(loader);
     codeseg.replaceOpAt(offs, storer);
@@ -1498,10 +1517,9 @@ str CodeGen::arithmLvalue(Token tok)
 {
     // Like with lvalue(), returns the storer code to be processed by assign()
     assert(tok >= tokAddAssign && tok <= tokModAssign);
+    toLea();
     OpCode op = OpCode(opAddAssign + (tok - tokAddAssign));
-    memint offs = stkLoaderOffs();
-    codeseg.replaceOpAt(offs, loaderToLea(codeseg.opAt(offs)));
-    offs = getCurrentOffs();
+    memint offs = getCurrentOffs();
     codeseg.append(op);
     return codeseg.cutOp(offs);
 }
@@ -1511,8 +1529,7 @@ void CodeGen::catLvalue()
 {
     if (!stkType()->isAnyVec())
         error("'|=' expects vector/string type");
-    memint offs = stkLoaderOffs();
-    codeseg.replaceOpAt(offs, loaderToLea(codeseg.opAt(offs)));
+    toLea();
 }
 
 
@@ -1536,10 +1553,9 @@ void CodeGen::catAssign()
 
 str CodeGen::insLvalue()
 {
+    prevToLea();
     memint offs = stkLoaderOffs();
     OpCode inserter = loaderToInserter(codeseg.opAt(offs));
-    memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
     codeseg.replaceOpAt(offs, inserter);
     return codeseg.cutOp(offs);
 }
@@ -1565,10 +1581,9 @@ void CodeGen::insAssign(const str& storerCode)
 
 void CodeGen::deleteContainerElem()
 {
+    prevToLea();
     memint offs = stkLoaderOffs();
     OpCode deleter = loaderToDeleter(codeseg.opAt(offs));
-    memint prev = stkPrevLoaderOffs();
-    codeseg.replaceOpAt(prev, loaderToLea(codeseg.opAt(prev)));
     codeseg.replaceOpAt(offs, deleter);
     stkPop();
 }
@@ -1617,24 +1632,24 @@ void CodeGen::call(FuncPtr* proto)
     {
         codeseg.replaceOpAt(offs, op); // replace funcptr loader with a call op
         str callCode = codeseg.cutOp(offs); // and move it to the end (after the actual args)
-        if (proto->isVoidFunc())
+        if (proto->returns)
+            addOp(proto->returnType, callCode);
+        else
         {
             codeseg.append(callCode);
             throw evoidfunc();
         }
-        else
-            addOp(proto->returnType, callCode);
     }
 
     else  // indirect call
     {
-        if (proto->isVoidFunc())
+        if (proto->returns)
+            addOp<uchar>(proto->returnType, opCall, proto->popArgCount);
+        else
         {
-            addOp<uchar>(opCall, proto->getPopArgs());
+            addOp<uchar>(opCall, proto->popArgCount);
             throw evoidfunc();
         }
-        else
-            addOp<uchar>(proto->returnType, opCall, proto->getPopArgs());
     }
 }
 
@@ -1642,13 +1657,13 @@ void CodeGen::call(FuncPtr* proto)
 void CodeGen::staticCall(State* callee)
 {
     _popArgs(callee->prototype);
-    if (callee->prototype->isVoidFunc())
+    if (callee->prototype->returns)
+        addOp<State*>(callee->prototype->returnType, opStaticCall, callee);
+    else
     {
         addOp<State*>(opStaticCall, callee);
         throw evoidfunc();
     }
-    else
-        addOp<State*>(callee->prototype->returnType, opStaticCall, callee);
 }
 
 

@@ -42,6 +42,7 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
     {
         do
         {
+            bool isPtr = skipIf(tokVar);
             Type* argType = getTypeValue(/* true */);
             str ident;
             if (token == tokIdent)
@@ -51,12 +52,14 @@ Type* Compiler::getStateDerivator(Type* retType, bool allowProto)
             }
             if (skipIf(tokAssign))
             {
+                if (isPtr)
+                    error("Var arguments can not have a default value");
                 variant defValue;
                 getConstValue(argType, defValue);
-                proto->addFormalArg(ident, argType, defValue);
+                proto->addFormalArg(ident, argType, false, &defValue);
             }
             else
-                proto->addFormalArg(ident, argType);
+                proto->addFormalArg(ident, argType, isPtr, NULL);
         }
         while (skipIf(tokComma));
         skipRParen();
@@ -390,6 +393,8 @@ void Compiler::actualArgs(FuncPtr* proto, bool skipFirst)
                 // TODO: improve 'type mismatch' error message; note however that
                 // it's important to pass the arg type to expression()
                 expression(arg->type);
+                if (arg->isPtr)
+                    codegen->toLea();
             }
             i++;
         }

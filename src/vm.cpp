@@ -225,6 +225,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadArgVar:
             PUSH(*(argp - ADV(uchar)));
             break;
+        case opLoadPtrVar:
+            PUSH(*(argp - ADV(uchar) + 1)->_ptr());
+            break;
         case opLoadResultVar:
             PUSH(*result);
             break;
@@ -259,6 +262,13 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             PUSH((rtobject*)NULL);  // same for arguments
             PUSH(argp - ADV(uchar));
             break;
+        case opLeaPtrVar:
+            {
+                variant* a = argp - ADV(uchar);
+                PUSH(*a);
+                PUSH(*(a + 1));
+            }
+            break;
         case opLeaResultVar:
             PUSH((rtobject*)NULL);
             PUSH(result);
@@ -289,6 +299,9 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             break;
         case opStoreArgVar:
             POPTO(argp - ADV(uchar));
+            break;
+        case opStorePtrVar:
+            POPTO((argp - ADV(uchar) + 1)->_ptr());
             break;
         case opStoreResultVar:
             POPTO(result);
@@ -832,7 +845,7 @@ nearCall:
             callds = dataseg;
 farCall:
             callee = ADV(State*);
-            popArgCount = callee->popArgCount;
+            popArgCount = callee->prototype->popArgCount;
 anyCall:
             if (callee->isExternal())
                 callee->externFunc(&ax, callobj, stk + 1);
@@ -840,7 +853,7 @@ anyCall:
                 runRabbitRun(&ax, callds, callobj, stk + 1, callee->getCodeSeg());
             while (popArgCount--)
                 POP();
-            if (callee->returns)
+            if (callee->prototype->returns)
             {
                 INITPUSH(&ax); // no need for the variant ctor, just copy
                 INITAT(&ax, variant::VOID);
@@ -860,8 +873,8 @@ anyCall:
             callee = ADV(State*);
             callds = dataseg;
 farMethodCall:
-            callobj = (stk - callee->popArgCount)->_stateobj();
-            popArgCount = callee->popArgCount + 1;
+            callobj = (stk - callee->prototype->popArgCount)->_stateobj();
+            popArgCount = callee->prototype->popArgCount + 1;
             goto anyCall;
 
         case opFarMethodCall:
@@ -874,7 +887,7 @@ farMethodCall:
                 funcptr* callfp = (stk - ADV(uchar))->_funcptr();
                 CHKPTR(callfp);
                 callee = callfp->state;
-                popArgCount = callee->popArgCount + 1;
+                popArgCount = callee->prototype->popArgCount + 1;
                 callds = callfp->dataseg;
                 callobj = callfp->outer;
             }

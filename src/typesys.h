@@ -9,6 +9,7 @@ class Variable;
 class InnerVar;
 class StkVar;
 class ArgVar;
+class PtrVar;
 class ResultVar;
 class Definition;
 class Builtin;
@@ -31,6 +32,7 @@ typedef Variable* PVariable;
 typedef InnerVar* PInnerVar;
 typedef StkVar* PStkVar;
 typedef ArgVar* PArgVar;
+typedef PtrVar* PPtrVar;
 typedef ResultVar* PResultVar;
 typedef Definition* PDefinition;
 typedef Builtin* PBuiltin;
@@ -102,6 +104,7 @@ protected:
 public:
     memint const id;
     ~Variable() throw();
+    memint getMemSize();
 };
 
 
@@ -145,11 +148,14 @@ public:
 class FormalArg: public Symbol
 {
 public:
+    memint const id;
+    bool const isPtr;
     bool const hasDefValue;
-    variant const defValue;
-    FormalArg(const str&, Type*) throw();
-    FormalArg(const str&, Type*, const variant&) throw();
+    variant /*const*/ defValue;
+    FormalArg(const str&, Type*, memint, bool isPtr, variant*) throw();
     ~FormalArg() throw();
+    memint getMemSize()
+        { return 1 + int(isPtr); }
 };
 
 
@@ -210,6 +216,7 @@ class BlockScope: public Scope
 protected:
     objvec<StkVar> stkVars;      // owned
     memint startId;
+    memint varCount;
     CodeGen* gen;
 public:
     BlockScope(Scope* outer, CodeGen*) throw();
@@ -297,6 +304,7 @@ public:
     bool isModule() const       { return typeId == MODULE; }
 
     bool isPod() const          { return isAnyOrd() || isVoid(); }
+    memint getMemSize() const   { return 1; }
 
     bool empty() const;  // override
     void dump(fifo&) const;  // override
@@ -321,6 +329,10 @@ public:
 
 
 void dumpVariant(fifo&, const variant&, Type* = NULL);
+
+
+inline memint Variable::getMemSize()
+        { return type->getMemSize(); }
 
 
 
@@ -503,6 +515,8 @@ class FuncPtr: public Type
 public:
     Type* returnType;
     objvec<FormalArg> formalArgs;          // owned
+    memint popArgCount;
+    bool const returns; // VM helper
 
     FuncPtr(Type* retType) throw();
     ~FuncPtr() throw();
@@ -511,13 +525,8 @@ public:
     bool identicalTo(FuncPtr* t) const;
     bool canAssignTo(Type*) const; // override
     bool canAssignTo(FuncPtr* t) const;
-    FormalArg* addFormalArg(const str&, Type*);
-    FormalArg* addFormalArg(const str&, Type*, const variant&);
+    FormalArg* addFormalArg(const str&, Type*, bool isPtr, variant*);
     void resolveSelfType(State*);
-    int getPopArgs() const
-        { return formalArgs.size(); }
-    bool isVoidFunc() const
-        { return returnType->isVoid(); }
 };
 
 
@@ -553,7 +562,7 @@ protected:
 
     objvec<Type> types;             // owned
     objvec<Definition> defs;        // owned
-    objvec<ArgVar> args;            // owned, copied from prototype
+    objvec<Variable> args;          // owned, copied from prototype
 
     void setup();
     InnerVar* addInnerVar(InnerVar*);
@@ -570,15 +579,12 @@ public:
     State* const parent;
     Module* const parentModule;
     FuncPtr* const prototype;
-    objptr<ResultVar> resultVar;              // may be NULL
+    objptr<ResultVar> resultVar;    // may be NULL
 
-    // Code (for extern functions codeseg contains stub code, otherwise, just the main code)
     objptr<object> codeseg;
     ExternFuncProto const externFunc;
 
     // VM helpers:
-    memint popArgCount;
-    bool returns;
     memint varCount;
     bool isCtor;
 
@@ -605,7 +611,7 @@ public:
         { outsideObjectsUsed++; }
 
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
-    ArgVar* addArgument(const str&, Type*, memint);
+    Variable* addArgument(FormalArg*);
     void addResultVar(Type*);
     InnerVar* addInnerVar(const str&, Type*);
     InnerVar* reclaimArg(ArgVar*, Type*);

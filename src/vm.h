@@ -47,6 +47,7 @@ enum OpCode
     opLoadOuterVar,     // [outer.idx:u8] +var
     opLoadStkVar,       // [stk.idx:u8] +var
     opLoadArgVar,       // [arg.idx:u8] +var
+    opLoadPtrVar,       // [arg.idx:u8] +var
     opLoadResultVar,    // +var
     opLoadVarErr,       // placeholder for var loaders to generate an error
     // --- end primary loaders
@@ -58,6 +59,7 @@ enum OpCode
     opLeaOuterVar,      // [outer.idx:u8] +obj(0) +ptr
     opLeaStkVar,        // [stk.idx:u8] +obj(0) +ptr
     opLeaArgVar,        // [arg.idx:u8] +obj(0) +ptr
+    opLeaPtrVar,        // [arg.idx:u8] +obj +ptr
     opLeaResultVar,     // +obj(0) +ptr
     opLeaMember,        // [stateobj.idx:u8] -stateobj +stateobj +ptr
     opLeaRef,           // -ref +ref +ptr
@@ -70,6 +72,7 @@ enum OpCode
     opStoreOuterVar,    // [outer.idx:u8] -var
     opStoreStkVar,      // [stk.idx:u8] -var
     opStoreArgVar,      // [arg.idx:u8] -var
+    opStorePtrVar,      // [arg.idx:u8] -var
     opStoreResultVar,   // -var
     opStoreMember,      // [stateobj.idx:u8] -var -stateobj
     opStoreRef,         // -var -ref
@@ -454,6 +457,8 @@ public:
         { _loadVar(var, opLoadStkVar); }
     void loadArgVar(ArgVar* var)
         { _loadVar(var, opLoadArgVar); }
+    void loadPtrVar(PtrVar* var)
+        { _loadVar(var, opLoadPtrVar); }
     void loadResultVar(ResultVar* var);
     void loadInnerVar(InnerVar*);
     void loadVariable(Variable*);
@@ -521,6 +526,8 @@ public:
     void dumpVar(const str& expr);
     void programExit();
 
+    void toLea();
+    void prevToLea();
     str lvalue();
     void assign(const str& storerCode);
     str arithmLvalue(Token);

@@ -49,6 +49,7 @@ OpInfo opTable[] =
     OP(LoadOuterVar, OuterIdx), // [outer.idx:u8] +var
     OP(LoadStkVar, StkIdx),     // [stk.idx:u8] +var
     OP(LoadArgVar, ArgIdx),     // [arg.idx:u8] +var
+    OP(LoadPtrVar, ArgIdx),     // [arg.idx:u8] +var
     OP(LoadResultVar, None),    // +var
     OP(LoadVarErr, None),       //
     // --- end undoable loaders
@@ -59,6 +60,7 @@ OpInfo opTable[] =
     OP(LeaOuterVar, OuterIdx),  // [outer.idx:u8] +obj(0) +ptr
     OP(LeaStkVar, StkIdx),      // [stk.idx:u8] +obj(0) +ptr
     OP(LeaArgVar, ArgIdx),      // [arg.idx:u8] +obj(0) +ptr
+    OP(LeaPtrVar, ArgIdx),      // [arg.idx:u8] +obj +ptr
     OP(LeaResultVar, None),     // +var
     OP(LeaMember, StateIdx),    // [stateobj.idx:u8] -stateobj +stateobj +ptr
     OP(LeaRef, None),           // -ref +ref +ptr
@@ -71,6 +73,7 @@ OpInfo opTable[] =
     OP(StoreOuterVar, OuterIdx),// [outer.idx:u8] -var
     OP(StoreStkVar, StkIdx),    // [stk.idx:u8] -var
     OP(StoreArgVar, ArgIdx),    // [arg.idx:u8] -var
+    OP(StorePtrVar, ArgIdx),    // [arg.idx:u8] -var
     OP(StoreResultVar, None),   // -var
     OP(StoreMember, StateIdx),  // [stateobj.idx:u8] -var -stateobj
     OP(StoreRef, None),         // -var -ref
@@ -310,8 +313,8 @@ void CodeSeg::dump(fifo& stm) const
                 case argStr:        stm << to_quoted(ADV(str)); break;
                 case argVarType8:   stm << varTypeStr(variant::Type(ADV(uchar))); break;
                 case argDefinition: stm << "const " << ADV(Definition*)->name; break;
-                case argInnerIdx:   stm << "inner."  << state->innerVars.at(ADV(uchar))->name; break;
-                case argOuterIdx:   stm << "outer."  << state->parent->innerVars.at(ADV(uchar))->name; break;
+                case argInnerIdx:   stm << "inner."  << int(ADV(uchar)); break;
+                case argOuterIdx:   stm << "outer."  << int(ADV(uchar)); break;
                 case argStkIdx:     stm << "local." << int(ADV(uchar)); break;
                 case argArgIdx:     stm << "arg." << int(ADV(uchar)); break;
                 case argStateIdx:   stm << "state." << int(ADV(uchar)); break;

@@ -619,7 +619,7 @@ void Compiler::doBreak()
 
 void Compiler::doReturn()
 {
-    if (!state->isCtor && !state->prototype->isVoidFunc() && !isEos())
+    if (!state->isCtor && state->prototype->returns && !isEos())
     {
         expression(state->prototype->returnType);
         codegen->storeResultVar();

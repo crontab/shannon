@@ -1130,12 +1130,12 @@ void nullptrerr()
 
 // --- variant ------------------------------------------------------------- //
 
-
+/*
 template class vector<variant>;
 template class set<variant>;
 template class dict<variant, variant>;
 template class podvec<variant>;
-
+*/
 
 variant::_Void variant::null;
 
@@ -1312,7 +1312,7 @@ rtstack::rtstack(memint maxSize) throw()
 // ------------------------------------------------------------------------- //
 
 
-template class vector<str>;
+// template class vector<str>;
 
 
 void initRuntime()
