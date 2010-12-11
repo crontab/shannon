@@ -573,9 +573,9 @@ void CodeGen::loadInnerVar(InnerVar* var)
 {
     // In ordinary (non-ctor) functions innerobj may not be available because
     // of optimizations, so we use stack reference whenever possible
-    if (codeOwner && codeOwner->isConstructor())
+    if (codeOwner && codeOwner->isCtor)
     {
-        codeOwner->useInnerObj();
+        // codeOwner->useInnerObj(); -- done in State::State()
         _loadVar(var, opLoadInnerVar);
     }
     else
@@ -714,7 +714,7 @@ void CodeGen::loadThis()
 {
     if (isCompileTime())
         error("'this' is not available in const expressions");
-    else if (codeOwner->parent && codeOwner->parent->isConstructor())
+    else if (codeOwner->parent && codeOwner->parent->isCtor)
     {
         codeOwner->useOutsideObject();
         addOp(codeOwner->parent, opLoadOuterObj);
@@ -752,9 +752,9 @@ void CodeGen::initInnerVar(InnerVar* var)
     if (var->host != codeOwner)
         fatal(0x6005, "initInnerVar(): not my var");
     implicitCast(var->type, "Variable type mismatch");
-    if (codeOwner->isConstructor())
+    if (codeOwner->isCtor)
     {
-        codeOwner->useInnerObj();
+        // codeOwner->useInnerObj(); -- done in State::State()
         stkPop();
         addOp<uchar>(opInitInnerVar, var->id);
     }
@@ -1348,7 +1348,7 @@ void CodeGen::assertion(integer ln, const str& cond)
 {
     implicitCast(queenBee->defBool, "Boolean expression expected for 'assert'");
     stkPop();
-    addOp(opAssert, codeOwner);
+    addOp(opAssert);
     add(ln);
     add(cond);
 }
@@ -1575,47 +1575,6 @@ void CodeGen::deleteContainerElem()
 
 
 // --- FUNCTIONS, CALLS ---------------------------------------------------- //
-
-
-memint CodeGen::prolog()
-{
-    memint offs = getCurrentOffs();
-    if (isCompileTime())
-        ;
-    else if (codeOwner->isConstructor())
-    {
-        codeOwner->useInnerObj();
-        addOp<State*>(opEnterCtor, codeOwner);
-    }
-    else
-        addOp<State*>(opEnterFunc, codeOwner);
-    return offs;
-}
-
-
-void CodeGen::epilog(memint prologOffs)
-{
-    if (isCompileTime())
-        ;
-    else if (codeOwner->isConstructor())
-        ;
-    else
-    {
-        // Prolog code is not needed if either there are no inner vars or
-        // innerobj wasn't used in the code. Note that inner vars are not
-        // necessarily loaded via innerobj, these are separate independent
-        // conditions. Note also that no code should be generated beyond this.
-        if (codeOwner->varCount == 0 || !codeOwner->innerObjUsedSoFar())
-            codeseg.eraseOp(prologOffs);
-#ifdef DEBUG
-        if (codeOwner->varCount > 0 || codeOwner->innerObjUsedSoFar())
-#else
-        else
-#endif
-            addOp<State*>(opLeaveFunc, codeOwner);
-    }
-    end();
-}
 
 
 void CodeGen::_popArgs(FuncPtr* proto)

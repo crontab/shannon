@@ -112,12 +112,35 @@ inline void INITAT(variant* dest, integer l, integer r)
 
 
 void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
-        variant* basep, const uchar* ip)
+        variant* basep, CodeSeg* codeseg)
 {
-    // TODO: check for stack overflow (during function call?)
-    variant* stk = basep - 1;
+    // TODO: check for stack overflow
+    const uchar* ip = codeseg->getCode();
+    State* state = codeseg->state;
     variant* argp = basep;
     stateobj* innerobj = NULL;
+    
+    if (state)
+    {
+        if (state->isCtor)
+        {
+            // Instantiate the class if not already done
+            if (result->is_null())
+                INITAT(result, state->newInstance());
+            innerobj = result->_stateobj();
+        }
+        else if (state->varCount && state->isInnerObjUsed())
+        {
+            innerobj = new(basep) stateobj(state); // note: doesn't initialize the vars
+            innerobj->_mkstatic();
+#ifdef DEBUG
+            innerobj->varcount = state->varCount;
+#endif
+            basep = innerobj->member(0);
+        }
+    }
+
+    variant* stk = basep - 1;
 
     // Function call helpers:
     variant ax; // accumulator register, for function results
@@ -135,47 +158,6 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opInv0:            invOpcode(0); break;
         case opEnd:             goto exit;
         case opExit:            doExit(*stk); break;
-
-        case opEnterFunc:
-            {
-                State* state = ADV(State*);
-                innerobj = new(basep) stateobj(state); // note: doesn't initialize the vars
-                innerobj->_mkstatic();
-#ifdef DEBUG
-                innerobj->varcount = state->varCount;
-#endif
-                basep = innerobj->member(0);
-                stk = basep - 1;
-                // stk = basep + state->varCount - 1;
-            }
-            break;
-
-        case opLeaveFunc:
-            {
-#ifdef DEBUG
-                State* state = ADV(State*);
-                for (memint i = state->varCount; i--; )
-                    POP();
-                if (innerobj && !innerobj->isunique())
-                    localObjErr();
-#else
-                ADV(State*);
-                if (!innerobj->isunique())
-                    localObjErr();
-#endif
-            }
-            goto exit;
-
-        case opEnterCtor:
-            {
-                State* state = ADV(State*);
-                // Instantiate the class if not already done
-                if (result->is_null())
-                    INITAT(result, state->newInstance());
-                innerobj = result->_stateobj();
-            }
-            break;
-
 
         // --- 2. CONST LOADERS ----------------------------------------------
         case opLoadTypeRef:
@@ -855,7 +837,7 @@ anyCall:
             if (callee->isExternal())
                 callee->externFunc(&ax, callobj, stk + 1);
             else
-                runRabbitRun(&ax, callds, callobj, stk + 1, callee->getCodeStart());
+                runRabbitRun(&ax, callds, callobj, stk + 1, callee->getCodeSeg());
             while (popArgCount--)
                 POP();
             if (callee->returns)
@@ -905,7 +887,6 @@ farMethodCall:
             break;
         case opAssert:
             {
-                State* state = ADV(State*);
                 integer linenum = ADV(integer);
                 str& cond = ADV(str);
                 if (!stk->_int())
@@ -928,6 +909,16 @@ farMethodCall:
         }
         goto loop;
 exit:
+
+        if (state && !state->isCtor)
+        {
+            if (innerobj && !innerobj->isunique())
+                localObjErr();
+#ifdef DEBUG
+            for (memint i = state->varCount; i--; )
+                POP();
+#endif
+        }
 #ifndef DEBUG
         while (stk >= basep)
             POP();
@@ -954,7 +945,7 @@ Type* CodeGen::runConstExpr(rtstack& constStack, variant& result)
     addOp(opStoreResultVar);
     end();
 
-    runRabbitRun(&result, NULL, NULL, constStack.base(), codeseg.getCode());
+    runRabbitRun(&result, NULL, NULL, constStack.base(), &codeseg);
 
     return resultType;
 }
@@ -984,7 +975,7 @@ void ModuleInstance::run(Context* context, rtstack& stack)
 
     // Run module initialization or main code
     variant result = obj.get();
-    runRabbitRun(&result, obj, obj, stack.base(), module->getCodeStart());
+    runRabbitRun(&result, obj, obj, stack.base(), module->getCodeSeg());
 }
 
 

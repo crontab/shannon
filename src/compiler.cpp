@@ -619,7 +619,7 @@ void Compiler::doBreak()
 
 void Compiler::doReturn()
 {
-    if (!state->isConstructor() && !state->prototype->isVoidFunc() && !isEos())
+    if (!state->isCtor && !state->prototype->isVoidFunc() && !isEos())
     {
         expression(state->prototype->returnType);
         codegen->storeResultVar();
@@ -648,10 +648,10 @@ void Compiler::stateBody(State* newState)
     try
     {
         ReturnInfo ret(*this);
-        memint prologOffs = codegen->prolog();
+        codegen->prolog();
         singleOrMultiBlock();
         ret.resolveJumps();
-        codegen->epilog(prologOffs);
+        codegen->epilog();
     }
     catch (exception&)
     {
@@ -682,13 +682,13 @@ void Compiler::compileModule()
         try
         {
             ReturnInfo ret(*this);
-            memint prologOffs = codegen->prolog();
+            codegen->prolog();
             next();
             skipWsSeps();
             statementList();
             expect(tokEof, "End of file");
             ret.resolveJumps();
-            codegen->epilog(prologOffs);
+            codegen->epilog();
         }
         catch (EDuplicate& e)
         {
