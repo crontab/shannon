@@ -775,6 +775,23 @@ assert __result.incd(2) == 3
 def ctcall = max(10, 20)
 assert ctcall == 20
 
+// var args
+
+def void varf2(var int a): a = 2
+var varfv2 = 1
+varf2(varfv2)
+assert(varfv2 == 2)
+
+def void varf1(str a, var str b, str c)
+{
+    b = a | c
+}
+
+var varf1v = 'd?'
+varf1('aa', varf1v, 'bb')
+assert(varf1v == 'aabb')
+
+
 // OOP
 
 var pst = 2

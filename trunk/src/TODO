@@ -3,6 +3,9 @@
   but useful. Many builtins can be defined with var arguments; also many
   opcodes can now be implemented with builtins.
 
+* Transform some of the dict opcodes to vector ops so that the future
+  transition to static data allocation is easier
+
 * Static directive: def static int inc()...
 
 * Inheritance, virtual calls, compatibility rules. Syntax?

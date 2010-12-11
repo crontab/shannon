@@ -1151,12 +1151,12 @@ template <>
     struct comparator<variant>
         { memint operator() (const variant& a, const variant& b) { return a.compare(b); } };
 
-
+/*
 extern template class vector<variant>;
 extern template class set<variant>;
 extern template class dict<variant, variant>;
 extern template class podvec<variant>;
-
+*/
 
 // --- runtime objects ----------------------------------------------------- //
 
@@ -1588,7 +1588,7 @@ bool isFile(const char*);
 
 
 typedef vector<str> strvec;
-extern template class vector<str>;
+// extern template class vector<str>;
 
 
 void initRuntime();

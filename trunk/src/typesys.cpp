@@ -86,11 +86,14 @@ ResultVar::ResultVar(Type* t, State* h) throw()
 InnerVar::InnerVar(const str& n, Type* t, memint i, State* h) throw()
     : Variable(n, INNERVAR, t, i, h)  { assert(i >= 0); }
 
-FormalArg::FormalArg(const str& n, Type* t) throw()
-    : Symbol(n, FORMALARG, t, NULL), hasDefValue(false), defValue()  { }
-
-FormalArg::FormalArg(const str& n, Type* t, const variant& d) throw()
-    : Symbol(n, FORMALARG, t, NULL), hasDefValue(true), defValue(d)  { }
+FormalArg::FormalArg(const str& n, Type* t, memint i, bool p, variant* d) throw()
+    : Symbol(n, FORMALARG, t, NULL), id(i), isPtr(p), hasDefValue(d), defValue()
+{
+    assert(i >= 0);
+    assert(!isPtr || !hasDefValue);
+    if (d)
+        defValue = *d;
+}
 
 FormalArg::~FormalArg() throw()
     { }
@@ -165,7 +168,7 @@ Symbol* Scope::findShallow(const str& ident) const
 
 
 BlockScope::BlockScope(Scope* _outer, CodeGen* _gen) throw()
-    : Scope(_outer), startId(_gen->getLocals()), gen(_gen)  { }
+    : Scope(_outer), startId(_gen->getLocals()), varCount(0), gen(_gen)  { }
 
 
 BlockScope::~BlockScope() throw()
@@ -181,9 +184,10 @@ void BlockScope::deinitLocals()
 
 StkVar* BlockScope::addStkVar(const str& n, Type* t)
 {
-    memint varid = startId + stkVars.size();
-    if (varid < 0 || varid >= 255)
-        error("Maximum number of local variables reached");
+    memint varid = startId + varCount;
+    varCount += t->getMemSize();
+    if (varCount > 254)
+        error("Too many local variables");
     objptr<StkVar> v = new StkVar(n, t, varid, gen->getCodeOwner());
     addUnique(v);   // may throw
     stkVars.push_back(v->grab<StkVar>());
@@ -770,7 +774,7 @@ bool Fifo::identicalTo(Type* t) const
 
 
 FuncPtr::FuncPtr(Type* r) throw()
-    : Type(FUNCPTR), returnType(r)  { }
+    : Type(FUNCPTR), returnType(r), popArgCount(0), returns(!r->isVoid())  { }
 
 
 FuncPtr::~FuncPtr() throw()
@@ -829,18 +833,13 @@ bool FuncPtr::canAssignTo(FuncPtr* t) const
 }
 
 
-FormalArg* FuncPtr::addFormalArg(const str& n, Type* t)
+FormalArg* FuncPtr::addFormalArg(const str& n, Type* t, bool isPtr, variant* defValue)
 {
-    FormalArg* arg = new FormalArg(n, t);
+    FormalArg* arg = new FormalArg(n, t, popArgCount, isPtr, defValue);
     formalArgs.push_back(arg->grab<FormalArg>());
-    return arg;
-}
-
-
-FormalArg* FuncPtr::addFormalArg(const str& n, Type* t, const variant& d)
-{
-    FormalArg* arg = new FormalArg(n, t, d);
-    formalArgs.push_back(arg->grab<FormalArg>());
+    popArgCount += arg->getMemSize();
+    if (popArgCount > 254)
+        error("Too many formal arguments defined");
     return arg;
 }
 
@@ -891,19 +890,14 @@ void State::setup()
         useInnerObj();
         prototype->resolveSelfType(this);
     }
-    popArgCount = prototype->getPopArgs();
-    returns = !prototype->isVoidFunc();
     if (externFunc == NULL)
     {
         // Register all formal args as actual args within the local scope,
         // including the return var (not needed for external functions)
-        if (!prototype->isVoidFunc())
+        if (prototype->returns)
             addResultVar(prototype->returnType);
-        for (memint i = 0; i < popArgCount; i++)
-        {
-            FormalArg* arg = prototype->formalArgs[i];
-            addArgument(arg->name, arg->type, popArgCount - i);
-        }
+        for (memint i = prototype->formalArgs.size(); i--; )
+            addArgument(prototype->formalArgs[i]);
     }
 }
 
@@ -1029,12 +1023,18 @@ void State::addTypeAlias(const str& n, Type* t)
     { addDefinition(n, t->getType(), t, this); }
 
 
-ArgVar* State::addArgument(const str& n, Type* t, memint varid)
+Variable* State::addArgument(FormalArg* f)
 {
-    objptr<ArgVar> arg = new ArgVar(n, t, varid, this);
-    if (!n.empty())
+    // Notice how var id becomes a relative offset
+    memint id = prototype->popArgCount - f->id;
+    objptr<Variable> arg;
+    if (f->isPtr)
+        arg = new PtrVar(f->name, f->type, id, this);
+    else
+        arg = new ArgVar(f->name, f->type, id, this);
+    if (!f->name.empty())
         addUnique(arg);
-    args.push_back(arg->grab<ArgVar>());
+    args.push_back(arg->grab<Variable>());
     return arg;
 }
 
@@ -1050,9 +1050,9 @@ void State::addResultVar(Type* t)
 
 InnerVar* State::addInnerVar(InnerVar* var)
 {
-    if (var->id >= 255)
+    varCount += var->getMemSize();
+    if (varCount > 254)
         error("Too many variables");
-    varCount++;
     return innerVars.push_back(var->grab<InnerVar>());
 }
 
@@ -1120,7 +1120,7 @@ FuncPtr* State::registerProto(Type* ret)
 FuncPtr* State::registerProto(Type* ret, Type* arg1)
 {
     FuncPtr* proto = registerProto(ret);
-    proto->addFormalArg("", arg1);
+    proto->addFormalArg("", arg1, false, NULL);
     return proto;
 }
 
@@ -1128,7 +1128,7 @@ FuncPtr* State::registerProto(Type* ret, Type* arg1)
 FuncPtr* State::registerProto(Type* ret, Type* arg1, Type* arg2)
 {
     FuncPtr* proto = registerProto(ret, arg1);
-    proto->addFormalArg("", arg2);
+    proto->addFormalArg("", arg2, false, NULL);
     return proto;
 }
 
