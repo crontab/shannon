@@ -885,8 +885,12 @@ State::State(State* par, FuncPtr* proto, ExternFuncProto func) throw()
 void State::setup()
 {
     // Is this a 'self' state?
-    if (prototype->returnType->isSelfStub())
+    isCtor = prototype->returnType->isSelfStub() || prototype->returnType == this;
+    if (isCtor)
+    {
+        useInnerObj();
         prototype->resolveSelfType(this);
+    }
     popArgCount = prototype->getPopArgs();
     returns = !prototype->isVoidFunc();
     if (externFunc == NULL)

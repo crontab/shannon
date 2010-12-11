@@ -580,6 +580,7 @@ public:
     memint popArgCount;
     bool returns;
     memint varCount;
+    bool isCtor;
 
     State(State* parent, FuncPtr*) throw();
     State(State* parent, FuncPtr*, ExternFuncProto) throw();
@@ -592,12 +593,10 @@ public:
         { return complete; }
     void setComplete()
         { assert(!complete); complete = true; }
-    bool isConstructor() const
-        { return prototype->returnType->isSelfStub() || prototype->returnType == this; }
     bool isStatic() const
         { return isComplete() && outsideObjectsUsed == 0; }
-    bool innerObjUsedSoFar() const
-        { return innerObjUsed; }
+    int isInnerObjUsed() const
+        { assert(complete); return innerObjUsed; }
     bool isExternal() const
         { return externFunc != NULL; }
     void useInnerObj()

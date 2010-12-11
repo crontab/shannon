@@ -18,10 +18,6 @@ enum OpCode
     opInv0,             //  -- help detect invalid code: don't execute 0
     opEnd,              // end execution and return
     opExit,             // throws eexit()
-    opEnterFunc,        // [State*]
-    opLeaveFunc,        // [State*]
-    opEnterCtor,        // [State*]
-    // opLeaveCtor
 
     // --- 2. CONST LOADERS
     // --- begin primary loaders (it's important that all this kind of loaders
@@ -233,7 +229,7 @@ enum OpCode
 
     // --- 13. DEBUGGING, DIAGNOSTICS
     opLineNum,          // [linenum:int]
-    opAssert,           // [State*, linenum:int, cond:str] -bool
+    opAssert,           // [linenum:int, cond:str] -bool
     opDump,             // [expr:str, type:Type*] -var
 
     opInv,
@@ -301,7 +297,6 @@ class CodeSeg: public object
 {
     typedef rtobject parent;
 
-    State* state;
     str code;
 
     template<class T>
@@ -310,6 +305,12 @@ class CodeSeg: public object
         T at(memint i) const            { return *(T*)code.data(i); }
 
 public:
+    State* const state;
+
+#ifdef DEBUG
+    bool closed;
+#endif
+
     // Code gen helpers
     template <class T>
         void append(const T& t)         { code.append((const char*)&t, sizeof(T)); }
@@ -343,11 +344,6 @@ public:
 
     const uchar* getCode() const        { assert(closed); return (uchar*)code.data(); }
     void dump(fifo& stm) const;  // in vminfo.cpp
-
-#ifdef DEBUG
-    bool closed;
-#endif
-
 };
 
 
@@ -534,8 +530,8 @@ public:
     void insAssign(const str& storerCode);
     void deleteContainerElem();
 
-    memint prolog();
-    void epilog(memint prologOffs);
+    void prolog()  { }
+    void epilog()  { end(); }
     void _popArgs(FuncPtr*);
     void call(FuncPtr*);
     void staticCall(State*);
@@ -619,7 +615,7 @@ public:
 // module can be reused in the multithreaded server environment too.
 
 void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
-        variant* basep, const uchar* code);
+        variant* basep, CodeSeg* codeseg);
 
 
 struct eexit: public exception

@@ -1180,6 +1180,7 @@ inline void variant::_init(reference* o) throw() { _init(REF, o); }
 
 
 class State;  // defined in typesys.h
+class CodeSeg;  // defined in vm.h
 
 
 // sateobj: a run-time ref-counted object, actually a structure with variant
@@ -1189,7 +1190,7 @@ class stateobj: public rtobject
 {
     friend class State;
     typedef rtobject parent;
-    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
+    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, CodeSeg*);
     
 protected:
 #ifdef DEBUG
@@ -1283,7 +1284,7 @@ const int _varsize = int(sizeof(variant));
 // implementation (see "Characetr FIFO operations" below).
 class fifo: public rtobject
 {
-    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, const uchar*);
+    friend void runRabbitRun(variant*, stateobj*, stateobj*, variant*, CodeSeg*);
 
     fifo& operator<< (bool);   // compiler traps
     fifo& operator<< (void*);

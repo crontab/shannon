@@ -13,7 +13,7 @@ umemint opArgSizes[argMax] =
       sizeof(uchar), sizeof(Definition*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer),
-      sizeof(State*) + sizeof(integer) + sizeof(str), // argAssert
+      sizeof(integer) + sizeof(str), // argAssert
       sizeof(str) + sizeof(Type*), // argDump
     };
 
@@ -23,9 +23,6 @@ OpInfo opTable[] =
     OP(Inv0, None),             //
     OP(End, None),              //
     OP(Exit, None),             //
-    OP(EnterFunc, State),       // [State*]
-    OP(LeaveFunc, State),       // [State*]
-    OP(EnterCtor, State),       // [State*]
 
     // --- 2. CONST LOADERS
     // sync with isUndoableLoadOp()
@@ -223,7 +220,7 @@ OpInfo opTable[] =
 
     // --- 13. DEBUGGING, DIAGNOSTICS
     OP(LineNum, LineNum),       // [linenum:int]
-    OP(Assert, Assert),         // [State*, linenum:int, cond:str] -bool
+    OP(Assert, Assert),         // [linenum:int, cond:str] -bool
     OP(Dump, Dump),             // [expr:str, type:Type*] -var
     OP(Inv, None),              // not used
 };
@@ -321,7 +318,7 @@ void CodeSeg::dump(fifo& stm) const
                 case argJump16:     stm << to_string(ip - beginip + ADV(jumpoffs), 16, 4, '0');
                 case argLineNum:    break; // handled above
                 case argAssert:
-                    stm << ADV(State*)->parentModule->filePath;
+                    stm << state->parentModule->filePath;
                     stm << " (" << ADV(integer) << "): ";
                     stm << " \"" << ADV(str) << '"';
                     break;
