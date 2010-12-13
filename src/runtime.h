@@ -714,6 +714,9 @@ public:
     const Tkey& key(memint i) const         { chkidx(i); return obj->keys[i];  }
     const Tval& value(memint i) const       { chkidx(i); return obj->values[i];  }
 
+    const vector<Tkey>& keys() const        { return empty() ? vector<Tkey>() : obj->keys; }
+    const vector<Tval>& values() const      { return empty() ? vector<Tval>() : obj->values; }
+
     void replace(memint i, const Tval& v)
     {
         chkidx(i);
@@ -730,16 +733,6 @@ public:
         if (obj->keys.empty())
             clear();
     }
-
-    struct item_type
-    {
-        const Tkey& key;
-        Tval& value;
-        item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
-    };
-
-    item_type at(memint i) const
-        { chkidx(i); return item_type(obj->keys[i], obj->values.atw(i)); }
 
     const Tval* find(const Tkey& k) const
     {
@@ -778,6 +771,19 @@ public:
         else
             container::keyerr();
     }
+
+#ifdef DEBUG
+    // for unit tests only
+    struct item_type
+    {
+        const Tkey& key;
+        Tval& value;
+        item_type(const Tkey& k, Tval& v): key(k), value(v)  { }
+    };
+
+    item_type at(memint i) const
+        { chkidx(i); return item_type(obj->keys[i], obj->values.atw(i)); }
+#endif
 };
 
 

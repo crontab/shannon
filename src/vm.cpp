@@ -80,13 +80,28 @@ static void byteDictDelete(varvec& v, integer i)
 }
 
 
+inline void INITAT(variant* dest)
+    { ::new(dest) variant(); }
+
+template <class T>
+   inline void INITAT(variant* dest, const T& v)
+        { ::new(dest) variant(v); }
+
+template <class T, class U>
+    inline void INITAT(variant* dest, const T& v1, const U& v2)
+        { ::new(dest) variant(v1, v2); }
+
 #define ADV(T) \
     (ip += sizeof(T), *(T*)(ip - sizeof(T))) // TODO: improve this?
 
-#define PUSH(v) \
-    { ::new(stk + 1) variant(v); stk++; }
+#define PUSH0(v) \
+    { INITAT(++stk); }
 
-#define PUSHN() { ::new(++stk) variant(); }
+#define PUSH(v) \
+    { INITAT(stk + 1, v); stk++; }
+
+#define PUSH2(v1,v2) \
+    { INITAT(stk + 1, v1, v2); stk++; }
 
 #define POP() \
     { (*stk--).~variant(); }
@@ -102,13 +117,6 @@ static void byteDictDelete(varvec& v, integer i)
 
 #define POPTO(dest) \
     { variant* d = dest; d->~variant(); INITPOP(d); }
-
-template <class T>
-   inline void INITAT(variant* dest, const T& v)
-        { ::new(dest) variant(v); }
-
-inline void INITAT(variant* dest, integer l, integer r)
-    { ::new(dest) variant(l, r); }
 
 
 void runRabbitRun(variant* result, stateobj* dataseg, stateobj* outerobj,
@@ -184,8 +192,11 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
         case opLoadEmptyVar:
             PUSH(variant::Type(ADV(uchar)));
             break;
-        case opLoadConst:
-            PUSH(ADV(Definition*)->value);  // TODO: better?
+        case opLoadConstObj:
+            {
+                uchar t = ADV(uchar);
+                PUSH2(variant::Type(t), ADV(object*));
+            }
             break;
         case opLoadOuterObj:
             PUSH(outerobj);
@@ -583,10 +594,10 @@ loop:  // We use goto instead of while(1) {} so that compilers never complain
             }
             break;
         case opSetElem:
-            POP(); POP(); PUSH(); // see CodeGen::loadContainerElem()
+            POP(); POP(); PUSH0(); // see CodeGen::loadContainerElem()
             break;
         case opByteSetElem:
-            POPPOD(); POP(); PUSH();
+            POPPOD(); POP(); PUSH0();
             break;
         case opDelSetElem:     // -var -ptr -obj
             (stk - 1)->_ptr()->_set().find_erase(*stk);

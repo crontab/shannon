@@ -1,11 +1,4 @@
 
-* 'var' arguments: pass a grounded reference (l-value actually): limited
-  but useful. Many builtins can be defined with var arguments; also many
-  opcodes can now be implemented with builtins.
-
-* Transform some of the dict opcodes to vector ops so that the future
-  transition to static data allocation is easier
-
 * Static directive: def static int inc()...
 
 * Inheritance, virtual calls, compatibility rules. Syntax?
@@ -14,6 +7,10 @@
 * Properties
 
 * Operator 'in' for vectors? 'lin'?
+
+* Static calls at compile time: objects constructed at compile time
+  can be modified with method calls, so either restrict static calls
+  or make sure def objects are not modified through method calls
 
 * Procedures, pipes. Procedures are declared as, e.g.
   def void convert() <char, char> ...
@@ -79,6 +76,9 @@
   think so.
 
 * Floating point type
+
+* Transform some of the dict opcodes to vector ops so that the future
+  transition to static data allocation is easier (?)
 
 * goto (?)
 

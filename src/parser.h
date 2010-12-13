@@ -44,6 +44,8 @@ enum Token
     // Other operators
     tokCatAssign, tokPush, tokPull,
 
+    // "Soft" keywords
+
     // Aliases; don't define new consts after this
     tokLAngle = tokLessThan, tokRAngle = tokGreaterThan,
     tokWildcard = tokMul,

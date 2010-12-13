@@ -425,17 +425,14 @@ void CodeGen::loadConst(Type* type, const variant& value)
     case variant::SET:
     case variant::ORDSET:
     case variant::DICT:
+        addOp<uchar>(type, opLoadConstObj, value.getType());
+        add<object*>(value._anyobj());
+        return;
     case variant::REF:
-        break;
     case variant::RTOBJ:
-        if (value._rtobj()->getType()->isTypeRef())
-        {
-            loadTypeRefConst(cast<Type*>(value._rtobj()));
-            return;
-        }
         break;
     }
-    fatal(0x6001, "Unknown constant literal");
+    error("Can not load constants of this type");
 }
 
 
@@ -491,10 +488,8 @@ void CodeGen::loadDefinition(Definition* def)
     Type* aliasedType = def->getAliasedType();
     if (aliasedType)
         loadTypeRef(aliasedType);
-    else if (def->type->isVoid() || def->type->isAnyOrd() || def->type->isByteVec())
-        loadConst(def->type, def->value);
     else
-        addOp<Definition*>(def->type, opLoadConst, def);
+        loadConst(def->type, def->value);
 }
 
 
