@@ -564,7 +564,7 @@ protected:
     objvec<Definition> defs;        // owned
     objvec<Variable> args;          // owned, copied from prototype
 
-    void setup();
+    void _setup();
     InnerVar* addInnerVar(InnerVar*);
     static Module* getParentModule(State*) throw();
 
@@ -581,15 +581,16 @@ public:
     FuncPtr* const prototype;
     objptr<ResultVar> resultVar;    // may be NULL
 
-    objptr<object> codeseg;
+    objptr<object> const codeseg;
     ExternFuncProto const externFunc;
+    State* const base;
 
     // VM helpers:
     memint varCount;
     bool isCtor;
 
-    State(State* parent, FuncPtr*) throw();
-    State(State* parent, FuncPtr*, ExternFuncProto) throw();
+    State(State* parent, FuncPtr*, State* base = NULL) throw();
+    State(State* parent, FuncPtr*, ExternFuncProto, State* base = NULL) throw();
     ~State() throw();
     void fqName(fifo&) const;
     void dump(fifo&) const;
@@ -610,6 +611,10 @@ public:
     void useOutsideObject()
         { outsideObjectsUsed++; }
 
+    void setBase(State*);
+    bool canAssignTo(Type*) const; // override
+    bool canAssignTo(State* t) const;
+
     Definition* addDefinition(const str&, Type*, const variant&, Scope*);
     Variable* addArgument(FormalArg*);
     void addResultVar(Type*);
@@ -626,7 +631,6 @@ public:
     FuncPtr* registerProto(Type* ret, Type* arg1, Type* arg2);
     CodeSeg* getCodeSeg() const;
     const uchar* getCodeStart() const;
-    // TODO: identicalTo(), canAssignTo()
 };
 
 

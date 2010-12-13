@@ -10,7 +10,7 @@ umemint opArgSizes[argMax] =
       0,
       sizeof(Type*), sizeof(State*), sizeof(State*) + sizeof(uchar), sizeof(Fifo*),
       sizeof(uchar), sizeof(integer), sizeof(str), 
-      sizeof(uchar), sizeof(Definition*),
+      sizeof(uchar), sizeof(uchar) + sizeof(object*),
       sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar), sizeof(uchar),
       sizeof(jumpoffs), sizeof(integer),
       sizeof(integer) + sizeof(str), // argAssert
@@ -34,7 +34,7 @@ OpInfo opTable[] =
     OP(LoadOrd, Int),           // [int] +int
     OP(LoadStr, Str),           // [str] +str
     OP(LoadEmptyVar, VarType8), // [variant::Type:8] + var
-    OP(LoadConst, Definition),  // [Definition*] +var
+    OP(LoadConstObj, VarTypeObj), // [variant::Type:u8, object*] +var
     OP(LoadOuterObj, None),     // +stateobj
     OP(LoadDataSeg, None),      // +module-obj
     OP(LoadOuterFuncPtr, State),// [State*] +funcptr
@@ -312,7 +312,8 @@ void CodeSeg::dump(fifo& stm) const
                 case argInt:        stm << ADV(integer); break;
                 case argStr:        stm << to_quoted(ADV(str)); break;
                 case argVarType8:   stm << varTypeStr(variant::Type(ADV(uchar))); break;
-                case argDefinition: stm << "const " << ADV(Definition*)->name; break;
+                case argVarTypeObj: stm << "const ";
+                    { uchar t = ADV(uchar); dumpVariant(stm, variant(variant::Type(t), ADV(object*)), NULL); } break;
                 case argInnerIdx:   stm << "inner."  << int(ADV(uchar)); break;
                 case argOuterIdx:   stm << "outer."  << int(ADV(uchar)); break;
                 case argStkIdx:     stm << "local." << int(ADV(uchar)); break;

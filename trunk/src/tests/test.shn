@@ -108,6 +108,10 @@ assert len(d) == 2 and d[0] == 1 and d[1] == 3
 del r3[0]
 assert r3 == 'bc'
 
+def int r5^ = 4
+// error: r5 = 5
+// error: @r5 = 5
+
 var str s3 = 'XYZxyz'
 del s3[0..1]
 assert s3 == 'Zxyz'
@@ -247,6 +251,8 @@ assert rng1.hi() == 999 and lo(rng2) == 0
 
 var char rng3[..] = ['A'..'Z']
 assert 'B' in rng3
+def rng5 = [1..7]
+assert 1 in rng5
 
 var str1 = 'abc'
 assert str1[0..1] == 'ab' and str1[0..2] == 'abc' and str1[2..2] == 'c'
@@ -847,11 +853,11 @@ p.move2(5, 10)
 assert p.x == 25 and p.y == 50
 
 def static_point = point(1, 5)
-assert static_point.x == 1 and static_point.y == 5
+// error: assert static_point.x == 1 and static_point.y == 5
+// error: static_point.move(1, 2)
 
 assert point.pstatic(0) == 10
 assert p.pstatic(0) == 10
-assert static_point.pstatic(0) == 10
 
 
 // FIFOs

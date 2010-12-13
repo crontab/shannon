@@ -30,7 +30,7 @@ enum OpCode
     opLoadOrd,          // [int] +int
     opLoadStr,          // [str] +str
     opLoadEmptyVar,     // [variant::Type:u8] + var
-    opLoadConst,        // [Definition*] +var
+    opLoadConstObj,     // [variant::Type:u8, object*] +var
     opLoadOuterObj,     // +stateobj
     opLoadDataSeg,      // +module-obj
     // opLoadInnerObj,      // equivalent to opLoadStkVar 'result'
@@ -270,7 +270,7 @@ inline bool hasTypeArg(OpCode op);
 enum OpArgType
     { argNone,
       argType, argState, argFarState, argFifo, // order is important, see hasTypeArg()
-      argUInt8, argInt, argStr, argVarType8, argDefinition,
+      argUInt8, argInt, argStr, argVarType8, argVarTypeObj,
       argInnerIdx, argOuterIdx, argStkIdx, argArgIdx, argStateIdx, 
       argJump16, argLineNum, argAssert, argDump,
       argMax };

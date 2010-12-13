@@ -863,25 +863,25 @@ bool SelfStub::canAssignTo(Type*) const
 // --- State --------------------------------------------------------------- //
 
 
-State::State(State* par, FuncPtr* proto) throw()
+State::State(State* par, FuncPtr* proto, State* b) throw()
     : Type(STATE), Scope(par),
       complete(false), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), resultVar(NULL),
-      codeseg(new CodeSeg(this)), externFunc(NULL), varCount(0)
-    { setup(); }
+      codeseg(new CodeSeg(this)), externFunc(NULL), base(b),
+      varCount(0)  { _setup(); }
 
 
-State::State(State* par, FuncPtr* proto, ExternFuncProto func) throw()
+State::State(State* par, FuncPtr* proto, ExternFuncProto func, State* b) throw()
     : Type(STATE), Scope(par),
       complete(true), innerObjUsed(0), outsideObjectsUsed(0),
       parent(par), parentModule(getParentModule(this)),
       prototype(proto), resultVar(NULL),
-      codeseg(NULL), externFunc(func), varCount(0)
-    { setup(); }
+      codeseg(), externFunc(func), base(b),
+      varCount(0)  { _setup(); }
 
 
-void State::setup()
+void State::_setup()
 {
     // Is this a 'self' state?
     isCtor = prototype->returnType->isSelfStub() || prototype->returnType == this;
@@ -898,6 +898,14 @@ void State::setup()
             addResultVar(prototype->returnType);
         for (memint i = prototype->formalArgs.size(); i--; )
             addArgument(prototype->formalArgs[i]);
+    }
+    if (base)
+    {
+        if (!base->isComplete())
+            error("Base type incomplete");
+        if (!base->isCtor)
+            error("Base type should be constructor");
+        varCount = base->varCount;
     }
 }
 
@@ -979,6 +987,16 @@ void State::dumpAll(fifo& stm) const
         var->fqName(stm);
         stm << endl;
     }
+}
+
+
+bool State::canAssignTo(Type* t) const
+    { return t == this || (t->isAnyState() && canAssignTo(PState(t))); }
+
+
+bool State::canAssignTo(State* s) const
+{
+    return s == this || (base && base->canAssignTo(s));
 }
 
 
