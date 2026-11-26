@@ -1,4 +1,4 @@
-Discontinued in 2010
+Discontinued (2010)
 ----------------
 
 **Shannon** is a new general purpose stream-oriented programming language; it is concise and yet feature rich. Some (and only some) of the features that make Shannon distinct are:
@@ -12,17 +12,17 @@ Discontinued in 2010
 * Intuitive and minimalist syntax and semantics. Particularly "minimalist semantics" means less things to remember - more possibilities.
 
 * Shannon is statically-typed although it provides dynamic typing facilities as well.
+
 The current implementation is a monolithic compiler+VM binary. It is written in fairly straightforward C++ which produces a very compact binary.
 
 ```
 'Run, Rabbit, Run!' || preplace('Rabbit', 'Shannon') || sio
 
 def dow = (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
-def shortDowNames = {Monday = 'Mon', Tuesday = 'Tue', Wednesday = 'Wed',
-    Thursday = 'Tue', Friday = 'Fri', Saturday = 'Sat', Sunday = 'Sun'}
+def shortDowNames = { Monday = 'Mon', Tuesday = 'Tue', Wednesday = 'Wed',
+    Thursday = 'Tue', Friday = 'Fri', Saturday = 'Sat', Sunday = 'Sun' }
 
-for dow, name = shortDowNames
-{
+for dow, name = shortDowNames {
     sio << name
     if dow >= Saturday:
         sio << ' (Yay! Weekend! Still working though.)'
