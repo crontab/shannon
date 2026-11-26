@@ -1,4 +1,4 @@
-THIS IS A WORK IN PROGRESS
+Discontinued in 2010
 ----------------
 
 **Shannon** is a new general purpose stream-oriented programming language; it is concise and yet feature rich. Some (and only some) of the features that make Shannon distinct are:
